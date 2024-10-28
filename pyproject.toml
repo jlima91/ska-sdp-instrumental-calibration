@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "ska-python-skeleton"
-version = "0.4.26"
-description = "SKA Python Skeleton"
-authors = ["James Sawdy <james.sawdy@cgi.com>"]
+name = "ska-sdp-instrumental-calibration"
+version = "0.0.0"
+description = "SKA Instrumental Calibration Pipeline"
+authors = ["Daniel Mitchell <daniel.mitchell@csiro.au>", "Stephen Ord <stephen.ord@csiro.au>"]
 license = "BSD-3-Clause"
 packages = [
-    { include = "ska_python_skeleton", from = "src" }
+    { include = "ska_sdp_instrumental_calibration", from = "src" }
 ]
 
 [tool.poetry.dependencies]

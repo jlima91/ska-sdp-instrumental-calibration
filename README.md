@@ -1,9 +1,11 @@
-SKA Python Skeleton Project
-===========================
+SKA Instrumental Calibration Pipeline
+=====================================
 
-[![Documentation Status](https://readthedocs.org/projects/ska-telescope-templates-ska-python-skeleton/badge/?version=latest)](https://developer.skatelescope.org/projects/ska-python-skeleton/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/ska-sdp-instrumental-calibration/badge/?version=latest)](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/?badge=latest)
 
-Briefly describe your project here
+Instrument calibration pipeline for the SKA SDP.
+
+Everything below is from the template and is yet to be udpated...
 
 Requirements
 ------------
