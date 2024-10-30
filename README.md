@@ -22,8 +22,10 @@ repositories, and standard data models in the
 [datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
 
 For detailed package requirements, see `pyproject.toml`. This is the Poetry config file
-to manage application dependencies. To install Poetry, use
-`curl -sSL https://install.python-poetry.org | python3 -`.
+to manage application dependencies. To install Poetry, use:
+```bash
+$ curl -sSL https://install.python-poetry.org | python3 -
+```
 
 **Always** use a virtual environment.
 [Pipenv](https://pipenv.readthedocs.io/en/latest/) is now Python's officially
