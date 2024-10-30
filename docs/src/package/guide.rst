@@ -2,11 +2,14 @@
 .. _package-guide:
 
 .. todo::
-    - Insert todo's here
+    - Add high-level workflow scripts
+    - Add data management functions
+    - Add processing functions
+    - Add tests and notebooks
 
-***************************************************
-SKA Instrumental Calibration Pipeline documentation
-***************************************************
+*************************************
+SKA Instrumental Calibration Pipeline
+*************************************
 
 This section describes requirements and guidelines.
 

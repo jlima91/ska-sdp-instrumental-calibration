@@ -1,7 +1,4 @@
-.. skeleton documentation master file, created by
-   sphinx-quickstart on Thu May 17 15:17:35 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. INST pipeline documentation main index file
 
 
 .. HOME SECTION ==================================================
@@ -16,7 +13,7 @@
 
 .. README =============================================================
 
-.. This project most likely has it's own README. We include it here.
+.. Include project README file
 
 .. toctree::
    :maxdepth: 2
@@ -30,15 +27,21 @@
 
 .. toctree::
   :maxdepth: 2
-  :caption: Package name
+  :caption: ska-sdp-instrumental-calibration
   :hidden:
 
   package/guide
 
 
-Project-name documentation HEADING
-==================================
+SKA Instrumental Calibration Pipeline
+=====================================
 
-These are all the packages, functions and scripts that form part of the project.
+The INST pipeline project contains the functions and scripts needed to generate the
+initial calibration products during standard SKA batch processing. It includes
+processing functions to prepare, model and calibrate a visibility dataset, data
+handling functions for parallel processing, and high level workflow scripts and
+notebooks.
+
+Todo: add details.
 
 - :doc:`package/guide`
