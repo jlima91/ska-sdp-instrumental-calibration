@@ -2793,6 +2793,22 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [[package]]
+name = "referencing"
+version = "0.35.1"
+description = ""
+optional = false
+python-versions = "*"
+files = [
+    {file = "referencing-0.35.1-py3-none-any.whl", hash = "sha256:eda6d3234d62814d1c64e305c1331c9a3a6132da475ab6382eaa997b21ee75de"},
+    {file = "referencing-0.35.1.tar.gz", hash = "sha256:25b42124a6c8b632a425174f24087783efb348a6f1e0008e63cd4466fedf703c"},
+]
+
+[package.source]
+type = "legacy"
+url = "https://pypi.org/simple"
+reference = "PyPI-public"
+
+[[package]]
 name = "requests"
 version = "2.32.3"
 description = "Python HTTP for Humans."
@@ -3587,4 +3603,4 @@ reference = "PyPI-public"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<3.12.5"
-content-hash = "6d045ccb44f60761eec5b7630ab60fe83464b3f0fe7e99b404b852d4a2e37ea1"
+content-hash = "a21a9bc4d3fa2da51db51e914a71a51eaa6d22e23c69d8dffa1c5ddb99a6ab1f"
