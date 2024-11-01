@@ -27,7 +27,7 @@ variables:
 
 # Include CI templates
 include:
-# Python packages build, lint, test, scan and publish
+# Python packages build,lint, test, scan and publish
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/python.gitlab-ci.yml'
 
@@ -38,10 +38,6 @@ include:
 # Helm Charts
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/helm-chart.gitlab-ci.yml'
-
-# Docs
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/docs.gitlab-ci.yml'
 
 # Docs pages
   - project: 'ska-telescope/templates-repository'
@@ -58,15 +54,6 @@ include:
 # deploy steps
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
-
-# OCI Images -- this wasn't part of the skeleton template and I don't know
-#     enough to add it
-#  - project: 'ska-telescope/templates-repository'
-#    file: 'gitlab-ci/includes/oci-image.gitlab-ci.yml'
-
-# Release Automation
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/release.gitlab-ci.yml'
 
 python-test:
   before_script:
