@@ -8,9 +8,18 @@ packages = [
     { include = "ska_sdp_instrumental_calibration", from = "src" }
 ]
 
+[[tool.poetry.source]]
+name = 'skao'
+url = 'https://artefact.skao.int/repository/pypi-internal/simple'
+
+[[tool.poetry.source]]
+name = "PyPI-public"
+url = 'https://pypi.org/simple'
+
 [tool.poetry.dependencies]
 # Remove the upper limit later. There is a black error with 3.12.5.
-python = "^3.9,<3.12.5"
+python = "^3.10,<3.12.5"
+astropy = "^6.1"
 nbmake = "^1.4.1"
 nbqa = "^1.7.0"
 isort = "^5.6.4"
@@ -25,7 +34,10 @@ pylint = "^3.3.1"
 pytest-json = "^0.4.0"
 recommonmark = "^0.7.1"
 sphinx-rtd-theme = "^1.2.2"
+ska-sdp-datamodels = "^0.3"
+ska-sdp-func-python = "^0.4"
 pylance = "^0.5.9"
+xarray = "^2024.7"
 
 [tool.poetry.group.dev.dependencies]
 docutils = "<=0.19"
