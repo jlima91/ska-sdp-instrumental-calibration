@@ -59,9 +59,10 @@ include:
   - project: 'ska-telescope/templates-repository'
     file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
 
-# OCI Images
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/oci-image.gitlab-ci.yml'
+# OCI Images -- this wasn't part of the skeleton template and I don't know
+#     enough to add it
+#  - project: 'ska-telescope/templates-repository'
+#    file: 'gitlab-ci/includes/oci-image.gitlab-ci.yml'
 
 # Release Automation
   - project: 'ska-telescope/templates-repository'
