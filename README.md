@@ -70,5 +70,3 @@ Development
     - `flake8 --show-source --statistics --max-line-length 79  src tests/`
     - `pylint --max-line-length 79  src tests/`
 
-
-
