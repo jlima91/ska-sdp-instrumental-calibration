@@ -2,10 +2,14 @@
 
 __all__ = [
     "apply_gaintable",
+    "solve_bandpass",
 ]
+
+from typing import Optional
 
 import numpy as np
 import xarray
+from ska_sdp_func_python.calibration.solvers import solve_gaintable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -79,6 +83,7 @@ def solve_bandpass(
     vis: xarray.Dataset,
     modelvis: xarray.Dataset,
     gaintable: xarray.Dataset,
+    refant: Optional[int] = None,
 ) -> xarray.Dataset:
     """Determine bandpass calibration Jones matrices.
 
@@ -88,5 +93,22 @@ def solve_bandpass(
     :return: Update GainTable dataset.
     """
     logger.info("solving bandpass")
+
+    timeslice = vis.time.data.max() - vis.time.data.min()
+
+    solve_gaintable(
+        vis=vis,
+        modelvis=modelvis,
+        gain_table=gaintable,
+        solver="gain_substitution",
+        phase_only=False,
+        niter=200,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains=None,
+        jones_type="B",
+        timeslice=timeslice,
+        refant=refant,
+    )
 
     return gaintable
