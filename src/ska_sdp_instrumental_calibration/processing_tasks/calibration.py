@@ -5,8 +5,6 @@ __all__ = [
     "solve_bandpass",
 ]
 
-from typing import Optional
-
 import numpy as np
 import xarray
 from ska_sdp_func_python.calibration.solvers import solve_gaintable
