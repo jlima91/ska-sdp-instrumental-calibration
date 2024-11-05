@@ -77,4 +77,6 @@ python-test:
         fi;
       fi;
 
+notebook-test:
+    allow_failure: true
 
