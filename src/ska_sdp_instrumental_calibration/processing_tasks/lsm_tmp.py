@@ -36,49 +36,69 @@ class Component:
     alpha: float
 
 
+def deconvolve_gaussian(a0, b0, pa0_deg):
+    """Deconvolve MWA synthesised beam from Gaussian shape parameters.
+
+    Todo. Will follow the approach from askap-analysis class MathsUtils.
+
+    :param a0: major axis FWHM (arcseconds)
+    :param b0: minor axis FWHM (arcseconds)
+    :param pa0_deg: Gaussian position angle (degrees)
+    :return: tuple of deconvolved parameters (same units as input)
+    """
+    return a0, b0, pa0_deg
+
+
 def convert_model_to_skycomponents(model, freq, freq0=200e6):
     """Convert the LocalSkyModel to a list of SkyComponents.
 
     Note: freq0 should really be part of the sky model
 
     All sources are unpolarised and specified in the linear polarisation frame
-    using XX = YY = I.
+    using XX = YY = Stokes I / 2.
 
     :param : Component list
     :param : Frequency list in Hz
     :param : Reference Frequency for flux scaling is 200 MHz
     :return: SkyComponent list
     """
-    skycomponents = [SkyComponent] * len(model)
+    skycomponents = []
     freq = np.array(freq)
 
-    for idx, comp in enumerate(model):
+    for comp in model:
         alpha = comp.alpha
         flux0 = comp.Fint200
 
         # assume 4 pols
         flux = np.zeros((len(freq), 4))
         flux[:, 0] = flux[:, 3] = flux0 / 2 * (freq / freq0) ** alpha
+
+        # Deconvolve MWA synthesised beam from Gaussian shape parameters.
+        bmaj, bmin, bpa = deconvolve_gaussian(
+            comp.awide, comp.bwide, comp.pawide
+        )
+
         # pylint: disable=no-member, duplicate-code
-        skycomponents[idx] = SkyComponent(
-            direction=SkyCoord(
-                ra=comp.RAdeg,
-                dec=comp.DEdeg,
-                unit=(units.deg, units.deg),
-            ),
-            frequency=freq,
-            name=comp.name,
-            flux=flux,
-            polarisation_frame=PolarisationFrame("linear"),
-            # test if awide is greater than cat resolution?
-            # shape="Point",
-            shape="Gaussian",
-            # From what I can tell, all params units are degrees
-            params={
-                "bmaj": comp.awide / 3600.0,
-                "bmin": comp.bwide / 3600.0,
-                "bpa": comp.pawide,
-            },
+        skycomponents.append(
+            SkyComponent(
+                direction=SkyCoord(
+                    ra=comp.RAdeg,
+                    dec=comp.DEdeg,
+                    unit=(units.deg, units.deg),
+                ),
+                frequency=freq,
+                name=comp.name,
+                flux=flux,
+                polarisation_frame=PolarisationFrame("linear"),
+                # shape="Point",
+                shape="Gaussian",
+                # From what I can tell, all params units are degrees
+                params={
+                    "bmaj": bmaj / 3600.0,
+                    "bmin": bmin / 3600.0,
+                    "bpa": bpa,
+                },
+            )
         )
 
     return skycomponents
@@ -138,15 +158,12 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
     cosdec0 = np.cos(dec0)
     sindec0 = np.sin(dec0)
 
-    # Faster to predefine for all cat lines then clip back
-    nmax = 307455
-    model = [Component] * nmax
+    # Model is a list of components
+    model = []
 
     with open(gleamfile, "r") as f:
 
         alpha_cat = []
-
-        count = 0
 
         for line in f:
 
@@ -164,29 +181,31 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
                 if separation > max_separation:
                     continue
 
-                _model = model[count]
-                _model.name = name
-                _model.RAdeg = float(line[65:75])
-                _model.DEdeg = float(line[87:97])
-                _model.awide = float(line[153:165])
-                _model.bwide = float(line[179:187])
-                _model.pawide = float(line[200:210])
                 Fintfit200 = line[3135:3145]
                 if Fintfit200.strip() == "---":
-                    _model.Fint200 = Fintwide
-                    _model.alpha = alpha0
+                    Fint200 = Fintwide
+                    alpha = alpha0
                 else:
-                    _model.Fint200 = float(Fintfit200)
-                    _model.alpha = float(line[3104:3113])
-                    alpha_cat.append(_model.alpha)
+                    Fint200 = float(Fintfit200)
+                    alpha = float(line[3104:3113])
+                    alpha_cat.append(alpha)
 
-                count += 1
+                model.append(
+                    Component(
+                        name=name,
+                        RAdeg=float(line[65:75]),
+                        DEdeg=float(line[87:97]),
+                        awide=float(line[153:165]),
+                        bwide=float(line[179:187]),
+                        pawide=float(line[200:210]),
+                        Fint200=Fint200,
+                        alpha=alpha,
+                    )
+                )
 
         f.close()
 
-        logger.info(
-            f"extracted {count} GLEAM components with Fintwide > {flux_limit}"
-        )
+        logger.info(f"extracted {len(model)} GLEAM components")
         logger.debug(
             f"alpha: mean = {np.mean(alpha_cat):.2f}, "
             + f"median = {np.median(alpha_cat):.2f}, "
@@ -194,5 +213,5 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
         )
 
     return convert_model_to_skycomponents(
-        model[:count], vis.frequency.data, freq0=200e6
+        model, vis.frequency.data, freq0=200e6
     )
