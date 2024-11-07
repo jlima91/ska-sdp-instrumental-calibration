@@ -24,7 +24,24 @@ logger = setup_logger(__name__)
 
 @dataclass
 class Component:
-    """Class for LSM components."""
+    """Class for LSM components.
+
+    Class to hold the relevant columns of GLEAMEGC for a component of the
+    local sky model.
+
+    Args:
+        name (str): GLEAM name (JHHMMSS+DDMMSS)
+        RAdeg (float): Right Ascension J2000 (degrees)
+        DEdeg (float): Declination J2000 (degrees)
+        awide (float): Fitted semi-major axis in wide-band image (arcsec)
+        bwide (float): Fitted semi-minor axis in wide-band image (arcsec)
+        pawide (float): Fitted position angle in wide-band image (degrees)
+        psfawide (float): Semi-major axis of the PSF (arcsec)
+        psfbwide (float): Semi-minor axis of the PSF (arcsec)
+        psfpawide (float): Position angle of the PSF (degrees)
+        Fint200 (float): 200MHz integrated flux density
+        alpha (float): Spectral index
+    """
 
     name: str
     RAdeg: float
@@ -32,21 +49,60 @@ class Component:
     awide: float
     bwide: float
     pawide: float
+    psfawide: float
+    psfbwide: float
+    psfpawide: float
     Fint200: float
     alpha: float
 
 
-def deconvolve_gaussian(a0, b0, pa0_deg):
+def deconvolve_gaussian(comp):
     """Deconvolve MWA synthesised beam from Gaussian shape parameters.
 
-    Todo. Will follow the approach from askap-analysis class MathsUtils.
+    This follows the approach of the analysisutilities function
+    deconvolveGaussian in the askap-analysis repository, written by Matthew
+    Whiting <matthew.whiting@csiro.au>. This is based on the approach described
+    in Wild (1970), AuJPh 23, 113.
 
-    :param a0: major axis FWHM (arcseconds)
-    :param b0: minor axis FWHM (arcseconds)
-    :param pa0_deg: Gaussian position angle (degrees)
-    :return: tuple of deconvolved parameters (same units as input)
+    :param comp: Component data for a source
+    :return: Tuple of deconvolved parameters (same units as data in comp)
     """
-    return a0, b0, pa0_deg
+
+    # fitted data on source
+    fmajsq = comp.awide * comp.awide
+    fminsq = comp.bwide * comp.bwide
+    fdiff = fmajsq - fminsq
+    fphi = 2.0 * comp.pawide * np.pi / 180.0
+
+    # beam data at source location
+    bmajsq = comp.psfawide * comp.psfawide
+    bminsq = comp.psfbwide * comp.psfbwide
+    bdiff = bmajsq - bminsq
+    bphi = 2.0 * comp.psfpawide * np.pi / 180.0
+
+    # source data after deconvolution
+    if fdiff < 1e-6:
+        # Circular Gaussian case
+        smaj = np.sqrt(fmajsq - bminsq)
+        smin = np.sqrt(fmajsq - bmajsq)
+        psmaj = np.pi / 2.0 + comp.psfpawide
+
+    else:
+        # General case
+        sinsphi = fdiff * np.sin(fphi) - bdiff * np.sin(bphi)
+        cossphi = fdiff * np.cos(fphi) - bdiff * np.cos(bphi)
+        sdiff = np.sqrt(
+            fdiff * fdiff
+            + bdiff * bdiff
+            - 2.0 * fdiff * bdiff * np.cos(fphi - bphi)
+        )
+        smajsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq + sdiff)
+        sminsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq - sdiff)
+        smaj = 0 if smajsq <= 0 else np.sqrt(smajsq)
+        smin = 0 if sminsq <= 0 else np.sqrt(sminsq)
+        psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
+
+    return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
 
 
 def convert_model_to_skycomponents(model, freq, freq0=200e6):
@@ -73,31 +129,33 @@ def convert_model_to_skycomponents(model, freq, freq0=200e6):
         flux = np.zeros((len(freq), 4))
         flux[:, 0] = flux[:, 3] = flux0 / 2 * (freq / freq0) ** alpha
 
-        # Deconvolve MWA synthesised beam from Gaussian shape parameters.
-        bmaj, bmin, bpa = deconvolve_gaussian(
-            comp.awide, comp.bwide, comp.pawide
-        )
+        # Deconvolve synthesised beam from fitted shape parameters.
+        smaj, smin, spa = deconvolve_gaussian(comp)
+        if smaj == 0 and smin == 0:
+            shape = "POINT"
+            params = {}
+        else:
+            shape = "GAUSSIAN"
+            # From what I can tell, all params units are degrees
+            params = {
+                "bmaj": smaj / 3600.0,
+                "bmin": smin / 3600.0,
+                "bpa": spa,
+            }
 
-        # pylint: disable=no-member, duplicate-code
         skycomponents.append(
             SkyComponent(
                 direction=SkyCoord(
                     ra=comp.RAdeg,
                     dec=comp.DEdeg,
-                    unit=(units.deg, units.deg),
+                    unit=(units.deg, units.deg),  # pylint: disable=no-member
                 ),
                 frequency=freq,
                 name=comp.name,
                 flux=flux,
                 polarisation_frame=PolarisationFrame("linear"),
-                # shape="Point",
-                shape="Gaussian",
-                # From what I can tell, all params units are degrees
-                params={
-                    "bmaj": bmaj / 3600.0,
-                    "bmin": bmin / 3600.0,
-                    "bpa": bpa,
-                },
+                shape=shape,
+                params=params,
             )
         )
 
@@ -121,6 +179,9 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
      154- 165 E12.6  arcsec  awide      Fitted semi-major axis in wide
      180- 187 F8.4   arcsec  bwide      Fitted semi-minor axis in wide
      201- 210 F10.6  deg     pawide     Fitted position angle in wide
+     248- 254  F7.3  arcsec  psfawide   Semi-major axis of the PSF in wide
+     256- 262  F7.3  arcsec  psfbwide   Semi-minor axis of the PSF in wide
+     264- 273  F10.6 deg     psfPAwide  Position angle of the PSF in wide
     3105-3113 F9.6   ---     alpha      ? Fitted spectral index (alpha)
     3136-3145 F10.6  Jy     Fintfit200  ? Fitted 200MHz integrated flux density
 
@@ -137,15 +198,21 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
             f"Cannot open gleam catalogue file {gleamfile}. "
             "Returning point source with unit flux at phase centre."
         )
-        model = Component
-        model.name = "default"
-        model.RAdeg = vis.phasecentre.ra.degree
-        model.DEdeg = vis.phasecentre.dec.degree
-        model.awide = 0.0
-        model.bwide = 0.0
-        model.pawide = 0.0
-        model.Fint200 = 1.0
-        model.alpha = 0.0
+
+        model = Component(
+            name="default",
+            RAdeg=vis.phasecentre.ra.degree,
+            DEdeg=vis.phasecentre.dec.degree,
+            awide=0.0,
+            bwide=0.0,
+            pawide=0.0,
+            psfawide=0.0,
+            psfbwide=0.0,
+            psfpawide=0.0,
+            Fint200=1.0,
+            alpha=0.0,
+        )
+
         return convert_model_to_skycomponents(
             [model], vis.frequency.data, freq0=200e6
         )
@@ -198,6 +265,9 @@ def generate_lsm(gleamfile, vis, fov=5.0, flux_limit=0.0, alpha0=-0.78):
                         awide=float(line[153:165]),
                         bwide=float(line[179:187]),
                         pawide=float(line[200:210]),
+                        psfawide=float(line[247:254]),
+                        psfbwide=float(line[255:262]),
+                        psfpawide=float(line[263:273]),
                         Fint200=Fint200,
                         alpha=alpha,
                     )
