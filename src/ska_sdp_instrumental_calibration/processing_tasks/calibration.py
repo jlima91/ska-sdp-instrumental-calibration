@@ -81,9 +81,9 @@ def solve_bandpass(
 ) -> xarray.Dataset:
     """Determine bandpass calibration Jones matrices.
 
-    The spectral axes need to be consistent.
-    If gain_table.frequency==vis.frequency: solve with jones_type="B".
-    If gain_table.frequency ~ mean(vis.frequency): solve with jones_type="G".
+    The spectral axes need to be consistent. If
+    gain_table.frequency==vis.frequency: solve with jones_type="B". If
+    gain_table.frequency ~ [mean(vis.frequency)]: solve with jones_type="G".
     Otherwise: raise a ValueError.
 
     If gain_table.frequency has multiple channels but fewer than vis, it would
