@@ -8,6 +8,7 @@ __all__ = [
 import importlib
 
 import numpy as np
+import numpy.typing as npt
 import xarray
 from astropy import constants as const
 from ska_sdp_datamodels.sky_model import SkyComponent
@@ -17,6 +18,31 @@ from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+
+def gaussian_tapers(
+    uvw: npt.NDArray[np.float_],
+    params: dict[float],
+) -> npt.NDArray[np.float_]:
+    """Calculated visibility amplitude tapers for Gaussian components.
+
+    Note that this need to be tested. Generate and image a model component...
+    And compare with the main ska-sdp-func version...
+
+    :param uvw: baseline coordinates ([time, baseline, frequency, dir]).
+    :param params: dictionary of shape params {bmaj, bmin, bpa} in degrees.
+    :return: visibility tapers ([time, baseline, frequency]).
+    """
+    # exp(-a*x^2) transforms to exp(-pi^2*u^2/a)
+    # a = 4log(2)/FWHM^2 so scaling = pi^2 * FWHM^2 / (4log(2))
+    scale = -(np.pi * np.pi) / (4 * np.log(2.0))
+    # Rotate baselines to the major/minor axes:
+    bpa = params["bpa"] * np.pi / 180
+    bmaj = params["bmaj"] * np.pi / 180
+    bmin = params["bmin"] * np.pi / 180
+    up = np.cos(bpa) * uvw[..., 0] + np.sin(bpa) * uvw[..., 1]
+    vp = -np.sin(bpa) * uvw[..., 0] + np.cos(bpa) * uvw[..., 1]
+    return np.exp((bmaj * bmaj * up * up + bmin * bmin * vp * vp) * scale)
 
 
 def dft_skycomponent_local(
@@ -48,26 +74,25 @@ def dft_skycomponent_local(
     sdec0 = np.sin(vis.phasecentre.dec.radian)
 
     # Loop over LSM components and accumulate model visibilities
-    shape_trigger = False
     for comp in skycomponents:
         if not np.all(comp.frequency == frequency):
             raise ValueError("Only supporting equal frequency axes")
-        if comp.shape != "POINT":
-            shape_trigger = True
         cdec = np.cos(comp.direction.dec.radian)
         sdec = np.sin(comp.direction.dec.radian)
         cdra = np.cos(comp.direction.ra.radian - ra0)
         l_comp = cdec * np.sin(comp.direction.ra.radian - ra0)
         m_comp = sdec * cdec0 - cdec * sdec0 * cdra
         n_comp = sdec * sdec0 + cdec * cdec0 * cdra
-        vis.vis.data += np.einsum(
+        # Should this exponent be positive?
+        #  - Compare with dft_skycomponent_visibility...
+        comp_data = np.einsum(
             "tbf,fp->tbfp",
             np.exp(-2j * np.pi * (u * l_comp + v * m_comp + w * (n_comp - 1))),
             comp.flux,
         )
-
-    if shape_trigger:
-        logger.warning("One or more component shapes were ignored")
+        if comp.shape == "GAUSSIAN":
+            comp_data *= gaussian_tapers(uvw, comp.params)[..., np.newaxis]
+        vis.vis.data += comp_data
 
     return vis
 
