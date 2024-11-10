@@ -11,11 +11,16 @@ import numpy as np
 import numpy.typing as npt
 import xarray
 from astropy import constants as const
+from astropy.coordinates import AltAz
+from astropy.time import Time
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_datamodels.visibility.vis_model import Visibility
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
+from ska_sdp_instrumental_calibration.processing_tasks.beams import (
+    GenericBeams,
+)
 
 logger = setup_logger(__name__)
 
@@ -27,7 +32,7 @@ def gaussian_tapers(
     """Calculated visibility amplitude tapers for Gaussian components.
 
     Note that this need to be tested. Generate and image a model component...
-    And compare with the main ska-sdp-func version...
+    And compare with ska-sdp-func? No, seems to ignore.
 
     :param uvw: baseline coordinates ([time, baseline, frequency, dir]).
     :param params: dictionary of shape params {bmaj, bmin, bpa} in degrees.
@@ -100,7 +105,7 @@ def dft_skycomponent_local(
 def predict_from_components(
     vis: xarray.Dataset,
     skycomponents: list[SkyComponent],
-    beams=None,
+    beams: GenericBeams = None,
     reset_vis: bool = False,
 ) -> xarray.Dataset:
     """Predict model visibilities from a SkyComponent List.
@@ -122,52 +127,57 @@ def predict_from_components(
     have_sdp_func = importlib.util.find_spec("ska_sdp_func") is not None
 
     if reset_vis:
-        vis.vis.data = np.zeros(vis.vis.shape, dtype=vis.vis.dtype)
+        vis.vis.data *= 0
 
     if beams is None:
         # Without direction-dependent beams, do all components together
         if have_sdp_func:
-            vis = dft_skycomponent_visibility(vis, skycomponents)
+            # This doesn't seem to take comp.shape into account...
+            func_vis = vis.copy()
+            dft_skycomponent_visibility(func_vis, skycomponents)
+            vis.vis.data[...] = func_vis.vis.data[...]
+            # vis = dft_skycomponent_local(vis, skycomponents)
         else:
-            vis = dft_skycomponent_local(vis, skycomponents)
+            dft_skycomponent_local(vis, skycomponents)
 
     else:
         # Otherwise predict the components one at a time
 
+        # Just use the beam near the middle of the scan?
+        time = np.mean(Time(vis.datetime.data))
+
         # Check beam pointing direction
-        # time = Time(vis.datetime.data[0])
-        # altaz = beams.beam_direction.transform_to(
-        #     AltAz(obstime=time, location=beams.array_location)
-        # )
-        # if altaz.alt.degree < 0:
-        #     raise ValueError(f"Pointing below horizon el={altaz.alt.degree}")
+        altaz = beams.beam_direction.transform_to(
+            AltAz(obstime=time, location=beams.array_location)
+        )
+        if altaz.alt.degree < 0:
+            raise ValueError(f"Pointing below horizon el={altaz.alt.degree}")
+
+        beams.update_beam(frequency=vis.frequency.data, time=time)
 
         for comp in skycomponents:
 
             # Check component direction
-            # altaz = comp.direction.transform_to(
-            #     AltAz(obstime=time, location=beams.array_location)
-            # )
-            # if altaz.alt.degree < 0:
-            #     logger.warning("LSM component [%s] below horizon", comp.name)
-            #     continue
+            altaz = comp.direction.transform_to(
+                AltAz(obstime=time, location=beams.array_location)
+            )
+            if altaz.alt.degree < 0:
+                logger.warning("LSM component [%s] below horizon", comp.name)
+                continue
 
             # Predict model visibilities for component
             compvis = vis.assign({"vis": xarray.zeros_like(vis.vis)})
             if have_sdp_func:
-                compvis = dft_skycomponent_visibility(compvis, comp)
+                dft_skycomponent_visibility(compvis, comp)
             else:
-                compvis = dft_skycomponent_local(compvis, comp)
+                dft_skycomponent_local(compvis, comp)
 
             # Apply beam distortions and add to combined model visibilities
-            # response = beams.array_response(
-            #     direction=comp.direction, time=time
-            # )
-            response = np.zeros(
-                (len(vis.configuration.id), len(vis.frequency), 2, 2),
-                dtype=vis.vis.dtype,
+            response = beams.array_response(
+                direction=comp.direction,
+                frequency=vis.frequency.data,
+                time=time,
             )
-            response[..., :, :] = np.eye(2)
 
             # This is overkill if the beams are the same for all antennas...
             vis.vis.data += (
