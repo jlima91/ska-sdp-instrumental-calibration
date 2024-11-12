@@ -77,6 +77,7 @@ def solve_bandpass(
     vis: xarray.Dataset,
     modelvis: xarray.Dataset,
     gain_table: xarray.Dataset,
+    solver: str = "gain_substitution",
     refant: int = 0,
 ) -> xarray.Dataset:
     """Determine bandpass calibration Jones matrices.
@@ -98,6 +99,8 @@ def solve_bandpass(
     :param modelvis: Visibility model dataset to solve against.
     :param gain_table: GainTable dataset containing bandpass solutions to be
         updated.
+    :param solver: Solver type to use. Currently any solver type accepted by
+        solve_gaintable. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
     :return: Updated GainTable dataset.
     """
@@ -127,9 +130,9 @@ def solve_bandpass(
         vis=vis,
         modelvis=modelvis,
         gain_table=gain_table,
-        solver="gain_substitution",
+        solver=solver,
         phase_only=False,
-        niter=200,
+        niter=50,
         tol=1e-06,
         crosspol=False,
         normalise_gains=None,
