@@ -9,12 +9,11 @@ import importlib
 
 import numpy as np
 import numpy.typing as npt
-import xarray
+import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import AltAz
 from astropy.time import Time
 from ska_sdp_datamodels.sky_model import SkyComponent
-from ska_sdp_datamodels.visibility.vis_model import Visibility
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -51,9 +50,9 @@ def gaussian_tapers(
 
 
 def dft_skycomponent_local(
-    vis: xarray.Dataset,
+    vis: xr.Dataset,
     skycomponents: list[SkyComponent],
-) -> xarray.Dataset:
+) -> xr.Dataset:
     """Quick 'n dirty numpy-based predict for local testing without sdp.func.
 
     :param vis: Visibility dataset to be added to.
@@ -103,11 +102,11 @@ def dft_skycomponent_local(
 
 
 def predict_from_components(
-    vis: xarray.Dataset,
+    vis: xr.Dataset,
     skycomponents: list[SkyComponent],
     beams: GenericBeams = None,
     reset_vis: bool = False,
-) -> xarray.Dataset:
+) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 
     :param vis: Visibility dataset to be added to.
@@ -116,8 +115,8 @@ def predict_from_components(
     :param reset_vis: Whether or not to set visibilities to zero before
         accumulating components. Default is False.
     """
-    if not isinstance(vis, Visibility):
-        raise ValueError(f"vis is not of type Visibility: {type(vis)}")
+    if not isinstance(vis, xr.Dataset):
+        raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
 
     if len(skycomponents) == 0:
         logger.warning("No sky model components to predict")
@@ -127,7 +126,7 @@ def predict_from_components(
     have_sdp_func = importlib.util.find_spec("ska_sdp_func") is not None
 
     if reset_vis:
-        vis.vis.data *= 0
+        vis.vis.data = np.zeros(vis.vis.shape, "complex")
 
     if beams is None:
         # Without direction-dependent beams, do all components together
@@ -166,7 +165,7 @@ def predict_from_components(
                 continue
 
             # Predict model visibilities for component
-            compvis = vis.assign({"vis": xarray.zeros_like(vis.vis)})
+            compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
             if have_sdp_func:
                 dft_skycomponent_visibility(compvis, comp)
             else:
@@ -180,7 +179,7 @@ def predict_from_components(
             )
 
             # This is overkill if the beams are the same for all antennas...
-            vis.vis.data += (
+            vis.vis.data = vis.vis.data + (
                 np.einsum(  # pylint: disable=too-many-function-args
                     "bfpx,tbfxy,bfqy->tbfpq",
                     response[compvis.antenna1.data, :, :, :],

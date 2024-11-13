@@ -5,10 +5,10 @@ import logging
 import everybeam as eb
 import numpy as np
 import numpy.typing as npt
+import xarray as xr
 from astropy import units
 from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
-from ska_sdp_datamodels.visibility.vis_model import Visibility
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class GenericBeams:
     For other array types, all beam values are set to 2x2 identity matrices.
 
     Args:
-        vis (Visibility) dataset containing required metadata.
+        vis (xr.Dataset) dataset containing required metadata.
         array (str) array type (e.g. "low" or "mid"). By default the vis
             configuration name will be searched for an obvious match.
         direction (SkyCoord) beam direction. By default the vis phase centre
@@ -40,13 +40,13 @@ class GenericBeams:
 
     def __init__(
         self,
-        vis: Visibility,
+        vis: xr.Dataset,
         array: str = None,
         direction: SkyCoord = None,
         ms_path: str = None,
     ):
-        if not isinstance(vis, Visibility):
-            raise ValueError(f"Data is not of type Visibility: {type(vis)}")
+        if not isinstance(vis, xr.Dataset):
+            raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
 
         # Can relax this, but do it like this for now...
         if vis._polarisation_frame != "linear" or len(vis.polarisation) != 4:
@@ -182,10 +182,10 @@ class GenericBeams:
                     @ self.normalise[chan]
                 )
             np.set_printoptions(linewidth=120, precision=4, suppress=True)
-            print(
-                f"sep = {direction.separation(self.beam_direction):.1f}, "
-                + f"response = {beams[0, 0, :, :].reshape(4)}"
-            )
+            # print(
+            #     f"sep = {direction.separation(self.beam_direction):.1f}, "
+            #     + f"response = {beams[0, 0, :, :].reshape(4)}"
+            # )
 
         else:
             beams[..., :, :] = np.eye(2)
