@@ -4,11 +4,11 @@ import logging
 
 import everybeam as eb
 import numpy as np
-import numpy.typing as npt
 import xarray as xr
 from astropy import units
 from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
+from numpy import typing
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,7 @@ class GenericBeams:
         if altaz.alt.degree < 0:
             logger.warning("pointing below horizon: %.f deg", altaz.alt.degree)
 
+        # If array type is unset, see if it is obvious from the config
         if array is None:
             name = vis.configuration.name.lower()
             if name.find("low") >= 0:
@@ -92,6 +93,7 @@ class GenericBeams:
             else:
                 array = ""
 
+        # Initialise the beam models
         if array.lower() == "low":
             logger.info("Initialising beams for Low")
             self.array = array.lower()
@@ -106,6 +108,10 @@ class GenericBeams:
         elif array.lower() == "mid":
             logger.info("Initialising beams for Mid")
             self.array = array.lower()
+            logger.warning(
+                "The Mid beam model is not current set. "
+                "Only use with compact, centred sky models."
+            )
         else:
             logger.info("Unknown beam")
 
@@ -116,7 +122,7 @@ class GenericBeams:
         """
         self.beam_direction = direction
 
-    def update_beam(self, frequency: npt.NDArray[np.float_], time: Time):
+    def update_beam(self, frequency: typing.NDArray[np.float_], time: Time):
         """Update the ITRF coordinates of the beam and normalisation factors.
 
         :param frequency: 1D array of frequencies
@@ -138,9 +144,9 @@ class GenericBeams:
     def array_response(
         self,
         direction: SkyCoord,
-        frequency: npt.NDArray[np.float_],
+        frequency: typing.NDArray[np.float_],
         time: Time = None,
-    ) -> npt.NDArray[np.complex_]:
+    ) -> typing.NDArray[np.complex_]:
         """Return the response of each antenna or station in a given direction
 
         :param direction: Direction of desired response
