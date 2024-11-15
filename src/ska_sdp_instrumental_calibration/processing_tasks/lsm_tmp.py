@@ -14,9 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import numpy.typing as npt
-from astropy import units
 from astropy.coordinates import SkyCoord
+from numpy import typing
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 
@@ -177,7 +176,9 @@ def generate_lsm(
 
 
 def convert_model_to_skycomponents(
-    model: list[Component], freq: npt.NDArray[np.float_], freq0: float = 200e6
+    model: list[Component],
+    freq: typing.NDArray[np.float_],
+    freq0: float = 200e6,
 ) -> list[SkyComponent]:
     """Convert the LocalSkyModel to a list of SkyComponents.
 
@@ -225,7 +226,7 @@ def convert_model_to_skycomponents(
                 direction=SkyCoord(
                     ra=comp.RAdeg,
                     dec=comp.DEdeg,
-                    unit=(units.deg, units.deg),  # pylint: disable=no-member
+                    unit="deg",
                 ),
                 frequency=freq,
                 name=comp.name,

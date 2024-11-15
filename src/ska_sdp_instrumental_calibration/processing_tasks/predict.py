@@ -8,11 +8,11 @@ __all__ = [
 import importlib
 
 import numpy as np
-import numpy.typing as npt
 import xarray
 from astropy import constants as const
 from astropy.coordinates import AltAz
 from astropy.time import Time
+from numpy import typing
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_datamodels.visibility.vis_model import Visibility
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
@@ -26,9 +26,9 @@ logger = setup_logger(__name__)
 
 
 def gaussian_tapers(
-    uvw: npt.NDArray[np.float_],
+    uvw: typing.NDArray[np.float_],
     params: dict[float],
-) -> npt.NDArray[np.float_]:
+) -> typing.NDArray[np.float_]:
     """Calculated visibility amplitude tapers for Gaussian components.
 
     Note that this need to be tested. Generate and image a model component...
