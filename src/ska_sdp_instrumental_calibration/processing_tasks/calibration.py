@@ -79,6 +79,7 @@ def solve_bandpass(
     gain_table: xarray.Dataset,
     solver: str = "gain_substitution",
     refant: int = 0,
+    niter: int = 50,
 ) -> xarray.Dataset:
     """Determine bandpass calibration Jones matrices.
 
@@ -102,6 +103,7 @@ def solve_bandpass(
     :param solver: Solver type to use. Currently any solver type accepted by
         solve_gaintable. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
+    :param niter: Number of solver iterations (defaults to 50).
     :return: Updated GainTable dataset.
     """
     logger.debug("solving bandpass")
@@ -132,7 +134,7 @@ def solve_bandpass(
         gain_table=gain_table,
         solver=solver,
         phase_only=False,
-        niter=50,
+        niter=niter,
         tol=1e-06,
         crosspol=False,
         normalise_gains=None,
