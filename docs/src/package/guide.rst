@@ -25,11 +25,20 @@ Public API Documentation
 Functions
 ---------
 
-.. automodule:: ska_sdp_instrumental_calibration.example
+.. automodule:: ska_sdp_instrumental_calibration.logger
+    :members:
+
+.. automodule:: ska_sdp_instrumental_calibration.processing_tasks.calibration
+    :members:
+
+.. automodule:: ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp
+    :members:
+
+.. automodule:: ska_sdp_instrumental_calibration.processing_tasks.predict
     :members:
 
 Classes
 -------
-.. autoclass:: ska_sdp_instrumental_calibration.example.SKA
+.. autoclass:: ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp.Component
     :noindex:
     :members:
