@@ -97,6 +97,8 @@ class GenericBeams:
         if array.lower() == "low":
             logger.info("Initialising beams for Low")
             self.array = array.lower()
+            if ms_path is None:
+                raise ValueError("Low array requires ms_path for everybeam.")
             self.telescope = eb.load_telescope(
                 ms_path,
                 use_differential_beam=False,
@@ -132,6 +134,7 @@ class GenericBeams:
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
         for chan, freq in enumerate(frequency):
             self.normalise[chan] = np.linalg.inv(
+                # This is normalising in be beam dir, but should be zenith
                 self.telescope.station_response(
                     time.mjd * 86400,
                     station_id,
@@ -172,6 +175,9 @@ class GenericBeams:
         if self.array == "low":
             if time is None:
                 raise ValueError("Time must be specified for the Low beam.")
+
+            if self.delay_dir_itrf is None:
+                self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
 
             # Just grab the first one and make them all the same for now
             station_id = 0
