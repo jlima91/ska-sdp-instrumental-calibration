@@ -7,6 +7,7 @@
 # flake8: noqa: F401
 
 import numpy as np
+import pytest
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
@@ -51,9 +52,12 @@ def test_update_beam_direction_low(generate_vis):
     assert beams.beam_direction == direction
 
 
+@pytest.mark.skip(reason="Need everybeam coefficient data")
 def test_array_response_low(generate_vis):
     """Check the returned beam Jones matrices."""
     vis, _ = generate_vis
+    # Also need something like this before array_response:
+    # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
     # Test an unnormalised beam about a degree off centre
     direction = SkyCoord("0h", "-28d", frame="icrs")

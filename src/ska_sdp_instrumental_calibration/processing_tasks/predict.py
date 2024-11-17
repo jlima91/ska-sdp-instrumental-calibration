@@ -32,8 +32,7 @@ def gaussian_tapers(
 ) -> typing.NDArray[np.float_]:
     """Calculated visibility amplitude tapers for Gaussian components.
 
-    Note that this need to be tested. Generate and image a model component...
-    And compare with ska-sdp-func? No, seems to ignore.
+    Note: this needs to be tested. Generate, image and fit a model component?
 
     :param uvw: baseline coordinates ([time, baseline, frequency, dir]).
     :param params: dictionary of shape params {bmaj, bmin, bpa} in degrees.
