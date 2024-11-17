@@ -35,7 +35,8 @@ for calibration, a number of external datasets will also be required:
    [everybeam package](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/)
    script `download_ms.sh`, but one will also be made available in this package.
  * The [everybeam coeffs](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/-/tree/master/coeffs)
-   directory is also needed to generate beam models. 
+   directory is also needed to generate beam models. The directory path supplied to
+   `predict_from_components` is used to set environment variable `EVERYBEAM_DATADIR`.
 
 For detailed package requirements, see `pyproject.toml`. This is the Poetry config file
 to manage application dependencies. To install Poetry, use:
