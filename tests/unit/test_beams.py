@@ -19,9 +19,12 @@ from tests.test_utils import generate_vis, untar
 eb_ms = str(untar("data/OSKAR_MOCK.ms.tar.gz"))
 
 
+@pytest.mark.skip(reason="Need everybeam coefficient data")
 def test_beam_creation_low(generate_vis):
     """Test Low beam model creation."""
     vis, _ = generate_vis
+    # Also need something like this
+    # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
     assert beams.beam_direction == vis.phasecentre
     assert np.all(beams.antenna_names == vis.configuration.names.data)
@@ -42,9 +45,12 @@ def test_beam_creation_mid(generate_vis):
     assert beams.array == "mid"
 
 
+@pytest.mark.skip(reason="Need everybeam coefficient data")
 def test_update_beam_direction_low(generate_vis):
     """Test the update_beam_direction function."""
     vis, _ = generate_vis
+    # Also need something like this
+    # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
     assert beams.beam_direction == vis.phasecentre
     direction = SkyCoord("1h", "-30d", frame="icrs")
@@ -56,7 +62,7 @@ def test_update_beam_direction_low(generate_vis):
 def test_array_response_low(generate_vis):
     """Check the returned beam Jones matrices."""
     vis, _ = generate_vis
-    # Also need something like this before array_response:
+    # Also need something like this
     # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
     # Test an unnormalised beam about a degree off centre
