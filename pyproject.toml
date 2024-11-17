@@ -38,6 +38,7 @@ pytest-json = "^0.4.0"
 recommonmark = "^0.7.1"
 sphinx-rtd-theme = "^3.0.1"
 ska-sdp-datamodels = "^0.3.2"
+ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^0.5.1"
 pylance = "^0.5.9"
 xarray = "^2024.7"
@@ -47,9 +48,6 @@ attrs = "^23.2.0"
 referencing = "^0.35.1"
 rpds-py = "^0.20.1"
 jsonschema_specifications = "^2024.10.1"
-
-# optional dependencies
-ska-sdp-func = {version = "^1.2", optional = true}
 
 [tool.poetry.extras]
 ska-sdp-func = ["ska-sdp-func"]

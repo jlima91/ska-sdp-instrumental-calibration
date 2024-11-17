@@ -4029,7 +4029,7 @@ reference = "skao"
 name = "ska-sdp-func"
 version = "1.2.2"
 description = "SKA SDP Processing Function Library"
-optional = true
+optional = false
 python-versions = ">=3.9"
 files = [
     {file = "ska_sdp_func-1.2.2-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:68ea7c48f1151ad9d0de8d683794b6a18f62796dd9c3ee2ed5edcc0dfafbd735"},
@@ -4735,4 +4735,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<3.12.5"
-content-hash = "3a82385f2b5ddb536d5a0fd3ea5c7c1ef740b33095dcd3df47cf5fe101cd31c0"
+content-hash = "607d6a59fe6b941d32e2741d81be0833cd3cfa3948628f147f3c5c53acb6243a"

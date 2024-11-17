@@ -163,12 +163,33 @@ def predict_from_components(
     # Use a less-efficient DFT if ska-sdp-func is not available
     have_sdp_func = importlib.util.find_spec("ska_sdp_func") is not None
 
+    if have_sdp_func:
+        # The ska-sdp-func version does not taper Gaussians, so do it below
+        need_uvws = False
+        for comp in skycomponents:
+            if comp.shape == "GAUSSIAN":
+                need_uvws = True
+                break
+        if need_uvws:
+            uvw = np.einsum(
+                "tbd,f->tbfd",
+                vis.uvw.data,
+                vis.frequency.data
+                / const.c.value,  # pylint: disable=no-member
+            )
+
     for comp in skycomponents:
 
         # Predict model visibilities for component
         compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
         if have_sdp_func:
             dft_skycomponent_visibility(compvis, comp)
+            if comp.shape == "GAUSSIAN":
+                # Apply Gaussian tapers
+                compvis.vis.data *= gaussian_tapers(uvw, comp.params)[
+                    ..., np.newaxis
+                ]
+
         else:
             dft_skycomponent_local(compvis, comp)
 
