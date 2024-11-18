@@ -11,7 +11,7 @@ from ska_sdp_func_python.calibration.solvers import solve_gaintable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger("processing_tasks.calibration")
 
 
 def apply_gaintable(

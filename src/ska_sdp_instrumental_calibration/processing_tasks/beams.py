@@ -10,7 +10,7 @@ from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
 from numpy import typing
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("processing_tasks.beams")
 
 
 class GenericBeams:

@@ -23,7 +23,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.beams import (
     GenericBeams,
 )
 
-logger = setup_logger(__name__)
+logger = setup_logger("processing_tasks.predict")
 
 
 def gaussian_tapers(
