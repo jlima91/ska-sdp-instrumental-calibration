@@ -33,6 +33,9 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
     generate_lsm,
 )
+from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
+    model_rotations,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -49,6 +52,16 @@ def run(pipeline_config) -> None:
     Returns:
         None
     """
+
+    gleamfile = pipeline_config.get("gleamfile", None)
+    if gleamfile is None:
+        raise ValueError("GLEAM catalogue gleamegc.dat is required.")
+    eb_ms = pipeline_config.get("eb_ms", None)
+    if eb_ms is None:
+        raise ValueError("Name of Everybeam mock Measurement Set is required.")
+    eb_coeffs = pipeline_config.get("eb_coeffs", None)
+    if eb_coeffs is None:
+        raise ValueError("Path to Everybeam coeffs directory is required.")
 
     # Required external data
     gleamfile = pipeline_config.get("gleamfile", None)
@@ -69,11 +82,6 @@ def run(pipeline_config) -> None:
     fov = pipeline_config.get("fov_deg", 10)
     flux_limit = pipeline_config.get("flux_limit", 1)
 
-    # Corruption and solver type
-    gains = pipeline_config.get("gains", True)
-    leakage = pipeline_config.get("leakage", False)
-    solver = pipeline_config.get("solver", "gain_substitution")
-
     # Run the RFI flagger?
     rfi_flagging = pipeline_config.get("rfi_flagging", False)
 
@@ -82,8 +90,10 @@ def run(pipeline_config) -> None:
         logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}.")
         create_demo_ms(
             ms_name=ms_name,
-            gains=gains,
-            leakage=leakage,
+            gains=True,
+            leakage=True,
+            rotation=True,
+            wide_channels=True,
             gleamfile=gleamfile,
             eb_ms=eb_ms,
             eb_coeffs=eb_coeffs,
@@ -107,7 +117,7 @@ def run(pipeline_config) -> None:
         logger.info("Calling ska-sdp-func RFI flagger")
         vis = rfi_flagger(vis)
 
-    # Get the LSM (single call for all channels / dask tasks)
+    # Get the LSM (single call for all channels)
     logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy.")
     lsm = generate_lsm(
         gleamfile=gleamfile,
@@ -122,11 +132,31 @@ def run(pipeline_config) -> None:
 
     # Call the solver
     logger.info(f"Running calibration in {fchunk}-channel chunks.")
+    initialtable = run_solver(
+        client,
+        vis=vis,
+        modelvis=modelvis,
+        solver="jones_substitution",
+        niter=20,
+        refant=0,
+    )
+
+    # Load all of the solutions into a numpy array and fit for any
+    # differential rotations (single call for all channels).
+    # Return gaintable filled with pure rotations.
+    initialtable.load()
+    gaintable = model_rotations(initialtable, plot_sample=True).chunk(
+        {"frequency": fchunk}
+    )
+
+    # Call the solver with updated initial solutions
+    logger.info(f"Rerunning calibration in {fchunk}-channel chunks.")
     gaintable = run_solver(
         client,
         vis=vis,
         modelvis=modelvis,
-        solver=solver,
+        gaintable=gaintable,
+        solver="normal_equations",
         niter=50,
         refant=0,
     )
@@ -144,10 +174,6 @@ def run(pipeline_config) -> None:
         logger.info("Checking results.")
         vis.load()
         modelvis.load()
-        if solver == "gain_substitution":
-            # Don't expect convergence for these, so zeros them
-            vis.vis.data[..., 1] = vis.vis.data[..., 2] = 0
-            modelvis.vis.data[..., 1] = modelvis.vis.data[..., 2] = 0
         converged = np.allclose(modelvis.vis.data, vis.vis.data, atol=1e-6)
         if converged:
             logger.info("Solutions converged. Checks passed")

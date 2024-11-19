@@ -3,6 +3,7 @@
 import warnings
 
 import numpy as np
+from astropy import constants as const
 from astropy.coordinates import Angle, SkyCoord
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
@@ -38,6 +39,8 @@ def create_demo_ms(
     ms_name: str = "demo.ms",
     gains: bool = True,
     leakage: bool = False,
+    rotation: bool = False,
+    wide_channels: bool = False,
     gleamfile: str = None,
     eb_ms: str = None,
     eb_coeffs: str = None,
@@ -117,9 +120,12 @@ def create_demo_ms(
     dec0 = Angle(-27.0, unit="degree")
 
     #  - Set the parameters of sky model components
-    chanwidth = 5.4e3  # Hz
+    if wide_channels:
+        chanwidth = 781.25e3  # Hz
+    else:
+        chanwidth = 5.4e3  # Hz
     nfrequency = 64
-    frequency = 781.25e3 * 160 + chanwidth * np.arange(nfrequency)
+    frequency = 781.25e3 * 128 + chanwidth * np.arange(nfrequency)
     sample_time = 0.9  # seconds
     solution_interval = sample_time  # would normally be minutes
 
@@ -186,6 +192,22 @@ def create_demo_ms(
             np.random.normal(0, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
         )
+    if rotation:
+        logger.info("Applying DI lambda^2-dependent rotations")
+        # Not particularly realistic Faraday rotation gradient across the array
+        x = low_config.xyz.data[:, 0]
+        pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        lambda_sq = (
+            const.c.value / frequency  # pylint: disable=no-member
+        ) ** 2
+        for stn in range(nstations):
+            d_pa = pp_rm[stn] * lambda_sq
+            fr_mat = np.stack(
+                (np.cos(d_pa), -np.sin(d_pa), np.sin(d_pa), np.cos(d_pa)),
+                axis=1,
+            ).reshape(-1, 2, 2)
+            tmp = jones.gain.data[:, stn].copy()
+            jones.gain.data[:, stn] = np.einsum("tfpx,fxq->tfpq", tmp, fr_mat)
 
     # Apply Jones matrices to the dataset
     vis = apply_gaintable(vis=vis, gt=jones, inverse=False)

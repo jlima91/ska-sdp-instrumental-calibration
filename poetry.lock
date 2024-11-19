@@ -3310,6 +3310,31 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [[package]]
+name = "python-casacore"
+version = "3.6.1"
+description = "A wrapper around CASACORE, the radio astronomy library"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "python_casacore-3.6.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:353e0c6246b06264751621e06954b92c94e8b35db6bdaede7046cef9eae17c2c"},
+    {file = "python_casacore-3.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5ea13a01c21a2a6685eba632b8a5ebb9bebbda833eb60adb0bd9006b7d6a4088"},
+    {file = "python_casacore-3.6.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:58bcfaa3db8dc53c7457b9aaa779ee37ba5eb22eb0d0526a0e72c851a20be4b0"},
+    {file = "python_casacore-3.6.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9cb3527e1bc1e8f2609acb8552e61bc9a4d71c5e3b0ee4e49c986c1f5755a657"},
+    {file = "python_casacore-3.6.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:42e069414af7ada6ff07d34fe755a2e87bdf3d7f1be93fc5b782623cd23fc0a8"},
+    {file = "python_casacore-3.6.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:217a7ebad5bc3b269abbcd8e49f5b67367fb8557b6fc15e22096ac83fff7e3e6"},
+    {file = "python_casacore-3.6.1.tar.gz", hash = "sha256:ddc1ac186b6ea2636ac6a271568de52f485ebf6f21d9d00a4216fc3a1651bb81"},
+]
+
+[package.dependencies]
+numpy = "*"
+six = "*"
+
+[package.source]
+type = "legacy"
+url = "https://pypi.org/simple"
+reference = "PyPI-public"
+
+[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 description = "Extensions to the standard Python datetime module"
@@ -4730,9 +4755,10 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [extras]
+python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<3.12.5"
-content-hash = "607d6a59fe6b941d32e2741d81be0833cd3cfa3948628f147f3c5c53acb6243a"
+content-hash = "7ff14e78b60e5f9d8198ceb839e505351f07d3d386e8a5b91e33df8bc28b439b"

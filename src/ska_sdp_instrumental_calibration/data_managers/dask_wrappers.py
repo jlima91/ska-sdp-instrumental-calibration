@@ -7,8 +7,11 @@ __all__ = [
     "calibrate_dataset",
 ]
 
+from typing import Optional
+
 import numpy as np
 import xarray as xr
+from casacore.tables import table
 from dask.distributed import Client
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
@@ -41,15 +44,15 @@ def load_ms(client: Client, ms_name: str, fchunk: int) -> xr.Dataset:
     :return: Chunked Visibility dataset
     """
     # Get observation metadata
-    # Fixme: Change this to extract these parameters from MS metadata alone
-    #  - For now read a single channel and get freq info from create_demo_ms
+    #  - Frequency metadata
+    spwtab = table(f"{ms_name}/SPECTRAL_WINDOW", ack=False)
+    frequency = np.array(spwtab.getcol("CHAN_FREQ")[0])
+    channel_bandwidth = np.array(spwtab.getcol("CHAN_WIDTH")[0])
+    #  - Fixme: Change this to extract other metadata as done for frequency
+    #  - For now read a single channel and use for all but frequency
     tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=1)[0]
-    chanwidth = 5.4e3
-    nfrequency = 64
-    frequency = 781.25e3 * 160 + chanwidth * np.arange(nfrequency)
     shape = list(tmpvis.vis.shape)
-    shape[2] = nfrequency
-
+    shape[2] = len(frequency)
     # Create a chunked dataset.
     vis = Visibility.constructor(
         configuration=tmpvis.configuration,
@@ -57,7 +60,7 @@ def load_ms(client: Client, ms_name: str, fchunk: int) -> xr.Dataset:
         time=tmpvis.time,
         integration_time=tmpvis.integration_time,
         frequency=frequency,
-        channel_bandwidth=[chanwidth] * nfrequency,
+        channel_bandwidth=channel_bandwidth,
         polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
         source="bpcal",
         meta=None,
@@ -128,6 +131,7 @@ def run_solver(
     client: Client,
     vis: xr.Dataset,
     modelvis: xr.Dataset,
+    gaintable: Optional[xr.Dataset] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -137,6 +141,8 @@ def run_solver(
     :param client: Dask client.
     :param vis: Chunked Visibility dataset containing observed data.
     :param modelvis: Chunked Visibility dataset containing model data.
+    :param gaintable: Optional chunked GainTable dataset containing initial
+        solutions.
     :param solver: Solver type to use. Currently any solver type accepted by
         solve_gaintable. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
@@ -152,9 +158,10 @@ def run_solver(
     # Create a full-band bandpass calibration gain table
     #  - It may be more efficient to do this in sub-bands then concatenate...
     solution_interval = np.max(vis.time.data) - np.min(vis.time.data)
-    gaintable = create_gaintable_from_visibility(
-        vis, jones_type="B", timeslice=solution_interval
-    ).chunk({"frequency": fchunk})
+    if gaintable is None:
+        gaintable = create_gaintable_from_visibility(
+            vis, jones_type="B", timeslice=solution_interval
+        ).chunk({"frequency": fchunk})
 
     if len(gaintable.time) != 1:
         raise ValueError("error setting up gaintable")
@@ -226,16 +233,6 @@ def calibrate_dataset(
 
     :return: Calibrated Visibility dataset
     """
-    # Make sure there are differences that need correcting
-    Xconverged = client.compute(
-        np.allclose(modelvis.vis.data[..., 0], vis.vis.data[..., 0])
-    ).result()
-    assert not Xconverged, "X gain terms should have differences"
-    Yconverged = client.compute(
-        np.allclose(modelvis.vis.data[..., 3], vis.vis.data[..., 3])
-    ).result()
-    assert not Yconverged, "Y gain terms should have differences"
-
     # Add model and gaintable data to the observed vis dataset so a single
     # map_blocks call can be made.
     megaset = vis.assign(gain=gaintable.gain)
@@ -265,16 +262,5 @@ def calibrate_dataset(
 
     # Copy solutions back to the dataset
     vis.vis.data = megaset.vis.data
-
-    Xconverged = client.compute(
-        np.allclose(modelvis.vis.data[..., 0], vis.vis.data[..., 0])
-    ).result()
-    assert Xconverged, "X gain terms should have converged"
-    Yconverged = client.compute(
-        np.allclose(modelvis.vis.data[..., 3], vis.vis.data[..., 3])
-    ).result()
-    assert Yconverged, "Y gain terms should have converged"
-
-    logger.info("Final checks passed.")
 
     return vis
