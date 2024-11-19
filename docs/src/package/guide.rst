@@ -2,26 +2,21 @@
 .. _package-guide:
 
 .. todo::
-    - Add high-level workflow scripts
-    - Add data management functions
-    - Add processing functions
-    - Add tests and notebooks
+    - Review and improve dask handling.
+    - Time and frequency averaging before calibration.
+    - XRADIO / MSv4 data models.
+    - LOFAR HDF5 calibration output.
 
-*************************************
-SKA Instrumental Calibration Pipeline
-*************************************
+**********
+Public API
+**********
 
-This section describes requirements and guidelines.
+This package is intended to be used along with other SKA SDP batch processing
+pipelines to generate instrumental calibration solutions. It is expected to run
+early in batch processing, between batch pre-processing and self calibration.
 
-SKA INST Pipeline
-=================
+See the package README file for dependencies and installation instructions.
 
-Instrument calibration pipeline for the SKA SDP.
-
-.. Automatic API Documentation section. Generating the API from the docstrings. Modify / change the directory structure as you like
-
-Public API Documentation
-````````````````````````
 Functions
 ---------
 

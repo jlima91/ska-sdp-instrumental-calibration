@@ -71,11 +71,11 @@ def model_rotations(
         if np.max(np.abs(rm_spec)) > peak_threshold:
             rm_peeks[stn] = rm_vals[np.argmax(np.abs(rm_spec))]
 
-        xlim = 3 * np.max(np.abs(rm_peeks))
         if plot_sample and stn == nstations - 1:
+            xlim = 3 * np.max(np.abs(rm_peeks))
             plt.figure()
             ax = plt.subplot(111)
-            ax.set_title(f"plotting RM spectrum for station {stn}")
+            ax.set_title(f"RM spectrum for station {stn}")
             ax.set_xlabel("RM (rad / m^2)")
             ax.plot(rm_vals, np.abs(rm_spec), "b", label="abs")
             ax.plot(rm_vals, np.real(rm_spec), "c", label="re")
