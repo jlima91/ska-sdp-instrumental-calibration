@@ -11,9 +11,9 @@
 Public API
 **********
 
-This package is intended to be used along with other SKA SDP batch processing
-pipelines to generate instrumental calibration solutions. It is expected to run
-early in batch processing, between batch pre-processing and self calibration.
+This package will run as a batch processing pipeline (or pipelines), generating
+instrumental calibration solutions. It will run early in batch processing for a given
+observation, between batch pre-processing and self calibration.
 
 See the package README file for dependencies and installation instructions.
 
