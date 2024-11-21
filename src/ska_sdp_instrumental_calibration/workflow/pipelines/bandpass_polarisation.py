@@ -21,6 +21,10 @@ from dask.distributed import Client, LocalCluster
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
+from ska_sdp_func_python.preprocessing.averaging import (
+    averaging_frequency,
+    averaging_time,
+)
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
@@ -53,16 +57,6 @@ def run(pipeline_config) -> None:
         None
     """
 
-    gleamfile = pipeline_config.get("gleamfile", None)
-    if gleamfile is None:
-        raise ValueError("GLEAM catalogue gleamegc.dat is required.")
-    eb_ms = pipeline_config.get("eb_ms", None)
-    if eb_ms is None:
-        raise ValueError("Name of Everybeam mock Measurement Set is required.")
-    eb_coeffs = pipeline_config.get("eb_coeffs", None)
-    if eb_coeffs is None:
-        raise ValueError("Path to Everybeam coeffs directory is required.")
-
     # Required external data
     gleamfile = pipeline_config.get("gleamfile", None)
     if gleamfile is None:
@@ -82,8 +76,10 @@ def run(pipeline_config) -> None:
     fov = pipeline_config.get("fov_deg", 10)
     flux_limit = pipeline_config.get("flux_limit", 1)
 
-    # Run the RFI flagger?
-    rfi_flagging = pipeline_config.get("rfi_flagging", False)
+    # Pre-processing
+    rfi_flagging = False  # not yet set up for dask chunk
+    preproc_ave_time = 1  # not yet set up for dask chunk
+    preproc_ave_frequency = 1  # not yet set up for dask chunk
 
     if ms_name == "demo.ms":
         # Generate a demo MSv2 Measurement Set
@@ -110,12 +106,24 @@ def run(pipeline_config) -> None:
     logger.info(f"Reading {ms_name} in {fchunk}-channel chunks.")
     vis = load_ms(client, ms_name, fchunk)
 
-    # Do RFI flagging?
-    #  - Should already have been done in pre-processing pipeline...
-    #  - Note that I haven't checked how chunking is effected...
+    # Pre-processing
+    #  - Move these to dask_wrappers.
+    #  - Do RFI flagging?
     if rfi_flagging:
-        logger.info("Calling ska-sdp-func RFI flagger")
+        logger.info("Calling rfi_flagger")
         vis = rfi_flagger(vis)
+    #  - Time averaging?
+    if preproc_ave_time > 1:
+        logger.info(f"Averaging dataset by {preproc_ave_time} time steps")
+        vis = averaging_time(vis, timestep=preproc_ave_time)
+    #  - Frequency averaging?
+    if preproc_ave_frequency > 1:
+        logger.info(f"Averaging dataset by {preproc_ave_frequency} channels")
+        # Auto average to 781.25 kHz?
+        # dfrequency_bf = 781.25e3
+        # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
+        # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
+        vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
 
     # Get the LSM (single call for all channels)
     logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy.")
