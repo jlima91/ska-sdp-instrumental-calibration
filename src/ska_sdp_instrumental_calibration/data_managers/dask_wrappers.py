@@ -9,6 +9,7 @@ __all__ = [
 
 from typing import Optional
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 from casacore.tables import table
@@ -64,12 +65,14 @@ def load_ms(client: Client, ms_name: str, fchunk: int) -> xr.Dataset:
         polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
         source="bpcal",
         meta=None,
-        vis=np.zeros(shape, "complex"),
-        weight=np.zeros(shape, "float"),
-        flags=np.zeros(shape, "bool"),
+        vis=da.zeros(shape, "complex"),
+        weight=da.zeros(shape, "float"),
+        flags=da.zeros(shape, "bool"),
         uvw=tmpvis.uvw,
         baselines=tmpvis.baselines,
     ).chunk({"frequency": fchunk})
+
+    logger.info("definitely a change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
 
     # Set up function for map_blocks
     def _load(vischunk, ms_name, frequency):
