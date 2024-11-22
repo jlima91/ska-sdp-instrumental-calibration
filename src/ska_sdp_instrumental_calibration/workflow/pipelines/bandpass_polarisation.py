@@ -28,7 +28,7 @@ from ska_sdp_func_python.preprocessing.averaging import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    calibrate_dataset,
+    apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
     run_solver,
@@ -60,13 +60,13 @@ def run(pipeline_config) -> None:
     # Required external data
     gleamfile = pipeline_config.get("gleamfile", None)
     if gleamfile is None:
-        raise ValueError("GLEAM catalogue gleamegc.dat is required.")
+        raise ValueError("GLEAM catalogue gleamegc.dat is required")
     eb_ms = pipeline_config.get("eb_ms", None)
     if eb_ms is None:
-        raise ValueError("Name of Everybeam mock Measurement Set is required.")
+        raise ValueError("Name of Everybeam mock Measurement Set is required")
     eb_coeffs = pipeline_config.get("eb_coeffs", None)
     if eb_coeffs is None:
-        raise ValueError("Path to Everybeam coeffs directory is required.")
+        raise ValueError("Path to Everybeam coeffs directory is required")
 
     # Filename
     ms_name = pipeline_config.get("ms_name", "demo.ms")
@@ -77,13 +77,13 @@ def run(pipeline_config) -> None:
     flux_limit = pipeline_config.get("flux_limit", 1)
 
     # Pre-processing
-    rfi_flagging = False  # not yet set up for dask chunk
-    preproc_ave_time = 1  # not yet set up for dask chunk
-    preproc_ave_frequency = 1  # not yet set up for dask chunk
+    rfi_flagging = False  # not yet set up for dask chunks
+    preproc_ave_time = 1  # not yet set up for dask chunks
+    preproc_ave_frequency = 1  # not yet set up for dask chunks
 
     if ms_name == "demo.ms":
         # Generate a demo MSv2 Measurement Set
-        logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}.")
+        logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}")
         create_demo_ms(
             ms_name=ms_name,
             gains=True,
@@ -103,11 +103,12 @@ def run(pipeline_config) -> None:
     fchunk = 16
 
     # Read in the Visibility dataset
-    logger.info(f"Reading {ms_name} in {fchunk}-channel chunks.")
-    vis = load_ms(client, ms_name, fchunk)
+    logger.info(f"Reading {ms_name} in {fchunk}-channel chunks")
+    vis = load_ms(ms_name, fchunk)
 
     # Pre-processing
-    #  - Move these to dask_wrappers.
+    #  - Is triggering the computation as is, so leave for now.
+    #  - Move to dask_wrappers? RFI flagging may need bandwidth...
     #  - Do RFI flagging?
     if rfi_flagging:
         logger.info("Calling rfi_flagger")
@@ -126,7 +127,7 @@ def run(pipeline_config) -> None:
         vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
 
     # Get the LSM (single call for all channels)
-    logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy.")
+    logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy")
     lsm = generate_lsm(
         gleamfile=gleamfile,
         phasecentre=vis.phasecentre,
@@ -135,13 +136,12 @@ def run(pipeline_config) -> None:
     )
 
     # Predict model visibilities
-    logger.info(f"Predicting model visibilities in {fchunk}-channel chunks.")
-    modelvis = predict_vis(client, vis, lsm, eb_ms, eb_coeffs)
+    logger.info(f"Predicting model visibilities in {fchunk}-channel chunks")
+    modelvis = predict_vis(vis, lsm, eb_ms, eb_coeffs)
 
     # Call the solver
-    logger.info(f"Running calibration in {fchunk}-channel chunks.")
+    logger.info(f"Running calibration in {fchunk}-channel chunks")
     initialtable = run_solver(
-        client,
         vis=vis,
         modelvis=modelvis,
         solver="jones_substitution",
@@ -152,15 +152,19 @@ def run(pipeline_config) -> None:
     # Load all of the solutions into a numpy array and fit for any
     # differential rotations (single call for all channels).
     # Return gaintable filled with pure rotations.
+    #  - If the vis data and model can fit into memory, it would be a good
+    #    time to make them persistent. Otherwise they will be re-loaded and
+    #    re-predicted in the next graph below.
+    #  - Alternatively, export them to disk in a chunked way (e.g. to zarr)
+    #  - Alternatively, can regenerate. Do this for now.
     initialtable.load()
     gaintable = model_rotations(initialtable, plot_sample=True).chunk(
         {"frequency": fchunk}
     )
 
     # Call the solver with updated initial solutions
-    logger.info(f"Rerunning calibration in {fchunk}-channel chunks.")
+    logger.info(f"Rerunning calibration in {fchunk}-channel chunks")
     gaintable = run_solver(
-        client,
         vis=vis,
         modelvis=modelvis,
         gaintable=gaintable,
@@ -170,23 +174,25 @@ def run(pipeline_config) -> None:
     )
 
     # Output hdf5 file
-    logger.info(f"Writing solutions to {hdf5_name}.")
+    logger.info(f"Writing solutions to {hdf5_name}")
     export_gaintable_to_hdf5([gaintable], hdf5_name)
 
-    # Final checks (demo version)
+    # Convergence checks (noise-free demo version)
+    #  - Note that this runs the graph again. I tried assigning both vis
+    #    and modelvis to gaintable for a single load, but it got confused
+    #    by the baseline MultiIndex. MultiIndex causes a lot of trouble...
+    #  - This is just a quick check, so it shouldn't hurt to run it again.
     if ms_name == "demo.ms":
 
-        logger.info("Applying solutions.")
-        vis = calibrate_dataset(client, vis, modelvis, gaintable)
+        logger.info("Applying solutions")
+        vis = apply_gaintable_to_dataset(vis, gaintable)
 
-        logger.info("Checking results.")
-        vis.load()
-        modelvis.load()
+        logger.info("Checking results")
         converged = np.allclose(modelvis.vis.data, vis.vis.data, atol=1e-6)
         if converged:
-            logger.info("Solutions converged. Checks passed")
+            logger.info("Convergence checks passed")
         else:
-            logger.warning("Solutions did not converge.")
+            logger.warning("Solving failed")
 
     # Shut down the scheduler and workers
     client.close()

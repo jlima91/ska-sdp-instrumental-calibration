@@ -1,10 +1,19 @@
-"""Wrapper functions to manage xarray dataset map_blocks calls"""
+"""Wrapper functions to manage xarray dataset map_blocks calls.
+
+General comment from Vincent: I don't recommend calling map_blocks and other
+dask constructs on functions defined at such local scope, because there's
+always a danger they will capture some of their context in a closure, and that
+context (which might include large arrays) then has to be passed around between
+the workers and the scheduler as part of tasks. Here you're not using variables
+from a higher scope in that local function, so you should be fine, but a
+mistake happens easily.
+"""
 
 __all__ = [
     "load_ms",
     "predict_vis",
     "run_solver",
-    "calibrate_dataset",
+    "apply_gaintable_to_dataset",
 ]
 
 from typing import Optional
@@ -13,7 +22,6 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from casacore.tables import table
-from dask.distributed import Client
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
@@ -36,10 +44,9 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 logger = setup_logger("data_managers.dask_wrappers")
 
 
-def load_ms(client: Client, ms_name: str, fchunk: int) -> xr.Dataset:
+def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     """Distributed load of a MSv2 Measurement Set into a Visibility dataset.
 
-    :param client: Dask client.
     :param ms_name: Name of input Measurement Set.
     :param fchunk: Number of channels in the frequency chunks
     :return: Chunked Visibility dataset
@@ -72,28 +79,23 @@ def load_ms(client: Client, ms_name: str, fchunk: int) -> xr.Dataset:
         baselines=tmpvis.baselines,
     ).chunk({"frequency": fchunk})
 
-    logger.info("definitely a change here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-
     # Set up function for map_blocks
     def _load(vischunk, ms_name, frequency):
-        start_chan = np.where(frequency == vischunk.frequency.data[0])[0][0]
-        end_chan = np.where(frequency == vischunk.frequency.data[-1])[0][0]
         if len(vischunk.frequency) > 0:
+            start = np.where(frequency == vischunk.frequency.data[0])[0][0]
+            end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
             vischunk = create_visibility_from_ms(
                 ms_name,
-                start_chan=start_chan,
-                end_chan=end_chan,
+                start_chan=start,
+                end_chan=end,
             )[0]
         return vischunk
 
     # Call map_blocks function and return result
-    return client.persist(
-        vis.map_blocks(_load, args=[ms_name, frequency], template=vis)
-    )
+    return vis.map_blocks(_load, args=[ms_name, frequency], template=vis)
 
 
 def predict_vis(
-    client: Client,
     vis: xr.Dataset,
     lsm: list,
     eb_ms: str,
@@ -101,7 +103,6 @@ def predict_vis(
 ) -> xr.Dataset:
     """Distributed load of a MSv2 Measurement Set into a Visibility dataset.
 
-    :param client: Dask client.
     :param vis: Visibility dataset containing observed data to be modelled.
     :param lsm: Number of channels in the frequency chunks.
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
@@ -125,13 +126,10 @@ def predict_vis(
         return vischunk
 
     # Call map_blocks function and return result
-    return client.persist(
-        modelvis.map_blocks(_predict, args=[lsm, eb_coeffs, eb_ms])
-    )
+    return modelvis.map_blocks(_predict, args=[lsm, eb_coeffs, eb_ms])
 
 
 def run_solver(
-    client: Client,
     vis: xr.Dataset,
     modelvis: xr.Dataset,
     gaintable: Optional[xr.Dataset] = None,
@@ -141,7 +139,6 @@ def run_solver(
 ) -> xr.Dataset:
     """Do the bandpass calibration.
 
-    :param client: Dask client.
     :param vis: Chunked Visibility dataset containing observed data.
     :param modelvis: Chunked Visibility dataset containing model data.
     :param gaintable: Optional chunked GainTable dataset containing initial
@@ -155,7 +152,7 @@ def run_solver(
     """
     fchunk = vis.chunks["frequency"][0]
     if fchunk <= 0:
-        logger.warning("vis dataset does not appear to be chunked.")
+        logger.warning("vis dataset does not appear to be chunked")
         fchunk = 1
 
     # Create a full-band bandpass calibration gain table
@@ -212,9 +209,7 @@ def run_solver(
         return vischunk
 
     # Call map_blocks function
-    megaset = client.compute(
-        megaset.map_blocks(_solve, args=[refant])
-    ).result()
+    megaset = megaset.map_blocks(_solve, args=[refant])
 
     # Copy solutions back to the gaintable dataset and return result
     gaintable.gain.data = megaset.gain.data
@@ -222,22 +217,18 @@ def run_solver(
     return gaintable
 
 
-def calibrate_dataset(
-    client: Client,
+def apply_gaintable_to_dataset(
     vis: xr.Dataset,
-    modelvis: xr.Dataset,
     gaintable: xr.Dataset,
 ) -> xr.Dataset:
     """Do the bandpass calibration.
 
-    :param client: Dask client.
     :param vis: Chunked Visibility dataset containing observed data.
     :param gaintable: Chunked Visibility dataset containing model data.
 
     :return: Calibrated Visibility dataset
     """
-    # Add model and gaintable data to the observed vis dataset so a single
-    # map_blocks call can be made.
+    # Add gaintable data to the vis dataset for a single map_blocks call
     megaset = vis.assign(gain=gaintable.gain)
 
     # Set up function for map_blocks
@@ -261,7 +252,7 @@ def calibrate_dataset(
         return vischunk
 
     # Call map_blocks function
-    megaset = client.compute(megaset.map_blocks(_apply)).result()
+    megaset = megaset.map_blocks(_apply)
 
     # Copy solutions back to the dataset
     vis.vis.data = megaset.vis.data
