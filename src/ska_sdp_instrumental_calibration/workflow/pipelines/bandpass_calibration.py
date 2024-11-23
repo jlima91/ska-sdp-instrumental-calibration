@@ -125,11 +125,6 @@ def run(pipeline_config) -> None:
         vis=vis, modelvis=modelvis, solver=solver, niter=50, refant=0
     )
 
-    # Output hdf5 file
-    logger.info(f"Writing solutions to {hdf5_name}")
-    gaintable.load()
-    export_gaintable_to_hdf5([gaintable], hdf5_name)
-
     # Convergence checks (noise-free demo version)
     #  - Note that this runs the graph again. I tried assigning both vis
     #    and modelvis to gaintable for a single load, but it got confused
@@ -150,6 +145,11 @@ def run(pipeline_config) -> None:
             logger.info("Convergence checks passed")
         else:
             logger.warning("Solving failed")
+
+    # Output hdf5 file
+    logger.info(f"Writing solutions to {hdf5_name}")
+    gaintable.load()
+    export_gaintable_to_hdf5([gaintable], hdf5_name)
 
     # Shut down the scheduler and workers
     client.close()

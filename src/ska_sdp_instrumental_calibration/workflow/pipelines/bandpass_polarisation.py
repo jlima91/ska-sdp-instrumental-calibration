@@ -173,26 +173,25 @@ def run(pipeline_config) -> None:
         refant=0,
     )
 
-    # Output hdf5 file
-    logger.info(f"Writing solutions to {hdf5_name}")
-    export_gaintable_to_hdf5([gaintable], hdf5_name)
-
     # Convergence checks (noise-free demo version)
     #  - Note that this runs the graph again. I tried assigning both vis
     #    and modelvis to gaintable for a single load, but it got confused
     #    by the baseline MultiIndex. MultiIndex causes a lot of trouble...
     #  - This is just a quick check, so it shouldn't hurt to run it again.
     if ms_name == "demo.ms":
-
         logger.info("Applying solutions")
         vis = apply_gaintable_to_dataset(vis, gaintable)
-
         logger.info("Checking results")
         converged = np.allclose(modelvis.vis.data, vis.vis.data, atol=1e-6)
         if converged:
             logger.info("Convergence checks passed")
         else:
             logger.warning("Solving failed")
+
+    # Output hdf5 file
+    logger.info(f"Writing solutions to {hdf5_name}")
+    gaintable.load()
+    export_gaintable_to_hdf5([gaintable], hdf5_name)
 
     # Shut down the scheduler and workers
     client.close()

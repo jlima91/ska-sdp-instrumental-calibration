@@ -5,7 +5,6 @@ __all__ = [
     "predict_from_components",
 ]
 
-import importlib
 import os
 
 import numpy as np
@@ -97,7 +96,7 @@ def dft_skycomponent_local(
         )
         if comp.shape == "GAUSSIAN":
             comp_data *= gaussian_tapers(uvw, comp.params)[..., np.newaxis]
-        vis.vis.data += comp_data
+        vis.vis.data = vis.vis.data + comp_data
 
     return vis
 
@@ -160,10 +159,14 @@ def predict_from_components(
         )
         response[..., :, :] = np.eye(2)
 
-    # Use a less-efficient DFT if ska-sdp-func is not available
-    have_sdp_func = importlib.util.find_spec("ska_sdp_func") is not None
+    # Use dft_skycomponent_local when the sdp-func DFT is unavailable
+    # use_local_dft = importlib.util.find_spec("ska_sdp_func") is None
+    # Actually, the sdp-func DFT doesn't like the local Visibility class
+    # that is used to bypass issues with the MultiIndex baselines dim. So use
+    # the local DFT.
+    use_local_dft = True
 
-    if have_sdp_func:
+    if not use_local_dft:
         # The ska-sdp-func version does not taper Gaussians, so do it below
         need_uvws = False
         for comp in skycomponents:
@@ -182,16 +185,15 @@ def predict_from_components(
 
         # Predict model visibilities for component
         compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
-        if have_sdp_func:
+        if use_local_dft:
+            dft_skycomponent_local(compvis, comp)
+        else:
             dft_skycomponent_visibility(compvis, comp)
             if comp.shape == "GAUSSIAN":
                 # Apply Gaussian tapers
                 compvis.vis.data *= gaussian_tapers(uvw, comp.params)[
                     ..., np.newaxis
                 ]
-
-        else:
-            dft_skycomponent_local(compvis, comp)
 
         # Apply beam distortions and add to combined model visibilities
         if beam_type == "everybeam":
