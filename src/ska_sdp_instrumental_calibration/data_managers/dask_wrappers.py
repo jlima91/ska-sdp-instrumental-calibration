@@ -118,8 +118,9 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
 def predict_vis(
     vis: xr.Dataset,
     lsm: list,
-    eb_ms: str,
-    eb_coeffs: str,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
 ) -> xr.Dataset:
     """Distributed load of a MSv2 Measurement Set into a Visibility dataset.
 
@@ -133,7 +134,7 @@ def predict_vis(
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
 
     # Set up function for map_blocks
-    def _predict(vischunk, lsm, eb_coeffs, eb_ms):
+    def _predict(vischunk, lsm, beam_type, eb_coeffs, eb_ms):
         if len(vischunk.frequency) > 0:
             # Evaluate LSM for current band
             lsm_components = convert_model_to_skycomponents(
@@ -141,12 +142,18 @@ def predict_vis(
             )
             # Call predict
             predict_from_components(
-                vischunk, lsm_components, eb_coeffs=eb_coeffs, eb_ms=eb_ms
+                vischunk,
+                lsm_components,
+                beam_type=beam_type,
+                eb_coeffs=eb_coeffs,
+                eb_ms=eb_ms,
             )
         return vischunk
 
     # Call map_blocks function and return result
-    return modelvis.map_blocks(_predict, args=[lsm, eb_coeffs, eb_ms])
+    return modelvis.map_blocks(
+        _predict, args=[lsm, beam_type, eb_coeffs, eb_ms]
+    )
 
 
 def run_solver(
@@ -196,6 +203,9 @@ def run_solver(
                 raise ValueError("Inconsistent frequencies")
             if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
                 raise ValueError("Inconsistent frequencies")
+            # Switch back to standard variable names for the SDP call
+            gainchunk = gainchunk.rename({"soln_time": "time"})
+            # Call the SDP function
             solve_bandpass(
                 vis=vischunk,
                 modelvis=modelchunk,
@@ -204,31 +214,48 @@ def run_solver(
                 refant=refant,
                 niter=niter,
             )
+            # Change the time dimension name back for map_blocks I/O checks
+            gainchunk = gainchunk.rename({"time": "soln_time"})
 
         return gainchunk
 
-    return gaintable.map_blocks(_solve, args=[vis, modelvis, refant])
+    # map_blocks won't accept dimensions that differ but have the same name
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.rename({"time": "soln_time"})
+    gaintable = gaintable.map_blocks(_solve, args=[vis, modelvis, refant])
+    # Undo any temporary variable name changes
+    gaintable = gaintable.rename({"soln_time": "time"})
+    return gaintable
 
 
 def apply_gaintable_to_dataset(
     vis: xr.Dataset,
     gaintable: xr.Dataset,
+    inverse: bool = False,
 ) -> xr.Dataset:
     """Do the bandpass calibration.
 
     :param vis: Chunked Visibility dataset containing observed data.
     :param gaintable: Chunked Visibility dataset containing model data.
+    :param inverse: Apply the inverse. This requires the gain matrices to be
+        square. (default=False)
     :return: Calibrated Visibility dataset
     """
 
     # Set up function for map_blocks
-    def _apply(vischunk, gainchunk):
+    def _apply(vischunk, gainchunk, inverse):
         if len(vischunk.frequency) > 0:
             if np.any(gainchunk.frequency.data != vischunk.frequency.data):
                 raise ValueError("Inconsistent frequencies")
+            # Switch back to standard variable names for the SDP call
+            gainchunk = gainchunk.rename({"soln_time": "time"})
+            # Call the SDP function
             vischunk = apply_gaintable(
-                vis=vischunk, gt=gainchunk, inverse=True
+                vis=vischunk, gt=gainchunk, inverse=inverse
             )
         return vischunk
 
-    return vis.map_blocks(_apply, args=[gaintable])
+    # map_blocks won't accept dimensions that differ but have the same name
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.rename({"time": "soln_time"})
+    return vis.map_blocks(_apply, args=[gaintable, inverse])

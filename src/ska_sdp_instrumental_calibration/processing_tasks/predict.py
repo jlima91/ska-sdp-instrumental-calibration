@@ -6,6 +6,7 @@ __all__ = [
 ]
 
 import os
+from typing import Optional
 
 import numpy as np
 import xarray as xr
@@ -106,8 +107,8 @@ def predict_from_components(
     skycomponents: list[SkyComponent],
     reset_vis: bool = False,
     beam_type: str = "everybeam",
-    eb_coeffs: str = None,
-    eb_ms: str = None,
+    eb_coeffs: Optional[str] = None,
+    eb_ms: Optional[str] = None,
 ) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 
@@ -137,6 +138,8 @@ def predict_from_components(
 
     # Set up the beam model
     if beam_type == "everybeam":
+        if eb_coeffs is None or eb_ms is None:
+            raise ValueError("eb_coeffs and eb_ms required for everybeam")
         # Could do this once externally, but don't want to pass around
         # exotic data types.
         os.environ["EVERYBEAM_DATADIR"] = eb_coeffs

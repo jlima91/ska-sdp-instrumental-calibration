@@ -50,9 +50,6 @@ referencing = "^0.35.1"
 rpds-py = "^0.20.1"
 jsonschema_specifications = "^2024.10.1"
 
-# optional dependencies; used by "extras"
-# python-casacore = {version = "^3.5", optional = true}
-
 [tool.poetry.extras]
 python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]

@@ -137,7 +137,7 @@ def run(pipeline_config) -> None:
 
     # Predict model visibilities
     logger.info(f"Predicting model visibilities in {fchunk}-channel chunks")
-    modelvis = predict_vis(vis, lsm, eb_ms, eb_coeffs)
+    modelvis = predict_vis(vis, lsm, eb_ms=eb_ms, eb_coeffs=eb_coeffs)
 
     # Call the solver
     logger.info(f"Running calibration in {fchunk}-channel chunks")
@@ -180,7 +180,7 @@ def run(pipeline_config) -> None:
     #  - This is just a quick check, so it shouldn't hurt to run it again.
     if ms_name == "demo.ms":
         logger.info("Applying solutions")
-        vis = apply_gaintable_to_dataset(vis, gaintable)
+        vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         logger.info("Checking results")
         converged = np.allclose(modelvis.vis.data, vis.vis.data, atol=1e-6)
         if converged:

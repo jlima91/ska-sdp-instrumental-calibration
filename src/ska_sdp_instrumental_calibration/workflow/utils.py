@@ -127,7 +127,7 @@ def create_demo_ms(
     nfrequency = 64
     frequency = 781.25e3 * 128 + chanwidth * np.arange(nfrequency)
     sample_time = 0.9  # seconds
-    solution_interval = sample_time  # would normally be minutes
+    solution_interval = 1 * sample_time  # would normally be minutes
 
     #  - Set the phase centre hour angle range for the sim (in radians)
     ha0 = 1 * np.pi / 12  # radians
