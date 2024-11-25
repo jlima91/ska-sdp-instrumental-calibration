@@ -16,7 +16,6 @@ from astropy.coordinates import AltAz
 from astropy.time import Time
 from numpy import typing
 from ska_sdp_datamodels.sky_model import SkyComponent
-from ska_sdp_datamodels.visibility.vis_model import Visibility
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -211,29 +210,14 @@ def predict_from_components(
                 time=time,
             )
 
-        # For a direct call, this should be an in-place update.
-        # When called via xr.map_blocks, it is read-only and the
-        # in-place update is handled elsewhere. There will be a cleaner
-        # way to do this, but for now just get it working.
-        if isinstance(vis, Visibility):
-            # Assumed to be direct call
-            vis.vis.data += (
-                np.einsum(  # pylint: disable=too-many-function-args
-                    "bfpx,tbfxy,bfqy->tbfpq",
-                    response[compvis.antenna1.data, :, :, :],
-                    compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
-                    response[compvis.antenna2.data, :, :, :].conj(),
-                ).reshape(vis.vis.shape)
-            )
-        else:
-            # Assumed to be via xr.map_blocks
-            vis.vis.data = vis.vis.data + (
-                np.einsum(  # pylint: disable=too-many-function-args
-                    "bfpx,tbfxy,bfqy->tbfpq",
-                    response[compvis.antenna1.data, :, :, :],
-                    compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
-                    response[compvis.antenna2.data, :, :, :].conj(),
-                ).reshape(vis.vis.shape)
-            )
+        # Accumulate component in the main dataset
+        vis.vis.data = vis.vis.data + (
+            np.einsum(  # pylint: disable=too-many-function-args
+                "bfpx,tbfxy,bfqy->tbfpq",
+                response[compvis.antenna1.data, :, :, :],
+                compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
+                response[compvis.antenna2.data, :, :, :].conj(),
+            ).reshape(vis.vis.shape)
+        )
 
     return vis
