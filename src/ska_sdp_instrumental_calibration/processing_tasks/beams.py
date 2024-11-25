@@ -4,13 +4,12 @@ import logging
 
 import everybeam as eb
 import numpy as np
-from astropy import units
+import xarray as xr
 from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
 from numpy import typing
-from ska_sdp_datamodels.visibility.vis_model import Visibility
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("processing_tasks.beams")
 
 
 class GenericBeams:
@@ -29,7 +28,7 @@ class GenericBeams:
     For other array types, all beam values are set to 2x2 identity matrices.
 
     Args:
-        vis (Visibility) dataset containing required metadata.
+        vis (xr.Dataset) dataset containing required metadata.
         array (str) array type (e.g. "low" or "mid"). By default the vis
             configuration name will be searched for an obvious match.
         direction (SkyCoord) beam direction. By default the vis phase centre
@@ -40,13 +39,13 @@ class GenericBeams:
 
     def __init__(
         self,
-        vis: Visibility,
+        vis: xr.Dataset,
         array: str = None,
         direction: SkyCoord = None,
         ms_path: str = None,
     ):
-        if not isinstance(vis, Visibility):
-            raise ValueError(f"Data is not of type Visibility: {type(vis)}")
+        if not isinstance(vis, xr.Dataset):
+            raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
 
         # Can relax this, but do it like this for now...
         if vis._polarisation_frame != "linear" or len(vis.polarisation) != 4:
@@ -69,7 +68,7 @@ class GenericBeams:
                     xyz[0],
                     xyz[1],
                     xyz[2],
-                    unit=units.m,  # pylint: disable=no-member
+                    unit="m",
                 )
             )
 
@@ -97,6 +96,8 @@ class GenericBeams:
         if array.lower() == "low":
             logger.info("Initialising beams for Low")
             self.array = array.lower()
+            if ms_path is None:
+                raise ValueError("Low array requires ms_path for everybeam.")
             self.telescope = eb.load_telescope(
                 ms_path,
                 use_differential_beam=False,
@@ -132,6 +133,7 @@ class GenericBeams:
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
         for chan, freq in enumerate(frequency):
             self.normalise[chan] = np.linalg.inv(
+                # This is normalising in be beam dir, but should be zenith
                 self.telescope.station_response(
                     time.mjd * 86400,
                     station_id,
@@ -173,6 +175,9 @@ class GenericBeams:
             if time is None:
                 raise ValueError("Time must be specified for the Low beam.")
 
+            if self.delay_dir_itrf is None:
+                self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
+
             # Just grab the first one and make them all the same for now
             station_id = 0
             mjds = time.mjd * 86400
@@ -188,10 +193,10 @@ class GenericBeams:
                     @ self.normalise[chan]
                 )
             np.set_printoptions(linewidth=120, precision=4, suppress=True)
-            print(
-                f"sep = {direction.separation(self.beam_direction):.1f}, "
-                + f"response = {beams[0, 0, :, :].reshape(4)}"
-            )
+            # print(
+            #     f"sep = {direction.separation(self.beam_direction):.1f}, "
+            #     + f"response = {beams[0, 0, :, :].reshape(4)}"
+            # )
 
         else:
             beams[..., :, :] = np.eye(2)

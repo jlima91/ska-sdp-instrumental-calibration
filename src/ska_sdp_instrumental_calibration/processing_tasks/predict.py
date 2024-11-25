@@ -6,15 +6,16 @@ __all__ = [
 ]
 
 import importlib
+import os
+from typing import Optional
 
 import numpy as np
-import xarray
+import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import AltAz
 from astropy.time import Time
 from numpy import typing
 from ska_sdp_datamodels.sky_model import SkyComponent
-from ska_sdp_datamodels.visibility.vis_model import Visibility
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -22,7 +23,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.beams import (
     GenericBeams,
 )
 
-logger = setup_logger(__name__)
+logger = setup_logger("processing_tasks.predict")
 
 
 def gaussian_tapers(
@@ -31,8 +32,7 @@ def gaussian_tapers(
 ) -> typing.NDArray[np.float_]:
     """Calculated visibility amplitude tapers for Gaussian components.
 
-    Note that this need to be tested. Generate and image a model component...
-    And compare with ska-sdp-func? No, seems to ignore.
+    Note: this needs to be tested. Generate, image and fit a model component?
 
     :param uvw: baseline coordinates ([time, baseline, frequency, dir]).
     :param params: dictionary of shape params {bmaj, bmin, bpa} in degrees.
@@ -51,9 +51,9 @@ def gaussian_tapers(
 
 
 def dft_skycomponent_local(
-    vis: xarray.Dataset,
+    vis: xr.Dataset,
     skycomponents: list[SkyComponent],
-) -> xarray.Dataset:
+) -> xr.Dataset:
     """Quick 'n dirty numpy-based predict for local testing without sdp.func.
 
     :param vis: Visibility dataset to be added to.
@@ -97,54 +97,56 @@ def dft_skycomponent_local(
         )
         if comp.shape == "GAUSSIAN":
             comp_data *= gaussian_tapers(uvw, comp.params)[..., np.newaxis]
-        vis.vis.data += comp_data
+        vis.vis.data = vis.vis.data + comp_data
 
     return vis
 
 
 def predict_from_components(
-    vis: xarray.Dataset,
+    vis: xr.Dataset,
     skycomponents: list[SkyComponent],
-    beams: GenericBeams = None,
     reset_vis: bool = False,
-) -> xarray.Dataset:
+    beam_type: str = "everybeam",
+    eb_coeffs: Optional[str] = None,
+    eb_ms: Optional[str] = None,
+) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 
     :param vis: Visibility dataset to be added to.
     :param skycomponents: SkyComponent List containing the local sky model
-    :param beams: Optional GenericBeams object. Defaults to no beams.
     :param reset_vis: Whether or not to set visibilities to zero before
         accumulating components. Default is False.
+    :param beam_type: Type of beam model to use. Default is "everybeam". If set
+        to None, no beam will be applied.
+    :param eb_coeffs: Everybeam coeffs datadir containing beam coefficients.
+        Required if beam_type is "everybeam".
+    :param eb_ms: Measurement set need to initialise the everybeam telescope.
+        Required if bbeam_type is "everybeam".
     """
-    if not isinstance(vis, Visibility):
-        raise ValueError(f"vis is not of type Visibility: {type(vis)}")
+    if not isinstance(vis, xr.Dataset):
+        raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
 
     if len(skycomponents) == 0:
         logger.warning("No sky model components to predict")
         return
 
-    # Use a less-efficient DFT if ska-sdp-func is not available
-    have_sdp_func = importlib.util.find_spec("ska_sdp_func") is not None
-
     if reset_vis:
-        vis.vis.data *= 0
+        vis.vis.data = np.zeros(vis.vis.shape, "complex")
 
-    if beams is None:
-        # Without direction-dependent beams, do all components together
-        if have_sdp_func:
-            # This doesn't seem to take comp.shape into account...
-            func_vis = vis.copy()
-            dft_skycomponent_visibility(func_vis, skycomponents)
-            vis.vis.data[...] = func_vis.vis.data[...]
-            # vis = dft_skycomponent_local(vis, skycomponents)
-        else:
-            dft_skycomponent_local(vis, skycomponents)
+    # Just use the beam near the middle of the scan?
+    time = np.mean(Time(vis.datetime.data))
 
-    else:
-        # Otherwise predict the components one at a time
+    # Set up the beam model
+    if beam_type == "everybeam":
+        if eb_coeffs is None or eb_ms is None:
+            raise ValueError("eb_coeffs and eb_ms required for everybeam")
+        # Could do this once externally, but don't want to pass around
+        # exotic data types.
+        os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
+        beams = GenericBeams(vis=vis, array="Low", ms_path=eb_ms)
 
-        # Just use the beam near the middle of the scan?
-        time = np.mean(Time(vis.datetime.data))
+        # Update ITRF coordinates of the beam and normalisation factors
+        beams.update_beam(frequency=vis.frequency.data, time=time)
 
         # Check beam pointing direction
         altaz = beams.beam_direction.transform_to(
@@ -153,10 +155,47 @@ def predict_from_components(
         if altaz.alt.degree < 0:
             raise ValueError(f"Pointing below horizon el={altaz.alt.degree}")
 
-        beams.update_beam(frequency=vis.frequency.data, time=time)
+    else:
+        response = np.zeros(
+            (len(vis.configuration.id), len(vis.frequency), 2, 2),
+            dtype=vis.vis.dtype,
+        )
+        response[..., :, :] = np.eye(2)
 
+    # Use dft_skycomponent_local when the sdp-func DFT is unavailable
+    use_local_dft = importlib.util.find_spec("ska_sdp_func") is None
+
+    if not use_local_dft:
+        # The ska-sdp-func version does not taper Gaussians, so do it below
+        need_uvws = False
         for comp in skycomponents:
+            if comp.shape == "GAUSSIAN":
+                need_uvws = True
+                break
+        if need_uvws:
+            uvw = np.einsum(
+                "tbd,f->tbfd",
+                vis.uvw.data,
+                vis.frequency.data
+                / const.c.value,  # pylint: disable=no-member
+            )
 
+    for comp in skycomponents:
+
+        # Predict model visibilities for component
+        compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
+        if use_local_dft:
+            dft_skycomponent_local(compvis, comp)
+        else:
+            dft_skycomponent_visibility(compvis, comp)
+            if comp.shape == "GAUSSIAN":
+                # Apply Gaussian tapers
+                compvis.vis.data *= gaussian_tapers(uvw, comp.params)[
+                    ..., np.newaxis
+                ]
+
+        # Apply beam distortions and add to combined model visibilities
+        if beam_type == "everybeam":
             # Check component direction
             altaz = comp.direction.transform_to(
                 AltAz(obstime=time, location=beams.array_location)
@@ -165,28 +204,20 @@ def predict_from_components(
                 logger.warning("LSM component [%s] below horizon", comp.name)
                 continue
 
-            # Predict model visibilities for component
-            compvis = vis.assign({"vis": xarray.zeros_like(vis.vis)})
-            if have_sdp_func:
-                dft_skycomponent_visibility(compvis, comp)
-            else:
-                dft_skycomponent_local(compvis, comp)
-
-            # Apply beam distortions and add to combined model visibilities
             response = beams.array_response(
                 direction=comp.direction,
                 frequency=vis.frequency.data,
                 time=time,
             )
 
-            # This is overkill if the beams are the same for all antennas...
-            vis.vis.data += (
-                np.einsum(  # pylint: disable=too-many-function-args
-                    "bfpx,tbfxy,bfqy->tbfpq",
-                    response[compvis.antenna1.data, :, :, :],
-                    compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
-                    response[compvis.antenna2.data, :, :, :].conj(),
-                ).reshape(vis.vis.shape)
-            )
+        # Accumulate component in the main dataset
+        vis.vis.data = vis.vis.data + (
+            np.einsum(  # pylint: disable=too-many-function-args
+                "bfpx,tbfxy,bfqy->tbfpq",
+                response[compvis.antenna1.data, :, :, :],
+                compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
+                response[compvis.antenna2.data, :, :, :].conj(),
+            ).reshape(vis.vis.shape)
+        )
 
     return vis

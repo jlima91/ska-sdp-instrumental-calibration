@@ -21,7 +21,7 @@ from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger("processing_tasks.lsm_tmp")
 
 
 @dataclass

@@ -1,88 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Tests for the ska_python_skeleton module."""
+"""Calibration tests for the ska-sdp-instrumental-calibration module."""
+
+# flake8 does not seem to like the generate_vis pytest fixture
+# flake8: noqa: F401
+
 import numpy as np
 import pytest
-from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_datamodels.configuration.config_create import (
-    create_named_configuration,
-)
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
-from ska_sdp_datamodels.visibility.vis_create import create_visibility
 from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
 
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
     solve_bandpass,
 )
-
-
-@pytest.fixture
-def generate_vis():
-    """Fixture to build Visibility and GainTable datasets."""
-    # Create the Visibility dataset
-    config = create_named_configuration("LOWBD2")
-    AA2 = (
-        np.concatenate(
-            (
-                345 + np.arange(6),  # S8-1:6
-                351 + np.arange(4),  # S9-1:4
-                429 + np.arange(6),  # S10-1:6
-                447 + np.arange(4),  # S13-1:4
-                459 + np.arange(4),  # S15-1:4
-                465 + np.arange(4),  # S16-1:4
-                375 + np.arange(4),  # N8-1:4
-                381 + np.arange(4),  # N9-1:4
-                471 + np.arange(4),  # N10-1:4
-                489 + np.arange(4),  # N13-1:4
-                501 + np.arange(4),  # N15-1:4
-                507 + np.arange(4),  # N16-1:4
-                315 + np.arange(4),  # E8-1:4
-                321 + np.arange(4),  # E9-1:4
-                387 + np.arange(4),  # E10-1:4
-                405 + np.arange(4),  # E13-1:4
-            )
-        )
-        - 1
-    )
-    mask = np.isin(config.id.data, AA2)
-    nstations = config.stations.shape[0]
-    config = config.sel(indexers={"id": np.arange(nstations)[mask]})
-    # Reset relevant station parameters
-    nstations = config.stations.shape[0]
-    config.stations.data = np.arange(nstations).astype("str")
-    config = config.assign_coords(id=np.arange(nstations))
-    # config.attrs["name"] = config.name+"-AA2"
-    config.attrs["name"] = "AA2-Low-ECP-240228"
-    vis = create_visibility(
-        config=config,
-        times=np.arange(3) * 0.9 / 3600 * np.pi / 12,
-        frequency=150e6 + 1e6 * np.arange(4),
-        channel_bandwidth=[1e6] * 4,
-        phasecentre=SkyCoord(ra=0, dec=-27, unit="degree"),
-        polarisation_frame=PolarisationFrame("linear"),
-        weight=1.0,
-    )
-    # Put a point source at phase centre
-    vis.vis.data[..., :] = [1, 0, 0, 1]
-
-    return vis
+from tests.test_utils import generate_vis
 
 
 def test_apply_gaintable(generate_vis):
     """Test application and correction of Jones matrices."""
-    vis = generate_vis
-
-    # Create the GainTable dataset
-    jones = create_gaintable_from_visibility(vis, jones_type="B")
-    jones.gain.data[..., 0, 0] = 1 - 0.1j
-    jones.gain.data[..., 1, 1] = 3 + 0j
-    jones.gain.data += np.random.normal(0, 0.2, jones.gain.shape)
-    jones.gain.data += np.random.normal(0, 0.2, jones.gain.shape) * 1j
+    vis, jones = generate_vis
 
     # Apply the GainTable dataset to the Visibility dataset
     assert np.all(vis.vis.data[..., :] == [1, 0, 0, 1])
@@ -104,19 +44,11 @@ def test_apply_gaintable(generate_vis):
 
 def test_solve_bandpass_unpolarised(generate_vis):
     """Test solve_bandpass with gain-only corruptions."""
-    vis = generate_vis
+    vis, jones = generate_vis
 
-    # Create the GainTable dataset with only gain corruptions
-    jones = create_gaintable_from_visibility(vis, jones_type="B")
-    g_sigma = 0.1
-    jones.gain.data[..., 0, 0] = (
-        np.random.normal(1, g_sigma, jones.gain.shape[:3])
-        + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
-    )
-    jones.gain.data[..., 1, 1] = (
-        np.random.normal(1, g_sigma, jones.gain.shape[:3])
-        + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
-    )
+    # Remove leakage from the GainTable, leaving only gain corruptions
+    jones.gain.data[..., 0, 1] *= 0
+    jones.gain.data[..., 1, 0] *= 0
 
     # Apply the GainTable dataset to the Visibility dataset
     assert np.all(vis.vis.data[..., :] == [1, 0, 0, 1])
@@ -147,9 +79,51 @@ def test_solve_bandpass_unpolarised(generate_vis):
     assert np.allclose(vis.vis.data, modelvis.vis.data)
 
 
+def test_solve_bandpass(generate_vis):
+    """Test solve_bandpass with gain-only corruptions."""
+    vis, jones = generate_vis
+
+    # Give the vis some structure
+    assert np.all(vis.vis.data[..., :] == [1, 0, 0, 1])
+    vis.vis.data += np.random.normal(0, 0.2, vis.vis.shape)
+    vis.vis.data += np.random.normal(0, 0.2, vis.vis.shape) * 1j
+
+    # Make vis and gain models containing any known information
+    modelvis = vis.copy(deep=True)
+    gain_table = jones.copy(deep=True)
+    gain_table.gain.data[..., :, :] = [[1, 0], [0, 1]]
+
+    # Apply the gains and leakage to the true vis
+    vis = apply_gaintable(vis=vis, gt=jones, inverse=False)
+
+    # Solve for the gains and leakage
+    refant = 0
+    solve_bandpass(
+        vis=vis,
+        modelvis=modelvis,
+        gain_table=gain_table,
+        solver="normal_equations",
+        refant=refant,
+    )
+
+    # check solutions (after phase referencing)
+    shape = jones.gain.shape
+    jones.gain.data *= np.exp(
+        -1j * np.angle(jones.gain.data[:, refant, :, 0, 0])
+    ).reshape(shape[0], 1, shape[2], 1, 1)
+    gain_table.gain.data *= np.exp(
+        -1j * np.angle(gain_table.gain.data[:, refant, :, 0, 0])
+    ).reshape(shape[0], 1, shape[2], 1, 1)
+    assert np.allclose(jones.gain.data, gain_table.gain.data)
+
+    # check vis after applying solutions
+    vis = apply_gaintable(vis=vis, gt=gain_table, inverse=True)
+    assert np.allclose(vis.vis.data, modelvis.vis.data)
+
+
 def test_solve_bandpass_resolution(generate_vis):
     """Test gain-only solve_bandpass with different spectral resolution."""
-    vis = generate_vis
+    vis, _ = generate_vis
     modelvis = vis.copy(deep=True)
 
     # Calibrate all-channel gaintable
@@ -176,3 +150,35 @@ def test_solve_bandpass_resolution(generate_vis):
         vis2 = averaging_frequency(vis, freqstep=2)
         jones2 = create_gaintable_from_visibility(vis2, jones_type="B")
         solve_bandpass(vis=vis, modelvis=modelvis, gain_table=jones2)
+
+
+def _solve(vischunk, refant):
+
+    if len(vischunk.frequency) > 0:
+
+        # Set multiple views into the combined dataset to keep the solver happy
+        vis = vischunk.drop_vars(
+            ["gain", "antenna", "receptor1", "receptor2", "modelvis"]
+        )
+        modelvis = vischunk.drop_vars(
+            ["gain", "antenna", "receptor1", "receptor2", "vis"]
+        ).rename({"modelvis": "vis"})
+        solution_interval = np.max(vis.time.data) - np.min(vis.time.data)
+
+        # Create a gaintable wrapper for the gain data
+        gaintable = create_gaintable_from_visibility(
+            vis,
+            jones_type="B",
+            timeslice=solution_interval,
+        )
+        gaintable.gain.data = vischunk.gain.data
+
+        # Call the solver
+        solve_bandpass(
+            vis=vis,
+            modelvis=modelvis,
+            gain_table=gaintable,
+            refant=refant,
+        )
+
+    return vischunk
