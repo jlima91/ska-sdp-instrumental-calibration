@@ -14,6 +14,8 @@ __all__ = [
     "predict_vis",
     "run_solver",
     "apply_gaintable_to_dataset",
+    "simplify_baselines_dim",
+    "restore_baselines_dim",
 ]
 
 from typing import Optional
@@ -26,8 +28,7 @@ from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
-
-# from ska_sdp_datamodels.visibility import Visibility
+from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -41,7 +42,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
-from ska_sdp_instrumental_calibration.vis_model import Visibility
 
 logger = setup_logger("data_managers.dask_wrappers")
 
@@ -64,21 +64,23 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     shape = list(tmpvis.vis.shape)
     shape[2] = len(frequency)
     # Create a chunked dataset.
-    vis = Visibility.constructor(
-        configuration=tmpvis.configuration,
-        phasecentre=tmpvis.phasecentre,
-        time=tmpvis.time,
-        integration_time=tmpvis.integration_time,
-        frequency=frequency,
-        channel_bandwidth=channel_bandwidth,
-        polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
-        source="bpcal",
-        meta=None,
-        vis=da.zeros(shape, "complex"),
-        weight=da.zeros(shape, "float"),
-        flags=da.zeros(shape, "bool"),
-        uvw=tmpvis.uvw.data,
-        baselines=tmpvis.baselines,
+    vis = simplify_baselines_dim(
+        Visibility.constructor(
+            configuration=tmpvis.configuration,
+            phasecentre=tmpvis.phasecentre,
+            time=tmpvis.time,
+            integration_time=tmpvis.integration_time,
+            frequency=frequency,
+            channel_bandwidth=channel_bandwidth,
+            polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
+            source="bpcal",
+            meta=None,
+            vis=da.zeros(shape, "complex"),
+            weight=da.zeros(shape, "float"),
+            flags=da.zeros(shape, "bool"),
+            uvw=tmpvis.uvw.data,
+            baselines=tmpvis.baselines,
+        )
     ).chunk({"frequency": fchunk})
 
     # Set up function for map_blocks
@@ -86,30 +88,13 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
         if len(vischunk.frequency) > 0:
             start = np.where(frequency == vischunk.frequency.data[0])[0][0]
             end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
-            tmpvis = create_visibility_from_ms(
-                ms_name,
-                start_chan=start,
-                end_chan=end,
-            )[0]
-            vischunk = Visibility.constructor(
-                configuration=tmpvis.configuration,
-                phasecentre=tmpvis.phasecentre,
-                time=tmpvis.time,
-                integration_time=tmpvis.integration_time,
-                frequency=tmpvis.frequency.data,
-                channel_bandwidth=tmpvis.channel_bandwidth.data,
-                polarisation_frame=PolarisationFrame(
-                    tmpvis._polarisation_frame
-                ),
-                source="bpcal",
-                meta=None,
-                vis=tmpvis.vis.data,
-                weight=tmpvis.weight.data,
-                flags=tmpvis.flags.data,
-                uvw=tmpvis.uvw.data,
-                baselines=tmpvis.baselines,
+            return simplify_baselines_dim(
+                create_visibility_from_ms(
+                    ms_name,
+                    start_chan=start,
+                    end_chan=end,
+                )[0]
             )
-        return vischunk
 
     # Call map_blocks function and return result
     return vis.map_blocks(_load, args=[ms_name, frequency], template=vis)
@@ -140,6 +125,8 @@ def predict_vis(
             lsm_components = convert_model_to_skycomponents(
                 lsm, vischunk.frequency.data, freq0=200e6
             )
+            # Switch to standard variable names and coords for the SDP call
+            vischunk = restore_baselines_dim(vischunk)
             # Call predict
             predict_from_components(
                 vischunk,
@@ -148,6 +135,8 @@ def predict_vis(
                 eb_coeffs=eb_coeffs,
                 eb_ms=eb_ms,
             )
+            # Change variable names back for map_blocks I/O checks
+            vischunk = simplify_baselines_dim(vischunk)
         return vischunk
 
     # Call map_blocks function and return result
@@ -203,9 +192,11 @@ def run_solver(
                 raise ValueError("Inconsistent frequencies")
             if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
                 raise ValueError("Inconsistent frequencies")
-            # Switch back to standard variable names for the SDP call
+            # Switch to standard variable names and coords for the SDP call
             gainchunk = gainchunk.rename({"soln_time": "time"})
-            # Call the SDP function
+            vischunk = restore_baselines_dim(vischunk)
+            modelchunk = restore_baselines_dim(modelchunk)
+            # Call solver
             solve_bandpass(
                 vis=vischunk,
                 modelvis=modelchunk,
@@ -249,7 +240,7 @@ def apply_gaintable_to_dataset(
                 raise ValueError("Inconsistent frequencies")
             # Switch back to standard variable names for the SDP call
             gainchunk = gainchunk.rename({"soln_time": "time"})
-            # Call the SDP function
+            # Call apply function
             vischunk = apply_gaintable(
                 vis=vischunk, gt=gainchunk, inverse=inverse
             )
@@ -259,3 +250,49 @@ def apply_gaintable_to_dataset(
     # So rename the gain time dimension (and coordinate)
     gaintable = gaintable.rename({"time": "soln_time"})
     return vis.map_blocks(_apply, args=[gaintable, inverse])
+
+
+def simplify_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
+    """Move the baselines coord to a data variable and use an index instead.
+
+    A number of xarray/dask operations exit in error, complaining about the
+    pandas.MultiIndex baselines coordinate of Visibility datasets. In most
+    cases this can be avoided by replacing the baselines coordinate with a
+    more simple coordinate and resetting baselines as a data variable.
+
+    :param vis: Standard Visibility dataset
+    :return: Modified Visibility dataset
+    """
+    if vis.coords.get("baselines") is None:
+        logger.warning("No baselines coord in dataset. Returning unchanged")
+        return vis
+    else:
+        logger.debug("Swapping baselines MultiIndex coord with indices")
+        if vis.variables.get("baselineid") is None:
+            vis = vis.assign_coords(
+                baselineid=("baselines", np.arange(len(vis.baselines)))
+            )
+        return vis.swap_dims({"baselines": "baselineid"}).reset_coords(
+            ("baselines", "antenna1", "antenna2")
+        )
+
+
+def restore_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
+    """Move the baselines data variable back to a coordinate.
+
+    Reverse of simplify_baselines_dim, needed for some SDP functions.
+
+    :param vis: Modified Visibility dataset
+    :return: Standard Visibility dataset
+    """
+    if vis.coords.get("baselineid") is None:
+        logger.warning("No baselineid coord in dataset. Returning unchanged")
+        return vis
+    elif vis.coords.get("baselines") is not None:
+        logger.warning("Coord baselines already exists. Returning unchanged")
+        return vis
+    else:
+        logger.debug("Restoring baselines MultiIndex coord")
+        return vis.swap_dims({"baselineid": "baselines"}).reset_coords(
+            "baselineid", drop=True
+        )

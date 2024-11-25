@@ -5,6 +5,7 @@ __all__ = [
     "predict_from_components",
 ]
 
+import importlib
 import os
 from typing import Optional
 
@@ -163,11 +164,7 @@ def predict_from_components(
         response[..., :, :] = np.eye(2)
 
     # Use dft_skycomponent_local when the sdp-func DFT is unavailable
-    # use_local_dft = importlib.util.find_spec("ska_sdp_func") is None
-    # Actually, the sdp-func DFT doesn't like the local Visibility class
-    # that is used to bypass issues with the MultiIndex baselines dim. So use
-    # the local DFT.
-    use_local_dft = True
+    use_local_dft = importlib.util.find_spec("ska_sdp_func") is None
 
     if not use_local_dft:
         # The ska-sdp-func version does not taper Gaussians, so do it below
