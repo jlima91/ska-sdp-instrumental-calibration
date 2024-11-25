@@ -69,7 +69,7 @@ class GenericBeams:
                     xyz[0],
                     xyz[1],
                     xyz[2],
-                    unit=units.m,  # pylint: disable=no-member
+                    unit="m",
                 )
             )
 
