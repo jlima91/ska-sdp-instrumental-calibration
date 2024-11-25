@@ -14,15 +14,16 @@ from astropy.time import Time
 from ska_sdp_instrumental_calibration.processing_tasks.beams import (
     GenericBeams,
 )
-from tests.test_utils import generate_vis, untar
+from tests.test_utils import generate_vis, oskar_ms
 
-eb_ms = str(untar("data/OSKAR_MOCK.ms.tar.gz"))
+# eb_ms = str(untar("data/OSKAR_MOCK.ms.tar.gz"))
 
 
 @pytest.mark.skip(reason="Need everybeam coefficient data")
-def test_beam_creation_low(generate_vis):
+def test_beam_creation_low(generate_vis, oskar_ms):
     """Test Low beam model creation."""
     vis, _ = generate_vis
+    eb_ms = oskar_ms
     # Also need something like this
     # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
@@ -46,9 +47,10 @@ def test_beam_creation_mid(generate_vis):
 
 
 @pytest.mark.skip(reason="Need everybeam coefficient data")
-def test_update_beam_direction_low(generate_vis):
+def test_update_beam_direction_low(generate_vis, oskar_ms):
     """Test the update_beam_direction function."""
     vis, _ = generate_vis
+    eb_ms = oskar_ms
     # Also need something like this
     # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
@@ -59,9 +61,10 @@ def test_update_beam_direction_low(generate_vis):
 
 
 @pytest.mark.skip(reason="Need everybeam coefficient data")
-def test_array_response_low(generate_vis):
+def test_array_response_low(generate_vis, oskar_ms):
     """Check the returned beam Jones matrices."""
     vis, _ = generate_vis
+    eb_ms = oskar_ms
     # Also need something like this
     # os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)

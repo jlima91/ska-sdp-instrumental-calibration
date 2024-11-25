@@ -4,7 +4,6 @@ test utilities for ska_sdp_instrumental_calibration
 
 import tarfile
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pytest
@@ -78,13 +77,15 @@ def generate_vis():
     return vis, jones
 
 
-def untar(archive_path: Union[str, Path]) -> Path:
+@pytest.fixture(scope="module")
+def oskar_ms(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Extracts a tar archive to the same directory as the archive.
 
     Returns:
         Path: string name of the extracted directory
     """
-    archive_path = Path(archive_path)
+    archive_path = Path("data/OSKAR_MOCK.ms.tar.gz")
+    datasets_tmpdir = Path(tmp_path_factory.mktemp("pytest_datasets"))
     with tarfile.open(archive_path, "r:gz") as tar:
-        tar.extractall(archive_path.parent)
-        return archive_path.parent / tar.getnames()[0]
+        tar.extractall(datasets_tmpdir)
+        return datasets_tmpdir / tar.getnames()[0]

@@ -5,7 +5,6 @@ import logging
 import everybeam as eb
 import numpy as np
 import xarray as xr
-from astropy import units
 from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
 from numpy import typing
