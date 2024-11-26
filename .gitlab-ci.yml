@@ -51,8 +51,8 @@ include:
     file: 'gitlab-ci/includes/changelog.gitlab-ci.yml'
 
 # deploy steps
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
+#  - project: 'ska-telescope/templates-repository'
+#    file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
 
 python-test:
   before_script:
