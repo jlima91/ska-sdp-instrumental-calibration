@@ -1,12 +1,26 @@
 """Wrapper functions to manage xarray dataset map_blocks calls.
 
-General comment from Vincent: I don't recommend calling map_blocks and other
-dask constructs on functions defined at such local scope, because there's
-always a danger they will capture some of their context in a closure, and that
-context (which might include large arrays) then has to be passed around between
-the workers and the scheduler as part of tasks. Here you're not using variables
-from a higher scope in that local function, so you should be fine, but a
-mistake happens easily.
+Topics from Vincent's MR review to be considered in ongoing work:
+ - [extract map_blocks functions] VM: "I don't recommend calling map_blocks and
+   other dask constructs on functions defined at such local scope, because
+   there's always a danger they will capture some of their context in a
+   closure, and that context (which might include large arrays) then has to be
+   passed around between the workers and the scheduler as part of tasks." I
+   agree with this change.
+ - [pure functions preferred] VM: "mutating the input Visibility dataset is not
+   necessary and is more trouble than worth. This would all be cleaner if you
+   returned a new visibility, and xarray + dask are smart enough to optimally
+   reuse all data variables common to both the input and (new) output
+   visibility." This needs more discussion. In a number of cases I do want to
+   update the input dataset and I would prefer not to make a copy of the data.
+   For instance when accumulating large model visibility datasets. Also, most
+   of the functions lie between non-pure map_blocks calls and non-pure
+   sdp-func-python calls, so it seems reasonable to be consistent.
+ - [new data models] VM: "it could be dangerous to refer to dimensions by index
+   on xarray Datasets, unless the dimension order (xds.dims) is known with
+   certainty (note that dimension order in xarray is different from data order
+   in memory, both can change independently, because it's all numpy strides
+   under the hood anyway). The safe way is to refer to dimensions by name..."
 """
 
 __all__ = [

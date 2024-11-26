@@ -2,10 +2,10 @@
 .. _package-guide:
 
 .. todo::
-    - Review and improve dask handling.
+    - Review and improve dask handling. See Vincent's comments in dask_wrappers.
     - Time and frequency averaging before calibration.
     - XRADIO / MSv4 data models.
-    - LOFAR HDF5 calibration output.
+    - H5Parm calibration output.
 
 **********
 Public API
