@@ -13,7 +13,6 @@ stages:
   - build
   - test
   - deploy
-  - integration
   - staging
   - publish
   - scan
