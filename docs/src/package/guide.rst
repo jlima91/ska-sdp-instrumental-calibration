@@ -3,6 +3,7 @@
 
 .. todo::
     - Review and improve dask handling. See Vincent's comments in dask_wrappers.
+    - Allow an alternative dask cluster to be passed to the pipelines.
     - Time and frequency averaging before calibration.
     - XRADIO / MSv4 data models.
     - H5Parm calibration output.
