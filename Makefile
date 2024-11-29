@@ -37,6 +37,9 @@ NOTEBOOK_IGNORE_FILES = not notebook.ipynb
 # include OCI Images support
 include .make/oci.mk
 
+# include Docs support
+include .make/docs.mk
+
 # include k8s support
 include .make/k8s.mk
 
