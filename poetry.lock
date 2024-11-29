@@ -4247,6 +4247,30 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [[package]]
+name = "sphinx-autodoc-typehints"
+version = "2.5.0"
+description = "Type hints (PEP 484) support for the Sphinx autodoc extension"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "sphinx_autodoc_typehints-2.5.0-py3-none-any.whl", hash = "sha256:53def4753239683835b19bfa8b68c021388bd48a096efcb02cdab508ece27363"},
+    {file = "sphinx_autodoc_typehints-2.5.0.tar.gz", hash = "sha256:259e1026b218d563d72743f417fcc25906a9614897fe37f91bd8d7d58f748c3b"},
+]
+
+[package.dependencies]
+sphinx = ">=8.0.2"
+
+[package.extras]
+docs = ["furo (>=2024.8.6)"]
+numpy = ["nptyping (>=2.5)"]
+testing = ["covdefaults (>=2.3)", "coverage (>=7.6.1)", "defusedxml (>=0.7.1)", "diff-cover (>=9.1.1)", "pytest (>=8.3.2)", "pytest-cov (>=5)", "sphobjinv (>=2.3.1.1)", "typing-extensions (>=4.12.2)"]
+
+[package.source]
+type = "legacy"
+url = "https://pypi.org/simple"
+reference = "PyPI-public"
+
+[[package]]
 name = "sphinx-rtd-theme"
 version = "3.0.1"
 description = "Read the Docs theme for Sphinx"
@@ -4761,4 +4785,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10,<3.12.5"
-content-hash = "7ff14e78b60e5f9d8198ceb839e505351f07d3d386e8a5b91e33df8bc28b439b"
+content-hash = "bb008455e28a1aaeb36e399b37d32dfd9cf196567a4c32c050e5dfe3274a2c85"

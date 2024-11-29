@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ska-sdp-instrumental-calibration"
+name = "ska_sdp_instrumental_calibration"
 version = "0.1.0"
 description = "SKA Instrumental Calibration Pipeline"
 authors = ["Daniel Mitchell <daniel.mitchell@csiro.au>", "Stephen Ord <stephen.ord@csiro.au>"]
@@ -36,7 +36,6 @@ pytest-cov = "^6.0.0"
 pylint = "^3.3.1"
 pytest-json = "^0.4.0"
 recommonmark = "^0.7.1"
-sphinx-rtd-theme = "^3.0.1"
 ska-sdp-datamodels = "^0.3.2"
 python-casacore = "^3.5"
 ska-sdp-func = "^1.2"
@@ -64,12 +63,19 @@ pytest-cov = "^6.0.0"
 pytest-pylint = "^0.21.0"
 python-dotenv = ">=0.5.1"
 setuptools = "^68.0.0"
-sphinx = "^8.1"
-sphinx-rtd-theme = "^3.0.1"
-sphinx-autobuild = "^2021.3.14"
-sphinxcontrib-websupport = "^1.2.4"
 pipdeptree = "^2.10.2"
 pylint-junit = "^0.3.2"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.1"
+sphinx-autobuild = "^2021.3.14"
+sphinx-autodoc-typehints = "^2.1.0"
+sphinx-rtd-theme = "^3.0.1"
+sphinxcontrib-websupport = "^1.2.4"
+numpy = "^1.25.4"
+ska-sdp-datamodels = "^0.3.2"
+ska-sdp-func-python = "^0.5.1"
+xarray = "^2024.7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
