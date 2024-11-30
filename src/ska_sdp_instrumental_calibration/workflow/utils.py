@@ -3,6 +3,7 @@
 import warnings
 
 import numpy as np
+import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import Angle, SkyCoord
 
@@ -41,25 +42,33 @@ def create_demo_ms(
     leakage: bool = False,
     rotation: bool = False,
     wide_channels: bool = False,
+    nchannels: int = 64,
+    ntimes: int = 1,
+    fov: float = 10,
+    flux_limit: float = 1,
     gleamfile: str = None,
     eb_ms: str = None,
     eb_coeffs: str = None,
-) -> None:
+) -> xr.Dataset:
     """Create a demo Visibility dataset and write to a MSv2 file.
 
     Using the ECP-240228 modified AA2 array.
 
-    Currently just generating 64 x 5.4 kHz channels, but will make this
-    flexible (more channels, wider channels, etc.). Will also add extra
-    calibration effects, like ionospheric refractive delays and Faraday
-    rotation. And should have an option to add sample noise.
+    Should have an option to add sample noise.
 
     :param ms_name: Name of output Measurement Set.
-    :param gains: Whether or not to include DI antenna gain terms.
-    :param leakage: Whether or not to include DI antenna leakage terms.
+    :param gains: Whether to include DI antenna gain terms (def=True).
+    :param leakage: Whether to include DI antenna leakage terms (def=False).
+    :param rotation: Whether to include differential rotation (def=False).
+    :param wide_channels: Use 781.25 kHz channels? Default is False (5.4 kHz).
+    :param nchannels: Number of channels. Default is 64.
+    :param ntimes: Number of time steps. Default is 1.
+    :param fov: Field of view width to use when generating the sky model
+    :param flux_limit: flux limit to use when generating the sky model
     :param gleamfile: Pathname of GLEAM catalogue gleamegc.dat.
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :return: GainTable applied to data
     """
     # Check input
     if gleamfile is None:
@@ -124,10 +133,10 @@ def create_demo_ms(
         chanwidth = 781.25e3  # Hz
     else:
         chanwidth = 5.4e3  # Hz
-    nfrequency = 64
+    nfrequency = nchannels
     frequency = 781.25e3 * 128 + chanwidth * np.arange(nfrequency)
     sample_time = 0.9  # seconds
-    solution_interval = 1 * sample_time  # would normally be minutes
+    solution_interval = ntimes * sample_time
 
     #  - Set the phase centre hour angle range for the sim (in radians)
     ha0 = 1 * np.pi / 12  # radians
@@ -145,8 +154,6 @@ def create_demo_ms(
     )
 
     # Generate the Local Sky Model
-    fov = 10.0
-    flux_limit = 1
     lsm = generate_lsm(
         gleamfile=gleamfile,
         phasecentre=vis.phasecentre,
@@ -214,3 +221,5 @@ def create_demo_ms(
 
     # Export vis to the file
     export_visibility_to_ms(ms_name, [vis])
+
+    return jones
