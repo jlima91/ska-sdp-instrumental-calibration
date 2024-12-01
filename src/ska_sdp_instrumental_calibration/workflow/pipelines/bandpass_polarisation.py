@@ -96,7 +96,7 @@ def run(pipeline_config) -> None:
         )
 
     # Set up a local dask cluster and client
-    cluster = LocalCluster()
+    cluster = pipeline_config.get("dask_cluster", LocalCluster())
     client = Client(cluster)
 
     # Set the number of channels per frequency chunk
