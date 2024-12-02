@@ -66,6 +66,10 @@ def run(pipeline_config) -> None:
     ms_name = pipeline_config.get("ms_name", "demo.ms")
     hdf5_name = pipeline_config.get("hdf5_name", "demo.hdf5")
 
+    # Observation info
+    ntimes = pipeline_config.get("ntimes", 1)
+    nchannels = pipeline_config.get("nchannels", 64)
+
     # Sky model info
     fov = pipeline_config.get("fov_deg", 10)
     flux_limit = pipeline_config.get("flux_limit", 1)
@@ -80,6 +84,10 @@ def run(pipeline_config) -> None:
         logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}")
         create_demo_ms(
             ms_name=ms_name,
+            ntimes=ntimes,
+            nchannels=nchannels,
+            fov=fov,
+            flux_limit=flux_limit,
             gains=gains,
             leakage=leakage,
             gleamfile=gleamfile,
