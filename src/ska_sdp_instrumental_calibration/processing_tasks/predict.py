@@ -181,10 +181,13 @@ def predict_from_components(
                 / const.c.value,  # pylint: disable=no-member
             )
 
+    # dataset workspace for applying component-dependent effects
+    compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
+
     for comp in skycomponents:
 
         # Predict model visibilities for component
-        compvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
+        compvis.vis.data *= 0
         if use_local_dft:
             dft_skycomponent_local(compvis, comp)
         else:
@@ -221,8 +224,8 @@ def predict_from_components(
             ).reshape(vis.vis.shape)
         )
 
-        # clean up component data
-        del compvis
-        gc.collect()
+    # clean up component data
+    del compvis
+    gc.collect()
 
     return vis
