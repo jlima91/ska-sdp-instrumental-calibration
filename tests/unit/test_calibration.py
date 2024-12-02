@@ -81,6 +81,7 @@ def test_solve_bandpass_unpolarised(generate_vis):
 
 def test_solve_bandpass(generate_vis):
     """Test solve_bandpass with gain-only corruptions."""
+    np.random.seed(int(1e9))
     vis, jones = generate_vis
 
     # Give the vis some structure
