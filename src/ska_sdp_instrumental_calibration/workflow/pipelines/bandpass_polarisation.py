@@ -28,7 +28,6 @@ from ska_sdp_func_python.preprocessing.averaging import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
     run_solver,
@@ -88,7 +87,7 @@ def run(pipeline_config) -> None:
     if ms_name == "demo.ms":
         # Generate a demo MSv2 Measurement Set
         logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}")
-        create_demo_ms(
+        truetable = create_demo_ms(
             ms_name=ms_name,
             ntimes=ntimes,
             nchannels=nchannels,
@@ -111,8 +110,18 @@ def run(pipeline_config) -> None:
     fchunk = 16
 
     # Read in the Visibility dataset
-    logger.info(f"Reading {ms_name} in {fchunk}-channel chunks")
+    logger.info(f"Setting input from {ms_name} in {fchunk}-channel chunks")
     vis = load_ms(ms_name, fchunk)
+
+    # Get the LSM (single call for all channels)
+    #  - Could do this earlier, but currently use vis for phase centre
+    logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy")
+    lsm = generate_lsm(
+        gleamfile=gleamfile,
+        phasecentre=vis.phasecentre,
+        fov=fov,
+        flux_limit=flux_limit,
+    )
 
     # Pre-processing
     #  - Is triggering the computation as is, so leave for now.
@@ -134,52 +143,53 @@ def run(pipeline_config) -> None:
         # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
         vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
 
-    # Get the LSM (single call for all channels)
-    logger.info(f"Generating {gleamfile} LSM < {fov/2} deg > {flux_limit} Jy")
-    lsm = generate_lsm(
-        gleamfile=gleamfile,
-        phasecentre=vis.phasecentre,
-        fov=fov,
-        flux_limit=flux_limit,
-    )
-
     # Predict model visibilities
-    logger.info(f"Predicting model visibilities in {fchunk}-channel chunks")
+    logger.info(f"Setting vis predict in {fchunk}-channel chunks")
     modelvis = predict_vis(vis, lsm, eb_ms=eb_ms, eb_coeffs=eb_coeffs)
 
     # Call the solver
-    logger.info(f"Running calibration in {fchunk}-channel chunks")
+    logger.info(f"Setting calibration in {fchunk}-channel chunks")
+    refant = 0
     initialtable = run_solver(
         vis=vis,
         modelvis=modelvis,
         solver="jones_substitution",
         niter=20,
-        refant=0,
+        refant=refant,
     )
 
-    # Load all of the solutions into a numpy array and fit for any
-    # differential rotations (single call for all channels).
+    # Load all of the solutions into a numpy array
+    logger.info("Running graph and returning calibration solutions")
+    initialtable.load()
+
+    # Fit for any differential rotations (single call for all channels).
     # Return gaintable filled with pure rotations.
     #  - If the vis data and model can fit into memory, it would be a good
     #    time to make them persistent. Otherwise they will be re-loaded and
     #    re-predicted in the next graph below.
     #  - Alternatively, export them to disk in a chunked way (e.g. to zarr)
     #  - Alternatively, can regenerate. Do this for now.
-    initialtable.load()
+    logger.info("Fitting differential rotations")
     gaintable = model_rotations(initialtable, plot_sample=True).chunk(
         {"frequency": fchunk}
     )
 
     # Call the solver with updated initial solutions
-    logger.info(f"Rerunning calibration in {fchunk}-channel chunks")
+    logger.info(f"Resetting calibration in {fchunk}-channel chunks")
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=gaintable,
         solver="normal_equations",
         niter=50,
-        refant=0,
+        refant=refant,
     )
+
+    # Output hdf5 file
+    logger.info("Running graph and returning calibration solutions")
+    gaintable.load()
+    logger.info(f"Writing solutions to {hdf5_name}")
+    export_gaintable_to_hdf5([gaintable], hdf5_name)
 
     # Convergence checks (noise-free demo version)
     #  - Note that this runs the graph again. I tried assigning both vis
@@ -187,19 +197,23 @@ def run(pipeline_config) -> None:
     #    by the baseline MultiIndex. MultiIndex causes a lot of trouble...
     #  - This is just a quick check, so it shouldn't hurt to run it again.
     if ms_name == "demo.ms":
-        logger.info("Applying solutions")
-        vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         logger.info("Checking results")
-        converged = np.allclose(modelvis.vis.data, vis.vis.data, atol=1e-6)
+        gfit = gaintable.gain.data
+        true = truetable.gain.data
+        # Reference all polarisations again the X gain for the ref antenna
+        gfit *= np.exp(
+            -1j
+            * np.angle(gfit[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
+        )
+        true *= np.exp(
+            -1j
+            * np.angle(true[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
+        )
+        converged = np.allclose(gfit, true, atol=1e-6)
         if converged:
             logger.info("Convergence checks passed")
         else:
             logger.warning("Solving failed")
-
-    # Output hdf5 file
-    logger.info(f"Writing solutions to {hdf5_name}")
-    gaintable.load()
-    export_gaintable_to_hdf5([gaintable], hdf5_name)
 
     # Shut down the scheduler and workers
     client.close()
