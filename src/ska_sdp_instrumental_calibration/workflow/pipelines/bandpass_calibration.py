@@ -75,6 +75,7 @@ def run(pipeline_config) -> None:
     # Corruption and solver type
     gains = pipeline_config.get("gains", True)
     leakage = pipeline_config.get("leakage", False)
+    rotation = pipeline_config.get("rotation", False)
     solver = pipeline_config.get("solver", "gain_substitution")
     refant = 0
 
@@ -89,6 +90,7 @@ def run(pipeline_config) -> None:
             flux_limit=flux_limit,
             gains=gains,
             leakage=leakage,
+            rotation=rotation,
             gleamfile=gleamfile,
             eb_ms=eb_ms,
             eb_coeffs=eb_coeffs,
@@ -105,7 +107,7 @@ def run(pipeline_config) -> None:
     client = Client(cluster)
 
     # Set the number of channels per frequency chunk
-    fchunk = 16
+    fchunk = pipeline_config.get("fchunk", 16)
 
     # Read in the Visibility dataset
     logger.info(f"Setting input from {ms_name} in {fchunk}-channel chunks")
