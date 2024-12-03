@@ -1,3 +1,5 @@
+PROJECT = ska-sdp-instrumental-calibration
+
 # Use bash shell with pipefail option enabled so that the return status of a
 # piped command is the value of the last (rightmost) commnand to exit with a
 # non-zero status. This lets us pipe output into tee but still exit on test
@@ -36,6 +38,9 @@ NOTEBOOK_IGNORE_FILES = not notebook.ipynb
 
 # include OCI Images support
 include .make/oci.mk
+
+# include Docs support
+include .make/docs.mk
 
 # include k8s support
 include .make/k8s.mk

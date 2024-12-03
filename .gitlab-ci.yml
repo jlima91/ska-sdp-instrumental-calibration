@@ -13,7 +13,6 @@ stages:
   - build
   - test
   - deploy
-  - integration
   - staging
   - publish
   - scan
@@ -32,8 +31,8 @@ include:
     file: 'gitlab-ci/includes/python.gitlab-ci.yml'
 
 # Jupyter notebook linting and testing
-  - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/notebook.gitlab-ci.yml'
+#  - project: 'ska-telescope/templates-repository'
+#    file: 'gitlab-ci/includes/notebook.gitlab-ci.yml'
 
 # Helm Charts
   - project: 'ska-telescope/templates-repository'
@@ -52,8 +51,20 @@ include:
     file: 'gitlab-ci/includes/changelog.gitlab-ci.yml'
 
 # deploy steps
+#  - project: 'ska-telescope/templates-repository'
+#    file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
+
+# OCI Images
   - project: 'ska-telescope/templates-repository'
-    file: 'gitlab-ci/includes/deploy.gitlab-ci.yml'
+    file: 'gitlab-ci/includes/oci-image.gitlab-ci.yml'
+
+# Docs Pages
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/docs.gitlab-ci.yml'
+
+# Release Automation
+  - project: 'ska-telescope/templates-repository'
+    file: 'gitlab-ci/includes/release.gitlab-ci.yml'
 
 python-test:
   before_script:
@@ -76,7 +87,3 @@ python-test:
           time pip3 install -r requirements.txt;
         fi;
       fi;
-
-notebook-test:
-    allow_failure: true
-

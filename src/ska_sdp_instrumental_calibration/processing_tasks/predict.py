@@ -5,6 +5,7 @@ __all__ = [
     "predict_from_components",
 ]
 
+import gc
 import importlib
 import os
 from typing import Optional
@@ -219,5 +220,9 @@ def predict_from_components(
                 response[compvis.antenna2.data, :, :, :].conj(),
             ).reshape(vis.vis.shape)
         )
+
+        # clean up component data
+        del compvis
+        gc.collect()
 
     return vis
