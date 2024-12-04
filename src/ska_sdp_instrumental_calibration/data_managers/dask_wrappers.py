@@ -1,26 +1,18 @@
 """Wrapper functions to manage xarray dataset map_blocks calls.
 
 Topics from Vincent's MR review to be considered in ongoing work:
- - [extract map_blocks functions] VM: "I don't recommend calling map_blocks and
-   other dask constructs on functions defined at such local scope, because
-   there's always a danger they will capture some of their context in a
-   closure, and that context (which might include large arrays) then has to be
-   passed around between the workers and the scheduler as part of tasks." I
-   agree with this change.
- - [pure functions preferred] VM: "mutating the input Visibility dataset is not
-   necessary and is more trouble than worth. This would all be cleaner if you
-   returned a new visibility, and xarray + dask are smart enough to optimally
-   reuse all data variables common to both the input and (new) output
-   visibility." This needs more discussion. In a number of cases I do want to
-   update the input dataset and I would prefer not to make a copy of the data.
-   For instance when accumulating large model visibility datasets. Also, most
-   of the functions lie between non-pure map_blocks calls and non-pure
-   sdp-func-python calls, so it seems reasonable to be consistent.
- - [new data models] VM: "it could be dangerous to refer to dimensions by index
-   on xarray Datasets, unless the dimension order (xds.dims) is known with
-   certainty (note that dimension order in xarray is different from data order
-   in memory, both can change independently, because it's all numpy strides
-   under the hood anyway). The safe way is to refer to dimensions by name..."
+ - "mutating the input Visibility dataset is not necessary and is more trouble
+   than worth. This would all be cleaner if you returned a new visibility, and
+   xarray + dask are smart enough to optimally reuse all data variables common
+   to both the input and (new) output visibility."
+   This needs more discussion. In a number of cases I do want to update the
+   input dataset and I would prefer not to make a copy of the data. For
+   instance when accumulating large model visibility datasets.
+ - "it could be dangerous to refer to dimensions by index on xarray Datasets,
+   unless the dimension order (xds.dims) is known with certainty (note that
+   dimension order in xarray is different from data order in memory, both can
+   change independently, because it's all numpy strides under the hood anyway).
+   The safe way is to refer to dimensions by name..."
 """
 
 __all__ = [
@@ -36,6 +28,7 @@ from typing import Optional
 
 import dask.array as da
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from casacore.tables import table
 from ska_sdp_datamodels.calibration.calibration_create import (
@@ -51,6 +44,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     solve_bandpass,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
+    Component,
     convert_model_to_skycomponents,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
@@ -58,6 +52,30 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 )
 
 logger = setup_logger("data_managers.dask_wrappers")
+
+
+def _load(
+    vischunk: xr.Dataset,
+    ms_name: str,
+    frequency: npt.NDArray[float],
+) -> xr.Dataset:
+    """Call create_visibility_from_ms.
+
+    :param vis: Visibility dataset to be loaded.
+    :param ms_name: Name of input Measurement Set.
+    :param frequency: list of all frequencies in the MSv2 dataset.
+    :return: Loaded Visibility dataset
+    """
+    if len(vischunk.frequency) > 0:
+        start = np.where(frequency == vischunk.frequency.data[0])[0][0]
+        end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
+        return simplify_baselines_dim(
+            create_visibility_from_ms(
+                ms_name,
+                start_chan=start,
+                end_chan=end,
+            )[0]
+        )
 
 
 def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
@@ -77,8 +95,10 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=1)[0]
     shape = list(tmpvis.vis.shape)
     shape[2] = len(frequency)
+
     # Create a chunked dataset.
     # Specify a single baseline chunk. Auto chunking can confuse the dim swap
+    # of simplify_baselines_dim.
     vis = simplify_baselines_dim(
         Visibility.constructor(
             configuration=tmpvis.configuration,
@@ -98,21 +118,45 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
         ).chunk({"frequency": fchunk, "baselines": shape[1]})
     )
 
-    # Set up function for map_blocks
-    def _load(vischunk, ms_name, frequency):
-        if len(vischunk.frequency) > 0:
-            start = np.where(frequency == vischunk.frequency.data[0])[0][0]
-            end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
-            return simplify_baselines_dim(
-                create_visibility_from_ms(
-                    ms_name,
-                    start_chan=start,
-                    end_chan=end,
-                )[0]
-            )
-
     # Call map_blocks function and return result
     return vis.map_blocks(_load, args=[ms_name, frequency], template=vis)
+
+
+def _predict(
+    vischunk: xr.Dataset,
+    lsm: list[Component],
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+) -> xr.Dataset:
+    """Call predict_from_components.
+
+    :param vis: Visibility dataset containing observed data to be modelled.
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_ms: Pathname of Everybeam mock Measurement Set.
+    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :return: Predicted Visibility dataset
+    """
+    if len(vischunk.frequency) > 0:
+        # Evaluate LSM for current band
+        lsm_components = convert_model_to_skycomponents(
+            lsm, vischunk.frequency.data, freq0=200e6
+        )
+        # Switch to standard variable names and coords for the SDP call
+        vischunk = restore_baselines_dim(vischunk)
+        # Call predict
+        predict_from_components(
+            vischunk,
+            lsm_components,
+            beam_type=beam_type,
+            eb_coeffs=eb_coeffs,
+            eb_ms=eb_ms,
+        )
+        # Change variable names back for map_blocks I/O checks
+        vischunk = simplify_baselines_dim(vischunk)
+    return vischunk
 
 
 def predict_vis(
@@ -122,42 +166,69 @@ def predict_vis(
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
 ) -> xr.Dataset:
-    """Distributed load of a MSv2 Measurement Set into a Visibility dataset.
+    """Distributed Visibility predict.
 
     :param vis: Visibility dataset containing observed data to be modelled.
-    :param lsm: Number of channels in the frequency chunks.
+        Should be chunked in frequency.
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
-    :return: Chunked Visibility dataset
+    :return: Predicted Visibility dataset
     """
     # Create an empty model Visibility dataset
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
 
-    # Set up function for map_blocks
-    def _predict(vischunk, lsm, beam_type, eb_coeffs, eb_ms):
-        if len(vischunk.frequency) > 0:
-            # Evaluate LSM for current band
-            lsm_components = convert_model_to_skycomponents(
-                lsm, vischunk.frequency.data, freq0=200e6
-            )
-            # Switch to standard variable names and coords for the SDP call
-            vischunk = restore_baselines_dim(vischunk)
-            # Call predict
-            predict_from_components(
-                vischunk,
-                lsm_components,
-                beam_type=beam_type,
-                eb_coeffs=eb_coeffs,
-                eb_ms=eb_ms,
-            )
-            # Change variable names back for map_blocks I/O checks
-            vischunk = simplify_baselines_dim(vischunk)
-        return vischunk
-
     # Call map_blocks function and return result
     return modelvis.map_blocks(
-        _predict, args=[lsm, beam_type, eb_coeffs, eb_ms]
+        _predict, args=[lsm, beam_type, eb_ms, eb_coeffs]
     )
+
+
+def _solve(
+    gainchunk: xr.Dataset,
+    vischunk: xr.Dataset,
+    modelchunk: xr.Dataset,
+    solver: str = "gain_substitution",
+    refant: int = 0,
+    niter: int = 200,
+) -> xr.Dataset:
+    """Call solve_bandpass.
+
+    Set up to run with function run_solver.
+
+    :param gaintable: GainTable dataset containing initial solutions.
+    :param vischunk: Visibility dataset containing observed data.
+    :param modelchunk: Visibility dataset containing model data.
+    :param solver: Solver type to use. Default is "gain_substitution".
+    :param refant: Reference antenna (defaults to 0).
+    :param niter: Number of solver iterations (defaults to 200).
+
+    :return: Chunked GainTable dataset
+    """
+    if len(vischunk.frequency) > 0:
+        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        # Switch to standard variable names and coords for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+        vischunk = restore_baselines_dim(vischunk)
+        modelchunk = restore_baselines_dim(modelchunk)
+        # Call solver
+        solve_bandpass(
+            vis=vischunk,
+            modelvis=modelchunk,
+            gain_table=gainchunk,
+            solver=solver,
+            refant=refant,
+            niter=niter,
+        )
+        # Change the time dimension name back for map_blocks I/O checks
+        gainchunk = gainchunk.rename({"time": "soln_time"})
+
+    return gainchunk
 
 
 def run_solver(
@@ -176,8 +247,9 @@ def run_solver(
         solutions.
     :param solver: Solver type to use. Currently any solver type accepted by
         solve_gaintable. Default is "gain_substitution".
-    :param refant: Reference antenna (defaults to 0).
-    :param niter: Number of solver iterations (defaults to 50).
+    :param refant: Reference antenna (defaults to 0). Note that how referencing
+        is done depends on the solver.
+    :param niter: Number of solver iterations (defaults to 200).
 
     :return: Chunked GainTable dataset
     """
@@ -200,38 +272,39 @@ def run_solver(
         if refant < 0 or refant >= len(gaintable.antenna):
             raise ValueError(f"invalid refant: {refant}")
 
-    # Set up function for map_blocks
-    def _solve(gainchunk, vischunk, modelchunk, refant):
-        if len(vischunk.frequency) > 0:
-            if np.any(gainchunk.frequency.data != vischunk.frequency.data):
-                raise ValueError("Inconsistent frequencies")
-            if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
-                raise ValueError("Inconsistent frequencies")
-            # Switch to standard variable names and coords for the SDP call
-            gainchunk = gainchunk.rename({"soln_time": "time"})
-            vischunk = restore_baselines_dim(vischunk)
-            modelchunk = restore_baselines_dim(modelchunk)
-            # Call solver
-            solve_bandpass(
-                vis=vischunk,
-                modelvis=modelchunk,
-                gain_table=gainchunk,
-                solver=solver,
-                refant=refant,
-                niter=niter,
-            )
-            # Change the time dimension name back for map_blocks I/O checks
-            gainchunk = gainchunk.rename({"time": "soln_time"})
-
-        return gainchunk
-
     # map_blocks won't accept dimensions that differ but have the same name
     # So rename the gain time dimension (and coordinate)
     gaintable = gaintable.rename({"time": "soln_time"})
-    gaintable = gaintable.map_blocks(_solve, args=[vis, modelvis, refant])
+    gaintable = gaintable.map_blocks(
+        _solve, args=[vis, modelvis, solver, refant, niter]
+    )
     # Undo any temporary variable name changes
     gaintable = gaintable.rename({"soln_time": "time"})
     return gaintable
+
+
+def _apply(
+    vischunk: xr.Dataset,
+    gainchunk: xr.Dataset,
+    inverse: bool,
+) -> xr.Dataset:
+    """Call apply_gaintable.
+
+    Set up to run with function apply_gaintable_to_dataset.
+
+    :param vis: Visibility dataset to receive calibration factors.
+    :param gaintable: GainTable dataset containing solutions to apply.
+    :param inverse: Whether or not to apply the inverse.
+    :return: Calibrated Visibility dataset
+    """
+    if len(vischunk.frequency) > 0:
+        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        # Switch back to standard variable names for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+        # Call apply function
+        vischunk = apply_gaintable(vis=vischunk, gt=gainchunk, inverse=inverse)
+    return vischunk
 
 
 def apply_gaintable_to_dataset(
@@ -241,26 +314,12 @@ def apply_gaintable_to_dataset(
 ) -> xr.Dataset:
     """Do the bandpass calibration.
 
-    :param vis: Chunked Visibility dataset containing observed data.
-    :param gaintable: Chunked Visibility dataset containing model data.
+    :param vis: Chunked Visibility dataset to receive calibration factors.
+    :param gaintable: Chunked GainTable dataset containing solutions to apply.
     :param inverse: Apply the inverse. This requires the gain matrices to be
         square. (default=False)
     :return: Calibrated Visibility dataset
     """
-
-    # Set up function for map_blocks
-    def _apply(vischunk, gainchunk, inverse):
-        if len(vischunk.frequency) > 0:
-            if np.any(gainchunk.frequency.data != vischunk.frequency.data):
-                raise ValueError("Inconsistent frequencies")
-            # Switch back to standard variable names for the SDP call
-            gainchunk = gainchunk.rename({"soln_time": "time"})
-            # Call apply function
-            vischunk = apply_gaintable(
-                vis=vischunk, gt=gainchunk, inverse=inverse
-            )
-        return vischunk
-
     # map_blocks won't accept dimensions that differ but have the same name
     # So rename the gain time dimension (and coordinate)
     gaintable = gaintable.rename({"time": "soln_time"})
