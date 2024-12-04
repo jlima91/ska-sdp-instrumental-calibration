@@ -71,10 +71,6 @@ def run(pipeline_config) -> None:
     ms_name = pipeline_config.get("ms_name", "demo.ms")
     hdf5_name = pipeline_config.get("hdf5_name", "demo.hdf5")
 
-    # Observation info
-    ntimes = pipeline_config.get("ntimes", 1)
-    nchannels = pipeline_config.get("nchannels", 64)
-
     # Sky model info
     fov = pipeline_config.get("fov_deg", 10)
     flux_limit = pipeline_config.get("flux_limit", 1)
@@ -86,6 +82,8 @@ def run(pipeline_config) -> None:
 
     if ms_name == "demo.ms":
         # Generate a demo MSv2 Measurement Set
+        ntimes = pipeline_config.get("ntimes", 1)
+        nchannels = pipeline_config.get("nchannels", 64)
         logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}")
         truetable = create_demo_ms(
             ms_name=ms_name,
@@ -102,12 +100,20 @@ def run(pipeline_config) -> None:
             eb_coeffs=eb_coeffs,
         )
 
-    # Set up a local dask cluster and client
-    cluster = pipeline_config.get("dask_cluster", LocalCluster())
-    client = Client(cluster)
+    # Dask info
+    cluster = pipeline_config.get("dask_cluster", None)
+    # The number of channels per frequency chunk
+    fchunk = pipeline_config.get("fchunk", 16)
 
-    # Set the number of channels per frequency chunk
-    fchunk = 16
+    logger.info(f"Starting pipeline with {fchunk}-channel chunks")
+
+    # Set up a local dask cluster and client
+    if cluster is None:
+        logger.info("No dask cluster supplied. Using LocalCluster")
+        cluster = LocalCluster()
+    else:
+        logger.info("Using existing dask cluster")
+    client = Client(cluster)
 
     # Read in the Visibility dataset
     logger.info(f"Setting input from {ms_name} in {fchunk}-channel chunks")
