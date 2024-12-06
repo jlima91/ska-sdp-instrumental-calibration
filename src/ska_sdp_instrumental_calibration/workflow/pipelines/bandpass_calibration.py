@@ -49,20 +49,19 @@ def run(pipeline_config) -> None:
         None
     """
 
+    # Filenames
+    ms_name = pipeline_config.get("ms_name", "demo.ms")
+    hdf5_name = pipeline_config.get("hdf5_name", "demo.hdf5")
+
     # Required external data
     gleamfile = pipeline_config.get("gleamfile", None)
     if gleamfile is None:
         raise ValueError("GLEAM catalogue gleamegc.dat is required")
-    eb_ms = pipeline_config.get("eb_ms", None)
-    if eb_ms is None:
-        raise ValueError("Name of Everybeam mock Measurement Set is required")
     eb_coeffs = pipeline_config.get("eb_coeffs", None)
     if eb_coeffs is None:
         raise ValueError("Path to Everybeam coeffs directory is required")
-
-    # Filename
-    ms_name = pipeline_config.get("ms_name", "demo.ms")
-    hdf5_name = pipeline_config.get("hdf5_name", "demo.hdf5")
+    eb_ms = pipeline_config.get("eb_ms", ms_name)
+    logger.info(f"Initialising the EveryBeam telescope model using {eb_ms}")
 
     # Sky model info
     fov = pipeline_config.get("fov_deg", 10)
