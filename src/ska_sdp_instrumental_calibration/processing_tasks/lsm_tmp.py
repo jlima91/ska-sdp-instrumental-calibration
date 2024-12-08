@@ -48,14 +48,14 @@ class Component:
     name: str
     RAdeg: float
     DEdeg: float
-    awide: float
-    bwide: float
-    pawide: float
-    psfawide: float
-    psfbwide: float
-    psfpawide: float
     Fint200: float
-    alpha: float
+    alpha: float = 0.0
+    awide: float = 0.0
+    bwide: float = 0.0
+    pawide: float = 0.0
+    psfawide: float = 0.0
+    psfbwide: float = 0.0
+    psfpawide: float = 0.0
 
 
 def generate_lsm(
@@ -96,14 +96,14 @@ def generate_lsm(
                 name="default",
                 RAdeg=phasecentre.ra.degree,
                 DEdeg=phasecentre.dec.degree,
+                Fint200=1.0,
+                alpha=0.0,
                 awide=0.0,
                 bwide=0.0,
                 pawide=0.0,
                 psfawide=0.0,
                 psfbwide=0.0,
                 psfpawide=0.0,
-                Fint200=1.0,
-                alpha=0.0,
             )
         ]
 
