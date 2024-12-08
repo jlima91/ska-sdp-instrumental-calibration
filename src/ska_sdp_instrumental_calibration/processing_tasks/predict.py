@@ -139,11 +139,13 @@ def predict_from_components(
 
     # Set up the beam model
     if beam_type == "everybeam":
+        logger.info("Using EveryBeam model in predict")
         if eb_coeffs is None or eb_ms is None:
             raise ValueError("eb_coeffs and eb_ms required for everybeam")
         # Could do this once externally, but don't want to pass around
         # exotic data types.
         os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
+
         beams = GenericBeams(vis=vis, array="Low", ms_path=eb_ms)
 
         # Update ITRF coordinates of the beam and normalisation factors
@@ -157,6 +159,7 @@ def predict_from_components(
             raise ValueError(f"Pointing below horizon el={altaz.alt.degree}")
 
     else:
+        logger.info("No beam model used in predict")
         response = np.zeros(
             (len(vis.configuration.id), len(vis.frequency), 2, 2),
             dtype=vis.vis.dtype,
