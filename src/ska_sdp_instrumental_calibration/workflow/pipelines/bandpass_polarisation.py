@@ -34,9 +34,7 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
-    generate_lsm,
-)
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
 from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
     model_rotations,
 )

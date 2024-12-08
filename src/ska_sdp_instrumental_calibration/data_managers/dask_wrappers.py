@@ -43,7 +43,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
     solve_bandpass,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     Component,
     convert_model_to_skycomponents,
 )
