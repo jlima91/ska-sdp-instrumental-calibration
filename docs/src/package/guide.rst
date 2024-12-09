@@ -3,8 +3,10 @@
 
 .. todo::
     - Review and improve dask handling. See Vincent's comments in dask_wrappers.
-    - Allow an alternative dask cluster to be passed to the pipelines.
+    - Add a pipeline configuration passer and data class.
     - Time and frequency averaging before calibration.
+    - Improve the interface to EveryBeam and loop over stations in
+      GenericBeams.array_response.
     - XRADIO / MSv4 data models.
     - H5Parm calibration output.
 

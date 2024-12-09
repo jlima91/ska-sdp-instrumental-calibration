@@ -178,7 +178,12 @@ class GenericBeams:
             if self.delay_dir_itrf is None:
                 self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
 
-            # Just grab the first one and make them all the same for now
+            # Will need a loop over station_id, but ska_sdp_datamodels function
+            # export_visibility_to_ms does not produce the required MS table
+            # PHASED_ARRAY, so self-simulated data cannot currently be used to
+            # set up the EveryBeam telescope model, and mock dataset
+            # OSKAR_MOCK.ms does not have enough stations. So for now, just use
+            # the first station and make them all the same.
             station_id = 0
             mjds = time.mjd * 86400
 

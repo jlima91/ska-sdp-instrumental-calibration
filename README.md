@@ -77,13 +77,3 @@ $ make docs-build html
 ```
 * The documentation be viewed by opening the file `./docs/build/html/index.html`
 
-Development
------------
-
- * All tests should pass before merging the code.
- * CI does the following code analysis:
-    - `isort --profile black --line-length 79 --check-only  src tests/`
-    - `black --exclude .+\.ipynb --line-length 79 --check  src tests/`
-    - `flake8 --show-source --statistics --max-line-length 79  src tests/`
-    - `pylint --max-line-length 79  src tests/`
-

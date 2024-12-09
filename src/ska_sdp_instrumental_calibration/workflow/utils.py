@@ -1,10 +1,12 @@
 """Helper functions"""
 
 import warnings
+from typing import Optional
 
 import numpy as np
+import xarray as xr
 from astropy import constants as const
-from astropy.coordinates import Angle, SkyCoord
+from astropy.coordinates import SkyCoord
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
 from ska_sdp_datamodels.calibration.calibration_create import (
@@ -21,9 +23,9 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp import (
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    Component,
     convert_model_to_skycomponents,
-    generate_lsm,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
@@ -41,33 +43,38 @@ def create_demo_ms(
     leakage: bool = False,
     rotation: bool = False,
     wide_channels: bool = False,
-    gleamfile: str = None,
-    eb_ms: str = None,
-    eb_coeffs: str = None,
-) -> None:
+    nchannels: int = 64,
+    ntimes: int = 1,
+    phasecentre: SkyCoord = None,
+    lsm: list[Component] = [],
+    beam_type: str = "everybeam",
+    eb_coeffs: Optional[str] = None,
+    eb_ms: Optional[str] = None,
+) -> xr.Dataset:
     """Create a demo Visibility dataset and write to a MSv2 file.
 
     Using the ECP-240228 modified AA2 array.
 
-    Currently just generating 64 x 5.4 kHz channels, but will make this
-    flexible (more channels, wider channels, etc.). Will also add extra
-    calibration effects, like ionospheric refractive delays and Faraday
-    rotation. And should have an option to add sample noise.
+    Should have an option to add sample noise.
 
     :param ms_name: Name of output Measurement Set.
-    :param gains: Whether or not to include DI antenna gain terms.
-    :param leakage: Whether or not to include DI antenna leakage terms.
-    :param gleamfile: Pathname of GLEAM catalogue gleamegc.dat.
-    :param eb_ms: Pathname of Everybeam mock Measurement Set.
-    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param gains: Whether to include DI antenna gain terms (def=True).
+    :param leakage: Whether to include DI antenna leakage terms (def=False).
+    :param rotation: Whether to include differential rotation (def=False).
+    :param wide_channels: Use 781.25 kHz channels? Default is False (5.4 kHz).
+    :param nchannels: Number of channels. Default is 64.
+    :param ntimes: Number of time steps. Default is 1.
+    :param lsm: Local sky model
+    :param beam_type: Type of beam model to use. Default is "everybeam". If set
+        to None, no beam will be applied.
+    :param eb_coeffs: Everybeam coeffs datadir containing beam coefficients.
+        Required if beam_type is "everybeam".
+    :param eb_ms: Measurement set need to initialise the everybeam telescope.
+        Required if bbeam_type is "everybeam".
+    :return: GainTable applied to data
     """
-    # Check input
-    if gleamfile is None:
-        raise ValueError("GLEAM catalogue gleamegc.dat is required.")
-    if eb_ms is None:
-        raise ValueError("Pathname of Everybeam mock MS is required.")
-    if eb_coeffs is None:
-        raise ValueError("Path to Everybeam coeffs directory is required.")
+    if phasecentre is None:
+        raise ValueError("Parameter phasecentre is required")
 
     # Set up the array
     #  - Read in an array configuration
@@ -115,19 +122,16 @@ def create_demo_ms(
     logger.info(f"Using {low_config.name} with {nstations} stations")
 
     # Set up the observation
-    #  - Set the phase centre in the ICRS coordinate frame
-    ra0 = Angle(0.0, unit="degree")
-    dec0 = Angle(-27.0, unit="degree")
 
     #  - Set the parameters of sky model components
     if wide_channels:
         chanwidth = 781.25e3  # Hz
     else:
         chanwidth = 5.4e3  # Hz
-    nfrequency = 64
+    nfrequency = nchannels
     frequency = 781.25e3 * 128 + chanwidth * np.arange(nfrequency)
     sample_time = 0.9  # seconds
-    solution_interval = 1 * sample_time  # would normally be minutes
+    solution_interval = ntimes * sample_time
 
     #  - Set the phase centre hour angle range for the sim (in radians)
     ha0 = 1 * np.pi / 12  # radians
@@ -140,28 +144,20 @@ def create_demo_ms(
         frequency,
         channel_bandwidth=[chanwidth] * len(frequency),
         polarisation_frame=PolarisationFrame("linear"),
-        phasecentre=SkyCoord(ra=ra0, dec=dec0),
+        phasecentre=phasecentre,
         weight=1.0,
     )
-
-    # Generate the Local Sky Model
-    fov = 10.0
-    flux_limit = 1
-    lsm = generate_lsm(
-        gleamfile=gleamfile,
-        phasecentre=vis.phasecentre,
-        fov=fov,
-        flux_limit=flux_limit,
-    )
-
-    logger.info(f"Using {len(lsm)} components from {gleamfile}")
 
     # Convert the LSM to a Skycomponents list
     lsm_components = convert_model_to_skycomponents(lsm, vis.frequency.data)
 
     # Predict visibilities and add to the vis dataset
     predict_from_components(
-        vis, lsm_components, eb_coeffs=eb_coeffs, eb_ms=eb_ms
+        vis=vis,
+        skycomponents=lsm_components,
+        beam_type=beam_type,
+        eb_coeffs=eb_coeffs,
+        eb_ms=eb_ms,
     )
 
     # Generate direction-independent random complex antenna Jones matrices
@@ -214,3 +210,5 @@ def create_demo_ms(
 
     # Export vis to the file
     export_visibility_to_ms(ms_name, [vis])
+
+    return jones
