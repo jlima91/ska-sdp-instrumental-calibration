@@ -4,11 +4,12 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
-Main
-****
+0.1.1
+*****
 
 Added
 -----
+* PipelineConfig class for pipelines.
 * Pipelines can accept a user defined-dask cluster.
 * Default values for a number of lsm Component variables.
 * More options in create_demo_ms.
