@@ -94,7 +94,7 @@ class PipelineConfig:
         """
 
         self.config = config
- 
+
         # Dask info
         self.dask_cluster = config.get("dask_cluster", None)
 
@@ -109,7 +109,7 @@ class PipelineConfig:
         if self.ms_name == "demo.ms":
             logger.info("Simulating demo MSv2 input")
             self.do_simulation = True
- 
+
         # Simulation parameters. Only used if self.do_simulation is True
         self.ntimes = config.get("ntimes", 1)
         self.nchannels = config.get("nchannels", 64)
@@ -144,7 +144,7 @@ class PipelineConfig:
         # Check required external data
         if self.lsm is None and self.gleamfile is None:
             raise ValueError("Either a LSM or a catalogue file is required")
- 
+
         # Beam model info
         self.beam_type = config.get("beam_type", "everybeam")
         self.eb_coeffs = config.get("eb_coeffs", None)
@@ -162,7 +162,7 @@ class PipelineConfig:
             logger.info("Predicting visibilities without a beam")
         else:
             raise ValueError(f"Unknown beam type: {self.beam_type}")
- 
+
     def simulate_input_dataset(self):
         """
         Simulate a small MSv2 dataset for demo and testing purposes.
@@ -190,7 +190,7 @@ class PipelineConfig:
                 logger.info(f"LSM: found {len(lsm)} components")
             else:
                 lsm = self.lsm
- 
+
             return create_demo_ms(
                 ms_name=self.ms_name,
                 ntimes=self.ntimes,

@@ -29,7 +29,7 @@ Functions
 .. automodule:: ska_sdp_instrumental_calibration.processing_tasks.calibration
     :members:
 
-.. automodule:: ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp
+.. automodule:: ska_sdp_instrumental_calibration.processing_tasks.lsm
     :members:
 
 .. automodule:: ska_sdp_instrumental_calibration.processing_tasks.predict
@@ -37,6 +37,10 @@ Functions
 
 Classes
 -------
-.. autoclass:: ska_sdp_instrumental_calibration.processing_tasks.lsm_tmp.Component
+.. autoclass:: ska_sdp_instrumental_calibration.workflow.pipeline_config.PipelineConfig
+    :noindex:
+    :members:
+
+.. autoclass:: ska_sdp_instrumental_calibration.processing_tasks.lsm.Component
     :noindex:
     :members:

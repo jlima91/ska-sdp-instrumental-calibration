@@ -17,7 +17,6 @@
 import warnings
 
 import numpy as np
-from astropy.coordinates import SkyCoord
 from dask.distributed import Client, LocalCluster
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
