@@ -35,14 +35,17 @@ class Component:
         name (str): GLEAM name (JHHMMSS+DDMMSS)
         RAdeg (float): Right Ascension J2000 (degrees)
         DEdeg (float): Declination J2000 (degrees)
-        awide (float): Fitted semi-major axis in wide-band image (arcsec)
-        bwide (float): Fitted semi-minor axis in wide-band image (arcsec)
-        pawide (float): Fitted position angle in wide-band image (degrees)
-        psfawide (float): Semi-major axis of the PSF (arcsec)
-        psfbwide (float): Semi-minor axis of the PSF (arcsec)
-        psfpawide (float): Position angle of the PSF (degrees)
         Fint200 (float): 200MHz integrated flux density
-        alpha (float): Spectral index
+        alpha (float): Spectral index. Default=0
+        awide (float): Fitted semi-major axis in wide-band image (arcsec).
+            Default=0
+        bwide (float): Fitted semi-minor axis in wide-band image (arcsec).
+            Default=0
+        pawide (float): Fitted position angle in wide-band image (degrees).
+            Default=0
+        psfawide (float): Semi-major axis of the PSF (arcsec). Default=0
+        psfbwide (float): Semi-minor axis of the PSF (arcsec). Default=0
+        psfpawide (float): Position angle of the PSF (degrees). Default=0
     """
 
     name: str
