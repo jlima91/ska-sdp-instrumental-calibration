@@ -24,10 +24,7 @@ def apply_gaintable(
     This is a temporary local version of
     ska-sdp-func-python.operations.apply_gaintable that avoids a bug in the
     original. Will remove once the ska-sdp-func-python version is fixed. The
-    bug is that the function does not transpose the rightmost matrix. This may
-    not always be the desired action, for instance if calibration was done
-    separately for each polarised visibility type, but is required when the
-    solutions are Jones matrices.
+    bug is that the function does not transpose the rightmost matrix.
 
     Note: this is a temporary function and has not been made to robustly
     handle all situations. For instance, it ignores flags and does not
@@ -87,14 +84,6 @@ def solve_bandpass(
     gain_table.frequency==vis.frequency: solve with jones_type="B". If
     gain_table.frequency ~ [mean(vis.frequency)]: solve with jones_type="G".
     Otherwise: raise a ValueError.
-
-    If gain_table.frequency has multiple channels but fewer than vis, it would
-    be possible to check that everything is aligned and loop over each output
-    channel separately. However, for now this is not supported. If bandpass
-    calibration with lower spectral resolution is required, call this function
-    separately for sub-bands of the desired width and a single output channel
-    each (i.e. for each sub-band call create_gaintable_from_visibility with
-    jones_type="G").
 
     :param vis: Visibility dataset with the unknown corruptions.
     :param modelvis: Visibility model dataset to solve against.
