@@ -31,7 +31,9 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
-from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
+from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
+    PipelineConfig,
+)
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -48,89 +50,26 @@ def run(pipeline_config) -> None:
         None
     """
 
-    # Filenames
-    ms_name = pipeline_config.get("ms_name", "demo.ms")
-    hdf5_name = pipeline_config.get("hdf5_name", "demo.hdf5")
+    config = PipelineConfig(pipeline_config)
 
-    # Sky model info
-    lsm = pipeline_config.get("lsm", None)
-    fov = pipeline_config.get("fov_deg", 10)
-    flux_limit = pipeline_config.get("flux_limit", 1)
-    gleamfile = pipeline_config.get("gleamfile", None)
-    # Check required external data
-    if lsm is None and gleamfile is None:
-        raise ValueError("Either a LSM or a catalogue file is required")
+    if config.do_simulation:
+        truetable = config.simulate_input_dataset()
 
-    # Beam model info
-    beam_type = pipeline_config.get("beam_type", "everybeam")
-    eb_coeffs = pipeline_config.get("eb_coeffs", None)
-    eb_ms = pipeline_config.get("eb_ms", ms_name)
-    if beam_type.lower() == "everybeam":
-        # Required external data
-        if eb_coeffs is None:
-            raise ValueError("Path to Everybeam coeffs directory is required")
-        logger.info(f"Initialising the EveryBeam telescope model with {eb_ms}")
-    elif beam_type.lower() == "none":
-        logger.info("Predicting model visibilities without a beam")
-    else:
-        raise ValueError(f"Unknown beam type: {beam_type}")
-
-    # Corruption and solver type
-    gains = pipeline_config.get("gains", True)
-    leakage = pipeline_config.get("leakage", False)
-    rotation = pipeline_config.get("rotation", False)
-    solver = pipeline_config.get("solver", "gain_substitution")
-    refant = 0
-
-    if ms_name == "demo.ms":
-        # Generate a demo MSv2 Measurement Set
-        ntimes = pipeline_config.get("ntimes", 1)
-        nchannels = pipeline_config.get("nchannels", 64)
-        phasecentre = SkyCoord(ra=0.0, dec=-27.0, unit="degree")
-        if lsm is None:
-            # Get the LSM (single call for all channels / dask tasks)
-            logger.info(f"LSM: {gleamfile} < {fov/2} deg > {flux_limit} Jy")
-            lsm = generate_lsm(
-                gleamfile=gleamfile,
-                phasecentre=phasecentre,
-                fov=fov,
-                flux_limit=flux_limit,
-            )
-            logger.info(f"LSM: found {len(lsm)} components")
-
-        logger.info(f"Generating a demo MSv2 Measurement Set {ms_name}")
-        truetable = create_demo_ms(
-            ms_name=ms_name,
-            ntimes=ntimes,
-            nchannels=nchannels,
-            gains=gains,
-            leakage=leakage,
-            rotation=rotation,
-            phasecentre=phasecentre,
-            lsm=lsm,
-            beam_type=beam_type,
-            eb_coeffs=eb_coeffs,
-            eb_ms=eb_ms,
-        )
-
-    # Dask info
-    cluster = pipeline_config.get("dask_cluster", None)
-    # The number of channels per frequency chunk
-    fchunk = pipeline_config.get("fchunk", 16)
-
-    logger.info(f"Starting pipeline with {fchunk}-channel chunks")
+    logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
     # Set up a local dask cluster and client
-    if cluster is None:
+    if config.dask_cluster is None:
         logger.info("No dask cluster supplied. Using LocalCluster")
-        cluster = LocalCluster()
+        config.dask_cluster = LocalCluster()
     else:
         logger.info("Using existing dask cluster")
-    client = Client(cluster)
+    client = Client(config.dask_cluster)
 
     # Read in the Visibility dataset
-    logger.info(f"Setting input from {ms_name} in {fchunk}-channel chunks")
-    vis = load_ms(ms_name, fchunk)
+    logger.info(
+        f"Will read from {config.ms_name} in {config.fchunk}-channel chunks"
+    )
+    vis = load_ms(config.ms_name, config.fchunk)
 
     # Pre-processing
     #  - Is triggering the computation as is, so rfi_flagging=False for now.
@@ -141,37 +80,48 @@ def run(pipeline_config) -> None:
         vis = rfi_flagger(vis)
 
     # Set up the local sky model (single call for all channels)
-    #  - Could do this earlier, but currently use vis for phase centre
-    if lsm is None:
-        logger.info(f"LSM: {gleamfile} < {fov/2} deg > {flux_limit} Jy")
-        lsm = generate_lsm(
-            gleamfile=gleamfile,
+    if config.lsm is None:
+        logger.info("Generating LSM for predict with:")
+        logger.info(f" - Catalogue file: {config.gleamfile}")
+        logger.info(f" - Search radius: {config.fov/2} deg")
+        logger.info(f" - Flux limit: {config.flux_limit} Jy")
+        config.lsm = generate_lsm(
+            gleamfile=config.gleamfile,
             phasecentre=vis.phasecentre,
-            fov=fov,
-            flux_limit=flux_limit,
+            fov=config.fov,
+            flux_limit=config.flux_limit,
         )
-        logger.info(f"LSM: found {len(lsm)} components")
+        logger.info(f"LSM: found {len(config.lsm)} components")
 
     # Predict model visibilities
-    logger.info(f"Setting vis predict in {fchunk}-channel chunks")
+    logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
     modelvis = predict_vis(
-        vis, lsm, beam_type=beam_type, eb_ms=eb_ms, eb_coeffs=eb_coeffs
+        vis,
+        config.lsm,
+        beam_type=config.beam_type,
+        eb_ms=config.eb_ms,
+        eb_coeffs=config.eb_coeffs,
     )
 
     # Call the solver
-    logger.info(f"Setting calibration in {fchunk}-channel chunks")
+    refant = 0
+    logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
     gaintable = run_solver(
-        vis=vis, modelvis=modelvis, solver=solver, niter=50, refant=refant
+        vis=vis,
+        modelvis=modelvis,
+        solver=config.solver,
+        niter=50,
+        refant=refant,
     )
 
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")
     gaintable.load()
-    logger.info(f"Writing solutions to {hdf5_name}")
-    export_gaintable_to_hdf5([gaintable], hdf5_name)
+    logger.info(f"Writing solutions to {config.hdf5_name}")
+    export_gaintable_to_hdf5([gaintable], config.hdf5_name)
 
     # Convergence checks (noise-free demo version)
-    if ms_name == "demo.ms":
+    if config.do_simulation:
         logger.info("Checking results")
         gfit = gaintable.gain.data
         true = truetable.gain.data
@@ -184,7 +134,7 @@ def run(pipeline_config) -> None:
             -1j
             * np.angle(true[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
         )
-        if solver == "gain_substitution":
+        if config.solver == "gain_substitution":
             # For independent Y calibration, reference Y gains separately
             gfit[:, :, :, 1, 1] *= np.exp(
                 -1j * np.angle(gfit[:, [refant], :, 1, 1])
