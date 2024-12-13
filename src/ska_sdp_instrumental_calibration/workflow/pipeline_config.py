@@ -14,84 +14,83 @@ class PipelineConfig:
 
     Attributes:
         config: Dictionary
-    """
 
-    def __init__(self, config):
-        """
-        Parameters
-        ----------
-        config : dict
+    Args:
+        config (dict):
             Input dictionary of pipeline configuration parameters
-        dask_cluster : Dask cluster, optional
+        dask_cluster (Dask cluster, optional
             Dask cluster object containing scheduler and workers. Such as a
             dask_jobqueue.SLURMCluster. Default is None, in which case a
             dask.distributed.LocalCluster will be used.
-        hdf5_name : str
+        hdf5_name (str):
             Output hdf5 filename. Defaults to "demo.hdf5".
-        ms_name : str
+        ms_name (str):
             Input MSv2 filename. Defaults to "demo.ms". If the filename is
             "demo.ms", a demo dataset will be generated and written to this
             file. See also parameters ntimes, nchannels, gains, leakage and
             rotation.
-        ntimes : int
+        ntimes (int):
             If filename is "demo.ms", this sets the number of simulated time
             steps. Default is 1.
-        nchannels : int
+        nchannels (int):
             If filename is "demo.ms", this sets the number of simulated
             frequency channels. Default is 64.
-        gains : bool
+        gains (bool):
             If filename is "demo.ms", this specifies whether or not random
             station gain corrumptions should be included in the simulation.
             Default is True.
-        leakage : bool
+        leakage (bool):
             If filename is "demo.ms", this specifies whether or not random
             station leakage corrumptions should be included in the simulation.
             Default is False.
-        rotation : bool
+        rotation (bool):
             If filename is "demo.ms", this specifies whether or not
             station-dependent Faraday rotation should be included in the
             simulation. Default is False.
-        wide_channels : bool
+        wide_channels (bool):
             If filename is "demo.ms", this specifies whether or not
             use wider 781.25 kHz channels in the simulation. Default is False,
             which sets 5.4 kHz channels.
-        fchunk : int
+        fchunk (int):
             Number of frequency channels to use when chunking datasets. Default
             if 16.
-        solver : str
+        solver (str):
             Calibration solver to use. Must be supported by ska_sdp_func_python
             calibration function solve_gaintable: "gain_substitution",
             "jones_substitution", "normal_equations" or
             "normal_equations_presum".
-        lsm : lsm.Component list, optional
+        lsm (lsm.Component list, optional):
             Optional list of lsm Component objects to use as the local sky
             model. Default is None, in which case the lsm will be generated
             from the catalogue supplied in parameter gleamfile. Also see
             parameters fov and flux_limit.
-        fov : float
+        fov (float):
             If lsm is None, this specifies the width of the cone used when
             searching for compoents, in units of degrees. Defaults to 10.
-        flux_limit : float
+        flux_limit (float):
             If lsm is None, this specifies the flux density limit used when
             searching for compoents, in units of Jy. Defaults to 1.
-        gleamfile : str
+        gleamfile (str):
             If lsm is None, this specifies the location of gleam catalogue
             file gleamegc.dat. This can be downloaded from VizieR:
             "wget https://cdsarc.cds.unistra.fr/ftp/VIII/100/gleamegc.dat.gz"
             This parameter is deprecated and will be replaced with parameters
             related to ska-sdp-global-sky-model.
-        beam_type : str
+        beam_type (str):
             Type of beam model to use. Should be "everybeam" or "none".
             Defaults to "everybeam".
-        eb_coeffs : str
+        eb_coeffs (str):
             If beam_type is "everybeam", this specifies the location of the
             everybeam coeffs directory. For example
             "./ska-sdp-func-everybeam/coeffs".
-        eb_ms: str
+        eb_ms (str):
             If beam_type is "everybeam" but dataset ms_name does not have all
             of the metadata required by everybeam, this parameter is used to
             specify a separate dataset to use when setting up the beam models.
-        """
+    """
+
+    def __init__(self, config):
+        """Parse input parameters."""
 
         self.config = config
 
