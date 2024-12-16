@@ -23,38 +23,26 @@ def generate_vis():
     """Fixture to build Visibility and GainTable datasets."""
     # Create the Visibility dataset
     config = create_named_configuration("LOWBD2")
-    AA2 = (
+    AA1 = (
         np.concatenate(
             (
                 345 + np.arange(6),  # S8-1:6
                 351 + np.arange(4),  # S9-1:4
                 429 + np.arange(6),  # S10-1:6
-                447 + np.arange(4),  # S13-1:4
-                459 + np.arange(4),  # S15-1:4
                 465 + np.arange(4),  # S16-1:4
-                375 + np.arange(4),  # N8-1:4
-                381 + np.arange(4),  # N9-1:4
-                471 + np.arange(4),  # N10-1:4
-                489 + np.arange(4),  # N13-1:4
-                501 + np.arange(4),  # N15-1:4
-                507 + np.arange(4),  # N16-1:4
-                315 + np.arange(4),  # E8-1:4
-                321 + np.arange(4),  # E9-1:4
-                387 + np.arange(4),  # E10-1:4
-                405 + np.arange(4),  # E13-1:4
             )
         )
         - 1
     )
-    mask = np.isin(config.id.data, AA2)
+    mask = np.isin(config.id.data, AA1)
     nstations = config.stations.shape[0]
     config = config.sel(indexers={"id": np.arange(nstations)[mask]})
     # Reset relevant station parameters
     nstations = config.stations.shape[0]
     config.stations.data = np.arange(nstations).astype("str")
     config = config.assign_coords(id=np.arange(nstations))
-    # config.attrs["name"] = config.name+"-AA2"
-    config.attrs["name"] = "AA2-Low-ECP-240228"
+    # config.attrs["name"] = config.name+"-AA1"
+    config.attrs["name"] = "AA1-Low"
     vis = create_visibility(
         config=config,
         times=np.arange(3) * 0.9 / 3600 * np.pi / 12,

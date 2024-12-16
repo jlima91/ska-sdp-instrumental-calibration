@@ -86,30 +86,47 @@ def create_demo_ms(
     #         Northern Arm: N8, N9, N10, N13, N15, N16
     #         Eastern Arm: E8, E9, E10, E13.
     #     - Most include only 4 of 6 stations, so just use the first 4:
-    AA2 = (
+    # AA2 = (
+    #     np.concatenate(
+    #         (
+    #             345 + np.arange(6),  # S8-1:6
+    #             351 + np.arange(4),  # S9-1:4
+    #             429 + np.arange(6),  # S10-1:6
+    #             447 + np.arange(4),  # S13-1:4
+    #             459 + np.arange(4),  # S15-1:4
+    #             465 + np.arange(4),  # S16-1:4
+    #             375 + np.arange(4),  # N8-1:4
+    #             381 + np.arange(4),  # N9-1:4
+    #             471 + np.arange(4),  # N10-1:4
+    #             489 + np.arange(4),  # N13-1:4
+    #             501 + np.arange(4),  # N15-1:4
+    #             507 + np.arange(4),  # N16-1:4
+    #             315 + np.arange(4),  # E8-1:4
+    #             321 + np.arange(4),  # E9-1:4
+    #             387 + np.arange(4),  # E10-1:4
+    #             405 + np.arange(4),  # E13-1:4
+    #         )
+    #     )
+    #     - 1
+    # )
+    # mask = np.isin(low_config.id.data, AA2)
+
+    # Change to AA1. I only know that it will include stations from clusters
+    # S8, S9 and S10. Include S16 as well, but this will be updated once the
+    # PI25 simulation config is confirmed.
+    AA1 = (
         np.concatenate(
             (
                 345 + np.arange(6),  # S8-1:6
                 351 + np.arange(4),  # S9-1:4
                 429 + np.arange(6),  # S10-1:6
-                447 + np.arange(4),  # S13-1:4
-                459 + np.arange(4),  # S15-1:4
                 465 + np.arange(4),  # S16-1:4
-                375 + np.arange(4),  # N8-1:4
-                381 + np.arange(4),  # N9-1:4
-                471 + np.arange(4),  # N10-1:4
-                489 + np.arange(4),  # N13-1:4
-                501 + np.arange(4),  # N15-1:4
-                507 + np.arange(4),  # N16-1:4
-                315 + np.arange(4),  # E8-1:4
-                321 + np.arange(4),  # E9-1:4
-                387 + np.arange(4),  # E10-1:4
-                405 + np.arange(4),  # E13-1:4
             )
         )
         - 1
     )
-    mask = np.isin(low_config.id.data, AA2)
+    mask = np.isin(low_config.id.data, AA1)
+
     nstations = low_config.stations.shape[0]
     low_config = low_config.sel(indexers={"id": np.arange(nstations)[mask]})
 
@@ -117,7 +134,8 @@ def create_demo_ms(
     nstations = low_config.stations.shape[0]
     low_config.stations.data = np.arange(nstations).astype("str")
     low_config = low_config.assign_coords(id=np.arange(nstations))
-    low_config.attrs["name"] = "AA2-Low-ECP-240228"
+    # low_config.attrs["name"] = "AA2-Low-ECP-240228"
+    low_config.attrs["name"] = "AA1-Low"
 
     logger.info(f"Using {low_config.name} with {nstations} stations")
 

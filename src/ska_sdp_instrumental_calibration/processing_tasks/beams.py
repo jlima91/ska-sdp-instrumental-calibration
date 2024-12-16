@@ -175,29 +175,24 @@ class GenericBeams:
             if time is None:
                 raise ValueError("Time must be specified for the Low beam.")
 
+            # Get the station pointing direction in ITRF
             if self.delay_dir_itrf is None:
                 self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
-
-            # Will need a loop over station_id, but ska_sdp_datamodels function
-            # export_visibility_to_ms does not produce the required MS table
-            # PHASED_ARRAY, so self-simulated data cannot currently be used to
-            # set up the EveryBeam telescope model, and mock dataset
-            # OSKAR_MOCK.ms does not have enough stations. So for now, just use
-            # the first station and make them all the same.
-            station_id = 0
-            mjds = time.mjd * 86400
 
             # Get the component direction in ITRF
             dir_itrf = radec_to_xyz(direction, time)
 
-            for chan, freq in enumerate(frequency):
-                beams[..., chan, :, :] = (
-                    self.telescope.station_response(
-                        mjds, station_id, freq, dir_itrf, self.delay_dir_itrf
+            mjds = time.mjd * 86400
+
+            for stn_id in range(len(self.antenna_names)):
+                for chan, freq in enumerate(frequency):
+                    beams[stn_id, chan, :, :] = (
+                        self.telescope.station_response(
+                            mjds, stn_id, freq, dir_itrf, self.delay_dir_itrf
+                        )
+                        @ self.normalise[chan]
                     )
-                    @ self.normalise[chan]
-                )
-            np.set_printoptions(linewidth=120, precision=4, suppress=True)
+            # np.set_printoptions(linewidth=120, precision=4, suppress=True)
             # print(
             #     f"sep = {direction.separation(self.beam_direction):.1f}, "
             #     + f"response = {beams[0, 0, :, :].reshape(4)}"

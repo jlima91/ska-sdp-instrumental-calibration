@@ -1,9 +1,10 @@
 SKA Instrumental Calibration Pipeline
 =====================================
 
-[![Documentation Status](https://readthedocs.org/projects/ska-sdp-instrumental-calibration/badge/?version=latest)](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/?badge=latest)
+[![Documentation Status](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
 
-Instrument calibration pipeline for the SKA SDP.
+Instrument calibration pipeline for the SKA SDP. See
+[online documentation](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest).
 
 The INST pipeline project contains the functions and scripts needed to generate the
 initial calibration products during standard SKA batch processing. It includes
