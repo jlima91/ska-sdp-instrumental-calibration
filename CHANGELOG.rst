@@ -4,6 +4,14 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+0.1.2
+*****
+
+Changed
+-------
+* Station-dependent beam models are extracted from EveryBeam.
+* Simulations and tests have been reduced to AA1 (from AA2).
+
 0.1.1
 *****
 
