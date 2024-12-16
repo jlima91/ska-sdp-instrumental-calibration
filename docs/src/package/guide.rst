@@ -4,8 +4,6 @@
 .. todo::
     - Review and improve dask handling. See Vincent's comments in dask_wrappers.
     - Time and frequency averaging before calibration.
-    - Improve the interface to EveryBeam and loop over stations in
-      GenericBeams.array_response.
     - XRADIO / MSv4 data models.
     - H5Parm calibration output.
 
