@@ -92,7 +92,7 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     channel_bandwidth = np.array(spwtab.getcol("CHAN_WIDTH")[0])
     #  - Fixme: Change this to extract other metadata as done for frequency
     #  - For now read a single channel and use for all but frequency
-    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=1)[0]
+    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=0)[0]
     shape = list(tmpvis.vis.shape)
     shape[2] = len(frequency)
 
