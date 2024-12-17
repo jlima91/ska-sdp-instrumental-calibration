@@ -18,10 +18,10 @@ class PipelineConfig:
     Args:
         config (dict):
             Input dictionary of pipeline configuration parameters
-        dask_cluster (Dask cluster, optional
-            Dask cluster object containing scheduler and workers. Such as a
-            dask_jobqueue.SLURMCluster. Default is None, in which case a
-            dask.distributed.LocalCluster will be used.
+        dask_scheduler_address (str, optional)
+            Dask cluster IP, (e.g. cluster.scheduler_address). Default is None,
+            in which case a dask.distributed.LocalCluster scheduler_address
+            will be used.
         hdf5_name (str):
             Output hdf5 filename. Defaults to "demo.hdf5".
         ms_name (str):
@@ -95,7 +95,9 @@ class PipelineConfig:
         self.config = config
 
         # Dask info
-        self.dask_cluster = config.get("dask_cluster", None)
+        self.dask_scheduler_address = config.get(
+            "dask_scheduler_address", None
+        )
 
         # Output hdf5 filename
         self.hdf5_name = config.get("hdf5_name", "demo.hdf5")

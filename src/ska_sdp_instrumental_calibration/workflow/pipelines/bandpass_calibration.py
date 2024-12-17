@@ -57,12 +57,14 @@ def run(pipeline_config) -> None:
     logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
     # Set up a local dask cluster and client
-    if config.dask_cluster is None:
+    if config.dask_scheduler_address is None:
         logger.info("No dask cluster supplied. Using LocalCluster")
-        config.dask_cluster = LocalCluster()
+        client = Client(LocalCluster())
     else:
-        logger.info("Using existing dask cluster")
-    client = Client(config.dask_cluster)
+        logger.info(
+            f"Using existing dask cluster {config.dask_scheduler_address}"
+        )
+        client = Client(config.dask_scheduler_address)
 
     # Read in the Visibility dataset
     logger.info(
@@ -151,4 +153,5 @@ def run(pipeline_config) -> None:
 
     # Shut down the scheduler and workers
     client.close()
-    client.shutdown()
+    if config.dask_scheduler_address is None:
+        client.shutdown()
