@@ -3,7 +3,9 @@
 from astropy.coordinates import SkyCoord
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_gleamegc,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
 
 logger = setup_logger("workflow.pipeline_config")
@@ -18,10 +20,10 @@ class PipelineConfig:
     Args:
         config (dict):
             Input dictionary of pipeline configuration parameters
-        dask_cluster (Dask cluster, optional
-            Dask cluster object containing scheduler and workers. Such as a
-            dask_jobqueue.SLURMCluster. Default is None, in which case a
-            dask.distributed.LocalCluster will be used.
+        dask_scheduler_address (str, optional)
+            Dask cluster IP, (e.g. cluster.scheduler_address). Default is None,
+            in which case a dask.distributed.LocalCluster scheduler_address
+            will be used.
         hdf5_name (str):
             Output hdf5 filename. Defaults to "demo.hdf5".
         ms_name (str):
@@ -95,7 +97,9 @@ class PipelineConfig:
         self.config = config
 
         # Dask info
-        self.dask_cluster = config.get("dask_cluster", None)
+        self.dask_scheduler_address = config.get(
+            "dask_scheduler_address", None
+        )
 
         # Output hdf5 filename
         self.hdf5_name = config.get("hdf5_name", "demo.hdf5")
@@ -180,7 +184,7 @@ class PipelineConfig:
                 logger.info(f" - Catalogue file: {self.gleamfile}")
                 logger.info(f" - Search radius: {self.fov/2} deg")
                 logger.info(f" - Flux limit: {self.flux_limit} Jy")
-                lsm = generate_lsm(
+                lsm = generate_lsm_from_gleamegc(
                     gleamfile=self.gleamfile,
                     phasecentre=phasecentre,
                     fov=self.fov,

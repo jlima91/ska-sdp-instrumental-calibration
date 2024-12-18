@@ -29,7 +29,9 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_gleamegc,
+)
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )
@@ -57,12 +59,14 @@ def run(pipeline_config) -> None:
     logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
     # Set up a local dask cluster and client
-    if config.dask_cluster is None:
+    if config.dask_scheduler_address is None:
         logger.info("No dask cluster supplied. Using LocalCluster")
-        config.dask_cluster = LocalCluster()
+        client = Client(LocalCluster())
     else:
-        logger.info("Using existing dask cluster")
-    client = Client(config.dask_cluster)
+        logger.info(
+            f"Using existing dask cluster {config.dask_scheduler_address}"
+        )
+        client = Client(config.dask_scheduler_address)
 
     # Read in the Visibility dataset
     logger.info(
@@ -84,7 +88,7 @@ def run(pipeline_config) -> None:
         logger.info(f" - Catalogue file: {config.gleamfile}")
         logger.info(f" - Search radius: {config.fov/2} deg")
         logger.info(f" - Flux limit: {config.flux_limit} Jy")
-        config.lsm = generate_lsm(
+        config.lsm = generate_lsm_from_gleamegc(
             gleamfile=config.gleamfile,
             phasecentre=vis.phasecentre,
             fov=config.fov,
@@ -151,4 +155,5 @@ def run(pipeline_config) -> None:
 
     # Shut down the scheduler and workers
     client.close()
-    client.shutdown()
+    if config.dask_scheduler_address is None:
+        client.shutdown()
