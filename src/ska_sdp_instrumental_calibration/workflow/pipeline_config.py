@@ -3,7 +3,9 @@
 from astropy.coordinates import SkyCoord
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_gleamegc,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
 
 logger = setup_logger("workflow.pipeline_config")
@@ -182,7 +184,7 @@ class PipelineConfig:
                 logger.info(f" - Catalogue file: {self.gleamfile}")
                 logger.info(f" - Search radius: {self.fov/2} deg")
                 logger.info(f" - Flux limit: {self.flux_limit} Jy")
-                lsm = generate_lsm(
+                lsm = generate_lsm_from_gleamegc(
                     gleamfile=self.gleamfile,
                     phasecentre=phasecentre,
                     fov=self.fov,

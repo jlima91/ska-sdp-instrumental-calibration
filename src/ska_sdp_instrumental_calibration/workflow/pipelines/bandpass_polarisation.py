@@ -33,7 +33,9 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import generate_lsm
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_gleamegc,
+)
 from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
     model_rotations,
 )
@@ -110,7 +112,7 @@ def run(pipeline_config) -> None:
         logger.info(f" - Catalogue file: {config.gleamfile}")
         logger.info(f" - Search radius: {config.fov/2} deg")
         logger.info(f" - Flux limit: {config.flux_limit} Jy")
-        config.lsm = generate_lsm(
+        config.lsm = generate_lsm_from_gleamegc(
             gleamfile=config.gleamfile,
             phasecentre=vis.phasecentre,
             fov=config.fov,

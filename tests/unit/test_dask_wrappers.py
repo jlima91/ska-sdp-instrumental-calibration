@@ -83,20 +83,19 @@ def test_predict_vis(client):
             name="testcomp",
             RAdeg=vis.phasecentre.ra.degree - 0.3,
             DEdeg=vis.phasecentre.dec.degree + 1,
+            flux=1.0,
+            ref_freq=200e6,
+            alpha=-0.5,
             awide=0.2,
             bwide=0.1,
             pawide=10.0,
             psfawide=0.1,
             psfbwide=0.1,
             psfpawide=0.0,
-            Fint200=1.0,
-            alpha=-0.5,
         )
     ]
     # Evaluate LSM for current band
-    lsm_components = convert_model_to_skycomponents(
-        lsm, vis.frequency.data, freq0=200e6
-    )
+    lsm_components = convert_model_to_skycomponents(lsm, vis.frequency.data)
     # Call predict
     predict_from_components(
         modelvis,

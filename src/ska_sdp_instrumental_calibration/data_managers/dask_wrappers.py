@@ -142,7 +142,7 @@ def _predict(
     if len(vischunk.frequency) > 0:
         # Evaluate LSM for current band
         lsm_components = convert_model_to_skycomponents(
-            lsm, vischunk.frequency.data, freq0=200e6
+            lsm, vischunk.frequency.data
         )
         # Switch to standard variable names and coords for the SDP call
         vischunk = restore_baselines_dim(vischunk)

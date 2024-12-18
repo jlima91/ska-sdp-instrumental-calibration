@@ -7,7 +7,7 @@ connect to ska-sdp-global-sky-model functions.
 __all__ = [
     "convert_model_to_skycomponents",
     "deconvolve_gaussian",
-    "generate_lsm",
+    "generate_lsm_from_gleamegc",
 ]
 
 from dataclasses import dataclass
@@ -35,7 +35,8 @@ class Component:
         name (str): GLEAM name (JHHMMSS+DDMMSS)
         RAdeg (float): Right Ascension J2000 (degrees)
         DEdeg (float): Declination J2000 (degrees)
-        Fint200 (float): 200MHz integrated flux density
+        flux (float): Flux density (Jy) at the reference frequency, ref_freq.
+        ref_freq (float): Reference frequency (Hz). Default=200e6.
         alpha (float): Spectral index. Default=0
         awide (float): Fitted semi-major axis in wide-band image (arcsec).
             Default=0
@@ -51,7 +52,8 @@ class Component:
     name: str
     RAdeg: float
     DEdeg: float
-    Fint200: float
+    flux: float
+    ref_freq: float = 200e6
     alpha: float = 0.0
     awide: float = 0.0
     bwide: float = 0.0
@@ -61,7 +63,7 @@ class Component:
     psfpawide: float = 0.0
 
 
-def generate_lsm(
+def generate_lsm_from_gleamegc(
     gleamfile: str,
     phasecentre: SkyCoord,
     fov: float = 5.0,
@@ -75,8 +77,8 @@ def generate_lsm(
     single point source will be generated at phasecentre.
 
     All components are Gaussians with data from the following GLEAM columns.
-    Fintfit200 and alpha are used to set flux density spectra where available.
-    Otherwise, Fintwide and alpha0 are used.
+    Where available, Fintfit200 and alpha are used to set the spectral
+    parameters flux and alpha. Otherwise, Fintwide and alpha0 are used.
 
     See data class :class:`~Component` and the gleamegc ReadMe file for more
     information on columns extracted from the catalogue.
@@ -99,14 +101,7 @@ def generate_lsm(
                 name="default",
                 RAdeg=phasecentre.ra.degree,
                 DEdeg=phasecentre.dec.degree,
-                Fint200=1.0,
-                alpha=0.0,
-                awide=0.0,
-                bwide=0.0,
-                pawide=0.0,
-                psfawide=0.0,
-                psfbwide=0.0,
-                psfpawide=0.0,
+                flux=1.0,
             )
         ]
 
@@ -143,16 +138,19 @@ def generate_lsm(
 
                 Fintfit200 = line[3135:3145]
                 if Fintfit200.strip() == "---":
-                    Fint200 = Fintwide
+                    flux = Fintwide
                     alpha = alpha0
                 else:
-                    Fint200 = float(Fintfit200)
+                    flux = float(Fintfit200)
                     alpha = float(line[3104:3113])
                     alpha_cat.append(alpha)
 
                 model.append(
                     Component(
                         name=name,
+                        flux=flux,
+                        ref_freq=200e6,
+                        alpha=alpha,
                         RAdeg=float(line[65:75]),
                         DEdeg=float(line[87:97]),
                         awide=float(line[153:165]),
@@ -161,8 +159,6 @@ def generate_lsm(
                         psfawide=float(line[247:254]),
                         psfbwide=float(line[255:262]),
                         psfpawide=float(line[263:273]),
-                        Fint200=Fint200,
-                        alpha=alpha,
                     )
                 )
 
@@ -181,7 +177,6 @@ def generate_lsm(
 def convert_model_to_skycomponents(
     model: list[Component],
     freq: typing.NDArray[np.float_],
-    freq0: float = 200e6,
 ) -> list[SkyComponent]:
     """Convert the LocalSkyModel to a list of SkyComponents.
 
@@ -203,8 +198,9 @@ def convert_model_to_skycomponents(
     freq = np.array(freq)
 
     for comp in model:
+        flux0 = comp.flux
+        freq0 = comp.ref_freq
         alpha = comp.alpha
-        flux0 = comp.Fint200
 
         # assume 4 pols
         flux = np.zeros((len(freq), 4))
