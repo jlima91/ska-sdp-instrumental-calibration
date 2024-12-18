@@ -89,8 +89,6 @@ def dft_skycomponent_local(
         l_comp = cdec * np.sin(comp.direction.ra.radian - ra0)
         m_comp = sdec * cdec0 - cdec * sdec0 * cdra
         n_comp = sdec * sdec0 + cdec * cdec0 * cdra
-        # Should this exponent be positive?
-        #  - Compare with dft_skycomponent_visibility...
         comp_data = np.einsum(
             "tbf,fp->tbfp",
             np.exp(-2j * np.pi * (u * l_comp + v * m_comp + w * (n_comp - 1))),
