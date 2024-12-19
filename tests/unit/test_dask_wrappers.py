@@ -86,12 +86,12 @@ def test_predict_vis(client):
             flux=1.0,
             ref_freq=200e6,
             alpha=-0.5,
-            awide=0.2,
-            bwide=0.1,
-            pawide=10.0,
-            psfawide=0.1,
-            psfbwide=0.1,
-            psfpawide=0.0,
+            major=0.2,
+            minor=0.1,
+            pa=10.0,
+            beam_major=0.1,
+            beam_minor=0.1,
+            beam_pa=0.0,
         )
     ]
     # Evaluate LSM for current band

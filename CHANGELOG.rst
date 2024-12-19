@@ -9,6 +9,9 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 Changed
 -------
+* LSM Component elliptical Gaussian parameter names have been updated.
+* LSM Component parameter Fint200 has been replaced with flux and ref_freq.
+* Pipeline argument "dask_cluster" replaced with "dask_scheduler_address", which accepts the cluster IP rather the the object.
 * Station-dependent beam models are extracted from EveryBeam.
 * Simulations and tests have been reduced to AA1 (from AA2).
 
