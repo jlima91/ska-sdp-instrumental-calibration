@@ -35,7 +35,7 @@ class Component:
     parameters should be left at zero.
 
     Args:
-        name (str): GLEAM name (JHHMMSS+DDMMSS)
+        name (str): Name
         RAdeg (float): Right Ascension J2000 (degrees)
         DEdeg (float): Declination J2000 (degrees)
         flux (float): Flux density (Jy) at the reference frequency, ref_freq.
