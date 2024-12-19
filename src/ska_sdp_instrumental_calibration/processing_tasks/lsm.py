@@ -28,25 +28,28 @@ logger = setup_logger("processing_tasks.lsm")
 class Component:
     """Class for LSM components.
 
-    Class to hold the relevant columns of GLEAMEGC for a component of the
-    local sky model.
+    Class to hold catalogue data for a component of the local sky model. For
+    components with elliptical Gaussian parameters, if beam parameters are also
+    supplied, the beam will be deconvolved from the component parameters. If
+    the component parameters have already had the beam deconvolved, the beam
+    parameters should be left at zero.
 
     Args:
-        name (str): GLEAM name (JHHMMSS+DDMMSS)
+        name (str): Name
         RAdeg (float): Right Ascension J2000 (degrees)
         DEdeg (float): Declination J2000 (degrees)
         flux (float): Flux density (Jy) at the reference frequency, ref_freq.
         ref_freq (float): Reference frequency (Hz). Default=200e6.
         alpha (float): Spectral index. Default=0
-        awide (float): Fitted semi-major axis in wide-band image (arcsec).
-            Default=0
-        bwide (float): Fitted semi-minor axis in wide-band image (arcsec).
-            Default=0
-        pawide (float): Fitted position angle in wide-band image (degrees).
-            Default=0
-        psfawide (float): Semi-major axis of the PSF (arcsec). Default=0
-        psfbwide (float): Semi-minor axis of the PSF (arcsec). Default=0
-        psfpawide (float): Position angle of the PSF (degrees). Default=0
+        major (float): Fitted semi-major axis (arcsec). Default=0
+        minor (float): Fitted semi-minor axis (arcsec). Default=0
+        pa (float): Fitted position angle (degrees). Default=0
+        beam_major (float): Semi-major axis of a beam that is still convolved
+            into the main component shape (arcsec). Default=0 (no beam present)
+        beam_minor (float): Semi-minor axis of a beam that is still convolved
+            into the main component shape (arcsec). Default=0 (no beam present)
+        beam_pa (float): Position angle of a beam that is still convolved
+            into the main component shape (degrees). Default=0
     """
 
     name: str
@@ -55,12 +58,12 @@ class Component:
     flux: float
     ref_freq: float = 200e6
     alpha: float = 0.0
-    awide: float = 0.0
-    bwide: float = 0.0
-    pawide: float = 0.0
-    psfawide: float = 0.0
-    psfbwide: float = 0.0
-    psfpawide: float = 0.0
+    major: float = 0.0
+    minor: float = 0.0
+    pa: float = 0.0
+    beam_major: float = 0.0
+    beam_minor: float = 0.0
+    beam_pa: float = 0.0
 
 
 def generate_lsm_from_gleamegc(
@@ -153,12 +156,12 @@ def generate_lsm_from_gleamegc(
                         alpha=alpha,
                         RAdeg=float(line[65:75]),
                         DEdeg=float(line[87:97]),
-                        awide=float(line[153:165]),
-                        bwide=float(line[179:187]),
-                        pawide=float(line[200:210]),
-                        psfawide=float(line[247:254]),
-                        psfbwide=float(line[255:262]),
-                        psfpawide=float(line[263:273]),
+                        major=float(line[153:165]),
+                        minor=float(line[179:187]),
+                        pa=float(line[200:210]),
+                        beam_major=float(line[247:254]),
+                        beam_minor=float(line[255:262]),
+                        beam_pa=float(line[263:273]),
                     )
                 )
 
@@ -252,23 +255,23 @@ def deconvolve_gaussian(comp: Component) -> tuple[float]:
     """
 
     # fitted data on source
-    fmajsq = comp.awide * comp.awide
-    fminsq = comp.bwide * comp.bwide
+    fmajsq = comp.major * comp.major
+    fminsq = comp.minor * comp.minor
     fdiff = fmajsq - fminsq
-    fphi = 2.0 * comp.pawide * np.pi / 180.0
+    fphi = 2.0 * comp.pa * np.pi / 180.0
 
     # beam data at source location
-    bmajsq = comp.psfawide * comp.psfawide
-    bminsq = comp.psfbwide * comp.psfbwide
+    bmajsq = comp.beam_major * comp.beam_major
+    bminsq = comp.beam_minor * comp.beam_minor
     bdiff = bmajsq - bminsq
-    bphi = 2.0 * comp.psfpawide * np.pi / 180.0
+    bphi = 2.0 * comp.beam_pa * np.pi / 180.0
 
     # source data after deconvolution
     if fdiff < 1e-6:
         # Circular Gaussian case
         smaj = np.sqrt(fmajsq - bminsq)
         smin = np.sqrt(fmajsq - bmajsq)
-        psmaj = np.pi / 2.0 + comp.psfpawide
+        psmaj = np.pi / 2.0 + comp.beam_pa
 
     else:
         # General case
