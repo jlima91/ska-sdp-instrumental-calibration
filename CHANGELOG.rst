@@ -4,6 +4,14 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+0.1.3
+*****
+
+Fixed
+-----
+
+* Documentation badge.
+
 0.1.2
 *****
 
@@ -33,12 +41,6 @@ Changed
 * A single baseline chunk is set in load_ms. This dimension requires modification and auto chunking can cause confusion.
 * Pre-define work array in predict_from_components to avoid memory leak build up.
 * Improvements to dask handling in dask_wrappers.
-
-Fixed
------
-
-Removed
--------
 
 0.1.0
 *****

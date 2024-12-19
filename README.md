@@ -1,7 +1,7 @@
 SKA Instrumental Calibration Pipeline
 =====================================
 
-[![Documentation Status](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/ska-telescope-ska-sdp-instrumental-calibration/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
 
 Instrument calibration pipeline for the SKA SDP. See
 [online documentation](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest).
