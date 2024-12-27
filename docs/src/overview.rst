@@ -102,7 +102,7 @@ The pipelines use an intermediate sky model containing relevant columns of a
 sky catalogue. This can either be filled from a cone search of a user-supplied
 GLEAMEGC file, by a user-defined list of
 :py:class:`~ska_sdp_instrumental_calibration.processing_tasks.lsm.Component`
-objects, or in the near future with a cone search of the
+objects, or in the near future from a query of the
 `Global Sky Model <https://developer.skao.int/projects/ska-sdp-global-sky-model/en/>`_
 service (which in practice may be called outside this pipeline, with output
 added to the Telescope Model).
@@ -144,10 +144,10 @@ For example, to add GLEAMEGC data by hand, a user would do the following:
       }
   )
 
-The elliptical Gaussian fit for the beam will deconvolved from the elliptical
-Gaussian fit for the component, leaving a component shape of 1.48' x 0.55' at a
-PA of 1.29 degrees. However this source resolves into two components, and a
-user could instead use two components from NVSS:
+The beam elliptical Gaussian will be deconvolved from the component elliptical
+Gaussian, which in this cases results a component shape of 1.48' x 0.55' at a
+PA of 1.29 degrees. However this source resolves into multiple components, and
+a user could instead use the two components from NVSS:
 
 .. code-block:: python
 
@@ -175,6 +175,25 @@ user could instead use two components from NVSS:
       }
   )
 
-The NVSS elliptical Gaussian parameters have been deconvolved, so no beam
-information is given. NVSS does not include spectral index information, so the
-GLEAMEGC value has been used.
+The NVSS elliptical Gaussian parameters have already been deconvolved, so no
+beam information should be given. NVSS does not include spectral index
+information, so the GLEAMEGC value has been used -- extrapolating the GLEAMEGC
+parameters to 1.4 GHz results in 8.5 Jy, which is roughly consistent with the
+combined NVSS flux.
+
+Or to use GLEAMEGC and EveryBeam:
+
+.. code-block:: python
+
+  bandpass_calibration.run(
+      {
+          "dask_scheduler_address": cluster.scheduler_address,
+          "fchunk": fchunk,
+          "ms_name": "3C444.ms",
+          "gleamfile": "gleamegc.dat",
+          "fov": 10,
+          "flux_limit": 1,
+          "eb_coeffs": "ska-sdp-func-everybeam/coeffs",
+          "hdf5_name": "3C444.hdf5",
+      }
+  )
