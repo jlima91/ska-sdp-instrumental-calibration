@@ -22,8 +22,9 @@ It uses standard SKA processing functions in the
 repositories, and standard data models in the
 [datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
 
-If `generate_lsm` and `predict_from_components` are used to generate model visibilities
-for calibration, a number of external datasets will also be required:
+If `generate_lsm_from_gleamegc` and `predict_from_components` are used to generate
+model visibilities for calibration, a number of external datasets will also be
+required:
 
  * The GLEAM extragalactic catalogue is used to generate the local sky model. This and
    other catalogues will soon be available via

@@ -97,8 +97,10 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     shape[2] = len(frequency)
 
     # Create a chunked dataset.
-    # Specify a single baseline chunk. Auto chunking can confuse the dim swap
-    # of simplify_baselines_dim.
+    # Specify a single baseline chunk.
+    #  - Auto chunking can confuse the dim swap of simplify_baselines_dim.
+    # Specify a single time chunk.
+    #  - Auto chunking can confuse downstream processing (needs investigation).
     vis = simplify_baselines_dim(
         Visibility.constructor(
             configuration=tmpvis.configuration,
@@ -115,7 +117,7 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
             flags=da.zeros(shape, "bool"),
             uvw=tmpvis.uvw.data,
             baselines=tmpvis.baselines,
-        ).chunk({"frequency": fchunk, "baselines": shape[1]})
+        ).chunk({"frequency": fchunk, "time": shape[0], "baselines": shape[1]})
     )
 
     # Call map_blocks function and return result

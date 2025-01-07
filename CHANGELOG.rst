@@ -4,12 +4,18 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+0.1.4
+*****
+
+Changed
+-------
+* Forced a single time chunk during load_ms.
+
 0.1.3
 *****
 
 Fixed
 -----
-
 * Documentation badge.
 
 0.1.2
