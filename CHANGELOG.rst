@@ -4,6 +4,17 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+0.1.5
+*****
+
+Fixed
+-----
+* After gaintable creation, run_solver resets the gaintable interval to include all times. This avoids a bug in create_gaintable_from_visibility.
+
+Changed
+-------
+* Forced a single polarisation chunk during load_ms, to be consistent with other dimensions.
+
 0.1.4
 *****
 
