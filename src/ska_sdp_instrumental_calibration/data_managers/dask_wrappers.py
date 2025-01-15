@@ -97,10 +97,9 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     shape[2] = len(frequency)
 
     # Create a chunked dataset.
-    # Specify a single baseline chunk.
-    #  - Auto chunking can confuse the dim swap of simplify_baselines_dim.
-    # Specify a single time chunk.
-    #  - Auto chunking can confuse downstream processing (needs investigation).
+    # Solving is done separately for each chunk, so make sure all times,
+    # baselines and polarisations are available in each.
+    #  - Baselines chunks can also confuse the swap in simplify_baselines_dim.
     vis = simplify_baselines_dim(
         Visibility.constructor(
             configuration=tmpvis.configuration,
@@ -117,7 +116,14 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
             flags=da.zeros(shape, "bool"),
             uvw=tmpvis.uvw.data,
             baselines=tmpvis.baselines,
-        ).chunk({"frequency": fchunk, "time": shape[0], "baselines": shape[1]})
+        ).chunk(
+            {
+                "time": shape[0],
+                "baselines": shape[1],
+                "frequency": fchunk,
+                "polarisation": shape[3],
+            }
+        )
     )
 
     # Call map_blocks function and return result
@@ -266,6 +272,17 @@ def run_solver(
         gaintable = create_gaintable_from_visibility(
             vis, jones_type="B", timeslice=solution_interval
         ).chunk({"frequency": fchunk})
+
+        # There is a bug in create_gaintable_from_visibility that leaves
+        # vector param interval = ones when there is only a single solution
+        # interval. However solve_gaintable uses the interval to map vis
+        # channels to gaintable channels. See SKB-718. Avoid this issue for now
+        # by setting the interval to be a little larger than the vis interval.
+        gaintable.interval.data = (
+            np.ones_like(gaintable.interval.data)
+            * solution_interval
+            * 1.00001
+        )
 
     if len(gaintable.time) != 1:
         raise ValueError("error setting up gaintable")
