@@ -279,9 +279,7 @@ def run_solver(
         # channels to gaintable channels. See SKB-718. Avoid this issue for now
         # by setting the interval to be a little larger than the vis interval.
         gaintable.interval.data = (
-            np.ones_like(gaintable.interval.data)
-            * solution_interval
-            * 1.00001
+            np.ones_like(gaintable.interval.data) * solution_interval * 1.00001
         )
 
     if len(gaintable.time) != 1:
