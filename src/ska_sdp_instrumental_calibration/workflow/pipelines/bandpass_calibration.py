@@ -35,6 +35,9 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    export_gaintable_to_h5parm,
+)
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -120,8 +123,12 @@ def run(pipeline_config) -> None:
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")
     gaintable.load()
-    logger.info(f"Writing solutions to {config.hdf5_name}")
-    export_gaintable_to_hdf5([gaintable], config.hdf5_name)
+    if config.h5parm_name is not None:
+        logger.info(f"Writing solutions to {config.h5parm_name}")
+        export_gaintable_to_h5parm(gaintable, config.h5parm_name)
+    if config.hdf5_name is not None:
+        logger.info(f"Writing solutions to {config.hdf5_name}")
+        export_gaintable_to_hdf5(gaintable, config.hdf5_name)
 
     # Convergence checks (noise-free demo version)
     if config.do_simulation:
