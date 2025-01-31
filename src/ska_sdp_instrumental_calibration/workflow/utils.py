@@ -1,17 +1,20 @@
 """Helper functions"""
 
 import warnings
-from typing import Optional
+from typing import Iterable, Literal, Optional
 
+import h5py
 import numpy as np
 import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
+from numpy.typing import NDArray
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
+from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_datamodels.configuration.config_create import (
     create_named_configuration,
 )
@@ -32,7 +35,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 )
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
-
 
 logger = setup_logger("workflow.utils")
 
@@ -230,3 +232,101 @@ def create_demo_ms(
     export_visibility_to_ms(ms_name, [vis])
 
     return jones
+
+
+def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
+    # NOTE: making antenna names one character longer, in keeping with
+    # ska-sdp-batch-preprocess
+    return np.asarray([s.encode("ascii") + b"\0" for s in strings])
+
+
+def create_soltab_group(
+    solset: h5py.Group, solution_type: Literal["amplitude", "phase"]
+) -> h5py.Group:
+    """Create soltab group under given solset group.
+
+    :param solset: base-level HDF5 group to update
+    :param solution_type: only "amplitude" and "phase" are supported at present
+    :return: HDF5 group for the "solution_type" data
+    """
+    soltab = solset.create_group(f"{solution_type}000")
+    soltab.attrs["TITLE"] = np.bytes_(solution_type)
+    return soltab
+
+
+def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
+    """Add a dataset for each of the GainTable dimensions.
+
+    :param soltab: HDF5 table to update
+    :param gaintable: GainTable
+    """
+    # create a dataset for each dimension
+    for dim in list(gaintable.gain.sizes):
+        soltab.create_dataset(dim, data=gaintable[dim].data)
+
+    # create datasets for the data and weights
+    shape = gaintable.gain.shape
+    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
+
+    val = soltab.create_dataset("val", shape=shape, dtype=float)
+    val.attrs["AXES"] = axes
+
+    weight = soltab.create_dataset("weight", shape=shape, dtype=float)
+    weight.attrs["AXES"] = axes
+
+    return val, weight
+
+
+def export_gaintable_to_h5parm(
+    gaintable: GainTable, filename: str, squeeze: bool = False
+):
+    """Export a GainTable to a H5Parm HDF5 file.
+
+    :param gaintable: GainTable
+    :param filename: Name of H5Parm file
+    :param squeeze: If True, remove axes of length one from dataset
+    """
+    logger.info(f"exporting cal solutions to {filename}")
+
+    # check gaintable gain and weight dimensions
+    dims = ["time", "antenna", "frequency", "receptor1", "receptor2"]
+    if list(gaintable.gain.sizes) != dims:
+        raise ValueError(f"Unexpected dims: {list(gaintable.gain.sizes)}")
+
+    # adjust dimensions to be consistent with H5Parm output format
+    gaintable = gaintable.rename({"antenna": "ant", "frequency": "freq"})
+    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+    polstrs = _ndarray_of_null_terminated_bytes(
+        [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
+    )
+    gaintable = gaintable.assign_coords({"pol": polstrs})
+
+    # replace antenna indices with antenna names
+    if gaintable.configuration is None:
+        raise ValueError("Missing gt config. H5Parm requires antenna names")
+    antenna_names = _ndarray_of_null_terminated_bytes(
+        gaintable.configuration.names.data[gaintable["ant"].data]
+    )
+    gaintable = gaintable.assign_coords({"ant": antenna_names})
+
+    # remove axes of length one if required
+    if squeeze:
+        gaintable = gaintable.squeeze(drop=True)
+
+    logger.info(f"output dimensions: {dict(gaintable.gain.sizes)}")
+
+    with h5py.File(filename, "w") as file:
+
+        solset = file.create_group("sol000")
+
+        # Amplitude table
+        soltab = create_soltab_group(solset, "amplitude")
+        val, weight = create_soltab_datasets(soltab, gaintable)
+        val[...] = np.absolute(gaintable["gain"].data)
+        weight[...] = gaintable["weight"].data
+
+        # Phase table
+        soltab = create_soltab_group(solset, "phase")
+        val, weight = create_soltab_datasets(soltab, gaintable)
+        val[...] = np.angle(gaintable["gain"].data)
+        weight[...] = gaintable["weight"].data

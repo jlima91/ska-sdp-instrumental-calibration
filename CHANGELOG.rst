@@ -4,6 +4,13 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+Main
+****
+
+Added
+-----
+* H5Parm calibration solution output.
+
 0.1.5
 *****
 

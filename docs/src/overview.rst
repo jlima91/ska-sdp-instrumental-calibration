@@ -140,7 +140,7 @@ For example, to add GLEAMEGC data by hand, a user would do the following:
               ),
           ],
           "beam_type": "none",
-          "hdf5_name": "3C444.hdf5",
+          "h5parm_name": "3C444.h5",
       }
   )
 
@@ -171,7 +171,7 @@ a user could instead use the two components from NVSS:
               ),
           ],
           "beam_type": "none",
-          "hdf5_name": "3C444.hdf5",
+          "h5parm_name": "3C444.h5",
       }
   )
 
@@ -194,6 +194,6 @@ Or to use GLEAMEGC and EveryBeam:
           "fov": 10,
           "flux_limit": 1,
           "eb_coeffs": "ska-sdp-func-everybeam/coeffs",
-          "hdf5_name": "3C444.hdf5",
+          "h5parm_name": "3C444.h5",
       }
   )
