@@ -25,7 +25,7 @@ class PipelineConfig:
             in which case a dask.distributed.LocalCluster scheduler_address
             will be used.
         h5parm_name (str):
-            Output H5Parm filename. Defaults to "cal_solutions.h5parm".
+            Output H5Parm filename. Defaults to "cal_solutions.h5".
         hdf5_name (str):
             Output HDF5 filename. Defaults to None.
         ms_name (str):
@@ -107,7 +107,7 @@ class PipelineConfig:
         self.ms_name = config.get("ms_name", "demo.ms")
 
         # Output hdf5 files
-        self.h5parm_name = config.get("h5parm_name", "cal_solutions.h5parm")
+        self.h5parm_name = config.get("h5parm_name", "cal_solutions.h5")
         self.hdf5_name = config.get("hdf5_name", None)
 
         # Check whether or not input data need to be simulated
