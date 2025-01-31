@@ -246,7 +246,7 @@ def create_soltab_group(
     """Create soltab group under given solset group.
 
     :param solset: base-level HDF5 group to update
-    :param solution_type: must be "amplitude" or "phase"
+    :param solution_type: only "amplitude" and "phase" are supported at present
     :return: HDF5 group for the "solution_type" data
     """
     soltab = solset.create_group(f"{solution_type}000")
@@ -261,12 +261,12 @@ def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
     :param gaintable: GainTable
     """
     # create a dataset for each dimension
-    for dim in list(gaintable.coords):
+    for dim in list(gaintable.gain.sizes):
         soltab.create_dataset(dim, data=gaintable[dim].data)
 
     # create datasets for the data and weights
     shape = gaintable.gain.shape
-    axes = np.bytes_(",".join(list(gaintable.coords)))
+    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
 
     val = soltab.create_dataset("val", shape=shape, dtype=float)
     val.attrs["AXES"] = axes
@@ -288,6 +288,11 @@ def export_gaintable_to_h5parm(
     """
     logger.info(f"exporting cal solutions to {filename}")
 
+    # check gaintable gain and weight dimensions
+    dims = ["time", "antenna", "frequency", "receptor1", "receptor2"]
+    if list(gaintable.gain.sizes) != dims:
+        raise ValueError(f"Unexpected dims: {list(gaintable.gain.sizes)}")
+
     # adjust dimensions to be consistent with H5Parm output format
     gaintable = gaintable.rename({"antenna": "ant", "frequency": "freq"})
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
@@ -295,19 +300,20 @@ def export_gaintable_to_h5parm(
         [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
     )
     gaintable = gaintable.assign_coords({"pol": polstrs})
-    # if antenna names are available, use those instead of indices
-    if gaintable.configuration is not None:
-        # this may need to be indexed against the antenna indices
-        antenna_names = _ndarray_of_null_terminated_bytes(
-            gaintable.configuration.names.data.tolist()
-        )
-        gaintable = gaintable.assign_coords({"ant": antenna_names})
+
+    # replace antenna indices with antenna names
+    if gaintable.configuration is None:
+        raise ValueError("Missing gt config. H5Parm requires antenna names")
+    antenna_names = _ndarray_of_null_terminated_bytes(
+        gaintable.configuration.names.data[gaintable["ant"].data]
+    )
+    gaintable = gaintable.assign_coords({"ant": antenna_names})
 
     # remove axes of length one if required
     if squeeze:
         gaintable = gaintable.squeeze(drop=True)
 
-    logger.info(f"output dimensions: {dict(gaintable.dims)}")
+    logger.info(f"output dimensions: {dict(gaintable.gain.sizes)}")
 
     with h5py.File(filename, "w") as file:
 
