@@ -1,8 +1,17 @@
 """Helper functions"""
 
+__all__ = [
+    "create_demo_ms",
+    "create_bandpass_table",
+    "get_ms_metadata",
+    "get_phasecentre",
+]
+
 import warnings
+from collections import namedtuple
 from typing import Optional
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy import constants as const
@@ -13,12 +22,19 @@ from casacore.tables import table
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
+from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_datamodels.configuration.config_create import (
     create_named_configuration,
 )
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
+from ska_sdp_datamodels.science_data_model import (
+    PolarisationFrame,
+    ReceptorFrame,
+)
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
-from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
+from ska_sdp_datamodels.visibility.vis_io_ms import (
+    create_visibility_from_ms,
+    export_visibility_to_ms,
+)
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -306,3 +322,55 @@ def get_ms_metadata(ms_name: str) -> xr.Dataset:
         source="bpcal",
         meta=None,
     )
+
+
+def create_bandpass_table(vis: xr.Dataset) -> xr.Dataset:
+    """Create full-length but unset gaintable for bandpass solutions.
+
+    :param vis: Visibility dataset containing metadata.
+    :return: GainTable dataset
+    """
+    jones_type = "B"
+
+    soln_int = np.max(vis.time.data) - np.min(vis.time.data)
+    # Function solve_gaintable can ignore the last sample if gain_interval is
+    # exactly soln_int. So make it a little bigger.
+    gain_interval = [soln_int * 1.00001]
+    gain_time = np.array([np.average(vis.time)])
+    ntimes = len(gain_time)
+    if ntimes != 1:
+        raise ValueError("expect single time step in bandpass table")
+
+    nants = vis.visibility_acc.nants
+
+    gain_frequency = vis.frequency.data
+    nfrequency = len(gain_frequency)
+
+    receptor_frame = ReceptorFrame(vis.visibility_acc.polarisation_frame.type)
+    nrec = receptor_frame.nrec
+
+    gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
+    gain = da.ones(gain_shape, dtype=np.complex64)
+    if nrec > 1:
+        gain[..., 0, 1] = da.zeros(gain_shape[:3], dtype=np.complex64)
+        gain[..., 1, 0] = da.zeros(gain_shape[:3], dtype=np.complex64)
+
+    gain_weight = da.ones(gain_shape, dtype=np.float32)
+    gain_residual = da.zeros(
+        [ntimes, nfrequency, nrec, nrec], dtype=np.float32
+    )
+
+    gain_table = GainTable.constructor(
+        gain=gain,
+        time=gain_time,
+        interval=gain_interval,
+        weight=gain_weight,
+        residual=gain_residual,
+        frequency=gain_frequency,
+        receptor_frame=receptor_frame,
+        phasecentre=vis.phasecentre,
+        configuration=vis.configuration,
+        jones_type=jones_type,
+    )
+
+    return gain_table
