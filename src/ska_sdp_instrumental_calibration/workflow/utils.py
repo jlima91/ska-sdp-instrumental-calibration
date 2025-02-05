@@ -7,6 +7,7 @@ import numpy as np
 import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
+from casacore.tables import table
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
 from ska_sdp_datamodels.calibration.calibration_create import (
@@ -230,3 +231,19 @@ def create_demo_ms(
     export_visibility_to_ms(ms_name, [vis])
 
     return jones
+
+
+def get_phasecentre(ms_name: str) -> SkyCoord:
+    """Return the phase centre of a MSv2 Measurement Set.
+
+    The first field is used if there more than one.
+
+    :param ms_name: Name of input Measurement Set.
+    :return: phase centre
+    """
+    fieldtab = table(f"{ms_name}/FIELD", ack=False)
+    field = 0
+    pc = fieldtab.getcol("PHASE_DIR")[field, 0, :]
+    return SkyCoord(
+        ra=pc[0], dec=pc[1], unit="radian", frame="icrs", equinox="J2000"
+    )
