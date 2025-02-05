@@ -29,8 +29,10 @@ class PipelineConfig:
             single end-to-end task for each sub-band. Otherwise separate tasks
             are used for each of the steps. Defaults to True.
             Currently only supported in pipelines.bandpass_calibration.
+        h5parm_name (str):
+            Output H5Parm filename. Defaults to "cal_solutions.h5".
         hdf5_name (str):
-            Output hdf5 filename. Defaults to "demo.hdf5".
+            Output HDF5 filename. Defaults to None.
         ms_name (str):
             Input MSv2 filename. Defaults to "demo.ms". If the filename is
             "demo.ms", a demo dataset will be generated and written to this
@@ -106,13 +108,15 @@ class PipelineConfig:
             "dask_scheduler_address", None
         )
 
+        # Whether or not to combine processing tasks into a single dask task
         self.end_to_end_subbands = config.get("end_to_end_subbands", True)
-
-        # Output hdf5 filename
-        self.hdf5_name = config.get("hdf5_name", "demo.hdf5")
 
         # Input MSv2 filename
         self.ms_name = config.get("ms_name", "demo.ms")
+
+        # Output hdf5 files
+        self.h5parm_name = config.get("h5parm_name", "cal_solutions.h5")
+        self.hdf5_name = config.get("hdf5_name", None)
 
         # Check whether or not input data need to be simulated
         self.do_simulation = False
