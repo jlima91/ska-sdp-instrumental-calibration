@@ -114,9 +114,6 @@ def solve_bandpass(
 
     # Todo: Set vis flags from a user-defined list of known bad antennas?
 
-    # Initial unpolarised calibration?
-    timeslice = vis.time.data.max() - vis.time.data.min()
-
     gain_table = solve_gaintable(
         vis=vis,
         modelvis=modelvis,
@@ -128,7 +125,6 @@ def solve_bandpass(
         crosspol=False,
         normalise_gains=None,
         jones_type=jones_type,
-        timeslice=timeslice,
         refant=refant,
     )
 
