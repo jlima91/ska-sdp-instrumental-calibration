@@ -87,8 +87,9 @@ def run(pipeline_config) -> None:
     preproc_ave_frequency = 1  # not yet set up for dask chunks
 
     # Pre-processing
-    #  - Is triggering the computation as is, so leave for now.
-    #  - Move to dask_wrappers? RFI flagging may need bandwidth...
+    #  - Full-band operations trigger the computation, so leave for now.
+    #  - Move to dask_wrappers?
+    #     - Any time or freq averaging should perhaps be added to load_ms
     #  - Do RFI flagging?
     if rfi_flagging:
         logger.info("Calling rfi_flagger")

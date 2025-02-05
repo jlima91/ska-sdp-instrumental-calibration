@@ -24,6 +24,11 @@ class PipelineConfig:
             Dask cluster IP, (e.g. cluster.scheduler_address). Default is None,
             in which case a dask.distributed.LocalCluster scheduler_address
             will be used.
+        end_to_end_subbands (bool):
+            If true, vis ingest, prediction and solving will all occur within a
+            single end-to-end task for each sub-band. Otherwise separate tasks
+            are used for each of the steps. Defaults to True.
+            Currently only supported in pipelines.bandpass_calibration.
         hdf5_name (str):
             Output hdf5 filename. Defaults to "demo.hdf5".
         ms_name (str):
@@ -100,6 +105,8 @@ class PipelineConfig:
         self.dask_scheduler_address = config.get(
             "dask_scheduler_address", None
         )
+
+        self.end_to_end_subbands = config.get("end_to_end_subbands", True)
 
         # Output hdf5 filename
         self.hdf5_name = config.get("hdf5_name", "demo.hdf5")
