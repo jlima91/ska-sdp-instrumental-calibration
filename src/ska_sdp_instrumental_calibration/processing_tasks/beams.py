@@ -123,7 +123,7 @@ class GenericBeams:
         """
         self.beam_direction = direction
 
-    def update_beam(self, frequency: typing.NDArray[np.float_], time: Time):
+    def update_beam(self, frequency: typing.NDArray[float], time: Time):
         """Update the ITRF coordinates of the beam and normalisation factors.
 
         :param frequency: 1D array of frequencies
@@ -146,9 +146,9 @@ class GenericBeams:
     def array_response(
         self,
         direction: SkyCoord,
-        frequency: typing.NDArray[np.float_],
+        frequency: typing.NDArray[float],
         time: Time = None,
-    ) -> typing.NDArray[np.complex_]:
+    ) -> typing.NDArray[complex]:
         """Return the response of each antenna or station in a given direction
 
         :param direction: Direction of desired response
