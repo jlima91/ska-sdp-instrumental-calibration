@@ -1,0 +1,38 @@
+#!/bin/bash
+
+
+#
+# This script fetch the necessary data necessary to the execution of the demo notebooks
+# located in the notebooks/ directory
+#
+
+set -x
+
+CURRENT_DIR="$(cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+
+TEST_DATA_DIR="${CURRENT_DIR}/../testdata"
+GLEAM_FILENAME="gleamegc.dat.gz"
+
+mkdir -p "${TEST_DATA_DIR}"
+
+
+echo "# fetch GLEAM data within '${TEST_DATA_DIR}'"
+
+pushd "${TEST_DATA_DIR}" || exit 1
+
+
+# DL and extract gleam data
+curl -L  "https://cdsarc.cds.unistra.fr/ftp/VIII/100/${GLEAM_FILENAME}" -o "${GLEAM_FILENAME}"
+gzip -d "${GLEAM_FILENAME}"
+
+# extract mock data
+tar xvf "${CURRENT_DIR}/../data/OSKAR_MOCK.ms.tar.gz"
+
+
+# DL and checkout coefficients
+git clone --depth 1 --branch v0.7.0 git@gitlab.com:ska-telescope/sdp/ska-sdp-func-everybeam.git
+
+
+
+popd || exit 1
+
