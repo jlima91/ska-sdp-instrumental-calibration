@@ -1,0 +1,33 @@
+#!/bin/bash
+
+
+
+# Basic python install
+spack add python
+# bugfixes
+# fix bug with jupyter https://github.com/microsoft/azuredatastudio/issues/24436
+# Stick to numpy 1.0 for now up to the patch
+spack add py-numpy@:1
+# BUGFIX: older versions than msgpack 1.0.5 triggers serialization errors within dask
+spack add py-msgpack@1.0.5
+# BUGFIX: Jupyter has a fixed issue that required this version or superior
+spack add py-traitlets@5.9.0
+
+# Tune: Force distributed option for dask
+# Required for our notebook executions
+spack add "py-dask@:2024+array+dataframe+distributed"
+
+# Required SKA dependencies
+spack add py-ska-sdp-func py-ska-sdp-func-python py-ska-sdp-datamodels
+spack add py-astropy py-pytest-astropy
+
+# Required for us
+spack add py-xarray
+
+
+# Jupyter and friends for notebook execution
+spack add py-jupyter py-jupyter-server py-jupyter-core py-ipykernel
+
+
+# Installation
+spack install -vvv -j "$(nproc)"
