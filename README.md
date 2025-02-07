@@ -51,6 +51,51 @@ $ curl -sSL https://install.python-poetry.org | python3 -
 recommended method. You are encouraged to use your preferred environment isolation
 (i.e. `pip`, `conda` or `pipenv`) while developing locally.
 
+Spack Installation
+------------------
+
+It is possible to install the necessary execution environment with `spack`
+
+ * (1) Install spack and the sdp repository (skip if already done)
+   ```bash
+    # basic spack install
+    git clone --depth=2 --branch=releases/v0.23 https://github.com/spack/spack.git
+    export SPACK_ROOT="${PWD}/spack"
+    source "${SPACK_ROOT}/share/spack/setup-env.sh"
+    # SKA spack sdp repository installation
+    git clone https://gitlab.com/ska-telescope/sdp/ska-sdp-spack.git
+    spack repo add ska-sdp-spack
+   ```
+ * (2) Create an environment for the calibration pipeline
+   ```bash
+    spack env create calibration
+    spack env activate calibration
+   ```
+  * (3) Install all the required packages
+   ```bash
+    cd ska-sdp-instrumental-calibration
+    ./misc/spack_easy_install
+
+   ```
+  * (4) Run without installation
+   ```bash
+    export PYTHONPATH=${PYTHONPATH}:${PWD}/src
+    jupyter notebooks
+   ```
+
+
+Demo and test data
+------------------
+
+The demonstration jupyter notebooks requires some mock and test data.
+A script is located under misc/ to fetch them automatically
+
+```bash
+    cd ska-sdp-instrumental-calibration
+    ./misc/fetch_testdata
+```
+
+
 Testing
 -------
 

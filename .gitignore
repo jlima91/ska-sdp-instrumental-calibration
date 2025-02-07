@@ -24,3 +24,6 @@ docs/apidocs
 .idea
 .eclipse
 .vscode
+
+# runtime test data
+testdata/
