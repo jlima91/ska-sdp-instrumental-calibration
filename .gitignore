@@ -27,3 +27,6 @@ docs/apidocs
 
 # runtime test data
 testdata/
+notebooks/*.h5
+notebooks/*.hdf5
+notebooks/*.ms
