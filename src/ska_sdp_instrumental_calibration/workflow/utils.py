@@ -231,7 +231,8 @@ def create_demo_ms(
         logger.info("Applying DI lambda^2-dependent rotations")
         # Not particularly realistic Faraday rotation gradient across the array
         x = low_config.xyz.data[:, 0]
-        pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        # pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        pp_rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
         lambda_sq = (
             const.c.value / frequency  # pylint: disable=no-member
         ) ** 2
