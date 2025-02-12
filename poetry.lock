@@ -1035,17 +1035,17 @@ reference = "PyPI-public"
 
 [[package]]
 name = "everybeam"
-version = "0.6.1"
+version = "0.7.0"
 description = "EveryBeam"
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "everybeam-0.6.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5f785994c996e1097978f45cf2f9522e07b556c37a2f49f29f604811f29fd975"},
-    {file = "everybeam-0.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7664510a0bc3bf1f8085219d5a325ec5eaf66a464f3856980984d9e713c7da43"},
-    {file = "everybeam-0.6.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:63dfff20b1c1cb19f1c69dc182582fc76b2b6bea6c04e3601c627dd35a8e4055"},
-    {file = "everybeam-0.6.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f40f9b59830dfd09782ed5669bf2868609662935cc4be5fef35b4e223bc74c19"},
-    {file = "everybeam-0.6.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:08f6102caa9d03aa4031cb61357a95d7bed1570fd8fb2dcf235eecd53bb62266"},
-    {file = "everybeam-0.6.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:38cf1dbe038a55325947a1bd49bab9b5155cacaebdc07d4edb1a57ec23d1682a"},
+    {file = "everybeam-0.7.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5b9d5df7b3134280032606bead6cb6aabe7cbf212bf08ed31c52b2dd9e1d13df"},
+    {file = "everybeam-0.7.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5874761a3d68079868d66f4a6aee4ad2325dd2a6ea367a631e1a0250afb04a1e"},
+    {file = "everybeam-0.7.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1cf9146dfc7c3a6a8625555e48455c45d42c6a5371a0faa04243244f887ae4ad"},
+    {file = "everybeam-0.7.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:25afac3f88864ff97a82dc8c69d43f5eeebc6c2befacd4c097729e957e554793"},
+    {file = "everybeam-0.7.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bd899a2c5b5149c18401149726d4cf31fc6f78fbb612a688efb0a7102b2711b6"},
+    {file = "everybeam-0.7.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fd114326a950d8b8d77730b9f00475da2f82eca18e20bfae6f9b4b31bfa66611"},
 ]
 
 [package.dependencies]
@@ -4769,4 +4769,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "903548f8d824fee3c3b0a3d770f22c68c7fe2869774e5f5012c947d83de1f0d5"
+content-hash = "f7a2e70cff6294dbfe83882b45d57a6802de08e55f1aff880d6d3ac1ef22581b"
