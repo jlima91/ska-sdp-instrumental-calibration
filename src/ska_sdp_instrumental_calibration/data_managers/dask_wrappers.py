@@ -412,6 +412,7 @@ def ingest_predict_and_solve(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    gaintable: Optional[xr.Dataset] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -420,6 +421,13 @@ def ingest_predict_and_solve(
 
     :param ms_name: Name of input Measurement Set.
     :param fchunk: Number of channels in the frequency chunks
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_ms: Pathname of Everybeam mock Measurement Set.
+    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param gaintable: Optional chunked GainTable dataset containing initial
+        solutions.
     :param solver: Solver type to use. Currently any solver type accepted by
         solve_gaintable. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0). Note that how referencing
@@ -430,39 +438,47 @@ def ingest_predict_and_solve(
     """
     # Get observation metadata
     ms_metadata = get_ms_metadata(ms_name)
-    shape = (
-        len(ms_metadata.time),
-        len(ms_metadata.baselines),
-        len(ms_metadata.frequency),
-        len(PolarisationFrame.fits_codes[ms_metadata.polarisation_frame.type]),
-    )
 
-    # Construct empty vis for create_bandpass_table
-    vis = Visibility.constructor(
-        uvw=ms_metadata.uvw,
-        baselines=ms_metadata.baselines,
-        time=ms_metadata.time,
-        frequency=ms_metadata.frequency,
-        channel_bandwidth=ms_metadata.channel_bandwidth,
-        vis=da.zeros(shape, dtype=np.complex64),
-        weight=da.zeros(shape, dtype=np.float32),
-        flags=da.zeros(shape, dtype=bool),
-        integration_time=ms_metadata.integration_time,
-        configuration=ms_metadata.configuration,
-        phasecentre=ms_metadata.phasecentre,
-        polarisation_frame=ms_metadata.polarisation_frame,
-        source=ms_metadata.source,
-        meta=ms_metadata.meta,
-        # Fixme: use new default once YAN-1990 is finalised
-        low_precision="float32",
-    )
-    # Fixme: remove reassignment once YAN-1990 is finalised
-    #   current version sets vis: input, weight: low_precision, flags: int64
-    vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
-
-    gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
-
-    vis.close()
+    # Create a gain table if need be
+    if gaintable is None:
+        shape = (
+            len(ms_metadata.time),
+            len(ms_metadata.baselines),
+            len(ms_metadata.frequency),
+            len(
+                PolarisationFrame.fits_codes[
+                    ms_metadata.polarisation_frame.type
+                ]
+            ),
+        )
+ 
+        # Construct empty vis for create_bandpass_table
+        vis = Visibility.constructor(
+            uvw=ms_metadata.uvw,
+            baselines=ms_metadata.baselines,
+            time=ms_metadata.time,
+            frequency=ms_metadata.frequency,
+            channel_bandwidth=ms_metadata.channel_bandwidth,
+            vis=da.zeros(shape, dtype=np.complex64),
+            weight=da.zeros(shape, dtype=np.float32),
+            flags=da.zeros(shape, dtype=bool),
+            integration_time=ms_metadata.integration_time,
+            configuration=ms_metadata.configuration,
+            phasecentre=ms_metadata.phasecentre,
+            polarisation_frame=ms_metadata.polarisation_frame,
+            source=ms_metadata.source,
+            meta=ms_metadata.meta,
+            # Fixme: use new default once YAN-1990 is finalised
+            low_precision="float32",
+        )
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: input, weight: low_precision, flags: int64
+        vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
+ 
+        # Create a full-band bandpass calibration gain table
+        gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
+ 
+        vis.close()
 
     if len(gaintable.time) != 1:
         raise ValueError("error setting up gaintable")

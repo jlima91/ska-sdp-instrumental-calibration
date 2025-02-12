@@ -28,7 +28,6 @@ class PipelineConfig:
             If true, vis ingest, prediction and solving will all occur within a
             single end-to-end task for each sub-band. Otherwise separate tasks
             are used for each of the steps. Defaults to True.
-            Currently only supported in pipelines.bandpass_calibration.
         h5parm_name (str):
             Output H5Parm filename. Defaults to "cal_solutions.h5".
         hdf5_name (str):
