@@ -9,6 +9,7 @@ Main
 
 Added
 -----
+* Discard unused polarisation dimensions before writing H5Parm file.
 * H5Parm calibration solution output.
 
 0.1.5
