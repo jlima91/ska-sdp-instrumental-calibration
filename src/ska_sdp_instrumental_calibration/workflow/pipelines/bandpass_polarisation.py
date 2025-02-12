@@ -116,20 +116,20 @@ def run(pipeline_config) -> None:
 
         # If the vis data and model can fit into memory, the load_ms and
         # predict_vis calls could be returned with .persist() so that they do
-        # not need to be run again for the second run_solver call. 
+        # not need to be run again for the second run_solver call.
         # For now they will just be regenerated.
 
         # Read in the Visibility dataset
         logger.info(
-            f"Will read from {config.ms_name} in {config.fchunk}-channel chunks"
+            f"Will ingest {config.ms_name} in {config.fchunk}-channel chunks"
         )
         vis = load_ms(config.ms_name, config.fchunk)  # .persist()
- 
+
         # Pre-processing
         rfi_flagging = False  # not yet set up for dask chunks
         preproc_ave_time = 1  # not yet set up for dask chunks
         preproc_ave_frequency = 1  # not yet set up for dask chunks
- 
+
         # Pre-processing
         #  - Full-band operations trigger the computation, so leave for now.
         #  - Move to dask_wrappers?
@@ -150,7 +150,7 @@ def run(pipeline_config) -> None:
             # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
             # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
             vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
- 
+
         # Predict model visibilities
         logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
         modelvis = predict_vis(
@@ -160,7 +160,7 @@ def run(pipeline_config) -> None:
             eb_ms=config.eb_ms,
             eb_coeffs=config.eb_coeffs,
         )  # .persist()
- 
+
         # Call the solver
         refant = 0
         logger.info(f"Setting calibration in {config.fchunk}-channel chunks")

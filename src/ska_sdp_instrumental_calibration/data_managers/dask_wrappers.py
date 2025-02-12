@@ -451,7 +451,7 @@ def ingest_predict_and_solve(
                 ]
             ),
         )
- 
+
         # Construct empty vis for create_bandpass_table
         vis = Visibility.constructor(
             uvw=ms_metadata.uvw,
@@ -474,10 +474,10 @@ def ingest_predict_and_solve(
         # Fixme: remove reassignment once YAN-1990 is finalised
         #   current version sets vis: input, weight: low_precision, flags: int64
         vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
- 
+
         # Create a full-band bandpass calibration gain table
         gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
- 
+
         vis.close()
 
     if len(gaintable.time) != 1:
