@@ -448,7 +448,7 @@ def export_gaintable_to_h5parm(
     )
     gaintable = gaintable.assign_coords({"pol": polstrs})
 
-    # check polarisations and discard unused products
+    # check polarisations and discard unused terms
     polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     if not np.array_equal(gaintable["pol"].data, polstrs):
         raise ValueError("Subsequent pipelines assume linear pol order")
