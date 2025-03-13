@@ -153,8 +153,6 @@ def run(pipeline_config) -> None:
         logger.info(f"Writing solutions to {config.hdf5_name}")
         export_gaintable_to_hdf5(gaintable, config.hdf5_name)
 
-    gaintable.close()
-
     # Convergence checks (noise-free demo version)
     if config.do_simulation:
         logger.info("Checking results")
