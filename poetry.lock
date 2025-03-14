@@ -2019,6 +2019,27 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [[package]]
+name = "mock"
+version = "5.2.0"
+description = "Rolling backport of unittest.mock for all Pythons"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "mock-5.2.0-py3-none-any.whl", hash = "sha256:7ba87f72ca0e915175596069dbbcc7c75af7b5e9b9bc107ad6349ede0819982f"},
+    {file = "mock-5.2.0.tar.gz", hash = "sha256:4e460e818629b4b173f32d08bf30d3af8123afbb8e04bb5707a1fd4799e503f0"},
+]
+
+[package.extras]
+build = ["blurb", "twine", "wheel"]
+docs = ["sphinx"]
+test = ["pytest", "pytest-cov"]
+
+[package.source]
+type = "legacy"
+url = "https://pypi.org/simple"
+reference = "PyPI-public"
+
+[[package]]
 name = "msgpack"
 version = "1.1.0"
 description = "MessagePack serializer"
@@ -3231,6 +3252,28 @@ url = "https://pypi.org/simple"
 reference = "PyPI-public"
 
 [[package]]
+name = "pytest-mock"
+version = "3.14.0"
+description = "Thin-wrapper around the mock package for easier use with pytest"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0"},
+    {file = "pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"},
+]
+
+[package.dependencies]
+pytest = ">=6.2.5"
+
+[package.extras]
+dev = ["pre-commit", "pytest-asyncio", "tox"]
+
+[package.source]
+type = "legacy"
+url = "https://pypi.org/simple"
+reference = "PyPI-public"
+
+[[package]]
 name = "pytest-pylint"
 version = "0.21.0"
 description = "pytest plugin to check source code with pylint"
@@ -3261,6 +3304,7 @@ files = [
     {file = "python_casacore-3.6.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:353e0c6246b06264751621e06954b92c94e8b35db6bdaede7046cef9eae17c2c"},
     {file = "python_casacore-3.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5ea13a01c21a2a6685eba632b8a5ebb9bebbda833eb60adb0bd9006b7d6a4088"},
     {file = "python_casacore-3.6.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:58bcfaa3db8dc53c7457b9aaa779ee37ba5eb22eb0d0526a0e72c851a20be4b0"},
+    {file = "python_casacore-3.6.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:393478a4cecac557a982c5ec0c26ec9349d9ea301eb76eb7101b259f1c509837"},
     {file = "python_casacore-3.6.1-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9cb3527e1bc1e8f2609acb8552e61bc9a4d71c5e3b0ee4e49c986c1f5755a657"},
     {file = "python_casacore-3.6.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:42e069414af7ada6ff07d34fe755a2e87bdf3d7f1be93fc5b782623cd23fc0a8"},
     {file = "python_casacore-3.6.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:217a7ebad5bc3b269abbcd8e49f5b67367fb8557b6fc15e22096ac83fff7e3e6"},
@@ -4769,4 +4813,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f7a2e70cff6294dbfe83882b45d57a6802de08e55f1aff880d6d3ac1ef22581b"
+content-hash = "4acf52add825df1ac3ee0b4af994d05803b16a7a3a8404b91683c55bad256bc8"
