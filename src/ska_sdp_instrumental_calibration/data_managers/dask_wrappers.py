@@ -19,10 +19,17 @@ __all__ = [
     "load_ms",
     "predict_vis",
     "run_solver",
+    "ingest_predict_and_solve",
     "apply_gaintable_to_dataset",
     "simplify_baselines_dim",
     "restore_baselines_dim",
 ]
+
+import warnings
+
+# avoid FutureWarnings that are logged from every DASK task.
+# flake8: noqa: E402  # stop errors about this line coming before imports
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 from typing import Optional
 
@@ -31,9 +38,10 @@ import numpy as np
 import numpy.typing as npt
 import xarray as xr
 from casacore.tables import table
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
+
+# avoid ska_sdp_datamodels/visibility/vis_model.py:201: FutureWarning: the
+# `pandas.MultiIndex` object(s) passed as 'baselines' coordinate(s) or data
+# variable(s) will no longer be implicitly promoted ...
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
@@ -49,6 +57,10 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
+)
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    create_bandpass_table,
+    get_ms_metadata,
 )
 
 logger = setup_logger("data_managers.dask_wrappers")
@@ -69,12 +81,21 @@ def _load(
     if len(vischunk.frequency) > 0:
         start = np.where(frequency == vischunk.frequency.data[0])[0][0]
         end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
-        return simplify_baselines_dim(
+        msvis = simplify_baselines_dim(
             create_visibility_from_ms(
                 ms_name,
                 start_chan=start,
                 end_chan=end,
             )[0]
+        )
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: complex128, weight: float64, flags: int64
+        return msvis.assign(
+            {
+                "vis": msvis.vis.astype(np.complex64),
+                "weight": msvis.weight.astype(np.float32),
+                "flags": msvis.flags.astype(bool),
+            }
         )
 
 
@@ -86,36 +107,35 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
     :return: Chunked Visibility dataset
     """
     # Get observation metadata
-    #  - Frequency metadata
-    spwtab = table(f"{ms_name}/SPECTRAL_WINDOW", ack=False)
-    frequency = np.array(spwtab.getcol("CHAN_FREQ")[0])
-    channel_bandwidth = np.array(spwtab.getcol("CHAN_WIDTH")[0])
-    #  - Fixme: Change this to extract other metadata as done for frequency
-    #  - For now read a single channel and use for all but frequency
-    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=0)[0]
-    shape = list(tmpvis.vis.shape)
-    shape[2] = len(frequency)
+    ms_metadata = get_ms_metadata(ms_name)
+    shape = (
+        len(ms_metadata.time),
+        len(ms_metadata.baselines),
+        len(ms_metadata.frequency),
+        len(PolarisationFrame.fits_codes[ms_metadata.polarisation_frame.type]),
+    )
 
     # Create a chunked dataset.
     # Solving is done separately for each chunk, so make sure all times,
     # baselines and polarisations are available in each.
-    #  - Baselines chunks can also confuse the swap in simplify_baselines_dim.
     vis = simplify_baselines_dim(
         Visibility.constructor(
-            configuration=tmpvis.configuration,
-            phasecentre=tmpvis.phasecentre,
-            time=tmpvis.time,
-            integration_time=tmpvis.integration_time,
-            frequency=frequency,
-            channel_bandwidth=channel_bandwidth,
-            polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
-            source="bpcal",
-            meta=None,
-            vis=da.zeros(shape, "complex"),
-            weight=da.zeros(shape, "float"),
-            flags=da.zeros(shape, "bool"),
-            uvw=tmpvis.uvw.data,
-            baselines=tmpvis.baselines,
+            uvw=ms_metadata.uvw,
+            baselines=ms_metadata.baselines,
+            time=ms_metadata.time,
+            frequency=ms_metadata.frequency,
+            channel_bandwidth=ms_metadata.channel_bandwidth,
+            vis=da.zeros(shape, dtype=np.complex64),
+            weight=da.zeros(shape, dtype=np.float32),
+            flags=da.zeros(shape, dtype=bool),
+            integration_time=ms_metadata.integration_time,
+            configuration=ms_metadata.configuration,
+            phasecentre=ms_metadata.phasecentre,
+            polarisation_frame=ms_metadata.polarisation_frame,
+            source=ms_metadata.source,
+            meta=ms_metadata.meta,
+            # Fixme: use new default once YAN-1990 is finalised
+            low_precision="float32",
         ).chunk(
             {
                 "time": shape[0],
@@ -125,9 +145,14 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
             }
         )
     )
+    # Fixme: remove reassignment once YAN-1990 is finalised
+    #   current version sets vis: input, weight: low_precision, flags: int64
+    vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
 
     # Call map_blocks function and return result
-    return vis.map_blocks(_load, args=[ms_name, frequency], template=vis)
+    return vis.map_blocks(
+        _load, args=[ms_name, ms_metadata.frequency], template=vis
+    )
 
 
 def _predict(
@@ -163,7 +188,18 @@ def _predict(
             eb_ms=eb_ms,
         )
         # Change variable names back for map_blocks I/O checks
-        vischunk = simplify_baselines_dim(vischunk)
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: complex128, weight: float64, flags: int64
+        vischunk = simplify_baselines_dim(
+            vischunk.assign(
+                {
+                    "vis": vischunk.vis.astype(np.complex64),
+                    "weight": vischunk.weight.astype(np.float32),
+                    "flags": vischunk.flags.astype(bool),
+                }
+            )
+        )
+
     return vischunk
 
 
@@ -262,25 +298,12 @@ def run_solver(
     :return: Chunked GainTable dataset
     """
     # Create a full-band bandpass calibration gain table
-    #  - It may be more efficient to do this in sub-bands then concatenate...
-    solution_interval = np.max(vis.time.data) - np.min(vis.time.data)
     if gaintable is None:
         fchunk = vis.chunks["frequency"][0]
         if fchunk <= 0:
             logger.warning("vis dataset does not appear to be chunked")
-            fchunk = 1
-        gaintable = create_gaintable_from_visibility(
-            vis, jones_type="B", timeslice=solution_interval
-        ).chunk({"frequency": fchunk})
-
-        # There is a bug in create_gaintable_from_visibility that leaves
-        # vector param interval = ones when there is only a single solution
-        # interval. However solve_gaintable uses the interval to map vis
-        # channels to gaintable channels. See SKB-718. Avoid this issue for now
-        # by setting the interval to be a little larger than the vis interval.
-        gaintable.interval.data = (
-            np.ones_like(gaintable.interval.data) * solution_interval * 1.00001
-        )
+            fchunk = len(vis.frequency)
+        gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
 
     if len(gaintable.time) != 1:
         raise ValueError("error setting up gaintable")
@@ -295,8 +318,190 @@ def run_solver(
     gaintable = gaintable.map_blocks(
         _solve, args=[vis, modelvis, solver, refant, niter]
     )
+
     # Undo any temporary variable name changes
     gaintable = gaintable.rename({"soln_time": "time"})
+    return gaintable
+
+
+def _solve_with_vis_setup(
+    gainchunk: xr.Dataset,
+    ms_name: str,
+    frequency: npt.NDArray[float],
+    lsm: list[Component],
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+    solver: str = "gain_substitution",
+    refant: int = 0,
+    niter: int = 200,
+) -> xr.Dataset:
+    """Call solve_bandpass.
+
+    Set up to run with function run_solver.
+
+    :param gaintable: GainTable dataset containing initial solutions.
+    :param vischunk: Visibility dataset containing observed data.
+    :param modelchunk: Visibility dataset containing model data.
+    :param solver: Solver type to use. Default is "gain_substitution".
+    :param refant: Reference antenna (defaults to 0).
+    :param niter: Number of solver iterations (defaults to 200).
+
+    :return: Chunked GainTable dataset
+    """
+    if len(gainchunk.frequency) > 0:
+
+        # Load vis data for current band
+        start = np.where(frequency == gainchunk.frequency.data[0])[0][0]
+        end = np.where(frequency == gainchunk.frequency.data[-1])[0][0]
+        vischunk = create_visibility_from_ms(
+            ms_name, start_chan=start, end_chan=end
+        )[0]
+
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: complex128, weight: float64, flags: int64
+        vischunk = vischunk.assign(
+            {
+                "vis": vischunk.vis.astype(np.complex64),
+                "weight": vischunk.weight.astype(np.float32),
+                "flags": vischunk.flags.astype(bool),
+            }
+        )
+
+        # Evaluate LSM for current band
+        lsm_components = convert_model_to_skycomponents(
+            lsm, vischunk.frequency.data
+        )
+
+        # Call predict
+        modelchunk = vischunk.assign({"vis": xr.zeros_like(vischunk.vis)})
+        predict_from_components(
+            modelchunk,
+            lsm_components,
+            beam_type=beam_type,
+            eb_coeffs=eb_coeffs,
+            eb_ms=eb_ms,
+        )
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: complex128, weight: float64, flags: int64
+        modelchunk = modelchunk.assign(
+            {
+                "vis": modelchunk.vis.astype(np.complex64),
+                "weight": modelchunk.weight.astype(np.float32),
+                "flags": modelchunk.flags.astype(bool),
+            }
+        )
+
+        # Call solver
+        solve_bandpass(
+            vis=vischunk,
+            modelvis=modelchunk,
+            gain_table=gainchunk,
+            solver=solver,
+            refant=refant,
+            niter=niter,
+        )
+
+    return gainchunk
+
+
+def ingest_predict_and_solve(
+    ms_name: str,
+    fchunk: int,
+    lsm: list,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+    gaintable: Optional[xr.Dataset] = None,
+    solver: str = "gain_substitution",
+    refant: int = 0,
+    niter: int = 200,
+) -> xr.Dataset:
+    """Do the bandpass calibration, including initial ingest and predict.
+
+    :param ms_name: Name of input Measurement Set.
+    :param fchunk: Number of channels in the frequency chunks
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_ms: Pathname of Everybeam mock Measurement Set.
+    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param gaintable: Optional chunked GainTable dataset containing initial
+        solutions.
+    :param solver: Solver type to use. Currently any solver type accepted by
+        solve_gaintable. Default is "gain_substitution".
+    :param refant: Reference antenna (defaults to 0). Note that how referencing
+        is done depends on the solver.
+    :param niter: Number of solver iterations (defaults to 200).
+
+    :return: Chunked GainTable dataset
+    """
+    # Get observation metadata
+    ms_metadata = get_ms_metadata(ms_name)
+
+    # Create a gain table if need be
+    if gaintable is None:
+        shape = (
+            len(ms_metadata.time),
+            len(ms_metadata.baselines),
+            len(ms_metadata.frequency),
+            len(
+                PolarisationFrame.fits_codes[
+                    ms_metadata.polarisation_frame.type
+                ]
+            ),
+        )
+
+        # Construct empty vis for create_bandpass_table
+        vis = Visibility.constructor(
+            uvw=ms_metadata.uvw,
+            baselines=ms_metadata.baselines,
+            time=ms_metadata.time,
+            frequency=ms_metadata.frequency,
+            channel_bandwidth=ms_metadata.channel_bandwidth,
+            vis=da.zeros(shape, dtype=np.complex64),
+            weight=da.zeros(shape, dtype=np.float32),
+            flags=da.zeros(shape, dtype=bool),
+            integration_time=ms_metadata.integration_time,
+            configuration=ms_metadata.configuration,
+            phasecentre=ms_metadata.phasecentre,
+            polarisation_frame=ms_metadata.polarisation_frame,
+            source=ms_metadata.source,
+            meta=ms_metadata.meta,
+            # Fixme: use new default once YAN-1990 is finalised
+            low_precision="float32",
+        )
+        # Fixme: remove reassignment once YAN-1990 is finalised
+        #   current version sets vis: input, weight: low_precision, flags: int64
+        vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
+
+        # Create a full-band bandpass calibration gain table
+        gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
+
+        vis.close()
+
+    if len(gaintable.time) != 1:
+        raise ValueError("error setting up gaintable")
+
+    if refant is not None:
+        if refant < 0 or refant >= len(gaintable.antenna):
+            raise ValueError(f"invalid refant: {refant}")
+
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.map_blocks(
+        _solve_with_vis_setup,
+        args=[
+            ms_name,
+            ms_metadata.frequency,
+            lsm,
+            beam_type,
+            eb_ms,
+            eb_coeffs,
+            solver,
+            refant,
+            niter,
+        ],
+    )
     return gaintable
 
 

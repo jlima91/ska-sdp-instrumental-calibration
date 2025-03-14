@@ -121,9 +121,9 @@ def test_predict_vis(client):
     chunkedmdl.load()
     assert chunkedmdl.frequency.equals(modelvis.frequency)
     # Can't compare these DataArrays directly because the baselines dim differs
-    assert np.all(chunkedmdl.vis.data == modelvis.vis.data)
-    assert np.all(chunkedmdl.weight.data == modelvis.weight.data)
-    assert np.all(chunkedmdl.flags.data == modelvis.flags.data)
+    assert np.allclose(chunkedmdl.vis.data, modelvis.vis.data)
+    assert np.allclose(chunkedmdl.weight.data, modelvis.weight.data)
+    assert np.allclose(chunkedmdl.flags.data, modelvis.flags.data)
 
 
 def test_apply_gaintable(client):

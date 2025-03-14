@@ -1,13 +1,26 @@
 """Helper functions"""
 
+__all__ = [
+    "create_demo_ms",
+    "create_bandpass_table",
+    "get_ms_metadata",
+    "get_phasecentre",
+    "create_soltab_group",
+    "create_soltab_datasets",
+    "export_gaintable_to_h5parm",
+]
+
 import warnings
+from collections import namedtuple
 from typing import Iterable, Literal, Optional
 
+import dask.array as da
 import h5py
 import numpy as np
 import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
+from casacore.tables import table
 from numpy.typing import NDArray
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
@@ -18,9 +31,15 @@ from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_datamodels.configuration.config_create import (
     create_named_configuration,
 )
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
+from ska_sdp_datamodels.science_data_model import (
+    PolarisationFrame,
+    ReceptorFrame,
+)
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
-from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
+from ska_sdp_datamodels.visibility.vis_io_ms import (
+    create_visibility_from_ms,
+    export_visibility_to_ms,
+)
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -212,7 +231,8 @@ def create_demo_ms(
         logger.info("Applying DI lambda^2-dependent rotations")
         # Not particularly realistic Faraday rotation gradient across the array
         x = low_config.xyz.data[:, 0]
-        pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        # pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        pp_rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
         lambda_sq = (
             const.c.value / frequency  # pylint: disable=no-member
         ) ** 2
@@ -232,6 +252,133 @@ def create_demo_ms(
     export_visibility_to_ms(ms_name, [vis])
 
     return jones
+
+
+def get_phasecentre(ms_name: str) -> SkyCoord:
+    """Return the phase centre of a MSv2 Measurement Set.
+
+    The first field is used if there more than one.
+
+    :param ms_name: Name of input Measurement Set.
+    :return: phase centre
+    """
+    fieldtab = table(f"{ms_name}/FIELD", ack=False)
+    field = 0
+    pc = fieldtab.getcol("PHASE_DIR")[field, 0, :]
+    return SkyCoord(
+        ra=pc[0], dec=pc[1], unit="radian", frame="icrs", equinox="J2000"
+    )
+
+
+def get_ms_metadata(ms_name: str) -> xr.Dataset:
+    """Get Visibility dataset metadata.
+
+    Fixme: use ska_sdp_datamodels.visibility.vis_io_ms.get_ms_metadata once
+    YAN-1990 is finalised. For now, read a single channel and use its metadata.
+
+    :param ms_name: Name of input Measurement Set
+    :return: Namedtuple of metadata products required by Visibility.constructor
+        - uvw
+        - baselines
+        - time
+        - frequency
+        - channel_bandwidth
+        - integration_time
+        - configuration
+        - phasecentre
+        - polarisation_frame
+        - source
+        - meta
+    """
+    # Read a single-channel from the dataset
+    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=0)[0]
+    # Update frequency metadata for the full dataset
+    spwtab = table(f"{ms_name}/SPECTRAL_WINDOW", ack=False)
+    frequency = np.array(spwtab.getcol("CHAN_FREQ")[0])
+    channel_bandwidth = np.array(spwtab.getcol("CHAN_WIDTH")[0])
+
+    ms_metadata = namedtuple(
+        "ms_metadata",
+        [
+            "uvw",
+            "baselines",
+            "time",
+            "frequency",
+            "channel_bandwidth",
+            "integration_time",
+            "configuration",
+            "phasecentre",
+            "polarisation_frame",
+            "source",
+            "meta",
+        ],
+    )
+
+    return ms_metadata(
+        uvw=tmpvis.uvw.data,
+        baselines=tmpvis.baselines,
+        time=tmpvis.time,
+        frequency=frequency,
+        channel_bandwidth=channel_bandwidth,
+        integration_time=tmpvis.integration_time,
+        configuration=tmpvis.configuration,
+        phasecentre=tmpvis.phasecentre,
+        polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
+        source="bpcal",
+        meta=None,
+    )
+
+
+def create_bandpass_table(vis: xr.Dataset) -> xr.Dataset:
+    """Create full-length but unset gaintable for bandpass solutions.
+
+    :param vis: Visibility dataset containing metadata.
+    :return: GainTable dataset
+    """
+    jones_type = "B"
+
+    soln_int = np.max(vis.time.data) - np.min(vis.time.data)
+    # Function solve_gaintable can ignore the last sample if gain_interval is
+    # exactly soln_int. So make it a little bigger.
+    gain_interval = [soln_int * 1.00001]
+    gain_time = np.array([np.average(vis.time)])
+    ntimes = len(gain_time)
+    if ntimes != 1:
+        raise ValueError("expect single time step in bandpass table")
+
+    nants = vis.visibility_acc.nants
+
+    gain_frequency = vis.frequency.data
+    nfrequency = len(gain_frequency)
+
+    receptor_frame = ReceptorFrame(vis.visibility_acc.polarisation_frame.type)
+    nrec = receptor_frame.nrec
+
+    gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
+    gain = da.ones(gain_shape, dtype=np.complex64)
+    if nrec > 1:
+        gain[..., 0, 1] = da.zeros(gain_shape[:3], dtype=np.complex64)
+        gain[..., 1, 0] = da.zeros(gain_shape[:3], dtype=np.complex64)
+
+    gain_weight = da.ones(gain_shape, dtype=np.float32)
+    gain_residual = da.zeros(
+        [ntimes, nfrequency, nrec, nrec], dtype=np.float32
+    )
+
+    gain_table = GainTable.constructor(
+        gain=gain,
+        time=gain_time,
+        interval=gain_interval,
+        weight=gain_weight,
+        residual=gain_residual,
+        frequency=gain_frequency,
+        receptor_frame=receptor_frame,
+        phasecentre=vis.phasecentre,
+        configuration=vis.configuration,
+        jones_type=jones_type,
+    )
+
+    return gain_table
 
 
 def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
@@ -301,7 +448,7 @@ def export_gaintable_to_h5parm(
     )
     gaintable = gaintable.assign_coords({"pol": polstrs})
 
-    # check polarisations and discard unused products
+    # check polarisations and discard unused terms
     polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     if not np.array_equal(gaintable["pol"].data, polstrs):
         raise ValueError("Subsequent pipelines assume linear pol order")

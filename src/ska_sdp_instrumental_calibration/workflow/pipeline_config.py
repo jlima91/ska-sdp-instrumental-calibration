@@ -24,6 +24,10 @@ class PipelineConfig:
             Dask cluster IP, (e.g. cluster.scheduler_address). Default is None,
             in which case a dask.distributed.LocalCluster scheduler_address
             will be used.
+        end_to_end_subbands (bool):
+            If true, vis ingest, prediction and solving will all occur within a
+            single end-to-end task for each sub-band. Otherwise separate tasks
+            are used for each of the steps. Defaults to True.
         h5parm_name (str):
             Output H5Parm filename. Defaults to "cal_solutions.h5".
         hdf5_name (str):
@@ -102,6 +106,9 @@ class PipelineConfig:
         self.dask_scheduler_address = config.get(
             "dask_scheduler_address", None
         )
+
+        # Whether or not to combine processing tasks into a single dask task
+        self.end_to_end_subbands = config.get("end_to_end_subbands", True)
 
         # Input MSv2 filename
         self.ms_name = config.get("ms_name", "demo.ms")

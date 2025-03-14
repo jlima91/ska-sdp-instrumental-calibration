@@ -28,9 +28,9 @@ logger = setup_logger("processing_tasks.predict")
 
 
 def gaussian_tapers(
-    uvw: typing.NDArray[np.float_],
+    uvw: typing.NDArray[float],
     params: dict[float],
-) -> typing.NDArray[np.float_]:
+) -> typing.NDArray[float]:
     """Calculated visibility amplitude tapers for Gaussian components.
 
     Note: this needs to be tested. Generate, image and fit a model component?

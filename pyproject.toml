@@ -29,7 +29,7 @@ url = 'https://pypi.org/simple'
 python = "^3.10"
 astropy = "^6.1"
 distributed = "^2024.11.2"
-everybeam = "^0.6.1"
+everybeam = "^0.7.0"
 nbmake = "^1.4.1"
 nbqa = "^1.7.0"
 isort = "^5.6.4"
@@ -85,7 +85,7 @@ numpy = "^1.25.4"
 ska-sdp-datamodels = "^0.3.2"
 ska-sdp-func-python = "^0.5.1"
 xarray = "^2024.7"
-everybeam = "^0.6.1"
+everybeam = "^0.7.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

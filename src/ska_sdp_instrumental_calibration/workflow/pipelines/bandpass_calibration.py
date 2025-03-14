@@ -24,6 +24,7 @@ from ska_sdp_datamodels.calibration.calibration_functions import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
+    ingest_predict_and_solve,
     load_ms,
     predict_vis,
     run_solver,
@@ -37,6 +38,7 @@ from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     export_gaintable_to_h5parm,
+    get_phasecentre,
 )
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -71,20 +73,6 @@ def run(pipeline_config) -> None:
         )
         client = Client(config.dask_scheduler_address)
 
-    # Read in the Visibility dataset
-    logger.info(
-        f"Will read from {config.ms_name} in {config.fchunk}-channel chunks"
-    )
-    vis = load_ms(config.ms_name, config.fchunk)
-
-    # Pre-processing
-    #  - Is triggering the computation as is, so rfi_flagging=False for now.
-    #  - Move to dask_wrappers? RFI flagging may need bandwidth...
-    rfi_flagging = False
-    if rfi_flagging:
-        logger.info("Setting the ska-sdp-func RFI flagger")
-        vis = rfi_flagger(vis)
-
     # Set up the local sky model (single call for all channels)
     if config.lsm is None:
         logger.info("Generating LSM for predict with:")
@@ -93,32 +81,67 @@ def run(pipeline_config) -> None:
         logger.info(f" - Flux limit: {config.flux_limit} Jy")
         config.lsm = generate_lsm_from_gleamegc(
             gleamfile=config.gleamfile,
-            phasecentre=vis.phasecentre,
+            phasecentre=get_phasecentre(config.ms_name),
             fov=config.fov,
             flux_limit=config.flux_limit,
         )
         logger.info(f"LSM: found {len(config.lsm)} components")
 
-    # Predict model visibilities
-    logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
-    modelvis = predict_vis(
-        vis,
-        config.lsm,
-        beam_type=config.beam_type,
-        eb_ms=config.eb_ms,
-        eb_coeffs=config.eb_coeffs,
-    )
+    if config.end_to_end_subbands:
 
-    # Call the solver
-    refant = 0
-    logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
-    gaintable = run_solver(
-        vis=vis,
-        modelvis=modelvis,
-        solver=config.solver,
-        niter=50,
-        refant=refant,
-    )
+        # Call the solver
+        refant = 0
+        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
+        logger.info("end_to_end_subbands = true")
+        gaintable = ingest_predict_and_solve(
+            ms_name=config.ms_name,
+            fchunk=config.fchunk,
+            lsm=config.lsm,
+            beam_type=config.beam_type,
+            eb_ms=config.eb_ms,
+            eb_coeffs=config.eb_coeffs,
+            solver=config.solver,
+            niter=50,
+            refant=refant,
+        )
+
+    else:
+
+        # Read in the Visibility dataset
+        logger.info(
+            f"Processing {config.ms_name} with {config.fchunk}-channel chunks"
+        )
+        vis = load_ms(config.ms_name, config.fchunk)
+
+        # Pre-processing
+        #  - Full-band operations trigger the computation, so leave for now.
+        #  - Move to dask_wrappers?
+        rfi_flagging = False
+        if rfi_flagging:
+            logger.info("Setting the ska-sdp-func RFI flagger")
+            vis = rfi_flagger(vis)
+
+        # Predict model visibilities
+        logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
+        modelvis = predict_vis(
+            vis,
+            config.lsm,
+            beam_type=config.beam_type,
+            eb_ms=config.eb_ms,
+            eb_coeffs=config.eb_coeffs,
+        )
+
+        # Call the solver
+        refant = 0
+        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
+        logger.info("end_to_end_subbands = false")
+        gaintable = run_solver(
+            vis=vis,
+            modelvis=modelvis,
+            solver=config.solver,
+            niter=50,
+            refant=refant,
+        )
 
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")

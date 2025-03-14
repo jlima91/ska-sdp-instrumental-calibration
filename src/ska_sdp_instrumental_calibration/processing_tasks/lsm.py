@@ -179,7 +179,7 @@ def generate_lsm_from_gleamegc(
 
 def convert_model_to_skycomponents(
     model: list[Component],
-    freq: typing.NDArray[np.float_],
+    freq: typing.NDArray[float],
 ) -> list[SkyComponent]:
     """Convert the LocalSkyModel to a list of SkyComponents.
 
