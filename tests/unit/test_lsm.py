@@ -6,6 +6,7 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     Component,
     convert_model_to_skycomponents,
+    deconvolve_gaussian,
     generate_lsm_from_gleamegc,
 )
 
@@ -302,3 +303,56 @@ def test_convert_point_source_to_skycomponent(deconvolve_gaussian_mock):
     actual_component = skycomp[0]
     assert actual_component.shape == "POINT"
     assert actual_component.params == {}
+
+
+def test_deconvolve_gaussian():
+    """
+    Given a component, deconvolve MWA synthesised beam.
+    """
+    component = Component(
+        name="J12345",
+        RAdeg=260,
+        DEdeg=-85,
+        flux=4.0,
+        ref_freq=200,
+        alpha=2.0,
+        major=250,
+        minor=200,
+        pa=-4,
+        beam_major=200,
+        beam_minor=150,
+        beam_pa=20,
+    )
+
+    actual_params = np.array(deconvolve_gaussian(component))
+    expectd_params = np.array(
+        (168.6690698011579, 107.47439179828898, -29.158834703512973)
+    )
+
+    np.testing.assert_allclose(expectd_params, actual_params)
+
+
+def test_deconvolve_circular_gaussian():
+    """
+    Given a component, deconvolve MWA synthesised beam.
+    if the gaussian is circular, then handle it appropriately.
+    """
+    component = Component(
+        name="J12345",
+        RAdeg=260,
+        DEdeg=-85,
+        flux=4.0,
+        ref_freq=200,
+        alpha=2.0,
+        major=250,
+        minor=250,
+        pa=-4,
+        beam_major=200,
+        beam_minor=150,
+        beam_pa=20,
+    )
+
+    actual_params = np.array(deconvolve_gaussian(component))
+    expectd_params = np.array((200.0, 150.0, 1235.9155902616465))
+
+    np.testing.assert_allclose(expectd_params, actual_params)
