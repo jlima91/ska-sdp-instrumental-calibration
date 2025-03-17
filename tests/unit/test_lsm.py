@@ -1,8 +1,11 @@
 import numpy as np
+from astropy.coordinates import SkyCoord
 from mock import MagicMock, patch
+from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     Component,
+    convert_model_to_skycomponents,
     generate_lsm_from_gleamegc,
 )
 
@@ -219,3 +222,83 @@ def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecenter)
 
     assert lsm == []
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.processing_tasks.lsm.deconvolve_gaussian"
+)
+def test_convert_model_to_skycomponents(deconvolve_gaussian_mock):
+    """
+    Given a list of Components and range frequencies over which
+    we wish to store the flux information, for each component:
+    1. perform power law scaling
+    2. deconvove gausssian to get beam information
+    3. create a Skycomponent (defined in ska-sdp-datamodels)
+
+    This test uses a dummy gaussian source as compoenent.
+    """
+    deconvolve_gaussian_mock.return_value = (7200, 9000, 5.0)
+
+    component = Component(
+        name="J12345",
+        RAdeg=260,
+        DEdeg=-85,
+        flux=4.0,
+        ref_freq=200,
+        alpha=2.0,
+    )
+
+    skycomp = convert_model_to_skycomponents([component], [400, 800])
+
+    deconvolve_gaussian_mock.assert_called_once_with(component)
+
+    assert len(skycomp) == 1
+    # SkyComponent does not implement @dataclass or __equal__
+    actual_component = skycomp[0]
+    assert actual_component.direction == SkyCoord(ra=260, dec=-85, unit="deg")
+    assert actual_component.name == "J12345"
+    assert actual_component.polarisation_frame == PolarisationFrame("linear")
+    assert actual_component.shape == "GAUSSIAN"
+    assert actual_component.params == {
+        "bmaj": 2.0,
+        "bmin": 2.5,
+        "bpa": 5.0,
+    }
+    np.testing.assert_allclose(
+        actual_component.frequency, np.array([400, 800])
+    )
+    np.testing.assert_allclose(
+        actual_component.flux, np.array([[8, 0, 0, 8], [32, 0, 0, 32]])
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.processing_tasks.lsm.deconvolve_gaussian"
+)
+def test_convert_point_source_to_skycomponent(deconvolve_gaussian_mock):
+    """
+    Given a list of Components and range frequencies over which
+    we wish to store the flux information,
+    if a component in the list is a point source,
+    then the shape and parameters of the Skycomponent must be set
+    appropriately.
+    """
+    deconvolve_gaussian_mock.return_value = (0, 0, 0)
+
+    component = Component(
+        name="J12345",
+        RAdeg=260,
+        DEdeg=-85,
+        flux=4.0,
+        ref_freq=200,
+        alpha=2.0,
+    )
+
+    skycomp = convert_model_to_skycomponents([component], [400, 800])
+
+    deconvolve_gaussian_mock.assert_called_once_with(component)
+
+    assert len(skycomp) == 1
+    actual_component = skycomp[0]
+    assert actual_component.shape == "POINT"
+    assert actual_component.params == {}
