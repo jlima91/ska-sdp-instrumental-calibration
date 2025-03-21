@@ -95,7 +95,7 @@ def generate_lsm_from_gleamegc(
     :return: Component list
     """
     if not Path(gleamfile).is_file():
-        logger.warn(
+        logger.warning(
             f"Cannot open gleam catalogue file {gleamfile}. "
             "Returning point source with unit flux at phase centre."
         )
