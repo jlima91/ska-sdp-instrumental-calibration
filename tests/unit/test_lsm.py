@@ -35,9 +35,9 @@ def test_generate_lsm_from_gleam_catalogue_file(
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
 
-    phasecenter = MagicMock(name="phasecenter")
-    phasecenter.ra.radian = 350 * np.pi / 180
-    phasecenter.dec.radian = -85.0 * np.pi / 180
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
 
     fileobj = MagicMock(name="gleamfile object")
     fileobj.__iter__.return_value = [GLEAMFILE_LINE]
@@ -45,7 +45,7 @@ def test_generate_lsm_from_gleam_catalogue_file(
     open_mock.return_value = open_mock
     open_mock.__enter__.return_value = fileobj
 
-    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecenter, fov=10)
+    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
     fileobj.close.assert_called_once()
@@ -82,14 +82,14 @@ def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
     Test that a point source with unit flux is generated when
     the GLEAM catalogue file is not found.
     """
-    phasecenter = MagicMock(name="phasecenter")
-    phasecenter.ra.degree = 2.0
-    phasecenter.dec.degree = 5.0
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.degree = 2.0
+    phasecentre.dec.degree = 5.0
 
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = False
 
-    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecenter)
+    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre)
 
     path_mock.assert_called_once_with("gleamfile.dat")
     logger_mock.warning.assert_called_once_with(
@@ -114,9 +114,9 @@ def test_should_exclude_component_when_flux_is_less_than_min_flux(
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
 
-    phasecenter = MagicMock(name="phasecenter")
-    phasecenter.ra.radian = 350 * np.pi / 180
-    phasecenter.dec.radian = -85.0 * np.pi / 180
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
 
     fileobj = MagicMock(name="gleamfile object")
     fileobj.__iter__.return_value = [GLEAMFILE_LINE]
@@ -125,7 +125,7 @@ def test_should_exclude_component_when_flux_is_less_than_min_flux(
     open_mock.__enter__.return_value = fileobj
 
     lsm = generate_lsm_from_gleamegc(
-        "gleamfile.dat", phasecenter, flux_limit=1.0
+        "gleamfile.dat", phasecentre, flux_limit=1.0
     )
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
@@ -157,9 +157,9 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
 
-    phasecenter = MagicMock(name="phasecenter")
-    phasecenter.ra.radian = 350 * np.pi / 180
-    phasecenter.dec.radian = -85.0 * np.pi / 180
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
 
     fileobj = MagicMock(name="gleamfile object")
     line = GLEAMFILE_LINE[:3135] + "  ---     " + GLEAMFILE_LINE[3145:]
@@ -169,7 +169,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     open_mock.__enter__.return_value = fileobj
 
     lsm = generate_lsm_from_gleamegc(
-        "gleamfile.dat", phasecenter, fov=10, alpha0=-0.65
+        "gleamfile.dat", phasecentre, fov=10, alpha0=-0.65
     )
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
@@ -210,9 +210,9 @@ def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
 
-    phasecenter = MagicMock(name="phasecenter")
-    phasecenter.ra.radian = 350 * np.pi / 180
-    phasecenter.dec.radian = -85.0 * np.pi / 180
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
 
     fileobj = MagicMock(name="gleamfile object")
     fileobj.__iter__.return_value = [GLEAMFILE_LINE]
@@ -220,7 +220,7 @@ def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     open_mock.return_value = open_mock
     open_mock.__enter__.return_value = fileobj
 
-    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecenter)
+    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre)
 
     assert lsm == []
 
