@@ -32,8 +32,8 @@ logger = logging.getLogger()
 scheduler = DefaultScheduler()
 
 # Create the pipeline instance
-instrumental_calibration_pipeline = Pipeline(
-    "instrumental_calibration_pipeline",
+ska_sdp_instrumental_calibration = Pipeline(
+    "ska_sdp_instrumental_calibration",
     stages=Stages(
         [
             load_data,

@@ -95,4 +95,4 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-instrumental-calibration-pipeline = "ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration:instrumental_calibration_pipeline"
+ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration:ska_sdp_instrumental_calibration"
