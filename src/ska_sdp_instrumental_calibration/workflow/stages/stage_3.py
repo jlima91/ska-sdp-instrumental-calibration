@@ -7,23 +7,18 @@ logger = logging.getLogger()
 
 
 @ConfigurableStage(
-    "complex_gain",
+    "stage_3",
     configuration=Configuration(
         config1=ConfigParam(
-            int,
-            2,
-            description="config1",
-        ),
-        config2=ConfigParam(
-            int,
-            2,
-            description="config2",
+            str,
+            "config1",
+            description="config of type string",
         ),
     ),
 )
-def complex_gain(upstream_output, config1, config2):
+def stage_3(upstream_output, config1):
     """
-    Perform complex gain.
+    Perform stage 3
 
     Parameters
     ----------
@@ -32,9 +27,9 @@ def complex_gain(upstream_output, config1, config2):
     Returns
     -------
         dict
-            Updated upstream_output with the loaded visibility data
+            Updated upstream_output with data
     """
-    logger.info("Performing complex gain")
+    logger.info("Performing stage 3")
 
-    upstream_output["complex_gains"] = [config1, config2]
+    upstream_output["stage_3_data"] = [config1]
     return upstream_output
