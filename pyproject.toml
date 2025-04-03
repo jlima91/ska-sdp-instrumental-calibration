@@ -44,12 +44,13 @@ pytest-cov = "^6.0.0"
 pylint = "^3.3.1"
 pytest-json = "^0.4.0"
 recommonmark = "^0.7.1"
-ska-sdp-datamodels = { git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-datamodels", branch = "yab-21-vis-data-memory" }
+ska-sdp-datamodels = {git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-datamodels", branch = "yab-21-vis-data-memory"}
 python-casacore = "^3.5"
 ska-sdp-func = "^1.2"
-ska-sdp-func-python = { git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python", branch = "yab-21-vis-data-memory" }
+ska-sdp-func-python = {git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python", branch = "yab-21-vis-data-memory"}
 pylance = "^0.5.9"
 xarray = "^2024.7"
+ska-sdp-spectral-line-imaging = {git = "https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-spectral-line-imaging.git", rev = "dhr-200-inst-dependency"}
 
 # needed for testing
 attrs = "^23.2.0"
@@ -64,13 +65,15 @@ ska-sdp-func = ["ska-sdp-func"]
 [tool.poetry.group.dev.dependencies]
 docutils = "^0.21.2"
 markupsafe = "^2.1.3"
+mock = "^5.1.0"
 pygments = "^2.15.1"
 pylint = "^3.3.1"
 pytest = "^8.3.3"
 pytest-cov = "^6.0.0"
+pytest-mock = "^3.12.0"
 pytest-pylint = "^0.21.0"
 python-dotenv = ">=0.5.1"
-setuptools = "^68.0.0"
+setuptools = "^70.0.0"
 pipdeptree = "^2.10.2"
 pylint-junit = "^0.3.2"
 
@@ -82,8 +85,8 @@ sphinx-rtd-theme = "^3.0.1"
 sphinxcontrib-websupport = "^1.2.4"
 recommonmark = "^0.7.1"
 numpy = "^1.25.4"
-ska-sdp-datamodels = { git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-datamodels", branch = "yab-21-vis-data-memory" }
-ska-sdp-func-python = { git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python", branch = "yab-21-vis-data-memory" }
+ska-sdp-datamodels = {git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-datamodels", branch = "yab-21-vis-data-memory"}
+ska-sdp-func-python = {git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python", branch = "yab-21-vis-data-memory"}
 xarray = "^2024.7"
 everybeam = "^0.7.0"
 
@@ -91,3 +94,5 @@ everybeam = "^0.7.0"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poetry.scripts]
+ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration:ska_sdp_instrumental_calibration"

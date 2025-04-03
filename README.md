@@ -51,6 +51,26 @@ $ curl -sSL https://install.python-poetry.org | python3 -
 recommended method. You are encouraged to use your preferred environment isolation
 (i.e. `pip`, `conda` or `pipenv`) while developing locally.
 
+Installation
+------------
+
+After cloning the [repo](https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration) and setting up the environment, run `poetry install` command. This should install `ska-sdp-instrumental-calibration` cli command and it should be accessible in the current environment.
+
+```
+$ ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
+usage: ska-sdp-instrumental-calibration [-h] {run,install-config} ...
+
+positional arguments:
+  {run,install-config}
+    run                 Run the pipeline
+    install-config      Installs the default config at --config-install-path
+
+options:
+  -h, --help            show this help message and exit
+```
+
+As of now, this command consists of placeholder stages which will not yield any useful results. 
+
 Testing
 -------
 
