@@ -3,7 +3,6 @@
 __all__ = [
     "create_demo_ms",
     "create_bandpass_table",
-    "get_ms_metadata",
     "get_phasecentre",
     "create_soltab_group",
     "create_soltab_datasets",
@@ -11,7 +10,6 @@ __all__ = [
 ]
 
 import warnings
-from collections import namedtuple
 from typing import Iterable, Literal, Optional
 
 import dask.array as da
@@ -36,10 +34,7 @@ from ska_sdp_datamodels.science_data_model import (
     ReceptorFrame,
 )
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
-from ska_sdp_datamodels.visibility.vis_io_ms import (
-    create_visibility_from_ms,
-    export_visibility_to_ms,
-)
+from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -267,65 +262,6 @@ def get_phasecentre(ms_name: str) -> SkyCoord:
     pc = fieldtab.getcol("PHASE_DIR")[field, 0, :]
     return SkyCoord(
         ra=pc[0], dec=pc[1], unit="radian", frame="icrs", equinox="J2000"
-    )
-
-
-def get_ms_metadata(ms_name: str) -> xr.Dataset:
-    """Get Visibility dataset metadata.
-
-    Fixme: use ska_sdp_datamodels.visibility.vis_io_ms.get_ms_metadata once
-    YAN-1990 is finalised. For now, read a single channel and use its metadata.
-
-    :param ms_name: Name of input Measurement Set
-    :return: Namedtuple of metadata products required by Visibility.constructor
-        - uvw
-        - baselines
-        - time
-        - frequency
-        - channel_bandwidth
-        - integration_time
-        - configuration
-        - phasecentre
-        - polarisation_frame
-        - source
-        - meta
-    """
-    # Read a single-channel from the dataset
-    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=0)[0]
-    # Update frequency metadata for the full dataset
-    spwtab = table(f"{ms_name}/SPECTRAL_WINDOW", ack=False)
-    frequency = np.array(spwtab.getcol("CHAN_FREQ")[0])
-    channel_bandwidth = np.array(spwtab.getcol("CHAN_WIDTH")[0])
-
-    ms_metadata = namedtuple(
-        "ms_metadata",
-        [
-            "uvw",
-            "baselines",
-            "time",
-            "frequency",
-            "channel_bandwidth",
-            "integration_time",
-            "configuration",
-            "phasecentre",
-            "polarisation_frame",
-            "source",
-            "meta",
-        ],
-    )
-
-    return ms_metadata(
-        uvw=tmpvis.uvw.data,
-        baselines=tmpvis.baselines,
-        time=tmpvis.time,
-        frequency=frequency,
-        channel_bandwidth=channel_bandwidth,
-        integration_time=tmpvis.integration_time,
-        configuration=tmpvis.configuration,
-        phasecentre=tmpvis.phasecentre,
-        polarisation_frame=PolarisationFrame(tmpvis._polarisation_frame),
-        source="bpcal",
-        meta=None,
     )
 
 

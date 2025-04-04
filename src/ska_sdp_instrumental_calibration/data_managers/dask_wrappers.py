@@ -44,7 +44,10 @@ from casacore.tables import table
 # variable(s) will no longer be implicitly promoted ...
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility import Visibility
-from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
+from ska_sdp_datamodels.visibility.vis_io_ms import (
+    create_visibility_from_ms,
+    get_ms_metadata,
+)
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -60,7 +63,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
-    get_ms_metadata,
 )
 
 logger = setup_logger("data_managers.dask_wrappers")
