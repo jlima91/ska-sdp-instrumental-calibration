@@ -3,9 +3,7 @@ import logging
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    load_ms,
-)
+from ...data_managers.dask_wrappers import load_ms
 
 logger = logging.getLogger()
 
@@ -20,7 +18,7 @@ logger = logging.getLogger()
         ),
     ),
 )
-def load_data(upstream_output, fchunk, _cli_args_):
+def load_data_stage(upstream_output, fchunk, _cli_args_):
     """
     Load the Measurement Set data.
 
