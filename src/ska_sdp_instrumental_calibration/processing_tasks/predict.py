@@ -130,7 +130,7 @@ def predict_from_components(
         return
 
     if reset_vis:
-        vis.vis.data = np.zeros(vis.vis.shape, "complex")
+        vis.vis.data = np.zeros_like(vis.vis.data)
 
     # Just use the beam near the middle of the scan?
     time = np.mean(Time(vis.datetime.data))
@@ -216,6 +216,7 @@ def predict_from_components(
             )
 
         # Accumulate component in the main dataset
+        #  - predict may occur with different precision, so convert back here
         vis.vis.data = vis.vis.data + (
             np.einsum(  # pylint: disable=too-many-function-args
                 "bfpx,tbfxy,bfqy->tbfpq",
@@ -223,7 +224,7 @@ def predict_from_components(
                 compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
                 response[compvis.antenna2.data, :, :, :].conj(),
             ).reshape(vis.vis.shape)
-        )
+        ).astype(vis.vis.dtype)
 
     # clean up component data
     del compvis
