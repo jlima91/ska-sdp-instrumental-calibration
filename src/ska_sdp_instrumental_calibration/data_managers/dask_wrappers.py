@@ -83,21 +83,12 @@ def _load(
     if len(vischunk.frequency) > 0:
         start = np.where(frequency == vischunk.frequency.data[0])[0][0]
         end = np.where(frequency == vischunk.frequency.data[-1])[0][0]
-        msvis = simplify_baselines_dim(
+        return simplify_baselines_dim(
             create_visibility_from_ms(
                 ms_name,
                 start_chan=start,
                 end_chan=end,
             )[0]
-        )
-        # Fixme: remove reassignment once YAN-1990 is finalised
-        #   current version sets vis: complex128, weight: float64, flags: int64
-        return msvis.assign(
-            {
-                "vis": msvis.vis.astype(np.complex64),
-                "weight": msvis.weight.astype(np.float32),
-                "flags": msvis.flags.astype(bool),
-            }
         )
 
 
@@ -136,7 +127,6 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
             polarisation_frame=ms_metadata.polarisation_frame,
             source=ms_metadata.source,
             meta=ms_metadata.meta,
-            # Fixme: use new default once YAN-1990 is finalised
             low_precision="float32",
         ).chunk(
             {
@@ -147,9 +137,6 @@ def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
             }
         )
     )
-    # Fixme: remove reassignment once YAN-1990 is finalised
-    #   current version sets vis: input, weight: low_precision, flags: int64
-    vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
 
     # Call map_blocks function and return result
     return vis.map_blocks(
@@ -190,17 +177,7 @@ def _predict(
             eb_ms=eb_ms,
         )
         # Change variable names back for map_blocks I/O checks
-        # Fixme: remove reassignment once YAN-1990 is finalised
-        #   current version sets vis: complex128, weight: float64, flags: int64
-        vischunk = simplify_baselines_dim(
-            vischunk.assign(
-                {
-                    "vis": vischunk.vis.astype(np.complex64),
-                    "weight": vischunk.weight.astype(np.float32),
-                    "flags": vischunk.flags.astype(bool),
-                }
-            )
-        )
+        vischunk = simplify_baselines_dim(vischunk)
 
     return vischunk
 
@@ -360,16 +337,6 @@ def _solve_with_vis_setup(
             ms_name, start_chan=start, end_chan=end
         )[0]
 
-        # Fixme: remove reassignment once YAN-1990 is finalised
-        #   current version sets vis: complex128, weight: float64, flags: int64
-        vischunk = vischunk.assign(
-            {
-                "vis": vischunk.vis.astype(np.complex64),
-                "weight": vischunk.weight.astype(np.float32),
-                "flags": vischunk.flags.astype(bool),
-            }
-        )
-
         # Evaluate LSM for current band
         lsm_components = convert_model_to_skycomponents(
             lsm, vischunk.frequency.data
@@ -383,15 +350,6 @@ def _solve_with_vis_setup(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
-        )
-        # Fixme: remove reassignment once YAN-1990 is finalised
-        #   current version sets vis: complex128, weight: float64, flags: int64
-        modelchunk = modelchunk.assign(
-            {
-                "vis": modelchunk.vis.astype(np.complex64),
-                "weight": modelchunk.weight.astype(np.float32),
-                "flags": modelchunk.flags.astype(bool),
-            }
         )
 
         # Call solver
@@ -470,12 +428,8 @@ def ingest_predict_and_solve(
             polarisation_frame=ms_metadata.polarisation_frame,
             source=ms_metadata.source,
             meta=ms_metadata.meta,
-            # Fixme: use new default once YAN-1990 is finalised
             low_precision="float32",
         )
-        # Fixme: remove reassignment once YAN-1990 is finalised
-        #   current version sets vis: input, weight: low_precision, flags: int64
-        vis = vis.assign({"flags": xr.zeros_like(vis.flags, dtype=bool)})
 
         # Create a full-band bandpass calibration gain table
         gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
