@@ -1,6 +1,7 @@
 import logging
 import os
 
+import dask
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
@@ -61,6 +62,10 @@ def export_gaintable_stage(
 
     logger.info(f"Writing solutions to {gaintable_file_path}")
 
-    export_functions[export_format](gaintable, gaintable_file_path)
+    export = dask.delayed(export_functions[export_format])(
+        gaintable, gaintable_file_path
+    )
+
+    upstream_output.add_compute_tasks(export)
 
     return upstream_output

@@ -1,3 +1,4 @@
+import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -66,16 +67,14 @@ def generate_channel_rm_stage(upstream_output, fchunk, run_solver_config):
     """
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
-    initialtable = upstream_output.gaintable
 
     if fchunk == -1:
         fchunk = load_data_stage.config["load_data"]["fchunk"]
 
-    gaintable = model_rotations(initialtable, plot_sample=True).chunk(
-        {"frequency": fchunk}
-    )
+    initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
+    gaintable = dask.delayed(model_rotations)(initialtable, plot_sample=True)
 
-    gaintable = run_solver(
+    gaintable = dask.delayed(run_solver)(
         vis=vis,
         modelvis=modelvis,
         gaintable=gaintable,
