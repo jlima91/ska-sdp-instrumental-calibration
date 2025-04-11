@@ -3,6 +3,28 @@ from functools import reduce
 from ska_sdp_piper.piper.scheduler import PiperScheduler
 
 
+class UpstreamOutput:
+    def __init__(self):
+        self.__stage_outputs = {}
+        self.__compute_tasks = []
+
+    def __setitem__(self, key, value):
+        self.__stage_outputs[key] = value
+
+    def __getitem__(self, key):
+        return self.__stage_outputs[key]
+
+    def __getattr__(self, key):
+        return self.__stage_outputs[key]
+
+    @property
+    def compute_tasks(self):
+        return self.__compute_tasks
+
+    def add_compute_tasks(self, *args):
+        self.__compute_tasks.extend(args)
+
+
 class DefaultScheduler(PiperScheduler):
     """
     Schedules and executes dask wrapped functions on the local machine
@@ -14,7 +36,7 @@ class DefaultScheduler(PiperScheduler):
     """
 
     def __init__(self):
-        self._stage_outputs = {}
+        self._stage_outputs = UpstreamOutput()
 
     def schedule(self, stages):
         """
@@ -29,6 +51,29 @@ class DefaultScheduler(PiperScheduler):
             lambda output, stage: stage(output), stages, self._stage_outputs
         )
 
+    def append(self, task):
+        """
+        Appends a dask task to the task list
+
+        Parameters
+        ----------
+          task: Delayed
+            Dask delayed object
+        """
+        self._stage_outputs.add_compute_tasks(task)
+
+    def extend(self, tasks):
+        """
+        Extends the task list with a list of dask tasks
+
+        Parameters
+        ----------
+          task: list(Delayed)
+            Dask delayed objects
+        """
+
+        self._stage_outputs.add_compute_tasks(*tasks)
+
     @property
     def tasks(self):
         """
@@ -38,4 +83,4 @@ class DefaultScheduler(PiperScheduler):
         -------
             list(Delayed)
         """
-        return []
+        return self._stage_outputs.compute_tasks

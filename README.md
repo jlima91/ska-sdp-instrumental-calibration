@@ -51,13 +51,15 @@ $ curl -sSL https://install.python-poetry.org | python3 -
 recommended method. You are encouraged to use your preferred environment isolation
 (i.e. `pip`, `conda` or `pipenv`) while developing locally.
 
-Installation
-------------
+Using the INST CLI
+--------------------
+
+### Install the CLI
 
 After cloning the [repo](https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration) and setting up the environment, run `poetry install` command. This should install `ska-sdp-instrumental-calibration` cli command and it should be accessible in the current environment.
 
-```
-$ ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
+```bash
+ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
 usage: ska-sdp-instrumental-calibration [-h] {run,install-config} ...
 
 positional arguments:
@@ -70,6 +72,37 @@ options:
 ```
 
 As of now, this command consists of placeholder stages which will not yield any useful results. 
+
+### Install the config
+
+Install the default config YAML of the pipeline to a specific directory using the `install-config` subcommand.
+
+```bash
+ska-sdp-instrumental-calibration install-config --config-install-path path/to/dir
+```
+
+Parameters of the default configurations can be overridden
+
+```bash
+ska-sdp-instrumental-calibration install-config --config-install-path path/to/dir \
+                    --set parameters.bandpass_calibration.flagging true \
+                    --set parameters.load_data.fchunk 64
+```
+
+### Run the pipeline
+
+Run the instrumental calibration pipeline using `run` subcommand.
+
+Example:
+
+```bash
+ska-sdp-instrumental-calibration run \
+--input /path/to/ms \
+--config /path/to/config \
+--output /path/to/output/dir
+```
+
+For all the options, run `ska-sdp-instrumental-calibration run --help`.
 
 Testing
 -------
