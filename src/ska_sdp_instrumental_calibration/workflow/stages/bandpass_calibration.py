@@ -1,9 +1,13 @@
+import os
+
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
     NestedConfigParam,
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
+
+from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
 from ...data_managers.dask_wrappers import run_solver
 
@@ -36,9 +40,14 @@ from ...data_managers.dask_wrappers import run_solver
             ),
         ),
         flagging=ConfigParam(bool, False, description="Run RFI flagging"),
+        plot_table=ConfigParam(
+            bool, False, description="Plot the generated gaintable"
+        ),
     ),
 )
-def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
+def bandpass_calibration_stage(
+    upstream_output, run_solver_config, flagging, plot_table, _output_dir_
+):
     """
     Performs Bandpass Calibration
 
@@ -51,6 +60,10 @@ def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
             eg: {solver: "gain_substitution", refant: 0, niter: 50}
         flagging: bool
             Run Flagging for time
+        plot_table: bool
+            Plot the gaintable
+        _output_dir_ : str
+            Directory path where the output file will be written.
     Returns
     -------
         dict
@@ -69,6 +82,12 @@ def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
         niter=run_solver_config["niter"],
         refant=run_solver_config["refant"],
     )
+
+    if plot_table:
+        path_prefix = os.path.join(_output_dir_, "bandpass")
+        upstream_output.add_compute_tasks(
+            plot_gaintable(gaintable, path_prefix)
+        )
 
     upstream_output["gaintable"] = gaintable
 

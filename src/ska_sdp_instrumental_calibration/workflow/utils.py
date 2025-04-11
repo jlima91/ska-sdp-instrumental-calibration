@@ -8,14 +8,18 @@ __all__ = [
     "create_soltab_group",
     "create_soltab_datasets",
     "export_gaintable_to_h5parm",
+    "plot_gaintable",
 ]
 
+# pylint: disable=no-member
 import warnings
 from collections import namedtuple
 from typing import Iterable, Literal, Optional
 
 import dask.array as da
+import dask.delayed
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from astropy import constants as const
@@ -234,8 +238,8 @@ def create_demo_ms(
         # pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
         pp_rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
         lambda_sq = (
-            const.c.value / frequency  # pylint: disable=no-member
-        ) ** 2
+            const.c.value / frequency
+        ) ** 2  # pylint: disable=no-member
         for stn in range(nstations):
             d_pa = pp_rm[stn] * lambda_sq
             fr_mat = np.stack(
@@ -484,3 +488,73 @@ def export_gaintable_to_h5parm(
         val, weight = create_soltab_datasets(soltab, gaintable)
         val[...] = np.angle(gaintable["gain"].data)
         weight[...] = gaintable["weight"].data
+
+
+@dask.delayed
+def plot_gaintable(gaintable, path_prefix):
+    """
+    Plots the gaintable.
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        path_prefix: str
+            path prefix to save the plots.
+    """
+    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+
+    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    gaintable = gaintable.assign_coords({"pol": polstrs})
+
+    frequency = gaintable.frequency
+    gain = gaintable.gain.isel(time=0, antenna=0)
+    amplitude = np.abs(gain)
+    phase = np.angle(gain)
+    label = gain.pol.values
+    create_plot(
+        frequency,
+        amplitude,
+        f"{path_prefix}-amp_freq.png",
+        "Amplitude",
+        "Channel Vs Amplitude",
+        label,
+    )
+    create_plot(
+        frequency,
+        phase,
+        f"{path_prefix}-phase_freq.png",
+        "Phase",
+        "Channel Vs Phase",
+        label,
+    )
+
+
+def create_plot(x_data, y_data, path, ylabel, title, label):
+    """
+    Generates plots and save to output file.
+
+    Parameters
+    ----------
+        x_data: iterable
+            Data to plot on x-axis.
+        y_data: iterable
+            Data to plot on y-axis.
+        path: str
+            Path to save the plot.
+        y_label: str
+            Y-axis label.
+        title: str
+            Plot title.
+        label: str
+            Label for legend.
+    """
+    plt.figure(figsize=(10, 8))
+    plt.style.use("seaborn-v0_8")
+    plt.title(title)
+    plt.xlabel("Channel")
+    plt.ylabel(ylabel)
+    plt.plot(x_data, y_data, label=label)
+    plt.legend()
+    plt.savefig(path)
+    plt.close()
