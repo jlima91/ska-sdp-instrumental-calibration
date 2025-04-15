@@ -50,8 +50,8 @@ def test_should_plot_bp_gaintable(run_solver_mock, plot_gaintable_mock):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
 
+    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
 
@@ -64,5 +64,5 @@ def test_should_plot_bp_gaintable(run_solver_mock, plot_gaintable_mock):
     )
 
     plot_gaintable_mock.assert_called_once_with(
-        gaintable_mock, "/output/path/bandpass"
+        gaintable_mock, "/output/path/bandpass", figure_title="Bandpass"
     )

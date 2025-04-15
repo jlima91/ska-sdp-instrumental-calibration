@@ -491,7 +491,7 @@ def export_gaintable_to_h5parm(
 
 
 @dask.delayed
-def plot_gaintable(gaintable, path_prefix):
+def plot_gaintable(gaintable, path_prefix, figure_title=""):
     """
     Plots the gaintable.
 
@@ -500,61 +500,97 @@ def plot_gaintable(gaintable, path_prefix):
         gaintable: xr.Dataset
             Gaintable to plot.
         path_prefix: str
-            path prefix to save the plots.
+            Path prefix to save the plots.
+        figure_title: str
+            Title of the figure
     """
+
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.assign_coords({"pol": polstrs})
+    number_of_stations = gaintable.antenna.size
 
-    frequency = gaintable.frequency
-    gain = gaintable.gain.isel(time=0, antenna=0)
-    amplitude = np.abs(gain)
-    phase = np.angle(gain)
-    label = gain.pol.values
-    create_plot(
-        frequency,
-        amplitude,
-        f"{path_prefix}-amp_freq.png",
-        "Amplitude",
-        "Channel Vs Amplitude",
-        label,
+    n_rows = 3
+    n_cols = 3
+    plots_per_group = n_rows * n_cols
+    plot_groups = np.split(
+        range(number_of_stations),
+        range(plots_per_group, number_of_stations, plots_per_group),
     )
-    create_plot(
-        frequency,
-        phase,
-        f"{path_prefix}-phase_freq.png",
-        "Phase",
-        "Channel Vs Phase",
-        label,
-    )
+    # raise Exception(plot_groups)
+    for group_idx in plot_groups:
+        subplot_gaintable(
+            gaintable, group_idx, path_prefix, n_rows, n_cols, figure_title
+        )
 
 
-def create_plot(x_data, y_data, path, ylabel, title, label):
+def subplot_gaintable(
+    gaintable, stations, path_prefix, n_rows, n_cols, figure_title=""
+):
     """
-    Generates plots and save to output file.
+    Plots the Amp vs frequency and Phase vs frequency plots
+    of selected stations.
 
     Parameters
     ----------
-        x_data: iterable
-            Data to plot on x-axis.
-        y_data: iterable
-            Data to plot on y-axis.
-        path: str
-            Path to save the plot.
-        y_label: str
-            Y-axis label.
-        title: str
-            Plot title.
-        label: str
-            Label for legend.
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        stations: np.array
+            Stations to plot.
+        path_prefix: str
+            Path prefix to save the plots.
+        n_rows: int
+            Number of plots in row.
+        n_cols: int
+            Number of plots in column.
+        figure_title: str
+            Title of the figure.
     """
-    plt.figure(figsize=(10, 8))
-    plt.style.use("seaborn-v0_8")
-    plt.title(title)
-    plt.xlabel("Channel")
-    plt.ylabel(ylabel)
-    plt.plot(x_data, y_data, label=label)
-    plt.legend()
-    plt.savefig(path)
+    frequency = gaintable.frequency / 1e6
+    channel = np.arange(len(frequency))
+    label = gaintable.pol.values
+
+    def channel_to_freq(channel):
+        return np.interp(channel, np.arange(len(frequency)), frequency)
+
+    def freq_to_channel(freq):
+        return np.interp(freq, frequency, np.arange(len(frequency)))
+
+    fig = plt.figure(layout="constrained", figsize=(18, 18))
+    subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
+    primary_axes = None
+
+    for idx, subfig in enumerate(subfigs):
+        if idx >= len(stations):
+            break
+        gain = gaintable.gain.isel(time=0, antenna=stations[idx])
+        amplitude = np.abs(gain)
+        phase = np.angle(gain, deg=True)
+        phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
+        primary_axes = amp_ax or primary_axes
+        phase_ax.secondary_xaxis(
+            "top",
+            functions=(channel_to_freq, freq_to_channel),
+        ).set_xlabel("Frequency [MHz]")
+
+        amp_ax.set_ylabel("Amplitude")
+        amp_ax.set_xlabel("Channel")
+        amp_ax.set_ylim([0, 1])
+
+        for pol_idx, amp_pol in enumerate(amplitude.T):
+            amp_ax.scatter(channel, amp_pol, label=label[pol_idx])
+
+        phase_ax.set_ylabel("Phase (degree)")
+        phase_ax.set_ylim([-180, 180])
+
+        for pol_idx, phase_pols in enumerate(phase.T):
+            phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
+        subfig.suptitle(f"Station - {stations[idx]}", fontsize="large")
+
+    handles, labels = primary_axes.get_legend_handles_labels()
+    path = f"{path_prefix}-amp-phase_freq{stations[0]}-{stations[-1]}.png"
+    fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
+    fig.legend(handles, labels, loc="outside upper right")
+    fig.savefig(path)
     plt.close()

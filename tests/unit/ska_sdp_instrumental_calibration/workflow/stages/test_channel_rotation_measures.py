@@ -172,7 +172,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     "channel_rotation_measures"
     ".model_rotations"
 )
-def test_should_plot_gaintable(
+def test_should_plot_channel_rm_gaintable(
     model_rotations_mock, run_solver_mock, delayed_mock, plot_gaintable_mock
 ):
 
@@ -202,5 +202,7 @@ def test_should_plot_gaintable(
     )
 
     plot_gaintable_mock.assert_called_once_with(
-        solved_gaintable_mock, "/output/path/channel_rm"
+        solved_gaintable_mock,
+        "/output/path/channel_rm",
+        figure_title="Channel Rotation Measure",
     )
