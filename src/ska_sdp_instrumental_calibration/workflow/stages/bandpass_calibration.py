@@ -39,14 +39,20 @@ from ...data_managers.dask_wrappers import run_solver
                 description="""Number of solver iterations (defaults to 50)""",
             ),
         ),
-        flagging=ConfigParam(bool, False, description="Run RFI flagging"),
-        plot_table=ConfigParam(
-            bool, False, description="Plot the generated gaintable"
+        plot_config=NestedConfigParam(
+            "Plot parameters",
+            plot_table=ConfigParam(
+                bool, "False", description="Plot the generated gaintable"
+            ),
+            fixed_axis=ConfigParam(
+                bool, False, description="Limit amplitude axis to [0-1]"
+            ),
         ),
+        flagging=ConfigParam(bool, False, description="Run RFI flagging"),
     ),
 )
 def bandpass_calibration_stage(
-    upstream_output, run_solver_config, flagging, plot_table, _output_dir_
+    upstream_output, run_solver_config, plot_config, flagging, _output_dir_
 ):
     """
     Performs Bandpass Calibration
@@ -83,10 +89,15 @@ def bandpass_calibration_stage(
         refant=run_solver_config["refant"],
     )
 
-    if plot_table:
+    if plot_config["plot_table"]:
         path_prefix = os.path.join(_output_dir_, "bandpass")
         upstream_output.add_compute_tasks(
-            plot_gaintable(gaintable, path_prefix, figure_title="Bandpass")
+            plot_gaintable(
+                gaintable,
+                path_prefix,
+                figure_title="Bandpass",
+                fixed_axis=plot_config["fixed_axis"],
+            )
         )
 
     upstream_output["gaintable"] = gaintable

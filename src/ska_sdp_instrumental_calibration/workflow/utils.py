@@ -491,7 +491,7 @@ def export_gaintable_to_h5parm(
 
 
 @dask.delayed
-def plot_gaintable(gaintable, path_prefix, figure_title=""):
+def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
     """
     Plots the gaintable.
 
@@ -518,15 +518,27 @@ def plot_gaintable(gaintable, path_prefix, figure_title=""):
         range(number_of_stations),
         range(plots_per_group, number_of_stations, plots_per_group),
     )
-    # raise Exception(plot_groups)
+
     for group_idx in plot_groups:
         subplot_gaintable(
-            gaintable, group_idx, path_prefix, n_rows, n_cols, figure_title
+            gaintable,
+            group_idx,
+            path_prefix,
+            n_rows,
+            n_cols,
+            fixed_axis,
+            figure_title,
         )
 
 
 def subplot_gaintable(
-    gaintable, stations, path_prefix, n_rows, n_cols, figure_title=""
+    gaintable,
+    stations,
+    path_prefix,
+    n_rows,
+    n_cols,
+    fixed_axis,
+    figure_title="",
 ):
     """
     Plots the Amp vs frequency and Phase vs frequency plots
@@ -576,7 +588,8 @@ def subplot_gaintable(
 
         amp_ax.set_ylabel("Amplitude")
         amp_ax.set_xlabel("Channel")
-        amp_ax.set_ylim([0, 1])
+        if fixed_axis:
+            amp_ax.set_ylim([0, 1])
 
         for pol_idx, amp_pol in enumerate(amplitude.T):
             amp_ax.scatter(channel, amp_pol, label=label[pol_idx])

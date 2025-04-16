@@ -20,7 +20,10 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
     gaintable_mock.assign_coords.return_value = gaintable_mock
 
     plot_gaintable(
-        gaintable_mock, "/some/path", figure_title="some_title"
+        gaintable_mock,
+        "/some/path",
+        figure_title="some_title",
+        fixed_axis=False,
     ).compute()
 
     gaintable_mock.stack.assert_called_with(pol=("receptor1", "receptor2"))
@@ -33,6 +36,7 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
                 "/some/path",
                 3,
                 3,
+                False,
                 "some_title",
             ),
             call(
@@ -41,6 +45,7 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
                 "/some/path",
                 3,
                 3,
+                False,
                 "some_title",
             ),
         ]
@@ -114,6 +119,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
         "/some/path/file",
         n_rows,
         n_cols,
+        False,
         figure_title,
     )
 
@@ -363,5 +369,8 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
         "/some/path/file",
         n_rows,
         n_cols,
+        True,
         figure_title,
     )
+
+    amp_axis_mock.set_ylim.assert_called_with([0, 1])
