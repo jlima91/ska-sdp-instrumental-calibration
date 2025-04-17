@@ -100,7 +100,10 @@ class GenericBeams:
                 raise ValueError("Low array requires ms_path for everybeam.")
             self.telescope = eb.load_telescope(ms_path)
             self.delay_dir_itrf = None
-            self.normalise = np.zeros((len(vis.frequency), 2, 2), "complex")
+            self.normalise = np.zeros(
+                (len(vis.frequency), len(self.antenna_names), 2, 2),
+                "complex",
+            )
             self.normalise[..., :, :] = np.eye(2)
         elif array.lower() == "mid":
             logger.info("Initialising beams for Mid")
@@ -125,19 +128,54 @@ class GenericBeams:
         :param frequency: 1D array of frequencies
         :param time: obstime
         """
-        station_id = 0
+        # coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
-        for chan, freq in enumerate(frequency):
-            self.normalise[chan] = np.linalg.inv(
-                # This is normalising in be beam dir, but should be zenith
-                self.telescope.station_response(
-                    time.mjd * 86400,
-                    station_id,
-                    freq,
-                    self.delay_dir_itrf,
-                    self.delay_dir_itrf,
-                )
+
+        norm_type = "beam_centre"
+
+        if norm_type is None:
+            # if this is the default, perhaps just remove normalisation
+            self.normalise[..., :, :] = np.eye(2)
+
+        elif norm_type is "beam_centre":
+            for chan, freq in enumerate(frequency):
+                for stn, _ in enumerate(self.antenna_names):
+                    self.normalise[chan, stn] = np.linalg.inv(
+                        self.telescope.station_response(
+                            time.mjd * 86400,
+                            stn,
+                            freq,
+                            self.delay_dir_itrf,
+                            self.delay_dir_itrf,
+                        )
+                    )
+
+        elif norm_type is "zenith":
+            # coordinates of zenith (almost -- check precession)
+            lat_deg = self.array_location.lat.degree
+            lon_deg = self.array_location.lon.degree
+            location = EarthLocation.from_geodetic(
+                lon_deg, lat_deg, 0.0, "WGS84"
             )
+            raZ_deg = time.sidereal_time("apparent", location).degree
+            decZ_deg = lat_deg
+            dir_itrf_zen = radec_to_xyz(
+                SkyCoord(ra=raZ_deg, dec=decZ_deg, unit="deg"), time
+            )
+            for chan, freq in enumerate(frequency):
+                for stn, _ in enumerate(self.antenna_names):
+                    self.normalise[chan, stn] = np.linalg.inv(
+                        self.telescope.station_response(
+                            time.mjd * 86400,
+                            stn,
+                            freq,
+                            dir_itrf_zen,
+                            dir_itrf_zen,
+                        )
+                    )
+
+        else:
+            raise ValueError("Unknown beam normalisation.")
 
     def array_response(
         self,
@@ -180,13 +218,13 @@ class GenericBeams:
 
             mjds = time.mjd * 86400
 
-            for stn_id in range(len(self.antenna_names)):
+            for stn in range(len(self.antenna_names)):
                 for chan, freq in enumerate(frequency):
-                    beams[stn_id, chan, :, :] = (
+                    beams[stn, chan, :, :] = (
                         self.telescope.station_response(
-                            mjds, stn_id, freq, dir_itrf, self.delay_dir_itrf
+                            mjds, stn, freq, dir_itrf, self.delay_dir_itrf
                         )
-                        @ self.normalise[chan]
+                        @ self.normalise[chan, stn]
                     )
             # np.set_printoptions(linewidth=120, precision=4, suppress=True)
             # print(
