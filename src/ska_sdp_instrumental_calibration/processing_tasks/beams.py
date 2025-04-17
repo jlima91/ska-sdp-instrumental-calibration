@@ -137,7 +137,7 @@ class GenericBeams:
             # if this is the default, perhaps just remove normalisation
             self.normalise[..., :, :] = np.eye(2)
 
-        elif norm_type is "beam_centre":
+        elif norm_type == "beam_centre":
             for chan, freq in enumerate(frequency):
                 for stn, _ in enumerate(self.antenna_names):
                     self.normalise[chan, stn] = np.linalg.inv(
@@ -150,7 +150,7 @@ class GenericBeams:
                         )
                     )
 
-        elif norm_type is "zenith":
+        elif norm_type == "zenith":
             # coordinates of zenith (almost -- check precession)
             lat_deg = self.array_location.lat.degree
             lon_deg = self.array_location.lon.degree
