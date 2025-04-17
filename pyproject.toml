@@ -50,7 +50,7 @@ ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^0.5.1"
 pylance = "^0.5.9"
 xarray = "^2024.7"
-ska-sdp-spectral-line-imaging = "^0.6.2"
+ska-sdp-exec-piper = "^1.0.1"
 
 # needed for testing
 attrs = "^23.2.0"
