@@ -98,11 +98,7 @@ class GenericBeams:
             self.array = array.lower()
             if ms_path is None:
                 raise ValueError("Low array requires ms_path for everybeam.")
-            self.telescope = eb.load_telescope(
-                ms_path,
-                use_differential_beam=False,
-                element_response_model="skala40_wave",
-            )
+            self.telescope = eb.load_telescope(ms_path)
             self.delay_dir_itrf = None
             self.normalise = np.zeros((len(vis.frequency), 2, 2), "complex")
             self.normalise[..., :, :] = np.eye(2)
