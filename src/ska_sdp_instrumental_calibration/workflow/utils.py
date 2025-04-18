@@ -19,6 +19,7 @@ from typing import Iterable, Literal, Optional
 import dask.array as da
 import dask.delayed
 import h5py
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -503,6 +504,8 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
             Path prefix to save the plots.
         figure_title: str
             Title of the figure
+        fixed_axis: bool
+            Limit amplitude axis to [0,1]
     """
 
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
@@ -510,6 +513,9 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.assign_coords({"pol": polstrs})
     number_of_stations = gaintable.antenna.size
+
+    if figure_title == "Bandpass":
+        plot_all_stations(gaintable, path_prefix)
 
     n_rows = 3
     n_cols = 3
@@ -531,14 +537,51 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
         )
 
 
+def plot_all_stations(gaintable, path_prefix):
+    """
+    Plot amplitude vs frequency plot that incluldes all stations.
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        path_prefix: str
+            Path prefix to save the plots.
+    """
+    amplitude = np.abs(gaintable.isel(time=0).gain)
+    frequency = gaintable.frequency
+    nstations = gaintable.antenna.size
+    cmap = plt.get_cmap("viridis", nstations)
+    norm = plt.Normalize(vmin=0, vmax=nstations - 1)
+    sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    for pol in ["XX", "YY"]:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        amp_pol = amplitude.sel(pol=pol)
+
+        for idx, station_data in enumerate(amp_pol):
+            ax.plot(frequency, station_data, color=cmap(idx))
+
+        ax.set_title(f"All station Amp vs Freq for pol {pol}")
+        ax.set_xlabel("Freq [HZ]")
+        ax.set_ylabel("Amp")
+        ticks = np.linspace(0, nstations, 11, dtype=int)
+        fig.colorbar(sm, ax=ax, ticks=ticks)
+        fig.savefig(
+            f"{path_prefix}-all_station_amp_vs_freq_{pol}.png",
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+
 def subplot_gaintable(
     gaintable,
     stations,
     path_prefix,
     n_rows,
     n_cols,
-    fixed_axis,
     figure_title="",
+    fixed_axis=False,
 ):
     """
     Plots the Amp vs frequency and Phase vs frequency plots
@@ -558,6 +601,8 @@ def subplot_gaintable(
             Number of plots in column.
         figure_title: str
             Title of the figure.
+        fixed_axis: bool
+            Limit amplitude axis values to [0,1]
     """
     frequency = gaintable.frequency / 1e6
     channel = np.arange(len(frequency))

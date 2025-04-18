@@ -42,7 +42,7 @@ from ...data_managers.dask_wrappers import run_solver
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
-                bool, "False", description="Plot the generated gaintable"
+                bool, False, description="Plot the generated gaintable"
             ),
             fixed_axis=ConfigParam(
                 bool, False, description="Limit amplitude axis to [0-1]"
@@ -64,10 +64,11 @@ def bandpass_calibration_stage(
         run_solver_config: dict
             Configuration required for bandpass calibration.
             eg: {solver: "gain_substitution", refant: 0, niter: 50}
+        plot_config: dict
+            Configuration required for plotting.
+            eg: {plot_table: False, fixed_axis: False}
         flagging: bool
             Run Flagging for time
-        plot_table: bool
-            Plot the gaintable
         _output_dir_ : str
             Directory path where the output file will be written.
     Returns

@@ -2,6 +2,7 @@ from mock import MagicMock, Mock, call, patch
 from numpy import array
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    plot_all_stations,
     plot_gaintable,
     subplot_gaintable,
 )
@@ -50,6 +51,113 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
             ),
         ]
     )
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.subplot_gaintable")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.plot_all_stations")
+def test_should_plot_all_station_plot_for_bp_solution(
+    plot_all_staions_mock, subplot_gaintable_mock
+):
+    gaintable_mock = MagicMock(name="gaintable")
+
+    gaintable_mock.stack.return_value = gaintable_mock
+    gaintable_mock.pol.data = [("X", "X"), ("Y", "Y")]
+    gaintable_mock.assign_coords.return_value = gaintable_mock
+
+    plot_gaintable(
+        gaintable_mock,
+        "/some/path",
+        figure_title="Bandpass",
+        fixed_axis=False,
+    ).compute()
+
+    gaintable_mock.stack.assert_called_with(pol=("receptor1", "receptor2"))
+    gaintable_mock.assign_coords.assert_called_with({"pol": ["XX", "YY"]})
+    plot_all_staions_mock.assert_called_once_with(gaintable_mock, "/some/path")
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.np.linspace")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.np.abs")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.plt")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.cm")
+def test_should_create_amp_vs_freq_plot_for_all_stations(
+    cm_mock, plt_mock, abs_mock, linspace_mock
+):
+    gaintable_mock = MagicMock(name="gaintable")
+    station_1_mock = Mock(name="station1")
+    station_2_mock = Mock(name="station2")
+    amp_mock = Mock(name="amp")
+    frequency_mock = Mock(name="frequency")
+    fig_mock = Mock(name="fig")
+    ax_mock = Mock(name="ax")
+    cmap_mock = Mock(name="cmap")
+    sm_mock = Mock(name="sm")
+    norm_mock = Mock(name="norm")
+
+    gaintable_mock.frequency = frequency_mock
+    gaintable_mock.antenna.size = 10
+    abs_mock.return_value = amp_mock
+    amp_mock.sel.return_value = [station_1_mock, station_2_mock]
+    plt_mock.subplots.return_value = [fig_mock, ax_mock]
+    plt_mock.get_cmap.return_value = cmap_mock
+    cm_mock.ScalarMappable.return_value = sm_mock
+    plt_mock.Normalize.return_value = norm_mock
+    linspace_mock.return_value = [0, 1, 2]
+
+    plot_all_stations(gaintable_mock, "path-prefix")
+
+    plt_mock.get_cmap.assert_called_once_with("viridis", 10)
+    plt_mock.Normalize.assert_called_once_with(vmin=0, vmax=9)
+    cm_mock.ScalarMappable.assert_called_once_with(
+        norm=norm_mock, cmap=cmap_mock
+    )
+
+    plt_mock.subplots.assert_has_calls(
+        [call(figsize=(10, 10)), call(figsize=(10, 10))]
+    )
+    ax_mock.plot.assert_has_calls(
+        [
+            call(frequency_mock, station_1_mock, color=cmap_mock(1)),
+            call(frequency_mock, station_2_mock, color=cmap_mock(2)),
+            call(frequency_mock, station_1_mock, color=cmap_mock(1)),
+            call(frequency_mock, station_2_mock, color=cmap_mock(2)),
+        ]
+    )
+
+    amp_mock.sel.assert_has_calls([call(pol="XX"), call(pol="YY")])
+
+    ax_mock.set_title.assert_has_calls(
+        [
+            call("All station Amp vs Freq for pol XX"),
+            call("All station Amp vs Freq for pol YY"),
+        ]
+    )
+    ax_mock.set_xlabel.assert_has_calls([call("Freq [HZ]"), call("Freq [HZ]")])
+    ax_mock.set_ylabel.assert_has_calls([call("Amp"), call("Amp")])
+    fig_mock.savefig.assert_has_calls(
+        [
+            call(
+                "path-prefix-all_station_amp_vs_freq_XX.png",
+                bbox_inches="tight",
+            ),
+            call(
+                "path-prefix-all_station_amp_vs_freq_YY.png",
+                bbox_inches="tight",
+            ),
+        ]
+    )
+
+    linspace_mock.assert_has_calls(
+        [call(0, 10, 11, dtype=int), call(0, 10, 11, dtype=int)]
+    )
+    fig_mock.colorbar.assert_has_calls(
+        [
+            call(sm_mock, ax=ax_mock, ticks=[0, 1, 2]),
+            call(sm_mock, ax=ax_mock, ticks=[0, 1, 2]),
+        ]
+    )
+
+    plt_mock.close.assert_has_calls([call(fig_mock), call(fig_mock)])
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.plt")
@@ -119,8 +227,8 @@ def test_should_create_subplots(numpy_mock, plt_mock):
         "/some/path/file",
         n_rows,
         n_cols,
-        False,
         figure_title,
+        False,
     )
 
     plt_mock.figure.assert_called_once_with(
