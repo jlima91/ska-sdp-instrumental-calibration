@@ -32,22 +32,22 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
     subplot_gaintable_mock.assert_has_calls(
         [
             call(
-                gaintable_mock,
-                "first set of stations",
-                "/some/path",
-                3,
-                3,
-                False,
-                "some_title",
+                gaintable=gaintable_mock,
+                stations="first set of stations",
+                path_prefix="/some/path",
+                n_rows=3,
+                n_cols=3,
+                figure_title="some_title",
+                fixed_axis=False,
             ),
             call(
-                gaintable_mock,
-                "second set of stations",
-                "/some/path",
-                3,
-                3,
-                False,
-                "some_title",
+                gaintable=gaintable_mock,
+                stations="second set of stations",
+                path_prefix="/some/path",
+                n_rows=3,
+                n_cols=3,
+                figure_title="some_title",
+                fixed_axis=False,
             ),
         ]
     )

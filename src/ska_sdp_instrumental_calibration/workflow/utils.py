@@ -527,13 +527,13 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
 
     for group_idx in plot_groups:
         subplot_gaintable(
-            gaintable,
-            group_idx,
-            path_prefix,
-            n_rows,
-            n_cols,
-            fixed_axis,
-            figure_title,
+            gaintable=gaintable,
+            stations=group_idx,
+            path_prefix=path_prefix,
+            n_rows=n_rows,
+            n_cols=n_cols,
+            figure_title=figure_title,
+            fixed_axis=fixed_axis,
         )
 
 
