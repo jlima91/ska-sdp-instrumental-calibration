@@ -131,10 +131,10 @@ class GenericBeams:
         # coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
 
-        norm_type = "beam_centre"
+        norm_type = None
 
         if norm_type is None:
-            # if this is the default, perhaps just remove normalisation
+            # if this is the default, remove normalisation until needed
             self.normalise[..., :, :] = np.eye(2)
 
         elif norm_type == "beam_centre":
