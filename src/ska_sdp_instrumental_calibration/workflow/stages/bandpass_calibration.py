@@ -1,3 +1,4 @@
+import dask.delayed
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -56,15 +57,13 @@ def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
         dict
             Updated upstream_output with gaintable
     """
-
-    vis = upstream_output.vis
-
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
     modelvis = upstream_output.modelvis
 
-    gaintable = run_solver(
-        vis=vis,
+    gaintable = dask.delayed(run_solver)(
+        vis=upstream_output.vis,
         modelvis=modelvis,
+        gaintable=upstream_output.gaintable,
         solver=run_solver_config["solver"],
         niter=run_solver_config["niter"],
         refant=run_solver_config["refant"],

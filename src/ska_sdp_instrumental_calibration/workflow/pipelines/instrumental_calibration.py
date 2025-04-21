@@ -1,6 +1,8 @@
 # flake8: noqa: E501
 import logging
 
+import yaml
+from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
 from ska_sdp_piper.piper.pipeline import Pipeline
 from ska_sdp_piper.piper.stage import Stages
 
@@ -31,3 +33,71 @@ ska_sdp_instrumental_calibration = Pipeline(
     ),
     scheduler=scheduler,
 )
+
+
+@ska_sdp_instrumental_calibration.sub_command(
+    "experimental",
+    DEFAULT_CLI_ARGS,
+    help="Allows reordering of stages via additional config section",
+)
+def experimental(cli_args):
+    """
+    Pipeline diagnostics sub_command
+
+    Parameters
+    ----------
+        cli_args: argparse.Namespace
+            CLI arguments
+    """
+    fixed_stages = [
+        load_data_stage.name,
+        predict_vis_stage.name,
+        export_gaintable_stage.name,
+    ]
+
+    stage_mapping = {
+        stage.name: stage
+        for stage in ska_sdp_instrumental_calibration._stages
+        if stage.name not in fixed_stages
+    }
+
+    logger.warning("=========== INST Experimental ============")
+
+    if cli_args.config_path:
+        with open(cli_args.config_path, "r") as f:
+            config = yaml.safe_load(f)
+
+            unique_stages = []
+            for stage_name in config.get("stages", []):
+                if stage_name in fixed_stages:
+                    raise RuntimeError(
+                        f"Mandatory stage {stage_name} included in the stages"
+                        "section"
+                    )
+
+                if stage_name in unique_stages:
+                    raise RuntimeError(
+                        f"Duplicate stage {stage_name} in stages section"
+                    )
+                unique_stages.append(stage_name)
+
+            if unique_stages:
+                stages = Stages(
+                    [
+                        load_data_stage,
+                        predict_vis_stage,
+                        *[stage_mapping[stage] for stage in unique_stages],
+                        export_gaintable_stage,
+                    ]
+                )
+
+                ska_sdp_instrumental_calibration._stages = stages
+            else:
+                logger.warning(
+                    "No stage reordering provided. Using the default stage "
+                    "order"
+                )
+    else:
+        logger.warning("No Config provided. Using the default stage order")
+    logger.warning("==========================================")
+    ska_sdp_instrumental_calibration._run(cli_args)
