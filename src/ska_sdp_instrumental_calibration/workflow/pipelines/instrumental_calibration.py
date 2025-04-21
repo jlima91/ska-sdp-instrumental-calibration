@@ -2,6 +2,7 @@
 import logging
 
 import yaml
+from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
 from ska_sdp_piper.piper.pipeline import Pipeline
 from ska_sdp_piper.piper.stage import Stages
@@ -32,6 +33,13 @@ ska_sdp_instrumental_calibration = Pipeline(
         ]
     ),
     scheduler=scheduler,
+    global_config=Configuration(
+        experimental=ConfigParam(
+            dict,
+            "experimental",
+            description="""Configurations for experimental sub command.""",
+        )
+    ),
 )
 
 
@@ -68,7 +76,12 @@ def experimental(cli_args):
             config = yaml.safe_load(f)
 
             unique_stages = []
-            for stage_name in config.get("stages", []):
+            stage_order = (
+                config.get("global_parameters", {})
+                .get("experimental", {})
+                .get("stage_order", [])
+            )
+            for stage_name in stage_order:
                 if stage_name in fixed_stages:
                     raise RuntimeError(
                         f"Mandatory stage {stage_name} included in the stages"
