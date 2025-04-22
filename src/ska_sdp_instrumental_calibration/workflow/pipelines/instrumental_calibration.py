@@ -36,7 +36,7 @@ ska_sdp_instrumental_calibration = Pipeline(
     global_config=Configuration(
         experimental=ConfigParam(
             dict,
-            "experimental",
+            {"stage_order": []},
             description="""Configurations for experimental sub command.""",
         )
     ),
