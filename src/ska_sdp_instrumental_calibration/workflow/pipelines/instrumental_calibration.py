@@ -50,7 +50,10 @@ ska_sdp_instrumental_calibration = Pipeline(
 )
 def experimental(cli_args):
     """
-    Pipeline diagnostics sub_command
+    Reorder stages of INST pipeline. Use the config section
+    global_parameters.experimental.stage_order to provide the order of
+    callibration stages. Load data, predict and export stages are not
+    reorder-able.
 
     Parameters
     ----------
@@ -84,13 +87,13 @@ def experimental(cli_args):
             for stage_name in stage_order:
                 if stage_name in fixed_stages:
                     raise RuntimeError(
-                        f"Mandatory stage {stage_name} included in the stages"
+                        f"Mandatory stage {stage_name} included in the stage_order "
                         "section"
                     )
 
                 if stage_name in unique_stages:
                     raise RuntimeError(
-                        f"Duplicate stage {stage_name} in stages section"
+                        f"Duplicate stage {stage_name} in stage_order section"
                     )
                 unique_stages.append(stage_name)
 
