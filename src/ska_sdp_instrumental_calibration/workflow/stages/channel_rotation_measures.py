@@ -118,7 +118,10 @@ def generate_channel_rm_stage(
         path_prefix = os.path.join(_output_dir_, "channel_rm")
         upstream_output.add_compute_tasks(
             plot_gaintable(
-                gaintable, path_prefix, figure_title="Channel Rotation Measure"
+                gaintable,
+                path_prefix,
+                figure_title="Channel Rotation Measure",
+                drop_cross_pols=True,
             )
         )
     upstream_output["gaintable"] = gaintable

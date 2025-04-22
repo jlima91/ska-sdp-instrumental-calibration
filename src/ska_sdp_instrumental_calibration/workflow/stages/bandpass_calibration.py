@@ -98,6 +98,7 @@ def bandpass_calibration_stage(
                 path_prefix,
                 figure_title="Bandpass",
                 fixed_axis=plot_config["fixed_axis"],
+                all_station_plot=True,
             )
         )
 

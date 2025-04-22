@@ -205,4 +205,5 @@ def test_should_plot_channel_rm_gaintable(
         solved_gaintable_mock,
         "/output/path/channel_rm",
         figure_title="Channel Rotation Measure",
+        drop_cross_pols=True,
     )

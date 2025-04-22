@@ -70,4 +70,5 @@ def test_should_plot_bp_gaintable(run_solver_mock, plot_gaintable_mock):
         "/output/path/bandpass",
         figure_title="Bandpass",
         fixed_axis=True,
+        all_station_plot=True,
     )

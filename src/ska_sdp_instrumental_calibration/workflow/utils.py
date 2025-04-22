@@ -492,7 +492,14 @@ def export_gaintable_to_h5parm(
 
 
 @dask.delayed
-def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
+def plot_gaintable(
+    gaintable,
+    path_prefix,
+    figure_title="",
+    fixed_axis=False,
+    all_station_plot=False,
+    drop_cross_pols=False,
+):
     """
     Plots the gaintable.
 
@@ -506,6 +513,10 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
             Title of the figure
         fixed_axis: bool
             Limit amplitude axis to [0,1]
+        all_station_plot: bool
+            Create all station amp vs freq plot.
+        drop_cross_pols: bool
+            Do not plot cross polarizations
     """
 
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
@@ -514,7 +525,7 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
     gaintable = gaintable.assign_coords({"pol": polstrs})
     number_of_stations = gaintable.antenna.size
 
-    if figure_title == "Bandpass":
+    if all_station_plot:
         plot_all_stations(gaintable, path_prefix)
 
     n_rows = 3
@@ -524,6 +535,9 @@ def plot_gaintable(gaintable, path_prefix, figure_title="", fixed_axis=False):
         range(number_of_stations),
         range(plots_per_group, number_of_stations, plots_per_group),
     )
+
+    if drop_cross_pols:
+        gaintable = gaintable.sel(pol=["XX", "YY"])
 
     for group_idx in plot_groups:
         subplot_gaintable(
@@ -566,7 +580,8 @@ def plot_all_stations(gaintable, path_prefix):
         ax.set_xlabel("Freq [HZ]")
         ax.set_ylabel("Amp")
         ticks = np.linspace(0, nstations, 11, dtype=int)
-        fig.colorbar(sm, ax=ax, ticks=ticks)
+        colorbar = fig.colorbar(sm, ax=ax, ticks=ticks)
+        colorbar.ax.set_title("Stations", loc="center", fontsize=10)
         fig.savefig(
             f"{path_prefix}-all_station_amp_vs_freq_{pol}.png",
             bbox_inches="tight",

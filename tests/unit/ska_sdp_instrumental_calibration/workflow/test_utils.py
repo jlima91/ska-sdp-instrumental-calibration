@@ -69,11 +69,37 @@ def test_should_plot_all_station_plot_for_bp_solution(
         "/some/path",
         figure_title="Bandpass",
         fixed_axis=False,
+        all_station_plot=True,
     ).compute()
 
-    gaintable_mock.stack.assert_called_with(pol=("receptor1", "receptor2"))
-    gaintable_mock.assign_coords.assert_called_with({"pol": ["XX", "YY"]})
+    gaintable_mock.stack.assert_called_once_with(
+        pol=("receptor1", "receptor2")
+    )
+    gaintable_mock.assign_coords.assert_called_once_with({"pol": ["XX", "YY"]})
     plot_all_staions_mock.assert_called_once_with(gaintable_mock, "/some/path")
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.subplot_gaintable")
+def test_should_plot_only_parallel_hand_pols(subplot_gaintable_mock):
+    gaintable_mock = MagicMock(name="gaintable")
+
+    gaintable_mock.stack.return_value = gaintable_mock
+    gaintable_mock.pol.data = [("X", "X"), ("Y", "Y")]
+    gaintable_mock.assign_coords.return_value = gaintable_mock
+
+    plot_gaintable(
+        gaintable_mock,
+        "/some/path",
+        figure_title="Channel Rotation Measure",
+        fixed_axis=False,
+        drop_cross_pols=True,
+    ).compute()
+
+    gaintable_mock.stack.assert_called_once_with(
+        pol=("receptor1", "receptor2")
+    )
+    gaintable_mock.assign_coords.assert_called_once_with({"pol": ["XX", "YY"]})
+    gaintable_mock.sel.assert_called_once_with(pol=["XX", "YY"])
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.np.linspace")
@@ -93,6 +119,7 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
     cmap_mock = Mock(name="cmap")
     sm_mock = Mock(name="sm")
     norm_mock = Mock(name="norm")
+    colorbar_mock = Mock(name="colorbar")
 
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.antenna.size = 10
@@ -103,6 +130,7 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
     cm_mock.ScalarMappable.return_value = sm_mock
     plt_mock.Normalize.return_value = norm_mock
     linspace_mock.return_value = [0, 1, 2]
+    fig_mock.colorbar.return_value = colorbar_mock
 
     plot_all_stations(gaintable_mock, "path-prefix")
 
@@ -154,6 +182,13 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
         [
             call(sm_mock, ax=ax_mock, ticks=[0, 1, 2]),
             call(sm_mock, ax=ax_mock, ticks=[0, 1, 2]),
+        ]
+    )
+
+    colorbar_mock.ax.set_title.assert_has_calls(
+        [
+            call("Stations", loc="center", fontsize=10),
+            call("Stations", loc="center", fontsize=10),
         ]
     )
 
