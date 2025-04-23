@@ -8,7 +8,6 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import run_solver
 from ...processing_tasks.post_processing import model_rotations
-from .load_data import load_data_stage
 
 
 @ConfigurableStage(
@@ -67,11 +66,10 @@ def generate_channel_rm_stage(upstream_output, fchunk, run_solver_config):
     """
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
+    initialtable = upstream_output.gaintable
+    if fchunk != -1:
+        initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
 
-    if fchunk == -1:
-        fchunk = load_data_stage.config["load_data"]["fchunk"]
-
-    initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
     gaintable = dask.delayed(model_rotations)(initialtable, plot_sample=True)
 
     gaintable = dask.delayed(run_solver)(
