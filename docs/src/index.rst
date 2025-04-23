@@ -49,5 +49,6 @@ notebooks.
    :caption: Contents:
 
    overview
+   stage_config
    package/guide
 
