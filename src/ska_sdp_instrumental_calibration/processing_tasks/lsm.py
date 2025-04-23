@@ -66,6 +66,102 @@ class Component:
     beam_pa: float = 0.0
 
 
+def generate_lsm_from_csv(
+    csvfile: str,
+    phasecentre: SkyCoord,
+    fov: float = 5.0,
+    flux_limit: float = 0.0,
+) -> list[Component]:
+    """
+    Generate a local sky model using a csv file of the format used in various
+    OSKAR simulations.
+
+    Form a list of Component objects. If the csv file cannot be found, a single
+    point source will be generated at phasecentre.
+
+    The csv files are expected to have the following 12 columns:
+    RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy),
+    Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2),
+    FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
+
+    Frequency parameters (Q, U, V and RM) are ignored in this function.
+
+    All components are Gaussians, although many will typically default to
+    point sources. See data class :class:`~Component` for more information.
+
+    :param csvfile: CSV filename. Must follow the format above.
+    :param phasecentre: astropy SkyCoord for the centre of the sky model.
+    :param fov: Field of view in degrees. Default is 5.
+    :param flux_limit: minimum flux density in Jy. Default is 0.
+    :return: Component list
+    """
+    if not Path(csvfile).is_file():
+        raise ValueError(f"Cannot open csv file {csvfile}")
+
+    deg2rad = np.pi / 180.0
+    max_separation = fov / 2 * deg2rad
+
+    ra0 = phasecentre.ra.radian
+    dec0 = phasecentre.dec.radian
+    cosdec0 = np.cos(dec0)
+    sindec0 = np.sin(dec0)
+
+    # Model is a list of components
+    model = []
+
+    with open(csvfile, "r") as f:
+
+        csvidx = -1
+        for line in f:
+
+            # skip blank and comment lines
+            if line == "" or line[0] == "#":
+                continue
+
+            # split into 12 comma-separated parameters
+            cmp = np.array(line.strip().split(",")).astype(float)
+            if len(cmp) != 12:
+                raise ValueError(f"Unexpected format for csv file {csvfile}")
+
+            # store the overall csv component index
+            csvidx += 1
+
+            # skip components that are too weak
+            flux = cmp[2]
+            if flux < flux_limit:
+                continue
+
+            # skip components that are too distant
+            ra = cmp[0] * deg2rad
+            dec = cmp[1] * deg2rad
+            separation = np.arccos(
+                np.sin(dec) * sindec0
+                + np.cos(dec) * cosdec0 * np.cos(ra - ra0)
+            )
+            if separation > max_separation:
+                continue
+
+            model.append(
+                Component(
+                    name=f"comp{csvidx}",
+                    RAdeg=cmp[0],
+                    DEdeg=cmp[1],
+                    flux=flux,
+                    ref_freq=cmp[6],
+                    alpha=cmp[7],
+                    major=cmp[9],
+                    minor=cmp[10],
+                    pa=cmp[11],
+                )
+            )
+
+        f.close()
+
+        logger.info(f"extracted {len(model)} csv components")
+
+    return model
+
+
 def generate_lsm_from_gleamegc(
     gleamfile: str,
     phasecentre: SkyCoord,
