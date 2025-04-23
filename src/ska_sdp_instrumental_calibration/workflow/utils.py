@@ -19,6 +19,7 @@ from typing import Iterable, Literal, Optional
 import dask.array as da
 import dask.delayed
 import h5py
+import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,6 +58,9 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
+
+matplotlib.use("Agg")
+
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
