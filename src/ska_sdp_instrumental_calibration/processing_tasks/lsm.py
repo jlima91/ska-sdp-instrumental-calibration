@@ -86,7 +86,7 @@ def generate_lsm_from_gleamegc(
     See data class :class:`~Component` and the gleamegc ReadMe file for more
     information on columns extracted from the catalogue.
 
-    :param cat: Catalogue filename. Must follow the gleamegc.dat format.
+    :param gleamfile: Catalogue filename. Must follow the gleamegc.dat format.
     :param phasecentre: astropy SkyCoord for the centre of the sky model.
     :param fov: Field of view in degrees. Default is 5.
     :param flux_limit: minimum flux density in Jy. Default is 0.
@@ -271,7 +271,7 @@ def deconvolve_gaussian(comp: Component) -> tuple[float]:
         # Circular Gaussian case
         smaj = np.sqrt(fmajsq - bminsq)
         smin = np.sqrt(fmajsq - bmajsq)
-        psmaj = np.pi / 2.0 + comp.beam_pa
+        psmaj = np.pi / 2.0 + comp.beam_pa * np.pi / 180.0
 
     else:
         # General case

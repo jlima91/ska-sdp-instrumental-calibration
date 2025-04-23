@@ -337,6 +337,9 @@ def test_deconvolve_circular_gaussian():
     Given a component, deconvolve MWA synthesised beam.
     if the gaussian is circular, then handle it appropriately.
     """
+    beam_major = 200
+    beam_minor = 150
+    beam_pa = 20
     component = Component(
         name="J12345",
         RAdeg=260,
@@ -347,12 +350,12 @@ def test_deconvolve_circular_gaussian():
         major=250,
         minor=250,
         pa=-4,
-        beam_major=200,
-        beam_minor=150,
-        beam_pa=20,
+        beam_major=beam_major,
+        beam_minor=beam_minor,
+        beam_pa=beam_pa,
     )
 
     actual_params = np.array(deconvolve_gaussian(component))
-    expectd_params = np.array((200.0, 150.0, 1235.9155902616465))
+    expectd_params = np.array((beam_major, beam_minor, 90 + beam_pa))
 
     np.testing.assert_allclose(expectd_params, actual_params)
