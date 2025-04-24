@@ -4,6 +4,7 @@ from astropy.coordinates import SkyCoord
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
@@ -79,11 +80,17 @@ class PipelineConfig:
             If lsm is None, this specifies the flux density limit used when
             searching for compoents, in units of Jy. Defaults to 1.
         gleamfile (str):
-            If lsm is None, this specifies the location of gleam catalogue
-            file gleamegc.dat. This can be downloaded from VizieR:
+            Specifies the location of the gleam catalogue file gleamegc.dat.
+            If lsm is None, the sky model must be specified by either a
+            gleamegc catalogue file or a csv file.
+            GLEAMEGC can be downloaded from VizieR:
             "wget https://cdsarc.cds.unistra.fr/ftp/VIII/100/gleamegc.dat.gz"
             This parameter is deprecated and will be replaced with parameters
             related to ska-sdp-global-sky-model.
+        csvfile (str):
+            Specifies the location of a CSV sky component list.
+            If lsm is None, the sky model must be specified by either a
+            gleamegc catalogue file or a csv file.
         beam_type (str):
             Type of beam model to use. Should be "everybeam" or "none".
             Defaults to "everybeam".
@@ -154,9 +161,16 @@ class PipelineConfig:
         self.fov = config.get("fov_deg", 10)
         self.flux_limit = config.get("flux_limit", 1)
         self.gleamfile = config.get("gleamfile", None)
+        self.csvfile = config.get("csvfile", None)
         # Check required external data
-        if self.lsm is None and self.gleamfile is None:
-            raise ValueError("Either a LSM or a catalogue file is required")
+        if self.lsm is None:
+            if self.gleamfile is None and self.csvfile is None:
+                raise ValueError("An LSM or catalogue file is required")
+            elif self.gleamfile is not None and self.csvfile is not None:
+                raise ValueError("Specify only a single sky model file")
+        else:
+            if self.gleamfile is not None or self.csvfile is not None:
+                raise ValueError("Specify only a LSM or a sky model file")
 
         # Beam model info
         self.beam_type = config.get("beam_type", "everybeam")
@@ -191,16 +205,25 @@ class PipelineConfig:
             if self.lsm is None:
                 # Get the LSM (single call for all channels / dask tasks)
                 logger.info("Generating LSM for simulation with:")
-                logger.info(f" - Catalogue file: {self.gleamfile}")
                 logger.info(f" - Search radius: {self.fov/2} deg")
                 logger.info(f" - Flux limit: {self.flux_limit} Jy")
-                lsm = generate_lsm_from_gleamegc(
-                    gleamfile=self.gleamfile,
-                    phasecentre=phasecentre,
-                    fov=self.fov,
-                    flux_limit=self.flux_limit,
-                )
-                logger.info(f"LSM: found {len(lsm)} components")
+                if self.gleamfile is not None:
+                    logger.info(f" - GLEAMEGC file: {self.gleamfile}")
+                    lsm = generate_lsm_from_gleamegc(
+                        gleamfile=self.gleamfile,
+                        phasecentre=phasecentre,
+                        fov=self.fov,
+                        flux_limit=self.flux_limit,
+                    )
+                if self.gleamfile is not None:
+                    logger.info(f" - csv file: {self.csvfile}")
+                    lsm = generate_lsm_from_csv(
+                        csvfile=self.csvfile,
+                        phasecentre=phasecentre,
+                        fov=self.fov,
+                        flux_limit=self.flux_limit,
+                    )
+                logger.info(f"LSM contains {len(lsm)} components")
             else:
                 lsm = self.lsm
 
