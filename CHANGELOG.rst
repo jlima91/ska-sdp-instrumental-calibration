@@ -4,6 +4,17 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+Main
+****
+
+Added
+-----
+* Functionality to use a csv file to generate the sky model.
+
+Fixed
+-----
+* Bug in deconvolve_gaussian for circular Gaussian components.
+
 0.1.6
 *****
 
