@@ -202,6 +202,7 @@ class PipelineConfig:
                 f"Generating a demo MSv2 Measurement Set {self.ms_name}"
             )
             phasecentre = SkyCoord(ra=0.0, dec=-27.0, unit="degree")
+            lsm = []
             if self.lsm is None:
                 # Get the LSM (single call for all channels / dask tasks)
                 logger.info("Generating LSM for simulation with:")
@@ -215,7 +216,7 @@ class PipelineConfig:
                         fov=self.fov,
                         flux_limit=self.flux_limit,
                     )
-                if self.gleamfile is not None:
+                elif self.csvfile is not None:
                     logger.info(f" - csv file: {self.csvfile}")
                     lsm = generate_lsm_from_csv(
                         csvfile=self.csvfile,
@@ -223,9 +224,11 @@ class PipelineConfig:
                         fov=self.fov,
                         flux_limit=self.flux_limit,
                     )
-                logger.info(f"LSM contains {len(lsm)} components")
+                else:
+                    raise ValueError("Unknown sky model")
             else:
                 lsm = self.lsm
+            logger.info(f"LSM contains {len(lsm)} components")
 
             return create_demo_ms(
                 ms_name=self.ms_name,
