@@ -4662,6 +4662,27 @@ url = "https://artefact.skao.int/repository/pypi-internal/simple"
 reference = "skao"
 
 [[package]]
+name = "ska-ser-sphinx-theme"
+version = "0.2.1"
+description = "A Sphinx ReadTheDocs theme for SKA"
+optional = false
+python-versions = ">=3.8.1,<4.0.0"
+groups = ["docs"]
+files = [
+    {file = "ska_ser_sphinx_theme-0.2.1-py3-none-any.whl", hash = "sha256:70fd0ab1678b0bad28bb7f9600a0f8d08a072b0d1179771cde06dac2f8992df8"},
+    {file = "ska_ser_sphinx_theme-0.2.1.tar.gz", hash = "sha256:7a9eb46b00ce5fbc04ac8e7de563d5133ab61cda8717997f4d604767e98d2c4f"},
+]
+
+[package.dependencies]
+sphinx = ">4"
+sphinx-rtd-theme = ">=2.0.0,<4"
+
+[package.source]
+type = "legacy"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+reference = "skao"
+
+[[package]]
 name = "ska-telmodel"
 version = "1.20.1"
 description = "SKA telescope model library"
@@ -5600,4 +5621,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "a25a824086fa20e8e158786b38dd914bd4bb3c62b47e59dbb279cd224129e6d7"
+content-hash = "a86f9cd1bc2e5aadc1448a75ad77eaea6a0d60f408d0dd538fe991c769f38b3c"
