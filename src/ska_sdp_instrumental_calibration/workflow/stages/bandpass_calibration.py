@@ -1,9 +1,14 @@
+import os
+
+import dask.delayed
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
     NestedConfigParam,
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
+
+from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
 from ...data_managers.dask_wrappers import run_solver
 
@@ -35,10 +40,21 @@ from ...data_managers.dask_wrappers import run_solver
                 description="""Number of solver iterations (defaults to 50)""",
             ),
         ),
+        plot_config=NestedConfigParam(
+            "Plot parameters",
+            plot_table=ConfigParam(
+                bool, False, description="Plot the generated gaintable"
+            ),
+            fixed_axis=ConfigParam(
+                bool, False, description="Limit amplitude axis to [0-1]"
+            ),
+        ),
         flagging=ConfigParam(bool, False, description="Run RFI flagging"),
     ),
 )
-def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
+def bandpass_calibration_stage(
+    upstream_output, run_solver_config, plot_config, flagging, _output_dir_
+):
     """
     Performs Bandpass Calibration
 
@@ -49,26 +65,50 @@ def bandpass_calibration_stage(upstream_output, run_solver_config, flagging):
         run_solver_config: dict
             Configuration required for bandpass calibration.
             eg: {solver: "gain_substitution", refant: 0, niter: 50}
+        plot_config: dict
+            Configuration required for plotting.
+            eg: {plot_table: False, fixed_axis: False}
         flagging: bool
             Run Flagging for time
+        _output_dir_ : str
+            Directory path where the output file will be written.
     Returns
     -------
         dict
             Updated upstream_output with gaintable
     """
-
-    vis = upstream_output.vis
-
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
     modelvis = upstream_output.modelvis
+    initialtable = upstream_output.gaintable
+    vis = upstream_output.vis
 
-    gaintable = run_solver(
+    # [TODO] Remove this section once model_rotations returns xarray
+    run_solver_func = (
+        dask.delayed(run_solver)
+        if hasattr(initialtable, "dask")
+        else run_solver
+    )
+
+    gaintable = run_solver_func(
         vis=vis,
         modelvis=modelvis,
+        gaintable=initialtable,
         solver=run_solver_config["solver"],
         niter=run_solver_config["niter"],
         refant=run_solver_config["refant"],
     )
+
+    if plot_config["plot_table"]:
+        path_prefix = os.path.join(_output_dir_, "bandpass")
+        upstream_output.add_compute_tasks(
+            plot_gaintable(
+                gaintable,
+                path_prefix,
+                figure_title="Bandpass",
+                fixed_axis=plot_config["fixed_axis"],
+                all_station_plot=True,
+            )
+        )
 
     upstream_output["gaintable"] = gaintable
 
