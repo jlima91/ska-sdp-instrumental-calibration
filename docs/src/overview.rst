@@ -100,7 +100,7 @@ Intermediate Sky Model
 
 The pipelines use an intermediate sky model containing relevant columns of a
 sky catalogue. This can either be filled from a cone search of a user-supplied
-GLEAMEGC file, by a user-defined list of
+GLEAMEGC file or CSV file, by a user-defined list of
 :py:class:`~ska_sdp_instrumental_calibration.processing_tasks.lsm.Component`
 objects, or in the near future from a query of the
 `Global Sky Model <https://developer.skao.int/projects/ska-sdp-global-sky-model/en/>`_
@@ -197,3 +197,6 @@ Or to use GLEAMEGC and EveryBeam:
           "h5parm_name": "3C444.h5",
       }
   )
+
+Similar functionality is available using a CSV sky component file of the type
+used in OSKAR, using option `csvfile` instead of `gleamfile`.

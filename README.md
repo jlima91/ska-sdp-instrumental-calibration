@@ -22,18 +22,19 @@ It uses standard SKA processing functions in the
 repositories, and standard data models in the
 [datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
 
-If `generate_lsm_from_gleamegc` and `predict_from_components` are used to generate
-model visibilities for calibration, a number of external datasets will also be
-required:
+If `predict_from_components` is used with either a user-defined LSM compoent list or
+one genearted using `generate_lsm_from_gleamegc` or `generate_lsm_from_csv` to
+generate model visibilities for calibration, a number of external datasets may also
+be required:
 
- * The GLEAM extragalactic catalogue is used to generate the local sky model. This and
-   other catalogues will soon be available via
+ * The GLEAM extragalactic catalogue or a csv file. This and other catalogues will
+   soon be available via
    [global-sky-model](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/),
    but at present a hard copy is needed to use `processing_tasks.lsm_tmp`. The
-   catalogue can be downloaded via FTP from
+   gleamegc catalogue can be downloaded via FTP from
    [VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/100).
- * A measurement set with appropriate metadata is needed to initialise the everybeam
-   beam models. An appropriate measurement set can be downloaded using the
+ * A measurement set with appropriate metadata to initialise the everybeam beam models.
+   An appropriate measurement set for basic tests can be downloaded using the
    [everybeam package](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/)
    script `download_ms.sh`, but one will also be made available in this package.
  * The [everybeam coeffs](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/-/tree/master/coeffs)
