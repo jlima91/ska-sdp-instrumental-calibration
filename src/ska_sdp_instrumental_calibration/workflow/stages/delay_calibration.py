@@ -35,6 +35,10 @@ def delay_calibration_stage(
 
     Parameters
     __________
+        upstream_output: dict
+            Output from the upstream stage
+        oversample: int
+            Oversample rate
         plot_config: dict
             Configuration required for plotting.
             eg: {plot_table: False, fixed_axis: False}

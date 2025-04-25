@@ -3,6 +3,21 @@ import xarray as xr
 
 
 def apply_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
+    """
+    Applies the delay to the given gaintable
+
+    Parameters:
+    -----------
+        gaintable: xr.Dataset
+            Gaintable
+        oversample: int
+            Oversample rate required for the delay
+    Returns:
+    --------
+        gaintable: xr.Dataset
+            Gaintable with updated gains
+    """
+
     Xgain = gaintable.gain.data[0, :, :, 0, 0]
     Ygain = gaintable.gain.data[0, :, :, 1, 1]
 
@@ -29,6 +44,24 @@ def apply_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
 
 
 def update_delay(gaintable, offset, delay, pol):
+    """
+    Updates the delay to the gains
+
+    Parameters:
+    -----------
+        gaintable: xr.Dataset
+            Gaintable
+        offset: np.array
+            Calculated offset per station
+        delay: np.array
+            Calculated delays per station
+        pol: int
+            Polarisations of the gains
+    Returns:
+    --------
+        np.array
+            Updated delay and offset.
+    """
     freq = gaintable.frequency.data.reshape(1, -1)
     gains = gaintable.gain.data[0, :, :, pol, pol]
     wgt = gaintable.weight.data[0, :, :, pol, pol]
@@ -53,6 +86,23 @@ def update_delay(gaintable, offset, delay, pol):
 
 
 def coarse_delay(frequency, gains, oversample):
+    """
+    Calculates the coarse delay
+
+    Parameters:
+    -----------
+        frequency: xarray
+            Frequency of the gains
+        gains: xarray
+            Gains from previous calibration step
+        oversample: int
+            Oversample rate
+    Returns:
+    ---------
+        np.array
+            Array of coarse delays for all stations
+
+    """
     nstations, nchan = gains.shape
     N = oversample * nchan
     padded_gains = np.zeros((nstations, N), "complex")
@@ -69,4 +119,22 @@ def coarse_delay(frequency, gains, oversample):
 
 
 def calculate_gain_rot(gain, delay, offset, freq):
+    """
+    Calculates gain rotation
+
+    Parameters:
+    -----------
+        gain: xarray
+            Gains
+        delay: np.array
+            Delays
+        offset: np.array
+            Offset
+        freq: xarray
+            Frequency
+    Returns:
+    ---------
+        np.array
+            Array of calculated gain rotation
+    """
     return gain * np.exp(-2j * np.pi * (offset + (delay.T * freq.T))).T
