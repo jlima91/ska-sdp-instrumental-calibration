@@ -4,7 +4,11 @@ from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import predict_vis
-from ...processing_tasks.lsm import generate_lsm_from_gleamegc
+from ...exceptions import RequiredArgumentMissingException
+from ...processing_tasks.lsm import (
+    generate_lsm_from_csv,
+    generate_lsm_from_gleamegc,
+)
 from ..utils import get_phasecentre
 
 logger = logging.getLogger()
@@ -36,6 +40,12 @@ logger = logging.getLogger()
             description="""Specifies the location of gleam catalogue
             file gleamegc.dat""",
         ),
+        lsm_csv_path=ConfigParam(
+            str,
+            None,
+            description="""Specifies the location of CSV file for custom
+            components""",
+        ),
         fov=ConfigParam(
             float,
             10.0,
@@ -59,6 +69,7 @@ def predict_vis_stage(
     eb_ms,
     eb_coeffs,
     gleamfile,
+    lsm_csv_path,
     fov,
     flux_limit,
     export_model_vis,
@@ -81,6 +92,8 @@ def predict_vis_stage(
             Required when beam_type is 'everybeam'.
         gleamfile : str
             Path to the GLEAM catalog file.
+        lsm_csv_path : str
+            Path to the Custom component CSV.
         fov : float
             Field of view diameter in degrees for source selection\
                   (default: 10.0).
@@ -102,12 +115,31 @@ def predict_vis_stage(
     logger.info(f" - Catalogue file: {gleamfile}")
     logger.info(f" - Search radius: {fov/2} deg")
     logger.info(f" - Flux limit: {flux_limit} Jy")
-    lsm = generate_lsm_from_gleamegc(
-        gleamfile=gleamfile,
-        phasecentre=get_phasecentre(_cli_args_["input"]),
-        fov=fov,
-        flux_limit=flux_limit,
-    )
+    phase_centre = get_phasecentre(_cli_args_["input"])
+
+    if gleamfile is not None and lsm_csv_path is not None:
+        logger.warning("LSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
+
+    if gleamfile is not None:
+        lsm = generate_lsm_from_gleamegc(
+            gleamfile=gleamfile,
+            phasecentre=phase_centre,
+            fov=fov,
+            flux_limit=flux_limit,
+        )
+    elif lsm_csv_path is not None:
+        lsm = generate_lsm_from_csv(
+            csvfile=lsm_csv_path,
+            phasecentre=phase_centre,
+            fov=fov,
+            flux_limit=flux_limit,
+        )
+    else:
+        raise RequiredArgumentMissingException(
+            "No LSM components provided. "
+            "Either provide GLEAMFILE or LSM CSV file"
+        )
+
     logger.info(f"LSM: found {len(lsm)} components")
 
     modelvis = predict_vis(
