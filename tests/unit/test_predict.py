@@ -22,7 +22,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     gaussian_tapers,
     predict_from_components,
 )
-from tests.test_utils import generate_vis
 
 
 def test_dft_skycomponent(generate_vis):
