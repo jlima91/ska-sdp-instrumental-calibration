@@ -1,5 +1,6 @@
 import os
 
+import dask.delayed
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -76,15 +77,22 @@ def bandpass_calibration_stage(
         dict
             Updated upstream_output with gaintable
     """
-
-    vis = upstream_output.vis
-
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
     modelvis = upstream_output.modelvis
+    initialtable = upstream_output.gaintable
+    vis = upstream_output.vis
 
-    gaintable = run_solver(
+    # [TODO] Remove this section once model_rotations returns xarray
+    run_solver_func = (
+        dask.delayed(run_solver)
+        if hasattr(initialtable, "dask")
+        else run_solver
+    )
+
+    gaintable = run_solver_func(
         vis=vis,
         modelvis=modelvis,
+        gaintable=initialtable,
         solver=run_solver_config["solver"],
         niter=run_solver_config["niter"],
         refant=run_solver_config["refant"],

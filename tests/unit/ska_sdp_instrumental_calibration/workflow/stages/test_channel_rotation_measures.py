@@ -19,12 +19,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures.model_rotations"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages."
-    "channel_rotation_measures.load_data_stage"
-)
-def test_should_generate_channel_rm_using_load_data_fchunk(
-    load_data_stage_mock,
+def test_should_generate_channel_rm_using_initial_gaintable(
     model_rotations_mock,
     run_solver_mock,
     dask_delayed_mock,
@@ -34,11 +29,6 @@ def test_should_generate_channel_rm_using_load_data_fchunk(
     upstream_output["modelvis"] = Mock(name="modelvis")
     initial_table_mock = Mock(name="initial gaintable")
     upstream_output["gaintable"] = initial_table_mock
-
-    load_data_stage_mock.config = {"load_data": {"fchunk": 30}}
-
-    chunked_table_mock = Mock(name="chunked gaintable")
-    initial_table_mock.chunk.return_value = chunked_table_mock
 
     model_rotated_gaintable = Mock(name="model rotated gaintable")
     model_rotations_mock.return_value = model_rotated_gaintable
@@ -56,13 +46,13 @@ def test_should_generate_channel_rm_using_load_data_fchunk(
         _output_dir_="/output/path",
     )
 
-    initial_table_mock.chunk.assert_called_once_with({"frequency": 30})
     model_rotations_mock.assert_called_once_with(
-        chunked_table_mock,
+        initial_table_mock,
         peak_threshold=0.5,
         plot_sample=False,
         plot_path_prefix="/output/path",
     )
+
     run_solver_mock.assert_called_once_with(
         vis=upstream_output["vis"],
         modelvis=upstream_output["modelvis"],

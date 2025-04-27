@@ -22,18 +22,19 @@ It uses standard SKA processing functions in the
 repositories, and standard data models in the
 [datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
 
-If `generate_lsm_from_gleamegc` and `predict_from_components` are used to generate
-model visibilities for calibration, a number of external datasets will also be
-required:
+If `predict_from_components` is used with either a user-defined LSM compoent list or
+one genearted using `generate_lsm_from_gleamegc` or `generate_lsm_from_csv` to
+generate model visibilities for calibration, a number of external datasets may also
+be required:
 
- * The GLEAM extragalactic catalogue is used to generate the local sky model. This and
-   other catalogues will soon be available via
+ * The GLEAM extragalactic catalogue or a csv file. This and other catalogues will
+   soon be available via
    [global-sky-model](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/),
    but at present a hard copy is needed to use `processing_tasks.lsm_tmp`. The
-   catalogue can be downloaded via FTP from
+   gleamegc catalogue can be downloaded via FTP from
    [VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/100).
- * A measurement set with appropriate metadata is needed to initialise the everybeam
-   beam models. An appropriate measurement set can be downloaded using the
+ * A measurement set with appropriate metadata to initialise the everybeam beam models.
+   An appropriate measurement set for basic tests can be downloaded using the
    [everybeam package](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/)
    script `download_ms.sh`, but one will also be made available in this package.
  * The [everybeam coeffs](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/-/tree/master/coeffs)
@@ -51,13 +52,15 @@ $ curl -sSL https://install.python-poetry.org | python3 -
 recommended method. You are encouraged to use your preferred environment isolation
 (i.e. `pip`, `conda` or `pipenv`) while developing locally.
 
-Installation
-------------
+Using the INST CLI
+--------------------
+
+### Install the CLI
 
 After cloning the [repo](https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration) and setting up the environment, run `poetry install` command. This should install `ska-sdp-instrumental-calibration` cli command and it should be accessible in the current environment.
 
-```
-$ ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
+```bash
+ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
 usage: ska-sdp-instrumental-calibration [-h] {run,install-config} ...
 
 positional arguments:
@@ -70,6 +73,37 @@ options:
 ```
 
 As of now, this command consists of placeholder stages which will not yield any useful results. 
+
+### Install the config
+
+Install the default config YAML of the pipeline to a specific directory using the `install-config` subcommand.
+
+```bash
+ska-sdp-instrumental-calibration install-config --config-install-path path/to/dir
+```
+
+Parameters of the default configurations can be overridden
+
+```bash
+ska-sdp-instrumental-calibration install-config --config-install-path path/to/dir \
+                    --set parameters.bandpass_calibration.flagging true \
+                    --set parameters.load_data.fchunk 64
+```
+
+### Run the pipeline
+
+Run the instrumental calibration pipeline using `run` subcommand.
+
+Example:
+
+```bash
+ska-sdp-instrumental-calibration run \
+--input /path/to/ms \
+--config /path/to/config \
+--output /path/to/output/dir
+```
+
+For all the options, run `ska-sdp-instrumental-calibration run --help`.
 
 Testing
 -------
