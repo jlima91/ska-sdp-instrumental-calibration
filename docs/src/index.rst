@@ -1,38 +1,6 @@
 .. INST pipeline documentation main index file
 
 
-.. HOME SECTION ==================================================
-
-.. Hidden toctree to manage the sidebar navigation.
-
-.. toctree::
-  :maxdepth: 2
-  :caption: Home
-  :hidden:
-
-
-.. README =============================================================
-
-.. Include project README file
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Readme
-
-   ../../README
-
-.. COMMUNITY SECTION ==================================================
-
-..
-
-.. toctree::
-  :maxdepth: 2
-  :caption: ska-sdp-instrumental-calibration
-  :hidden:
-
-  package/guide
-
-
 Instrumental Calibration (INST) Pipelines
 =========================================
 
@@ -45,8 +13,14 @@ handling functions for parallel processing, and high level pipeline scripts and
 notebooks.
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Readme
+
+   README
+
+.. toctree::
    :maxdepth: 1
-   :caption: Contents:
+   :caption: Contents
 
    overview
    stage_config
