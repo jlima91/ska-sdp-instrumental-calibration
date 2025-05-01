@@ -49,7 +49,7 @@ def test_should_not_export_metadata(dask_mock):
     """
     export_metadata_file("metadata.yaml")
 
-    dask_mock.delayed.assert_not_called()
+    dask_mock.delayed.assert_called_once_with(None)
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.export_metadata.os")
