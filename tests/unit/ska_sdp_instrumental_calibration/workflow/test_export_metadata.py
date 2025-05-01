@@ -12,15 +12,15 @@ from ska_sdp_instrumental_calibration.workflow.export_metadata import (
 def test_should_export_metadata(export_metadata_mock, monkeypatch):
     """
     Test to check if required environment variables
-        - EXECUTION_BLOCK
-        - PROCESSING_BLOCK
+        - EXECUTION_BLOCK_ID
+        - PROCESSING_BLOCK_ID
     exist and then only export metadata.
     """
-    monkeypatch.setenv("EXECUTION_BLOCK", "eb-id")
-    monkeypatch.setenv("PROCESSING_BLOCK", "pb-id")
-    monkeypatch.setenv("IMAGE", "image")
-    monkeypatch.setenv("PROCESSING_SCRIPT", "script")
-    monkeypatch.setenv("SDP_SCRIPT_VERSION", "version")
+    monkeypatch.setenv("EXECUTION_BLOCK_ID", "eb-id")
+    monkeypatch.setenv("PROCESSING_BLOCK_ID", "pb-id")
+    monkeypatch.setenv("PROCESSING_SCRIPT_IMAGE", "image")
+    monkeypatch.setenv("PROCESSING_SCRIPT_NAME", "script")
+    monkeypatch.setenv("PROCESSING_SCRIPT_VERSION", "version")
 
     export_metadata_file("metadata.yaml")
 
@@ -43,13 +43,13 @@ def test_should_export_metadata(export_metadata_mock, monkeypatch):
 def test_should_not_export_metadata(dask_mock):
     """
     Test to check if required environment variables
-        - EXECUTION_BLOCK
-        - PROCESSING_BLOCK
+        - EXECUTION_BLOCK_ID
+        - PROCESSING_BLOCK_ID
     do not exist and does not create metadata file.
     """
     export_metadata_file("metadata.yaml")
 
-    dask_mock.delayed.assert_called_once_with(None)
+    dask_mock.delayed.assert_not_called()
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.export_metadata.os")

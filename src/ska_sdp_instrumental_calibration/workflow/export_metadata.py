@@ -22,22 +22,24 @@ def export_metadata_file(metadata_file_path, data_products=[]):
         Writes metadata to YAML file.
     """
     if (
-        os.environ.get("EXECUTION_BLOCK") is None
-        or os.environ.get("PROCESSING_BLOCK") is None
+        os.environ.get("EXECUTION_BLOCK_ID") is None
+        or os.environ.get("PROCESSING_BLOCK_ID") is None
     ):
-        logger.warning('Missing "EXECUTION_BLOCK" and "PROCESSING_BLOCK"')
+        logger.warning(
+            'Missing "EXECUTION_BLOCK_ID" and "PROCESSING_BLOCK_ID"'
+        )
         logger.warning("Could not create metadata file.")
         return dask.delayed(None)
     else:
         metadata_config = {
             "cmdline": None,
             "commit": None,
-            "image": os.environ.get("IMAGE"),
-            "processing_block": os.environ.get("PROCESSING_BLOCK"),
-            "processing_script": os.environ.get("PROCESSING_SCRIPT"),
-            "version": os.environ.get("SDP_SCRIPT_VERSION"),
+            "image": os.environ.get("PROCESSING_SCRIPT_IMAGE"),
+            "processing_block": os.environ.get("PROCESSING_BLOCK_ID"),
+            "processing_script": os.environ.get("PROCESSING_SCRIPT_NAME"),
+            "version": os.environ.get("PROCESSING_SCRIPT_VERSION"),
         }
-        eb_id = os.environ.get("EXECUTION_BLOCK")
+        eb_id = os.environ.get("EXECUTION_BLOCK_ID")
         return export_metadata(
             metadata_file_path, eb_id, metadata_config, data_products
         )
