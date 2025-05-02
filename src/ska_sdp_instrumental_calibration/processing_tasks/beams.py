@@ -100,11 +100,11 @@ class GenericBeams:
                 raise ValueError("Low array requires ms_path for everybeam.")
             self.telescope = eb.load_telescope(ms_path)
             self.delay_dir_itrf = None
-            self.normalise = np.zeros(
-                (len(vis.frequency), len(self.antenna_names), 2, 2),
-                "complex",
-            )
-            self.normalise[..., :, :] = np.eye(2)
+            self.set_scale = None
+            if type(self.telescope) is eb.OSKAR:
+                logger.info("Setting beam normalisation for OSKAR data")
+                self.set_scale = "oskar"
+            self.scale = np.ones((len(self.antenna_names), len(vis.frequency)))
         elif array.lower() == "mid":
             logger.info("Initialising beams for Mid")
             self.array = array.lower()
@@ -131,50 +131,39 @@ class GenericBeams:
         # coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
 
-        # if this is None, perhaps just remove all of the normalisation code
-        # and self.normalise. Can add back later if needed (e.g. we may want
-        # to divide the response at beam centre out of the data at some point).
-        norm_type = None
+        if self.set_scale is None:
+            # normalisation scale is already set
+            pass
 
-        if norm_type is None:
-            self.normalise[..., :, :] = np.eye(2)
-
-        elif norm_type == "beam_centre":
-            for chan, freq in enumerate(frequency):
-                for stn, _ in enumerate(self.antenna_names):
-                    self.normalise[chan, stn] = np.linalg.inv(
-                        self.telescope.station_response(
-                            time.mjd * 86400,
-                            stn,
-                            freq,
-                            self.delay_dir_itrf,
-                            self.delay_dir_itrf,
-                        )
+        elif self.set_scale == "oskar":
+            # set normalisation scaling to the Frobenius norm of the zenith
+            # response divided by sqrt(2)
+            for stn, _ in enumerate(self.antenna_names):
+                dir_itrf_zen = radec_to_xyz(
+                    SkyCoord(
+                        alt=90,
+                        az=0,
+                        unit="deg",
+                        frame="altaz",
+                        obstime=time,
+                        location=self.antenna_locations[stn],
+                    ),
+                    time,
+                )
+                for chan, freq in enumerate(frequency):
+                    J = self.telescope.station_response(
+                        time.mjd * 86400,
+                        stn,
+                        freq,
+                        dir_itrf_zen,
+                        dir_itrf_zen,
                     )
+                    self.scale[stn, chan] = np.sqrt(2) / np.linalg.norm(J)
+                    if stn < 8:
+                        print("station", stn, ": J", J.reshape(4), "norm")
 
-        elif norm_type == "zenith":
-            # coordinates of zenith (almost -- check precession)
-            lat_deg = self.array_location.lat.degree
-            lon_deg = self.array_location.lon.degree
-            location = EarthLocation.from_geodetic(
-                lon_deg, lat_deg, 0.0, "WGS84"
-            )
-            raZ_deg = time.sidereal_time("apparent", location).degree
-            decZ_deg = lat_deg
-            dir_itrf_zen = radec_to_xyz(
-                SkyCoord(ra=raZ_deg, dec=decZ_deg, unit="deg"), time
-            )
-            for chan, freq in enumerate(frequency):
-                for stn, _ in enumerate(self.antenna_names):
-                    self.normalise[chan, stn] = np.linalg.inv(
-                        self.telescope.station_response(
-                            time.mjd * 86400,
-                            stn,
-                            freq,
-                            dir_itrf_zen,
-                            dir_itrf_zen,
-                        )
-                    )
+            # only need to do this once, so set to None when finished
+            self.set_scale = None
 
         else:
             raise ValueError("Unknown beam normalisation.")
@@ -221,18 +210,14 @@ class GenericBeams:
             mjds = time.mjd * 86400
 
             for stn in range(len(self.antenna_names)):
+
                 for chan, freq in enumerate(frequency):
                     beams[stn, chan, :, :] = (
                         self.telescope.station_response(
                             mjds, stn, freq, dir_itrf, self.delay_dir_itrf
                         )
-                        @ self.normalise[chan, stn]
+                        * self.scale[stn, chan]
                     )
-            # np.set_printoptions(linewidth=120, precision=4, suppress=True)
-            # print(
-            #     f"sep = {direction.separation(self.beam_direction):.1f}, "
-            #     + f"response = {beams[0, 0, :, :].reshape(4)}"
-            # )
 
         else:
             beams[..., :, :] = np.eye(2)
@@ -241,17 +226,13 @@ class GenericBeams:
 
 
 # from everybeam.readthedocs.io/en/latest/tree/demos/lofar-array-factor.html
-def radec_to_xyz(dir_pointing: SkyCoord, time: Time):
+def radec_to_xyz(direction: SkyCoord, time: Time):
     """
     Convert RA and Dec ICRS coordinates to ITRS cartesian coordinates.
 
-    Args:
-        dir_pointing (SkyCoord): astropy pointing direction
-        time (Time): astropy obstime
-
-    :param dir_pointing: SkyCoord direction in ICRS ra, dec coordinates
+    :param direction: SkyCoord astropy pointing direction
     :param time: astropy obstime
     :return: NumPy array containing the ITRS X, Y and Z coordinates
     """
-    dir_pointing_itrs = dir_pointing.transform_to(ITRS(obstime=time))
-    return np.asarray(dir_pointing_itrs.cartesian.xyz.transpose())
+    direction_itrs = direction.transform_to(ITRS(obstime=time))
+    return np.asarray(direction_itrs.cartesian.xyz.transpose())
