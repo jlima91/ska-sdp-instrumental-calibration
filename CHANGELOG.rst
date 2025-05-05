@@ -9,10 +9,12 @@ Main
 
 Added
 -----
+* Changed the way everybeam is called and added normalisation for OSKAR datasets.
 * Functionality to use a csv file to generate the sky model.
 
 Fixed
 -----
+* Bug in pipeline_config for parameter fov.
 * Bug in deconvolve_gaussian for circular Gaussian components.
 
 0.1.6
