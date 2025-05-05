@@ -45,13 +45,19 @@ Parameters
     +==================+========+===========+==================================================================================+=====================================+==================+
     | beam_type        | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True                                |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
-    | eb_ms            | str    | None      | Measurement set need to initialise the everybeam             telescope. Required | True                                |                  |
-    |                  |        |           | if bbeam_type is 'everybeam'.                                                    |                                     |                  |
+    | eb_ms            | str    | Param     | Measurement set used to initialise the everybeam telescope. Required if          | True                                |                  |
+    |                  |        | ms_name   | bbeam_type is 'everybeam' and the main ms, ms_name, is missing beam information. |                                     |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
     | eb_coeffs        | str    | None      | Everybeam coeffs datadir containing beam             coefficients. Required if   | True                                |                  |
     |                  |        |           | bbeam_type is 'everybeam'.                                                       |                                     |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
-    | gleamfile        | str    | None      | Specifies the location of gleam catalogue             file gleamegc.dat          | True                                |                  |
+    | lsm              | list   | None      | Optional list of lsm Component objects to use as the local sky model.            | True                                |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
+    | gleamfile        | str    | None      | Specifies the location of gleam catalogue file gleamegc.dat. If lsm is None, the | True                                |                  |
+    |                  |        |           | sky model must be specified by either a gleamegc catalogue file or a csv file.   |                                     |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
+    | csvfile          | str    | None      | Specifies the location of a csv sky component list file. If lsm is None, the sky | True                                |                  |
+    |                  |        |           | model must be specified by either a gleamegc catalogue file or a csv file.       |                                     |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
     | fov              | float  | 10.0      | Specifies the width of the cone used when             searching for compoents,   | True                                |                  |
     |                  |        |           | in units of degrees. Default: 10.                                                |                                     |                  |
