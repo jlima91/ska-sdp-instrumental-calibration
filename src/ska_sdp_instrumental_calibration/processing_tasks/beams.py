@@ -159,8 +159,6 @@ class GenericBeams:
                         dir_itrf_zen,
                     )
                     self.scale[stn, chan] = np.sqrt(2) / np.linalg.norm(J)
-                    if stn < 8:
-                        print("station", stn, ": J", J.reshape(4), "norm")
 
             # only need to do this once, so set to None when finished
             self.set_scale = None
