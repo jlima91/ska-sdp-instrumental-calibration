@@ -92,18 +92,13 @@ def test_array_response_low(mock_telescope, generate_vis, oskar_ms):
     assert 0 < np.max(np.abs(gain)) < 1e-2
     mock.station_response.assert_called()
 
-    # Re-add cases for normalised beam
-    # Test a normalised beam about a degree off centre
-    # beams.update_beam(frequency=frequency, time=time)
-    # gain = beams.array_response(direction, frequency, time)
-    # mock.station_response.assert_called()
-    # assert 0.5 < np.max(np.abs(gain)) < 1.0
-
-    # Test a normalised beam at beam centre
-    # direction = beams.beam_direction
-    # gain = beams.array_response(direction, frequency, time)
-    # mock.station_response.assert_called()
-    # assert np.allclose(gain[..., :, :], np.eye(2))
+    # Normalisation is only for OSKAR telescope type. Here the type is
+    # MagicMock so no normalisation should occur
+    # Figure out how to change mock type to eb.OSKAR then test normalisation
+    beams.update_beam(frequency=frequency, time=time)
+    gain2 = beams.array_response(direction, frequency, time)
+    mock.station_response.assert_called()
+    assert np.allclose(gain2, gain)
 
 
 def test_array_response_mid(generate_vis):
