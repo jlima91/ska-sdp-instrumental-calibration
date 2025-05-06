@@ -31,7 +31,7 @@ import warnings
 # flake8: noqa: E402  # stop errors about this line coming before imports
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-from typing import Optional
+from typing import Literal, Optional, Union
 
 import dask.array as da
 import numpy as np
@@ -99,15 +99,41 @@ def _load(
         )
 
 
-def load_ms(ms_name: str, fchunk: int) -> xr.Dataset:
+def load_ms(
+    ms_name: str,
+    fchunk: int,
+    ack: bool = False,
+    start_chan: int = 0,
+    end_chan: int = 0,
+    datacolumn: str = "DATA",
+    selected_sources: list = None,
+    selected_dds: list = None,
+    average_channels: bool = False,
+) -> xr.Dataset:
     """Distributed load of a MSv2 Measurement Set into a Visibility dataset.
 
     :param ms_name: Name of input Measurement Set.
     :param fchunk: Number of channels in the frequency chunks
+    :param ack: Ask casacore to acknowledge each table operation
+    :param start_chan: Starting channel to read
+    :param end_chan: End channel to read4
+    :param datacolumn: MS data column to read DATA, CORRECTED_DATA, MODEL_DATA
+    :param selected_sources: Sources to select
+    :param selected_dds: Data descriptors to select
+    :param average_channels: Average all channels read
     :return: Chunked Visibility dataset
     """
     # Get observation metadata
-    ms_metadata = get_ms_metadata(ms_name)
+    ms_metadata = get_ms_metadata(
+        ms_name,
+        start_chan=start_chan,
+        ack=ack,
+        datacolumn=datacolumn,
+        end_chan=end_chan,
+        selected_sources=selected_sources,
+        selected_dds=selected_dds,
+        average_channels=average_channels,
+    )
     shape = (
         len(ms_metadata.time),
         len(ms_metadata.baselines),
@@ -161,6 +187,7 @@ def _predict(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    reset_vis: bool = False,
 ) -> xr.Dataset:
     """Call predict_from_components.
 
@@ -170,6 +197,8 @@ def _predict(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param reset_vis: Whether or not to set visibilities to zero before
+        accumulating components. Default is False.
     :return: Predicted Visibility dataset
     """
     if len(vischunk.frequency) > 0:
@@ -186,6 +215,7 @@ def _predict(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
+            reset_vis=reset_vis,
         )
         # Change variable names back for map_blocks I/O checks
         # Fixme: remove reassignment once YAN-1990 is finalised
@@ -209,6 +239,7 @@ def predict_vis(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    reset_vis: bool = False,
 ) -> xr.Dataset:
     """Distributed Visibility predict.
 
@@ -219,6 +250,8 @@ def predict_vis(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param reset_vis: Whether or not to set visibilities to zero before
+            accumulating components. Default is False.
     :return: Predicted Visibility dataset
     """
     # Create an empty model Visibility dataset
@@ -226,7 +259,7 @@ def predict_vis(
 
     # Call map_blocks function and return result
     return modelvis.map_blocks(
-        _predict, args=[lsm, beam_type, eb_ms, eb_coeffs]
+        _predict, args=[lsm, beam_type, eb_ms, eb_coeffs, reset_vis]
     )
 
 
@@ -237,6 +270,12 @@ def _solve(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
+    phase_only: bool = False,
+    tol: float = 1e-06,
+    crosspol: bool = False,
+    normalise_gains: str = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    timeslice: float = None,
 ) -> xr.Dataset:
     """Call solve_bandpass.
 
@@ -248,6 +287,14 @@ def _solve(
     :param solver: Solver type to use. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -268,6 +315,12 @@ def _solve(
             solver=solver,
             refant=refant,
             niter=niter,
+            phase_only=phase_only,
+            tol=tol,
+            crosspol=crosspol,
+            normalise_gains=normalise_gains,
+            jones_type=jones_type,
+            timeslice=timeslice,
         )
         # Change the time dimension name back for map_blocks I/O checks
         gainchunk = gainchunk.rename({"time": "soln_time"})
@@ -282,6 +335,12 @@ def run_solver(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
+    phase_only: bool = False,
+    tol: float = 1e-06,
+    crosspol: bool = False,
+    normalise_gains: str = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    timeslice: float = None,
 ) -> xr.Dataset:
     """Do the bandpass calibration.
 
@@ -294,6 +353,14 @@ def run_solver(
     :param refant: Reference antenna (defaults to 0). Note that how referencing
         is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -316,7 +383,20 @@ def run_solver(
     # So rename the gain time dimension (and coordinate)
     gaintable = gaintable.rename({"time": "soln_time"})
     gaintable = gaintable.map_blocks(
-        _solve, args=[vis, modelvis, solver, refant, niter]
+        _solve,
+        args=[
+            vis,
+            modelvis,
+            solver,
+            refant,
+            niter,
+            phase_only,
+            tol,
+            crosspol,
+            normalise_gains,
+            jones_type,
+            timeslice,
+        ],
     )
 
     # Undo any temporary variable name changes
@@ -335,6 +415,12 @@ def _solve_with_vis_setup(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
+    phase_only: bool = False,
+    tol: float = 1e-06,
+    crosspol: bool = False,
+    normalise_gains: str = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    timeslice: Union[float, Literal["auto"], None] = None,
 ) -> xr.Dataset:
     """Call solve_bandpass.
 
@@ -400,6 +486,12 @@ def _solve_with_vis_setup(
             solver=solver,
             refant=refant,
             niter=niter,
+            phase_only=phase_only,
+            tol=tol,
+            crosspol=crosspol,
+            normalise_gains=normalise_gains,
+            jones_type=jones_type,
+            timeslice=timeslice,
         )
 
     return gainchunk
@@ -416,6 +508,12 @@ def ingest_predict_and_solve(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
+    phase_only: bool = False,
+    tol: float = 1e-06,
+    crosspol: bool = False,
+    normalise_gains: str = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    timeslice: Union[float, Literal["auto"], None] = None,
 ) -> xr.Dataset:
     """Do the bandpass calibration, including initial ingest and predict.
 
@@ -500,6 +598,12 @@ def ingest_predict_and_solve(
             solver,
             refant,
             niter,
+            phase_only,
+            tol,
+            crosspol,
+            normalise_gains,
+            jones_type,
+            timeslice,
         ],
     )
     return gaintable
