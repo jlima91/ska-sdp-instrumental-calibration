@@ -17,7 +17,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
     solve_bandpass,
 )
-from tests.test_utils import generate_vis
 
 
 def test_apply_gaintable(generate_vis):
