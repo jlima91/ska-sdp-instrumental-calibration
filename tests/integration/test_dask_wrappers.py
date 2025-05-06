@@ -42,7 +42,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
-from tests.test_utils import generate_vis
 
 ms_name = "test.ms"
 
