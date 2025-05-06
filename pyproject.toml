@@ -51,6 +51,8 @@ ska-sdp-func-python = "^0.5.1"
 pylance = "^0.5.9"
 xarray = "^2024.7"
 ska-sdp-exec-piper = "^1.0.1"
+ska-sdp-config = "^1.0.0"
+ska-sdp-dataproduct-metadata = "^1.0.0.post1"
 
 # needed for testing
 attrs = "^23.2.0"
