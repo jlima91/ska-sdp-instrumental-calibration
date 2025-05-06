@@ -8,11 +8,10 @@ from ska_sdp_datamodels.calibration.calibration_functions import (
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.export_metadata import (
-    export_metadata_file,
+from ...data_managers.data_export import (
+    INSTMetaData,
+    export_gaintable_to_h5parm,
 )
-
-from ..utils import export_gaintable_to_h5parm
 
 logger = logging.getLogger()
 
@@ -78,20 +77,19 @@ def export_gaintable_stage(
         gaintable, gaintable_file_path
     )
 
-    if export_metadata:
-        metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)
-        upstream_output.add_compute_tasks(
-            export_metadata_file(
-                metadata_file_path,
-                data_products=[
-                    {
-                        "dp_path": f"{file_name}.{export_format}",
-                        "description": "Gaintable",
-                    }
-                ],
-            )
-        )
-
     upstream_output.add_compute_tasks(export)
+
+    if export_metadata and INSTMetaData.can_create_metadata():
+        metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)
+        inst_metadata = INSTMetaData(
+            metadata_file_path,
+            data_products=[
+                {
+                    "dp_path": f"{file_name}.{export_format}",
+                    "description": "Gaintable",
+                }
+            ],
+        )
+        upstream_output.add_compute_tasks(inst_metadata.export())
 
     return upstream_output

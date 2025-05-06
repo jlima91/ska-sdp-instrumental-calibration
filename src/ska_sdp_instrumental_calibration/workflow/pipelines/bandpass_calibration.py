@@ -31,14 +31,16 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import (
+from ska_sdp_instrumental_calibration.workflow.utils import get_phasecentre
+
+from ...data_managers.data_export.export_gaintable import (
     export_gaintable_to_h5parm,
-    get_phasecentre,
 )
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -51,7 +53,6 @@ def run(pipeline_config) -> None:
 
     Args:
         pipeline_config (dict): Dictionary of configuration parameters.
-            Must include gleamfile, eb_ms and eb_coeffs.
     Returns:
         None
     """
@@ -76,16 +77,27 @@ def run(pipeline_config) -> None:
     # Set up the local sky model (single call for all channels)
     if config.lsm is None:
         logger.info("Generating LSM for predict with:")
-        logger.info(f" - Catalogue file: {config.gleamfile}")
         logger.info(f" - Search radius: {config.fov/2} deg")
         logger.info(f" - Flux limit: {config.flux_limit} Jy")
-        config.lsm = generate_lsm_from_gleamegc(
-            gleamfile=config.gleamfile,
-            phasecentre=get_phasecentre(config.ms_name),
-            fov=config.fov,
-            flux_limit=config.flux_limit,
-        )
-        logger.info(f"LSM: found {len(config.lsm)} components")
+        if config.gleamfile is not None:
+            logger.info(f" - GLEAMEGC catalogue file: {config.gleamfile}")
+            config.lsm = generate_lsm_from_gleamegc(
+                gleamfile=config.gleamfile,
+                phasecentre=get_phasecentre(config.ms_name),
+                fov=config.fov,
+                flux_limit=config.flux_limit,
+            )
+        elif config.csvfile is not None:
+            logger.info(f" - csv file: {config.csvfile}")
+            config.lsm = generate_lsm_from_csv(
+                csvfile=config.csvfile,
+                phasecentre=get_phasecentre(config.ms_name),
+                fov=config.fov,
+                flux_limit=config.flux_limit,
+            )
+        else:
+            raise ValueError("Unknown sky model")
+    logger.info(f"LSM contains {len(config.lsm)} components")
 
     if config.end_to_end_subbands:
 
