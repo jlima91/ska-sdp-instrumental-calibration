@@ -44,9 +44,10 @@ from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import (
+from ska_sdp_instrumental_calibration.workflow.utils import get_phasecentre
+
+from ...data_managers.data_export.export_gaintable import (
     export_gaintable_to_h5parm,
-    get_phasecentre,
 )
 
 warnings.simplefilter(action="ignore", category=FutureWarning)

@@ -7,14 +7,13 @@ __all__ = [
     "get_phasecentre",
     "create_soltab_group",
     "create_soltab_datasets",
-    "export_gaintable_to_h5parm",
     "plot_gaintable",
 ]
 
 # pylint: disable=no-member
 import warnings
 from collections import namedtuple
-from typing import Iterable, Literal, Optional
+from typing import Literal, Optional
 
 import dask.array as da
 import dask.delayed
@@ -27,7 +26,6 @@ import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from casacore.tables import table
-from numpy.typing import NDArray
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
 from ska_sdp_datamodels.calibration.calibration_create import (
@@ -390,12 +388,6 @@ def create_bandpass_table(vis: xr.Dataset) -> xr.Dataset:
     return gain_table
 
 
-def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
-    # NOTE: making antenna names one character longer, in keeping with
-    # ska-sdp-batch-preprocess
-    return np.asarray([s.encode("ascii") + b"\0" for s in strings])
-
-
 def create_soltab_group(
     solset: h5py.Group, solution_type: Literal["amplitude", "phase"]
 ) -> h5py.Group:
@@ -431,68 +423,6 @@ def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
     weight.attrs["AXES"] = axes
 
     return val, weight
-
-
-def export_gaintable_to_h5parm(
-    gaintable: GainTable, filename: str, squeeze: bool = False
-):
-    """Export a GainTable to a H5Parm HDF5 file.
-
-    :param gaintable: GainTable
-    :param filename: Name of H5Parm file
-    :param squeeze: If True, remove axes of length one from dataset
-    """
-    logger.info(f"exporting cal solutions to {filename}")
-
-    # check gaintable gain and weight dimensions
-    dims = ["time", "antenna", "frequency", "receptor1", "receptor2"]
-    if list(gaintable.gain.sizes) != dims:
-        raise ValueError(f"Unexpected dims: {list(gaintable.gain.sizes)}")
-
-    # adjust dimensions to be consistent with H5Parm output format
-    gaintable = gaintable.rename({"antenna": "ant", "frequency": "freq"})
-    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
-    polstrs = _ndarray_of_null_terminated_bytes(
-        [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
-    )
-    gaintable = gaintable.assign_coords({"pol": polstrs})
-
-    # check polarisations and discard unused terms
-    polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])
-    if not np.array_equal(gaintable["pol"].data, polstrs):
-        raise ValueError("Subsequent pipelines assume linear pol order")
-    if np.sum(np.abs(gaintable.isel(pol=[1, 2]).weight.data)) == 0:
-        gaintable = gaintable.isel(pol=[0, 3])
-
-    # replace antenna indices with antenna names
-    if gaintable.configuration is None:
-        raise ValueError("Missing gt config. H5Parm requires antenna names")
-    antenna_names = _ndarray_of_null_terminated_bytes(
-        gaintable.configuration.names.data[gaintable["ant"].data]
-    )
-    gaintable = gaintable.assign_coords({"ant": antenna_names})
-
-    # remove axes of length one if required
-    if squeeze:
-        gaintable = gaintable.squeeze(drop=True)
-
-    logger.info(f"output dimensions: {dict(gaintable.gain.sizes)}")
-
-    with h5py.File(filename, "w") as file:
-
-        solset = file.create_group("sol000")
-
-        # Amplitude table
-        soltab = create_soltab_group(solset, "amplitude")
-        val, weight = create_soltab_datasets(soltab, gaintable)
-        val[...] = np.absolute(gaintable["gain"].data)
-        weight[...] = gaintable["weight"].data
-
-        # Phase table
-        soltab = create_soltab_group(solset, "phase")
-        val, weight = create_soltab_datasets(soltab, gaintable)
-        val[...] = np.angle(gaintable["gain"].data)
-        weight[...] = gaintable["weight"].data
 
 
 @dask.delayed

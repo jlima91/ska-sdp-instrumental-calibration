@@ -15,7 +15,6 @@ from mock import MagicMock, call, patch
 from ska_sdp_instrumental_calibration.processing_tasks.beams import (
     GenericBeams,
 )
-from tests.test_utils import generate_vis, oskar_ms
 
 # eb_ms = str(untar("data/OSKAR_MOCK.ms.tar.gz"))
 
