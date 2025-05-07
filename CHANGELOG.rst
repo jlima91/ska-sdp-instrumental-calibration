@@ -4,12 +4,19 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
-Main
+0.2.0
 ****
 
 Added
 -----
 * Functionality to use a csv file to generate the sky model.
+* CLI installable using Piper
+* Instrument calibration pipeline as a collection of stages.
+* Delay calibration stage.
+* Ability to reorder stages.
+* Generation of calibration plots.
+* Generation of metadata file along with data products.
+* Allow configuring csv based custom components.
 
 Fixed
 -----
