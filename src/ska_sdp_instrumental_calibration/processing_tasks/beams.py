@@ -5,7 +5,7 @@ import logging
 import everybeam as eb
 import numpy as np
 import xarray as xr
-from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
+from astropy.coordinates import ITRS, AltAz, SkyCoord
 from astropy.time import Time
 from numpy import typing
 
@@ -60,17 +60,6 @@ class GenericBeams:
         self.telescope = None
         self.antenna_names = vis.configuration.names.data
         self.array_location = vis.configuration.location
-        self.antenna_locations = []
-        for antenna in range(len(self.antenna_names)):
-            xyz = vis.configuration.xyz.data[antenna, :]
-            self.antenna_locations.append(
-                EarthLocation.from_geocentric(
-                    xyz[0],
-                    xyz[1],
-                    xyz[2],
-                    unit="m",
-                )
-            )
 
         # Check beam pointing
         altaz = self.beam_direction.transform_to(
@@ -104,7 +93,7 @@ class GenericBeams:
             if type(self.telescope) is eb.OSKAR:
                 logger.info("Setting beam normalisation for OSKAR data")
                 self.set_scale = "oskar"
-            self.scale = np.ones((len(self.antenna_names), len(vis.frequency)))
+            self.scale = np.ones(len(vis.frequency))
         elif array.lower() == "mid":
             logger.info("Initialising beams for Mid")
             self.array = array.lower()
@@ -128,37 +117,52 @@ class GenericBeams:
         :param frequency: 1D array of frequencies
         :param time: obstime
         """
-        # coordinates of beam centre
+        # Coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
 
         if self.set_scale is None:
-            # normalisation scale is already set
+            # Normalisation scale is already set
             pass
 
         elif self.set_scale == "oskar":
-            # set normalisation scaling to the Frobenius norm of the zenith
-            # response divided by sqrt(2)
-            for stn, _ in enumerate(self.antenna_names):
-                dir_itrf_zen = radec_to_xyz(
-                    SkyCoord(
-                        alt=90,
-                        az=0,
-                        unit="deg",
-                        frame="altaz",
-                        obstime=time,
-                        location=self.antenna_locations[stn],
-                    ),
-                    time,
+            # Set normalisation scaling to the Frobenius norm of the zenith
+            # response divided by sqrt(2).
+            # Should be the same for all stations so pick one. Should use the
+            # station location rather than central array location, e.g. using
+            # the following code, but some functions (e.g. ska-sdp-datamodels
+            # function create_named_configuration -- at least for some
+            # configurations) set xyz coordinates to ENU rather than the
+            # geocentric coordinates. So use the array location and a central
+            # station for now. Note that OSKAR datasets have correct geocentric
+            # coordinates, but also have the array location set to the first
+            # station xyz, so using array_location with stn=0 works.
+            #     xyz = vis.configuration.xyz.data[stn, :]
+            #     self.antenna_locations.append(
+            #         EarthLocation.from_geocentric(
+            #             xyz[0], xyz[1], xyz[2], unit="m",
+            #         )
+            #     )
+            stn = 0
+            dir_itrf_zen = radec_to_xyz(
+                SkyCoord(
+                    alt=90,
+                    az=0,
+                    unit="deg",
+                    frame="altaz",
+                    obstime=time,
+                    location=self.array_location,
+                ),
+                time,
+            )
+            for chan, freq in enumerate(frequency):
+                J = self.telescope.station_response(
+                    time.mjd * 86400,
+                    stn,
+                    freq,
+                    dir_itrf_zen,
+                    dir_itrf_zen,
                 )
-                for chan, freq in enumerate(frequency):
-                    J = self.telescope.station_response(
-                        time.mjd * 86400,
-                        stn,
-                        freq,
-                        dir_itrf_zen,
-                        dir_itrf_zen,
-                    )
-                    self.scale[stn, chan] = np.sqrt(2) / np.linalg.norm(J)
+                self.scale[chan] = np.sqrt(2) / np.linalg.norm(J)
 
             # only need to do this once, so set to None when finished
             self.set_scale = None
@@ -208,13 +212,12 @@ class GenericBeams:
             mjds = time.mjd * 86400
 
             for stn in range(len(self.antenna_names)):
-
                 for chan, freq in enumerate(frequency):
                     beams[stn, chan, :, :] = (
                         self.telescope.station_response(
                             mjds, stn, freq, dir_itrf, self.delay_dir_itrf
                         )
-                        * self.scale[stn, chan]
+                        * self.scale[chan]
                     )
 
         else:
