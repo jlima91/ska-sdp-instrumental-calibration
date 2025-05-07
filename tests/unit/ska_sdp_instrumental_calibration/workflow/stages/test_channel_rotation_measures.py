@@ -50,7 +50,7 @@ def test_should_generate_channel_rm_using_initial_gaintable(
         initial_table_mock,
         peak_threshold=0.5,
         plot_sample=False,
-        plot_path_prefix="/output/path",
+        plot_path_prefix="/output/path/channel_rm",
     )
 
     run_solver_mock.assert_called_once_with(
@@ -121,7 +121,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         chunked_table_mock,
         peak_threshold=0.5,
         plot_sample=False,
-        plot_path_prefix="/output/path",
+        plot_path_prefix="/output/path/channel_rm",
     )
     run_solver_mock.assert_called_once_with(
         vis=upstream_output.vis,
@@ -162,7 +162,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     "channel_rotation_measures"
     ".model_rotations"
 )
-def test_should_plot_channel_rm_gaintable(
+def test_should_plot_channel_rm_gaintable_with_proper_suffix(
     model_rotations_mock, run_solver_mock, delayed_mock, plot_gaintable_mock
 ):
 
@@ -191,9 +191,46 @@ def test_should_plot_channel_rm_gaintable(
         _output_dir_="/output/path",
     )
 
-    plot_gaintable_mock.assert_called_once_with(
-        solved_gaintable_mock,
-        "/output/path/channel_rm",
-        figure_title="Channel Rotation Measure",
-        drop_cross_pols=True,
+    upstream_output["gaintable"] = initial_table_mock
+    generate_channel_rm_stage.stage_definition(
+        upstream_output,
+        fchunk=40,
+        peak_threshold=0.5,
+        plot_table=True,
+        run_solver_config=run_solver_config,
+        _output_dir_="/output/path",
+    )
+
+    model_rotations_mock.assert_has_calls(
+        [
+            call(
+                chunked_table_mock,
+                peak_threshold=0.5,
+                plot_sample=True,
+                plot_path_prefix="/output/path/channel_rm",
+            ),
+            call(
+                chunked_table_mock,
+                peak_threshold=0.5,
+                plot_sample=True,
+                plot_path_prefix="/output/path/channel_rm_1",
+            ),
+        ]
+    )
+
+    plot_gaintable_mock.assert_has_calls(
+        [
+            call(
+                solved_gaintable_mock,
+                "/output/path/channel_rm",
+                figure_title="Channel Rotation Measure",
+                drop_cross_pols=True,
+            ),
+            call(
+                solved_gaintable_mock,
+                "/output/path/channel_rm_1",
+                figure_title="Channel Rotation Measure",
+                drop_cross_pols=True,
+            ),
+        ]
     )

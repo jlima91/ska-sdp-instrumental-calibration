@@ -7,6 +7,7 @@ class UpstreamOutput:
     def __init__(self):
         self.__stage_outputs = {}
         self.__compute_tasks = []
+        self.__call_count = {}
 
     def __setitem__(self, key, value):
         self.__stage_outputs[key] = value
@@ -16,6 +17,14 @@ class UpstreamOutput:
 
     def __getattr__(self, key):
         return self.__stage_outputs[key]
+
+    def get_call_count(self, stage_name):
+        return self.__call_count.get(stage_name, 0)
+
+    def increment_call_count(self, stage_name):
+        self.__call_count[stage_name] = (
+            self.__call_count.get(stage_name, 0) + 1
+        )
 
     @property
     def compute_tasks(self):

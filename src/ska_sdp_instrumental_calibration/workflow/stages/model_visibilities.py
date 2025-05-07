@@ -155,5 +155,6 @@ def predict_vis_stage(
         pass
 
     upstream_output["modelvis"] = modelvis
+    upstream_output.increment_call_count("predict_vis")
 
     return upstream_output
