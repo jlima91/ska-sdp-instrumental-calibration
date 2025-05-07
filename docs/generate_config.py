@@ -65,7 +65,7 @@ header = """Stages and configurations
 .. This page is generated using docs/generate_config.py
 
 The descriptions of each stage are copied from the docstrings of stages.
-Refer to the `API page for stages <api/ska_sdp_spectral_line_imaging.stages.html>`_
+Refer to the `API page for stages <package/guide.html#stages>`_
 
 Each stage has parameters, which are defined in the YAML config file passed to the pipeline.
 """

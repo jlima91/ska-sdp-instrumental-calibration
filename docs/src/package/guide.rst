@@ -41,3 +41,30 @@ Classes
 .. autoclass:: ska_sdp_instrumental_calibration.processing_tasks.lsm.Component
     :noindex:
     :members:
+
+Stages
+------
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.channel_rotation_measures
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.data_exports
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.delay_calibration
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.load_data
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.model_visibilities
+   :members:
+   :undoc-members:
