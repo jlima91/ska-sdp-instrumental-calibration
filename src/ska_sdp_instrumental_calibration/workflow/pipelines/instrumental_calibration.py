@@ -116,7 +116,7 @@ def experimental(cli_args):
             if stage_config:
                 new_parameters[stage.name] = stage_config
             elif stage_config := parameters.get(stage_name):
-                new_parameters[stage.name] = stage_config
+                new_parameters[stage.name] = copy.deepcopy(stage_config)
 
             reconfigured_stages.append(stage)
 
