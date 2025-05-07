@@ -121,6 +121,8 @@ def predict_from_components(
         Required if beam_type is "everybeam".
     :param eb_ms: Measurement set need to initialise the everybeam telescope.
         Required if bbeam_type is "everybeam".
+    :param reset_vis: Whether or not to set visibilities to zero before
+            accumulating components. Default is False.
     """
     if not isinstance(vis, xr.Dataset):
         raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
