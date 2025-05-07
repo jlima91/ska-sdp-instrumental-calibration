@@ -84,6 +84,7 @@ def test_array_response_low(mock_telescope, generate_vis, oskar_ms):
     beams = GenericBeams(vis=vis, array="LOW", ms_path=eb_ms)
 
     # Test an unnormalised beam about a degree off centre
+    #  - although the response is constant, so it doesn't matter where it is
     direction = SkyCoord("0h", "-28d", frame="icrs")
     time = Time(vis.time.data[0] / 24 / 3600, format="mjd")
     frequency = vis.frequency.data
@@ -91,18 +92,21 @@ def test_array_response_low(mock_telescope, generate_vis, oskar_ms):
     assert 0 < np.max(np.abs(gain)) < 1e-2
     mock.station_response.assert_called()
 
-    # Re-add cases for normalised beam
-    # Test a normalised beam about a degree off centre
-    # beams.update_beam(frequency=frequency, time=time)
-    # gain = beams.array_response(direction, frequency, time)
-    # mock.station_response.assert_called()
-    # assert 0.5 < np.max(np.abs(gain)) < 1.0
+    # Normalisation is only for OSKAR telescope type. Here the type is
+    # MagicMock so no normalisation should occur
+    beams.update_beam(frequency=frequency, time=time)
+    gain2 = beams.array_response(direction, frequency, time)
+    mock.station_response.assert_called()
+    assert np.allclose(gain2, gain)
 
-    # Test a normalised beam at beam centre
-    # direction = beams.beam_direction
-    # gain = beams.array_response(direction, frequency, time)
-    # mock.station_response.assert_called()
-    # assert np.allclose(gain[..., :, :], np.eye(2))
+    # Force the normalisation
+    beams.set_scale = "oskar"
+    beams.update_beam(frequency=frequency, time=time)
+    gain = beams.array_response(direction, frequency, time)
+    mock.station_response.assert_called()
+    assert np.max(np.abs(gain)) > 0.99
+    assert np.abs(np.linalg.norm(gain[0, 0]) / np.sqrt(2) - 1.0) < 1e-7
+    assert beams.set_scale is None
 
 
 def test_array_response_mid(generate_vis):

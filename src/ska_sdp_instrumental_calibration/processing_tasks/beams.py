@@ -5,7 +5,7 @@ import logging
 import everybeam as eb
 import numpy as np
 import xarray as xr
-from astropy.coordinates import ITRS, AltAz, EarthLocation, SkyCoord
+from astropy.coordinates import ITRS, AltAz, SkyCoord
 from astropy.time import Time
 from numpy import typing
 
@@ -60,17 +60,6 @@ class GenericBeams:
         self.telescope = None
         self.antenna_names = vis.configuration.names.data
         self.array_location = vis.configuration.location
-        self.antenna_locations = []
-        for antenna in range(len(self.antenna_names)):
-            xyz = vis.configuration.xyz.data[antenna, :]
-            self.antenna_locations.append(
-                EarthLocation.from_geocentric(
-                    xyz[0],
-                    xyz[1],
-                    xyz[2],
-                    unit="m",
-                )
-            )
 
         # Check beam pointing
         altaz = self.beam_direction.transform_to(
@@ -98,14 +87,13 @@ class GenericBeams:
             self.array = array.lower()
             if ms_path is None:
                 raise ValueError("Low array requires ms_path for everybeam.")
-            self.telescope = eb.load_telescope(
-                ms_path,
-                use_differential_beam=False,
-                element_response_model="skala40_wave",
-            )
+            self.telescope = eb.load_telescope(ms_path)
             self.delay_dir_itrf = None
-            self.normalise = np.zeros((len(vis.frequency), 2, 2), "complex")
-            self.normalise[..., :, :] = np.eye(2)
+            self.set_scale = None
+            if type(self.telescope) is eb.OSKAR:
+                logger.info("Setting beam normalisation for OSKAR data")
+                self.set_scale = "oskar"
+            self.scale = np.ones(len(vis.frequency))
         elif array.lower() == "mid":
             logger.info("Initialising beams for Mid")
             self.array = array.lower()
@@ -129,19 +117,58 @@ class GenericBeams:
         :param frequency: 1D array of frequencies
         :param time: obstime
         """
-        station_id = 0
+        # Coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
-        for chan, freq in enumerate(frequency):
-            self.normalise[chan] = np.linalg.inv(
-                # This is normalising in be beam dir, but should be zenith
-                self.telescope.station_response(
-                    time.mjd * 86400,
-                    station_id,
-                    freq,
-                    self.delay_dir_itrf,
-                    self.delay_dir_itrf,
-                )
+
+        if self.set_scale is None:
+            # Normalisation scale is already set
+            pass
+
+        elif self.set_scale == "oskar":
+            # Set normalisation scaling to the Frobenius norm of the zenith
+            # response divided by sqrt(2).
+            # Should be the same for all stations so pick one. Should use the
+            # station location rather than central array location, e.g. using
+            # the following code, but some functions (e.g. ska-sdp-datamodels
+            # function create_named_configuration -- at least for some
+            # configurations) set xyz coordinates to ENU rather than the
+            # geocentric coordinates. So use the array location and a central
+            # station for now. Note that OSKAR datasets have correct geocentric
+            # coordinates, but also have the array location set to the first
+            # station xyz, so using array_location with stn=0 works.
+            #     xyz = vis.configuration.xyz.data[stn, :]
+            #     self.antenna_locations.append(
+            #         EarthLocation.from_geocentric(
+            #             xyz[0], xyz[1], xyz[2], unit="m",
+            #         )
+            #     )
+            stn = 0
+            dir_itrf_zen = radec_to_xyz(
+                SkyCoord(
+                    alt=90,
+                    az=0,
+                    unit="deg",
+                    frame="altaz",
+                    obstime=time,
+                    location=self.array_location,
+                ),
+                time,
             )
+            for chan, freq in enumerate(frequency):
+                J = self.telescope.station_response(
+                    time.mjd * 86400,
+                    stn,
+                    freq,
+                    dir_itrf_zen,
+                    dir_itrf_zen,
+                )
+                self.scale[chan] = np.sqrt(2) / np.linalg.norm(J)
+
+            # only need to do this once, so set to None when finished
+            self.set_scale = None
+
+        else:
+            raise ValueError("Unknown beam normalisation.")
 
     def array_response(
         self,
@@ -184,19 +211,14 @@ class GenericBeams:
 
             mjds = time.mjd * 86400
 
-            for stn_id in range(len(self.antenna_names)):
+            for stn in range(len(self.antenna_names)):
                 for chan, freq in enumerate(frequency):
-                    beams[stn_id, chan, :, :] = (
+                    beams[stn, chan, :, :] = (
                         self.telescope.station_response(
-                            mjds, stn_id, freq, dir_itrf, self.delay_dir_itrf
+                            mjds, stn, freq, dir_itrf, self.delay_dir_itrf
                         )
-                        @ self.normalise[chan]
+                        * self.scale[chan]
                     )
-            # np.set_printoptions(linewidth=120, precision=4, suppress=True)
-            # print(
-            #     f"sep = {direction.separation(self.beam_direction):.1f}, "
-            #     + f"response = {beams[0, 0, :, :].reshape(4)}"
-            # )
 
         else:
             beams[..., :, :] = np.eye(2)
@@ -205,17 +227,13 @@ class GenericBeams:
 
 
 # from everybeam.readthedocs.io/en/latest/tree/demos/lofar-array-factor.html
-def radec_to_xyz(dir_pointing: SkyCoord, time: Time):
+def radec_to_xyz(direction: SkyCoord, time: Time):
     """
     Convert RA and Dec ICRS coordinates to ITRS cartesian coordinates.
 
-    Args:
-        dir_pointing (SkyCoord): astropy pointing direction
-        time (Time): astropy obstime
-
-    :param dir_pointing: SkyCoord direction in ICRS ra, dec coordinates
+    :param direction: SkyCoord astropy pointing direction
     :param time: astropy obstime
     :return: NumPy array containing the ITRS X, Y and Z coordinates
     """
-    dir_pointing_itrs = dir_pointing.transform_to(ITRS(obstime=time))
-    return np.asarray(dir_pointing_itrs.cartesian.xyz.transpose())
+    direction_itrs = direction.transform_to(ITRS(obstime=time))
+    return np.asarray(direction_itrs.cartesian.xyz.transpose())

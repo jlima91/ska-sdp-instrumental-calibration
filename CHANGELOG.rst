@@ -9,6 +9,7 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 Added
 -----
+* Changed the way everybeam is called and added normalisation for OSKAR datasets.
 * Functionality to use a csv file to generate the sky model.
 * CLI installable using Piper
 * Instrument calibration pipeline as a collection of stages.
@@ -20,6 +21,7 @@ Added
 
 Fixed
 -----
+* Bug in pipeline_config for parameter fov.
 * Bug in deconvolve_gaussian for circular Gaussian components.
 
 0.1.6

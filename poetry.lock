@@ -1026,38 +1026,36 @@ reference = "PyPI-public"
 
 [[package]]
 name = "ducc0"
-version = "0.34.0"
+version = "0.36.0"
 description = "Distinctly useful code collection: contains efficient algorithms for Fast Fourier (and related) transforms, spherical harmonic transforms involving very general spherical grids, gridding/degridding tools for radio interferometry, 4pi spherical convolution operators and much more."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "ducc0-0.34.0-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:a475a558dc4ebbde0767944d6913ad17e5c0944c62800a77b84edf590b4df88f"},
-    {file = "ducc0-0.34.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:08d9c9e9ced82763ef6e0b4167bb50bdae26515ee6c9a86604f808fe73b5aa1c"},
-    {file = "ducc0-0.34.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:622a8653264fca45fe97eabf96e237e8ff50197ea0a5e75bd6a4cd2d3724c890"},
-    {file = "ducc0-0.34.0-cp310-cp310-win_amd64.whl", hash = "sha256:9e9bf717c1e3d191d274fb1d4813e3508b3b22a13b89504ed4bbc8e493586809"},
-    {file = "ducc0-0.34.0-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:930e3580cf9c5ec6d37e7d042485fa7b076ab7df1a54d4b3bc04d4a1767a5396"},
-    {file = "ducc0-0.34.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:c85c75862d45e654aac57f6073d1cc8de3054c994f62f0e57cad82ce2c51d46f"},
-    {file = "ducc0-0.34.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:72349999a5369b2b4ea0da650b2516185b33f9d4f1525a29f5bc36406423daf8"},
-    {file = "ducc0-0.34.0-cp311-cp311-win_amd64.whl", hash = "sha256:7149ee97be66edfc3650132381af7b79ca9eb0595ad166770cc8c758fa5fb631"},
-    {file = "ducc0-0.34.0-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:2a314748afbbae9525c918f01ca88d9bd892708248a4d6f84d3a233e333adb44"},
-    {file = "ducc0-0.34.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a3fa55c9a650f2f84faf0440b93d7d799395a252f7d9a908027cb34fe56be65a"},
-    {file = "ducc0-0.34.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:092bb7aded833a29767790e674b731ff663a3517a1a1b0e79991aaf7630db4cc"},
-    {file = "ducc0-0.34.0-cp312-cp312-win_amd64.whl", hash = "sha256:0d5ecb81228c5bd6439e18c90230e2dd83d0a1b7d2f157644735f095f667c8fd"},
-    {file = "ducc0-0.34.0-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:3ac70a182a9d5a65f9a56cb2c8977ba20eac083bf64f1304691d06c605d8a84f"},
-    {file = "ducc0-0.34.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:87a3f0e63b81293cdca66e01fdd8509e4992dead45660604d28e11ed32ca893f"},
-    {file = "ducc0-0.34.0-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:3cfcf0b2a8866e608cf9f78420899d9bc70dce0c61889b51f174d1eb3968a2eb"},
-    {file = "ducc0-0.34.0-cp38-cp38-win_amd64.whl", hash = "sha256:a7681f5eca3fe2e9861d58b2e06f4580427dfc400aec060c44580096b3d7a666"},
-    {file = "ducc0-0.34.0-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:cda14d086ab13b06685c1253db143b7dcc0a9aed03ec406c5fd8733399f9d542"},
-    {file = "ducc0-0.34.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:64b0a8ce163fd114fee415ec7df83bdc67dd29be9f74550c09c4c1ad9cad38be"},
-    {file = "ducc0-0.34.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:f3b81da3f12f53732b56cf9c1d3c5599386d5234ca4978d8b57dd6c0257aec01"},
-    {file = "ducc0-0.34.0-cp39-cp39-win_amd64.whl", hash = "sha256:9e647898497d1003d64d464b3882200da4cd4c0f3fa69997ca8b83c1cff9f380"},
-    {file = "ducc0-0.34.0-pp310-pypy310_pp73-macosx_10_14_x86_64.whl", hash = "sha256:b66d4cc6415d2079bfca873a5972a341c5d07deccc11b797541691e2be045d10"},
-    {file = "ducc0-0.34.0-pp310-pypy310_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:9e897b6cca6e0f73aac3db44fa17298adbc1525df000ac872c6e7438ffd0fb2b"},
-    {file = "ducc0-0.34.0-pp38-pypy38_pp73-macosx_10_14_x86_64.whl", hash = "sha256:293d66fcfa42da2f000fe837c9a2aa919fc4db7251b0bad47199d55c9077b480"},
-    {file = "ducc0-0.34.0-pp38-pypy38_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:93dfddb622a8484042061c357c05a6fea301601b8775e000027d3719604a069e"},
-    {file = "ducc0-0.34.0-pp39-pypy39_pp73-macosx_10_14_x86_64.whl", hash = "sha256:faaacc70245a2553f9decaf5819d5ae25f9d78f3583aba864c5085cb6f3067b0"},
-    {file = "ducc0-0.34.0-pp39-pypy39_pp73-manylinux_2_28_x86_64.whl", hash = "sha256:3657ebac2093ccc3c80390208406fc168513a88bd0c9c031a5afb1b899d72cd9"},
-    {file = "ducc0-0.34.0.tar.gz", hash = "sha256:ddd47d9bdf0d5487c9cbcf8bdaf3b0b00f04bfba77f09b9618ac6599d5a8035c"},
+    {file = "ducc0-0.36.0-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:fb01af103c3a59303a88fe121c24ef03aed90467a7ba39615d3af205b706f9c7"},
+    {file = "ducc0-0.36.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f7327b898bb518f0f286b84af1e53c2e362e444693b261db799d213c08b870ea"},
+    {file = "ducc0-0.36.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:e0b31dcdaf6eaaa746cf2601f500fb3cf6f4c5f301958413c7fc290e728466b6"},
+    {file = "ducc0-0.36.0-cp310-cp310-win_amd64.whl", hash = "sha256:8693c8ade2e9a42c4d1c34222018c3cb0df16648875d3580d08a8336ab0a0b77"},
+    {file = "ducc0-0.36.0-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:8b30ff6c9f5a1fd7b993dd26412ff43b35fe93ac10d2a8c73e8dd3ab9dc53853"},
+    {file = "ducc0-0.36.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:68534e5e5047a12d29c9a1ccc7535410dda5186783432cd76d661f6ca8cf1793"},
+    {file = "ducc0-0.36.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:16025c06d15fcc032a7835c2abe84bb5d1a6c7a520a856f3cae3ac1be7fbd615"},
+    {file = "ducc0-0.36.0-cp311-cp311-win_amd64.whl", hash = "sha256:362f81d47b9e739d3ba4e91f9add4d2d49e411bfe2460da1d46aaf639184626a"},
+    {file = "ducc0-0.36.0-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:73a73281030bae41b5bf827770677f56f7ecce7640d6fa4bcbf4e211da382f77"},
+    {file = "ducc0-0.36.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9a4d99e5bb747cffce7dfb101f2751d4276a3b42650a93c47836379040c4af93"},
+    {file = "ducc0-0.36.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:41f5475a897e1155e8e6e8763ed85dd6e9ec3d19e6d274851e0671ab337a02c4"},
+    {file = "ducc0-0.36.0-cp312-cp312-win_amd64.whl", hash = "sha256:437985de188f3ce42a4aa477849d4895cd350606f5a4d00da5246ef7a0c1ada0"},
+    {file = "ducc0-0.36.0-cp313-cp313-macosx_10_14_x86_64.whl", hash = "sha256:de787a42934d24deffbbd75a94bbbdfe776ca13585d074433601ae09397f3a8e"},
+    {file = "ducc0-0.36.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d78ac3cd2dfef5a98e635849dd615e8e9763fea851fa9156f0aa8ec049e95ac7"},
+    {file = "ducc0-0.36.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:77871bdb98613a7e518acee9369dd38308ab7218f7c14bd666ee71a8640743a4"},
+    {file = "ducc0-0.36.0-cp313-cp313-win_amd64.whl", hash = "sha256:4aa0500389814e62ac78b53836abcbd314ca5a372ec3e027df4437fd1310d5b9"},
+    {file = "ducc0-0.36.0-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:ff80a7772b0aad4558511d3b1bcafb77311986b54164e04a70ed67ba2901da2b"},
+    {file = "ducc0-0.36.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:ae5203d539039c910ee5254e5527c009f42c3293e77b5e32de4f6c5389b00482"},
+    {file = "ducc0-0.36.0-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:d520b87de657eec175452afabb9a76318d27e0eb745dfbdffdcfa435fbde19b5"},
+    {file = "ducc0-0.36.0-cp38-cp38-win_amd64.whl", hash = "sha256:c0a254b01a155687e6c22ad1d4282f72e7f45600408f1281e7e72f70c92435f8"},
+    {file = "ducc0-0.36.0-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:1d41b3d90d0b48872ebe02331ab3e6fd1ba0f8fff595e4f15061eafa88ef1402"},
+    {file = "ducc0-0.36.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:34c4f9528cc37c89a628a668496c03183a5d13af02d6a278aa3778f0f313e204"},
+    {file = "ducc0-0.36.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:910357f8dce459aff5a4b0c3e0fe8ee4164753184524634fb63d455f40ea5055"},
+    {file = "ducc0-0.36.0-cp39-cp39-win_amd64.whl", hash = "sha256:374d57991e7ecf4bac020b2de0a49180b5f777be3699876a0f31f6708a1b74f1"},
+    {file = "ducc0-0.36.0.tar.gz", hash = "sha256:e3f1d06a10af08b8704a2ec7b88b7b523b99f7be94f19795c4be05b22df80965"},
 ]
 
 [package.dependencies]
@@ -4483,28 +4481,28 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-datamodels"
-version = "0.3.3"
+version = "1.0.0"
 description = "SKA SDP Python-based Data Models"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "ska_sdp_datamodels-0.3.3-py3-none-any.whl", hash = "sha256:c1ef04c67eaf103c5026cd04e6348fbfce0cc02b5014401082504bf590246b30"},
-    {file = "ska_sdp_datamodels-0.3.3.tar.gz", hash = "sha256:1e20599b95b79dfdf071b9d53b42b3a34e2f0b7e4b09d8160e5e6715916a161b"},
+    {file = "ska_sdp_datamodels-1.0.0-py3-none-any.whl", hash = "sha256:615a26a4e932acf20883f9dd08625236908da8458fdec1973ab04d3291d97fa5"},
+    {file = "ska_sdp_datamodels-1.0.0.tar.gz", hash = "sha256:67c5ec607d837e4555466618785f14bee6c8e05f91e9c8740da1cf23b4d6b0c2"},
 ]
 
 [package.dependencies]
 astroplan = ">=0.10,<0.11"
 astropy = ">=6.1,<7.0"
-h5py = ">=3.11,<4.0"
-msgpack = ">=1.0,<2.0"
+h5py = ">=3.12,<4.0"
+msgpack = ">=1.1,<2.0"
 msgpack-numpy = ">=0.4,<0.5"
 numpy = ">=1.26,<2.0"
 pandas = ">=2.2,<3.0"
 ska-telmodel = ">=1.19,<2.0"
-xarray = ">=2024.7,<2025.0"
+xarray = ">=2024.9,<2024.11"
 
 [package.extras]
-python-casacore = ["python-casacore (>=3.5,<4.0)"]
+python-casacore = ["python-casacore (>=3.6,<4.0)"]
 
 [package.source]
 type = "legacy"
@@ -4579,33 +4577,34 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-func-python"
-version = "0.5.1"
+version = "1.0.1"
 description = "SKA SDP Python-Based Processing Functions"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "ska_sdp_func_python-0.5.1-py3-none-any.whl", hash = "sha256:4e1470b23ed848f742acbb5505f9868213be0ebfdc4b798baab39c9ab82076c1"},
-    {file = "ska_sdp_func_python-0.5.1.tar.gz", hash = "sha256:263001a277fcf008f702afeddbecba35bc67e3b3dcdef281ecb444364b9b8c64"},
+    {file = "ska_sdp_func_python-1.0.1-py3-none-any.whl", hash = "sha256:9391481c32da61f65023ee9c2f6eb802da6ab32ccce46eea42c1398f82ad0d72"},
+    {file = "ska_sdp_func_python-1.0.1.tar.gz", hash = "sha256:8af49d0052e7bc3ffebfe378f2c1d0318b5c3e2936d215bf4430da77dd05709d"},
 ]
 
 [package.dependencies]
 astroplan = ">=0.10,<0.11"
 astropy = ">=6.1,<7.0"
-ducc0 = ">=0.34,<0.35"
+ducc0 = ">=0.36,<0.37"
+h5py = ">=3.12,<4.0"
 numpy = ">=1.26,<2.0"
 photutils = ">=1.12,<2.0"
 reproject = ">=0.14,<0.15"
-scipy = ">=1.14,<2.0"
-ska-sdp-datamodels = ">=0.3.3,<0.4.0"
-xarray = ">=2024.7,<2025.0"
+scipy = ">=1.15,<2.0"
+ska-sdp-datamodels = ">=1.0.0,<2.0.0"
+xarray = ">=2024.9,<2024.11"
 
 [package.extras]
-dp3 = ["dp3 (==6.0.0)"]
-fft-support = ["pyfftw (>=0.13,<0.14)"]
+dp3 = ["dp3 (==6.2)"]
+fft-support = ["pyfftw (>=0.15,<0.16)"]
 gpu = ["cupy (>=12.2,<13.0)"]
-h5py = ["h5py (>=3.11,<4.0)"]
 radler = ["radler (>=0.0.1,<0.0.2)"]
-ska-sdp-func = ["ska-sdp-func @ git+https://gitlab.com/ska-telescope/sdp/ska-sdp-func.git@main"]
+ska-sdp-func = ["ska-sdp-func (>=1.2.2,<2.0.0)", "threadpoolctl (>=3.5.0,<4.0.0)"]
+xradio = ["xradio (==0.0.40)"]
 
 [package.source]
 type = "legacy"
@@ -5314,24 +5313,24 @@ reference = "PyPI-public"
 
 [[package]]
 name = "xarray"
-version = "2024.11.0"
+version = "2024.10.0"
 description = "N-D labeled arrays and datasets in Python"
 optional = false
 python-versions = ">=3.10"
 files = [
-    {file = "xarray-2024.11.0-py3-none-any.whl", hash = "sha256:6ee94f63ddcbdd0cf3909d1177f78cdac756640279c0e32ae36819a89cdaba37"},
-    {file = "xarray-2024.11.0.tar.gz", hash = "sha256:1ccace44573ddb862e210ad3ec204210654d2c750bec11bbe7d842dfc298591f"},
+    {file = "xarray-2024.10.0-py3-none-any.whl", hash = "sha256:ae1d38cb44a0324dfb61e492394158ae22389bf7de9f3c174309c17376df63a0"},
+    {file = "xarray-2024.10.0.tar.gz", hash = "sha256:e369e2bac430e418c2448e5b96f07da4635f98c1319aa23cfeb3fbcb9a01d2e0"},
 ]
 
 [package.dependencies]
 numpy = ">=1.24"
-packaging = ">=23.2"
+packaging = ">=23.1"
 pandas = ">=2.1"
 
 [package.extras]
-accel = ["bottleneck", "flox", "numba (>=0.54)", "numbagg", "opt_einsum", "scipy"]
+accel = ["bottleneck", "flox", "numba (>=0.54)", "numbagg", "opt-einsum", "scipy"]
 complete = ["xarray[accel,etc,io,parallel,viz]"]
-dev = ["hypothesis", "jinja2", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-env", "pytest-timeout", "pytest-xdist", "ruff", "sphinx", "sphinx_autosummary_accessors", "xarray[complete]"]
+dev = ["hypothesis", "mypy", "pre-commit", "pytest", "pytest-cov", "pytest-env", "pytest-timeout", "pytest-xdist", "ruff", "sphinx", "sphinx-autosummary-accessors", "xarray[complete]"]
 etc = ["sparse"]
 io = ["cftime", "fsspec", "h5netcdf", "netCDF4", "pooch", "pydap", "scipy", "zarr"]
 parallel = ["dask[complete]"]
@@ -5415,4 +5414,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "2df8eb9b9757438174924d97dc5d3bb2699f9c5e6fd988251d09e3686c0bdb59"
+content-hash = "7ccf2630667aaaeefaff787232174affc4ca909f199c658d8588f2f15416377d"
