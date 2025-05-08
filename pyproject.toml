@@ -44,6 +44,8 @@ ska-sdp-dataproduct-metadata = "^1.0.0.post1"
 [tool.poetry.extras]
 python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]
+ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
+
 
 [tool.poetry.group.dev.dependencies]
 mock = "^5.1.0"

@@ -5409,9 +5409,10 @@ reference = "PyPI-public"
 
 [extras]
 python-casacore = ["python-casacore"]
+ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 ska-sdp-func = ["ska-sdp-func"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "7ccf2630667aaaeefaff787232174affc4ca909f199c658d8588f2f15416377d"
+content-hash = "aaf69a78be7e78786e6861b8392d930465f52e99a09e2c9d54679a023ad0e84e"

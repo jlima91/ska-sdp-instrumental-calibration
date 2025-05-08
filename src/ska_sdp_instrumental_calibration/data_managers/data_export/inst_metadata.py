@@ -2,7 +2,13 @@ import logging
 import os
 
 import dask
-from ska_sdp_dataproduct_metadata import MetaData, ObsCore
+
+try:
+    from ska_sdp_dataproduct_metadata import MetaData, ObsCore
+
+    metadata_package_available = True
+except ImportError:
+    metadata_package_available = False
 
 logger = logging.getLogger()
 
@@ -22,7 +28,11 @@ class INSTMetaData:
         eb_id = os.environ.get("EXECUTION_BLOCK_ID")
         pb_id = os.environ.get("PROCESSING_BLOCK_ID")
 
-        return eb_id is not None and pb_id is not None
+        return (
+            metadata_package_available
+            and eb_id is not None
+            and pb_id is not None
+        )
 
     def __init__(self, path, data_products=None):
         """
