@@ -33,7 +33,7 @@ def test_should_predict_visibilities(
 
     params = {
         "beam_type": "everybeam",
-        "eb_ms": "test.ms",
+        "eb_ms": None,
         "eb_coeffs": "/path/to/coeffs",
         "gleamfile": "/path/to/gleam.dat",
         "lsm_csv_path": None,
@@ -60,7 +60,7 @@ def test_should_predict_visibilities(
         upstream_output.vis,
         ["source1", "source2"],
         beam_type="everybeam",
-        eb_ms="test.ms",
+        eb_ms="path/to/input/ms",
         eb_coeffs="/path/to/coeffs",
         reset_vis=False,
     )
