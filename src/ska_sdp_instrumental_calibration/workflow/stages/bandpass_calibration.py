@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 
 import dask.delayed
@@ -13,10 +14,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 from ...data_managers.dask_wrappers import run_solver
 
 
-@ConfigurableStage(
-    "bandpass_calibration",
-    configuration=Configuration(
-        run_solver_config=NestedConfigParam(
+RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
             "Run Solver parameters",
             solver=ConfigParam(
                 str,
@@ -46,40 +44,49 @@ from ...data_managers.dask_wrappers import run_solver
             refant=ConfigParam(
                 int,
                 0,
-                description="""Reference antenna (default 0).
+                description="""Reference antenna.
                 Currently only activated for gain_substitution solver""",
+                nullable=False,
             ),
             niter=ConfigParam(
                 int,
                 50,
-                description="""Number of solver iterations (defaults to 50)""",
+                description="""Number of solver iterations.""",
+                nullable=False,
             ),
             phase_only=ConfigParam(
                 bool,
                 False,
-                description="""Solve only for the phases. default=True when
-                solver="gain_substitution", otherwise it must be False.""",
+                description="""Solve only for the phases. This can be set
+                to ``True`` when solver is "gain_substitution",
+                otherwise it must be ``False``.""",
+                nullable=False,
             ),
             tol=ConfigParam(
                 float,
                 1e-06,
                 description="""Iteration stops when the fractional change
-                in the gain solution is below this tolerance (default=1e-6)""",
+                in the gain solution is below this tolerance.""",
+                nullable=False,
             ),
             crosspol=ConfigParam(
                 bool,
                 False,
                 description="""Do solutions including cross polarisations
-                i.e. XY, YX or RL, LR. Only used by gain_substitution.""",
+                i.e. XY, YX or RL, LR.
+                Only used by "gain_substitution" solver.""",
+                nullable=False,
             ),
             normalise_gains=ConfigParam(
                 str,
-                "mean",
-                description="""Normalises the gains (default="mean").
-                Options are None, "mean", "median".
-                None means no normalization.
-                Only available with gain_substitution.""",
+                None,
+                description="""Normalises the gains.
+                Only available when solver is "gain_substitution".
+                Possible types of normalization are: "mean", "median".
+                To perform no normalization, set this to ``null``.
+                """,
                 allowed_values=[None, "mean", "median"],
+                nullable=True,
             ),
             jones_type=ConfigParam(
                 str,
@@ -94,6 +101,7 @@ from ...data_managers.dask_wrappers import run_solver
                 output contains a single value: the average frequency
                 of the input Visibility's channels.""",
                 allowed_values=["T", "G", "B"],
+                nullable=False,
             ),
             timeslice=ConfigParam(
                 float,
@@ -101,37 +109,18 @@ from ...data_managers.dask_wrappers import run_solver
                 description="""Defines time scale over which each gain solution
                 is valid. This is used to define time axis of the GainTable.
                 This parameter is interpreted as follows,
+
                 float: this is a custom time interval in seconds.
                 Input timestamps are grouped by intervals of this duration,
                 and said groups are separately averaged to produce
                 the output time axis.
-                None: match the time resolution of the input, i.e. copy
+
+                ``None``: match the time resolution of the input, i.e. copy
                 the time axis of the input Visibility""",
             ),
-        ),
-        plot_config=NestedConfigParam(
-            "Plot parameters",
-            plot_table=ConfigParam(
-                bool, False, description="Plot the generated gaintable"
-            ),
-            fixed_axis=ConfigParam(
-                bool, False, description="Limit amplitude axis to [0-1]"
-            ),
-        ),
-        flagging=ConfigParam(bool, False, description="Run RFI flagging"),
-    ),
-)
-def bandpass_calibration_stage(
-    upstream_output, run_solver_config, plot_config, flagging, _output_dir_
-):
-    """
-    Performs Bandpass Calibration
+        )
 
-    Parameters
-    ----------
-        upstream_output: dict
-            Output from the upstream stage
-        run_solver_config: dict
+RUN_SOLVER_DOCSTRING = """
             Configuration required for bandpass calibration.
                 solver: str
                     Calibration algorithm to use (default="gain_substitution")
@@ -187,18 +176,50 @@ def bandpass_calibration_stage(
                     the output time axis.
                     None: match the time resolution of the input, i.e. copy
                     the time axis of the input Visibility
+""".lstrip()
+
+@ConfigurableStage(
+    "bandpass_calibration",
+    configuration=Configuration(
+        run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        plot_config=NestedConfigParam(
+            "Plot parameters",
+            plot_table=ConfigParam(
+                bool, False, description="Plot the generated gaintable", nullable=False,
+            ),
+            fixed_axis=ConfigParam(
+                bool, False, description="Limit amplitude axis to [0-1]", nullable=False,
+            ),
+        ),
+        flagging=ConfigParam(bool, False, description="Run RFI flagging", nullable=False),
+    ),
+)
+def bandpass_calibration_stage(
+    upstream_output, run_solver_config, plot_config, flagging, _output_dir_
+):
+    """
+    Performs Bandpass Calibration
+
+    Parameters
+    ----------
+        upstream_output: dict
+            Output from the upstream stage
+        run_solver_config: dict
+            {run_solver_docstring}
         plot_config: dict
             Configuration required for plotting.
-            eg: {plot_table: False, fixed_axis: False}
+            eg: {{plot_table: False, fixed_axis: False}}
         flagging: bool
             Run Flagging for time
         _output_dir_ : str
             Directory path where the output file will be written.
+
     Returns
     -------
         dict
             Updated upstream_output with gaintable
     """
+
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
@@ -241,3 +262,6 @@ def bandpass_calibration_stage(
     upstream_output["gaintable"] = gaintable
 
     return upstream_output
+
+
+bandpass_calibration_stage.__doc__ = bandpass_calibration_stage.__doc__.format(run_solver_docstring=RUN_SOLVER_DOCSTRING)
