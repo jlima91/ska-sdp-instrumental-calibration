@@ -4,8 +4,16 @@ Change Log
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+0.2.2
+*****
+
+Added
+-----
+* Optional metadata generation.
+
+
 0.2.1
-****
+*****
 
 Added
 -----
