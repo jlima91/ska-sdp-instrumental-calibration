@@ -159,6 +159,8 @@ def test_should_update_call_count(
         "fov": 10.0,
         "flux_limit": 1.0,
         "export_model_vis": False,
+        "alpha0": -0.78,
+        "reset_vis": False,
     }
 
     upstream_output = predict_vis_stage.stage_definition(
