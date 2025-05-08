@@ -5,6 +5,8 @@ __all__ = [
     "solve_bandpass",
 ]
 
+from typing import Literal
+
 import numpy as np
 import xarray
 from ska_sdp_func_python.calibration.solvers import solve_gaintable
@@ -77,6 +79,12 @@ def solve_bandpass(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 50,
+    phase_only: bool = False,
+    tol: float = 1e-06,
+    crosspol: bool = False,
+    normalise_gains: str = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    timeslice: float = None,
 ) -> xarray.Dataset:
     """Determine bandpass calibration Jones matrices.
 
@@ -93,6 +101,15 @@ def solve_bandpass(
         solve_gaintable. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
     :param niter: Number of solver iterations (defaults to 50).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
+
     :return: Updated GainTable dataset.
     """
     logger.debug("solving bandpass")
@@ -119,13 +136,14 @@ def solve_bandpass(
         modelvis=modelvis,
         gain_table=gain_table,
         solver=solver,
-        phase_only=False,
+        phase_only=phase_only,
         niter=niter,
-        tol=1e-06,
-        crosspol=False,
-        normalise_gains=None,
+        tol=tol,
+        crosspol=crosspol,
+        normalise_gains=normalise_gains,
         jones_type=jones_type,
         refant=refant,
+        timeslice=timeslice,
     )
 
     # Todo: Check for gain outliers and set flags? RFI or no signal...

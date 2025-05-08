@@ -58,6 +58,18 @@ logger = logging.getLogger()
             description="""Specifies the flux density limit used when
             searching for compoents, in units of Jy. Defaults to 1""",
         ),
+        alpha0=ConfigParam(
+            float,
+            -0.78,
+            description="""Nominal alpha value to use when fitted data
+            are unspecified. Default is -0.78.""",
+        ),
+        reset_vis=ConfigParam(
+            bool,
+            False,
+            description="""Whether or not to set visibilities to zero before
+            accumulating components. Default is False.""",
+        ),
         export_model_vis=ConfigParam(
             bool, False, "Export predicted model visibilities"
         ),
@@ -72,6 +84,8 @@ def predict_vis_stage(
     lsm_csv_path,
     fov,
     flux_limit,
+    alpha0,
+    reset_vis,
     export_model_vis,
     _cli_args_,
 ):
@@ -98,9 +112,16 @@ def predict_vis_stage(
             Field of view diameter in degrees for source selection\
                   (default: 10.0).
         flux_limit : float
-            Minimum flux density in Jy for source selection (default: 1.0).
+            Minimum flux density in Jy for source selection
+            (default: 1.0).
         export_model_vis : bool
             Whether to export model visibilities (default: False).
+        alpha0: float
+            Nominal alpha value to use when fitted
+            data are unspecified. Default is -0.78.
+        reset_vis: bool
+            Whether or not to set visibilities to zero before
+            accumulating components. Default is False.
         _cli_args_ : dict
             Command line arguments.
     Returns
@@ -115,6 +136,7 @@ def predict_vis_stage(
     logger.info(f" - Catalogue file: {gleamfile}")
     logger.info(f" - Search radius: {fov/2} deg")
     logger.info(f" - Flux limit: {flux_limit} Jy")
+
     phase_centre = get_phasecentre(_cli_args_["input"])
 
     if gleamfile is not None and lsm_csv_path is not None:
@@ -126,6 +148,7 @@ def predict_vis_stage(
             phasecentre=phase_centre,
             fov=fov,
             flux_limit=flux_limit,
+            alpha0=alpha0,
         )
     elif lsm_csv_path is not None:
         lsm = generate_lsm_from_csv(
@@ -148,6 +171,7 @@ def predict_vis_stage(
         beam_type=beam_type,
         eb_ms=eb_ms,
         eb_coeffs=eb_coeffs,
+        reset_vis=reset_vis,
     )
 
     if export_model_vis:

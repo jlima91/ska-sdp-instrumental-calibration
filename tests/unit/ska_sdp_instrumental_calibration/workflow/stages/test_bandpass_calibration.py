@@ -16,7 +16,17 @@ def test_should_perform_bandpass_calibration(run_solver_mock):
     upstream_output["modelvis"] = Mock(name="modelvis")
     initable = "initial_gaintable"
     upstream_output["gaintable"] = initable
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     plot_config = {"plot_table": False, "fixed_axis": False}
 
     gaintable_mock = Mock(name="gaintable")
@@ -37,6 +47,12 @@ def test_should_perform_bandpass_calibration(run_solver_mock):
         solver="solver",
         niter=1,
         refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
     )
 
     assert actual_output.gaintable == gaintable_mock
@@ -62,7 +78,17 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
 
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     plot_config = {"plot_table": True, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
@@ -127,7 +153,17 @@ def test_should_call_delayed_run_solver_if_gain_table_is_a_delayed_object(
     initable.dask = lambda x: x
 
     upstream_output["gaintable"] = initable
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     plot_config = {"plot_table": False, "fixed_axis": False}
 
     gaintable_mock = Mock(name="gaintable")
@@ -148,6 +184,12 @@ def test_should_call_delayed_run_solver_if_gain_table_is_a_delayed_object(
         solver="solver",
         niter=1,
         refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
     )
 
     dask_delayed_mock.assert_called_once_with(run_solver_mock)

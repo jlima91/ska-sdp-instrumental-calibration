@@ -277,13 +277,29 @@ def get_phasecentre(ms_name: str) -> SkyCoord:
     )
 
 
-def get_ms_metadata(ms_name: str) -> xr.Dataset:
+def get_ms_metadata(
+    ms_name: str,
+    ack: bool = False,
+    start_chan: int = 0,
+    end_chan: int = 0,
+    datacolumn: str = "DATA",
+    selected_sources: list = None,
+    selected_dds: list = None,
+    average_channels: bool = False,
+) -> xr.Dataset:
     """Get Visibility dataset metadata.
 
     Fixme: use ska_sdp_datamodels.visibility.vis_io_ms.get_ms_metadata once
     YAN-1990 is finalised. For now, read a single channel and use its metadata.
 
     :param ms_name: Name of input Measurement Set
+    :param ack: Ask casacore to acknowledge each table operation
+    :param start_chan: Starting channel to read
+    :param end_chan: End channel to read4
+    :param datacolumn: MS data column to read DATA, CORRECTED_DATA, MODEL_DATA
+    :param selected_sources: Sources to select
+    :param selected_dds: Data descriptors to select
+    :param average_channels: Average all channels read
     :return: Namedtuple of metadata products required by Visibility.constructor
         - uvw
         - baselines
@@ -298,7 +314,16 @@ def get_ms_metadata(ms_name: str) -> xr.Dataset:
         - meta
     """
     # Read a single-channel from the dataset
-    tmpvis = create_visibility_from_ms(ms_name, start_chan=0, end_chan=0)[0]
+    tmpvis = create_visibility_from_ms(
+        ms_name,
+        start_chan=start_chan,
+        ack=ack,
+        datacolumn=datacolumn,
+        end_chan=end_chan,
+        selected_sources=selected_sources,
+        selected_dds=selected_dds,
+        average_channels=average_channels,
+    )[0]
     # Update frequency metadata for the full dataset
     spwtab = table(f"{ms_name}/SPECTRAL_WINDOW", ack=False)
     frequency = np.array(spwtab.getcol("CHAN_FREQ")[0])

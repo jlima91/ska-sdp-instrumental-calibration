@@ -36,7 +36,17 @@ def test_should_generate_channel_rm_using_initial_gaintable(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
@@ -60,6 +70,12 @@ def test_should_generate_channel_rm_using_initial_gaintable(
         solver="solver",
         niter=1,
         refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
     )
     dask_delayed_mock.assert_has_calls(
         [
@@ -106,7 +122,17 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
@@ -130,6 +156,12 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         solver="solver",
         niter=1,
         refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
     )
     delayed_mock.assert_has_calls(
         [
@@ -181,7 +213,17 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {"solver": "solver", "niter": 1, "refant": 2}
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,

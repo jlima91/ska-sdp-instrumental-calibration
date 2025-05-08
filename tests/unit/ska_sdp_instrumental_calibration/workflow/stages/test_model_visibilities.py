@@ -40,6 +40,8 @@ def test_should_predict_visibilities(
         "fov": 10.0,
         "flux_limit": 1.0,
         "export_model_vis": False,
+        "alpha0": -0.78,
+        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -52,6 +54,7 @@ def test_should_predict_visibilities(
         phasecentre=(0.0, 0.0),
         fov=10.0,
         flux_limit=1.0,
+        alpha0=-0.78,
     )
     predict_vis_mock.assert_called_once_with(
         upstream_output.vis,
@@ -59,6 +62,7 @@ def test_should_predict_visibilities(
         beam_type="everybeam",
         eb_ms="test.ms",
         eb_coeffs="/path/to/coeffs",
+        reset_vis=False,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -96,6 +100,8 @@ def test_should_predict_visibilities_using_csv_lsm(
         "fov": 10.0,
         "flux_limit": 1.0,
         "export_model_vis": False,
+        "alpha0": -0.78,
+        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -115,6 +121,7 @@ def test_should_predict_visibilities_using_csv_lsm(
         beam_type="everybeam",
         eb_ms="test.ms",
         eb_coeffs="/path/to/coeffs",
+        reset_vis=False,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -192,6 +199,8 @@ def test_should_throw_exception_if_lsm_is_none(
         "fov": 10.0,
         "flux_limit": 1.0,
         "export_model_vis": False,
+        "alpha0": -0.78,
+        "reset_vis": False,
     }
 
     with pytest.raises(RequiredArgumentMissingException):
