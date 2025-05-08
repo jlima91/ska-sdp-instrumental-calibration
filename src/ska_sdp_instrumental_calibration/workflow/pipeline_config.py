@@ -158,7 +158,7 @@ class PipelineConfig:
 
         # Sky model info
         self.lsm = config.get("lsm", None)
-        self.fov = config.get("fov_deg", 10)
+        self.fov = config.get("fov", 10)
         self.flux_limit = config.get("flux_limit", 1)
         self.gleamfile = config.get("gleamfile", None)
         self.csvfile = config.get("csvfile", None)
