@@ -59,8 +59,9 @@ Parameters
     +==================+========+===========+==================================================================================+=====================================+==================+
     | beam_type        | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True                                |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
-    | eb_ms            | str    | ``null``  | Measurement set need to initialise the everybeam             telescope. Required | True                                |                  |
-    |                  |        |           | if bbeam_type is 'everybeam'.                                                    |                                     |                  |
+    | eb_ms            | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True                                |                  |
+    |                  |        |           | metadata required by everybeam, this parameter             is used to specify a  |                                     |                  |
+    |                  |        |           | separate dataset to use when setting up             the beam models.             |                                     |                  |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+-------------------------------------+------------------+
     | eb_coeffs        | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True                                |                  |
     |                  |        |           | bbeam_type is 'everybeam'.                                                       |                                     |                  |
