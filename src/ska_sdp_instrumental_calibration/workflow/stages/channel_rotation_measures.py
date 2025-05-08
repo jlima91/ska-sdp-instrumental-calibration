@@ -1,18 +1,17 @@
-from copy import deepcopy
 import os
+from copy import deepcopy
 
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
+from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import run_solver
 from ...processing_tasks.post_processing import model_rotations
 from ..utils import plot_gaintable
-from .bandpass_calibration import RUN_SOLVER_NESTED_CONFIG, RUN_SOLVER_DOCSTRING
+from .bandpass_calibration import (
+    RUN_SOLVER_DOCSTRING,
+    RUN_SOLVER_NESTED_CONFIG,
+)
 
 
 @ConfigurableStage(
@@ -113,5 +112,6 @@ def generate_channel_rm_stage(
     return upstream_output
 
 
-
-generate_channel_rm_stage.__doc__ = generate_channel_rm_stage.__doc__.format(run_solver_docstring=RUN_SOLVER_DOCSTRING)
+generate_channel_rm_stage.__doc__ = generate_channel_rm_stage.__doc__.format(
+    run_solver_docstring=RUN_SOLVER_DOCSTRING
+)

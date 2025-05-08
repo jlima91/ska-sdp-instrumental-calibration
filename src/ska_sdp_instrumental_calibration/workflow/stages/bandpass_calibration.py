@@ -1,5 +1,5 @@
-from copy import deepcopy
 import os
+from copy import deepcopy
 
 import dask.delayed
 from ska_sdp_piper.piper.configurations import (
@@ -13,13 +13,12 @@ from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
 from ...data_managers.dask_wrappers import run_solver
 
-
 RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
-            "Run Solver parameters",
-            solver=ConfigParam(
-                str,
-                "gain_substitution",
-                description="""Calibration algorithm to use.
+    "Run Solver parameters",
+    solver=ConfigParam(
+        str,
+        "gain_substitution",
+        description="""Calibration algorithm to use.
                 (default="gain_substitution")
                 Options are:
                 "gain_substitution" - original substitution algorithm
@@ -34,64 +33,64 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
                 products over time and frequency for each solution
                 interval. This can be much faster for large datasets
                 and solution intervals.""",
-                allowed_values=[
-                    "gain_substitution",
-                    "jones_substitution",
-                    "normal_equations",
-                    "normal_equations_presum",
-                ],
-            ),
-            refant=ConfigParam(
-                int,
-                0,
-                description="""Reference antenna.
+        allowed_values=[
+            "gain_substitution",
+            "jones_substitution",
+            "normal_equations",
+            "normal_equations_presum",
+        ],
+    ),
+    refant=ConfigParam(
+        int,
+        0,
+        description="""Reference antenna.
                 Currently only activated for gain_substitution solver""",
-                nullable=False,
-            ),
-            niter=ConfigParam(
-                int,
-                50,
-                description="""Number of solver iterations.""",
-                nullable=False,
-            ),
-            phase_only=ConfigParam(
-                bool,
-                False,
-                description="""Solve only for the phases. This can be set
+        nullable=False,
+    ),
+    niter=ConfigParam(
+        int,
+        50,
+        description="""Number of solver iterations.""",
+        nullable=False,
+    ),
+    phase_only=ConfigParam(
+        bool,
+        False,
+        description="""Solve only for the phases. This can be set
                 to ``True`` when solver is "gain_substitution",
                 otherwise it must be ``False``.""",
-                nullable=False,
-            ),
-            tol=ConfigParam(
-                float,
-                1e-06,
-                description="""Iteration stops when the fractional change
+        nullable=False,
+    ),
+    tol=ConfigParam(
+        float,
+        1e-06,
+        description="""Iteration stops when the fractional change
                 in the gain solution is below this tolerance.""",
-                nullable=False,
-            ),
-            crosspol=ConfigParam(
-                bool,
-                False,
-                description="""Do solutions including cross polarisations
+        nullable=False,
+    ),
+    crosspol=ConfigParam(
+        bool,
+        False,
+        description="""Do solutions including cross polarisations
                 i.e. XY, YX or RL, LR.
                 Only used by "gain_substitution" solver.""",
-                nullable=False,
-            ),
-            normalise_gains=ConfigParam(
-                str,
-                None,
-                description="""Normalises the gains.
+        nullable=False,
+    ),
+    normalise_gains=ConfigParam(
+        str,
+        None,
+        description="""Normalises the gains.
                 Only available when solver is "gain_substitution".
                 Possible types of normalization are: "mean", "median".
                 To perform no normalization, set this to ``null``.
                 """,
-                allowed_values=[None, "mean", "median"],
-                nullable=True,
-            ),
-            jones_type=ConfigParam(
-                str,
-                "T",
-                description="""Type of calibration matrix T or G or B.
+        allowed_values=[None, "mean", "median"],
+        nullable=True,
+    ),
+    jones_type=ConfigParam(
+        str,
+        "T",
+        description="""Type of calibration matrix T or G or B.
                 The frequency axis of the output GainTable
                 depends on the value provided:
                 "B": the output frequency axis is the same as
@@ -100,13 +99,13 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
                 frequency-independent, and the frequency axis of the
                 output contains a single value: the average frequency
                 of the input Visibility's channels.""",
-                allowed_values=["T", "G", "B"],
-                nullable=False,
-            ),
-            timeslice=ConfigParam(
-                float,
-                None,
-                description="""Defines time scale over which each gain solution
+        allowed_values=["T", "G", "B"],
+        nullable=False,
+    ),
+    timeslice=ConfigParam(
+        float,
+        None,
+        description="""Defines time scale over which each gain solution
                 is valid. This is used to define time axis of the GainTable.
                 This parameter is interpreted as follows,
 
@@ -117,8 +116,8 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
 
                 ``None``: match the time resolution of the input, i.e. copy
                 the time axis of the input Visibility""",
-            ),
-        )
+    ),
+)
 
 RUN_SOLVER_DOCSTRING = """
             Configuration required for bandpass calibration.
@@ -178,6 +177,7 @@ RUN_SOLVER_DOCSTRING = """
                     the time axis of the input Visibility
 """.lstrip()
 
+
 @ConfigurableStage(
     "bandpass_calibration",
     configuration=Configuration(
@@ -185,13 +185,21 @@ RUN_SOLVER_DOCSTRING = """
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
-                bool, False, description="Plot the generated gaintable", nullable=False,
+                bool,
+                False,
+                description="Plot the generated gaintable",
+                nullable=False,
             ),
             fixed_axis=ConfigParam(
-                bool, False, description="Limit amplitude axis to [0-1]", nullable=False,
+                bool,
+                False,
+                description="Limit amplitude axis to [0-1]",
+                nullable=False,
             ),
         ),
-        flagging=ConfigParam(bool, False, description="Run RFI flagging", nullable=False),
+        flagging=ConfigParam(
+            bool, False, description="Run RFI flagging", nullable=False
+        ),
     ),
 )
 def bandpass_calibration_stage(
@@ -264,4 +272,6 @@ def bandpass_calibration_stage(
     return upstream_output
 
 
-bandpass_calibration_stage.__doc__ = bandpass_calibration_stage.__doc__.format(run_solver_docstring=RUN_SOLVER_DOCSTRING)
+bandpass_calibration_stage.__doc__ = bandpass_calibration_stage.__doc__.format(
+    run_solver_docstring=RUN_SOLVER_DOCSTRING
+)
