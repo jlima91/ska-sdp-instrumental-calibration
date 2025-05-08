@@ -8,10 +8,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ...data_managers.dask_wrappers import run_solver
 from ...processing_tasks.post_processing import model_rotations
 from ..utils import plot_gaintable
-from .bandpass_calibration import (
-    RUN_SOLVER_DOCSTRING,
-    RUN_SOLVER_NESTED_CONFIG,
-)
+from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 
 @ConfigurableStage(
