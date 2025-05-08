@@ -45,6 +45,14 @@ Classes
 Stages
 ------
 
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.load_data
+   :members:
+   :undoc-members:
+
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.model_visibilities
+   :members:
+   :undoc-members:
+
 .. automodule:: ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration
    :members:
    :undoc-members:
@@ -53,18 +61,10 @@ Stages
    :members:
    :undoc-members:
 
-.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.data_exports
-   :members:
-   :undoc-members:
-
 .. automodule:: ska_sdp_instrumental_calibration.workflow.stages.delay_calibration
    :members:
    :undoc-members:
 
-.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.load_data
-   :members:
-   :undoc-members:
-
-.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.model_visibilities
+.. automodule:: ska_sdp_instrumental_calibration.workflow.stages.data_exports
    :members:
    :undoc-members:

@@ -111,7 +111,7 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
 )
 
 RUN_SOLVER_DOCSTRING = """
-            Configuration required for bandpass calibration.
+            Configuration required for solver.
                 solver: str
                     Calibration algorithm to use (default="gain_substitution")
                     options are:
