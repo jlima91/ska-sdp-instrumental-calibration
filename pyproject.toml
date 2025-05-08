@@ -1,6 +1,6 @@
 [project]
 name = "ska-sdp-instrumental-calibration"
-version = "0.2.1"
+version = "0.2.2"
 description = "SKA Instrumental Calibration Pipeline"
 authors = [
     { name = "Daniel Mitchell", email = "daniel.mitchell@csiro.au" },
@@ -9,7 +9,7 @@ authors = [
 
 [tool.poetry]
 name = "ska-sdp-instrumental-calibration"
-version = "0.2.1"
+version = "0.2.2"
 description = "SKA Instrumental Calibration Pipeline"
 authors = ["Daniel Mitchell <daniel.mitchell@csiro.au>", "Stephen Ord <stephen.ord@csiro.au>"]
 license = "BSD-3-Clause"
@@ -44,6 +44,8 @@ ska-sdp-dataproduct-metadata = "^1.0.0.post1"
 [tool.poetry.extras]
 python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]
+ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
+
 
 [tool.poetry.group.dev.dependencies]
 mock = "^5.1.0"
