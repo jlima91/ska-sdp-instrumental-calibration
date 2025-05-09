@@ -51,12 +51,14 @@ def test_should_run_pipeline_with_custom_order_of_stages(
 
     mock_bandpass_1 = Mock(name="bandpass_mock_stage_1")
     mock_bandpass_2 = Mock(name="bandpass_mock_stage_2")
+    mock_export_gaintable_1 = Mock(name="export_gaintable_mock_stage_1")
     mock_generate_rm_1 = Mock(name="mock_generate_rm_1")
     tempfile_mock.return_value = (1, "tmp/tempfile.yml")
     deepcopy_mock.side_effect = [
         mock_bandpass_1,
         mock_generate_rm_1,
         mock_bandpass_2,
+        mock_export_gaintable_1,
     ]
 
     inst_pipeline_mock._stages = [
@@ -74,8 +76,10 @@ def test_should_run_pipeline_with_custom_order_of_stages(
                     {"generate_channel_rm": {}},
                     {"bandpass_calibration": {}},
                     {"bandpass_calibration": {}},
+                    {"export_gain_table": {}},
                     {"generate_channel_rm": {}},
                     {"bandpass_calibration": {}},
+                    {"export_gain_table": {}},
                 ]
             }
         }
@@ -89,6 +93,7 @@ def test_should_run_pipeline_with_custom_order_of_stages(
             call(bandpass_calibration_stage),
             call(generate_channel_rm_stage),
             call(bandpass_calibration_stage),
+            call(export_gaintable_stage),
         ]
     )
     stages_mock.assert_called_once_with(
@@ -97,14 +102,16 @@ def test_should_run_pipeline_with_custom_order_of_stages(
             generate_channel_rm_stage,
             bandpass_calibration_stage,
             mock_bandpass_1,
+            export_gaintable_stage,
             mock_generate_rm_1,
             mock_bandpass_2,
-            export_gaintable_stage,
+            mock_export_gaintable_1,
         ]
     )
     assert mock_bandpass_1.name == "bandpass_calibration_1"
     assert mock_bandpass_2.name == "bandpass_calibration_2"
     assert mock_generate_rm_1.name == "generate_channel_rm_1"
+    assert mock_export_gaintable_1.name == "export_gain_table_1"
     inst_pipeline_mock._run.assert_called_once_with(cli_args)
 
 

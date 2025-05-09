@@ -67,10 +67,7 @@ def experimental(cli_args):
         cli_args: argparse.Namespace
             CLI arguments
     """
-    fixed_stages = [
-        load_data_stage.name,
-        export_gaintable_stage.name,
-    ]
+    fixed_stages = [load_data_stage.name]
 
     stage_mapping = {
         stage.name: stage
@@ -121,13 +118,7 @@ def experimental(cli_args):
             reconfigured_stages.append(stage)
 
         if reconfigured_stages:
-            stages = Stages(
-                [
-                    load_data_stage,
-                    *reconfigured_stages,
-                    export_gaintable_stage,
-                ]
-            )
+            stages = Stages([load_data_stage, *reconfigured_stages])
 
             ska_sdp_instrumental_calibration._stages = stages
             config["parameters"] = new_parameters
