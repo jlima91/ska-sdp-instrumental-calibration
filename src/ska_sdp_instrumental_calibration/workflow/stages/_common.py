@@ -1,5 +1,5 @@
 """
-Common stuff shared between different stages.
+Common configuration elements shared between different stages.
 """
 
 from ska_sdp_piper.piper.configurations import ConfigParam, NestedConfigParam
