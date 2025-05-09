@@ -10,6 +10,8 @@ sys.path.append(f"{module_dir}/../src")
 from ska_sdp_piper.piper.configurations.nested_config import NestedConfigParam
 from ska_sdp_instrumental_calibration.workflow.pipelines import instrumental_calibration
 
+NONE_FILL = "``null``"
+
 ############################################
 # Creating dictionary of dataframes
 # Each dataframe contains Configuration info
@@ -37,7 +39,7 @@ def generate_config_dfs_per_stage(pipeline_definition):
         for name, config_param in stage._Stage__config._config_params.items():
             df.extend(process_config_param(name, config_param))
 
-        df = pd.DataFrame(df).fillna("None")
+        df = pd.DataFrame(df)
         if df.empty:
             continue
 
@@ -47,8 +49,10 @@ def generate_config_dfs_per_stage(pipeline_definition):
         df.columns = df.columns.str.capitalize()
         df["Type"] = df["Type"].apply(lambda x: x.__name__)
         df["Allowed values"] = df["Allowed values"].apply(
-            lambda x: "" if x == "None" else x
+            lambda value: "" if value is None else [NONE_FILL if x is None else x for x in value]
         )
+        df = df.fillna(NONE_FILL)
+
         dataframes[stage.name] = df
 
     return dataframes
@@ -65,7 +69,7 @@ header = """Stages and configurations
 .. This page is generated using docs/generate_config.py
 
 The descriptions of each stage are copied from the docstrings of stages.
-Refer to the `API page for stages <api/ska_sdp_spectral_line_imaging.stages.html>`_
+Refer to the `API page for stages <package/guide.html#stages>`_
 
 Each stage has parameters, which are defined in the YAML config file passed to the pipeline.
 """

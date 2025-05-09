@@ -13,10 +13,16 @@ handling functions for parallel processing, and high level pipeline scripts and
 notebooks.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Readme
 
    README
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Releases
+
+   CHANGELOG
 
 .. toctree::
    :maxdepth: 1
