@@ -1,6 +1,5 @@
-###########
-Change Log
-###########
+Changelog
+#########
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
@@ -9,7 +8,7 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 Added
 -----
-* Optional metadata generation.
+* Make metadata generation optional.
 
 
 0.2.1
