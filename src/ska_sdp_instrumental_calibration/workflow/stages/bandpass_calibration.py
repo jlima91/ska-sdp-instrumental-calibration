@@ -66,9 +66,14 @@ def bandpass_calibration_stage(
     """
 
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
+
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
     vis = upstream_output.vis
+
+    call_counter_suffix = ""
+    if call_count := upstream_output.get_call_count("bandpass"):
+        call_counter_suffix = f"_{call_count}"
 
     # [TODO] Remove this section once model_rotations returns xarray
     run_solver_func = (
@@ -93,7 +98,9 @@ def bandpass_calibration_stage(
     )
 
     if plot_config["plot_table"]:
-        path_prefix = os.path.join(_output_dir_, "bandpass")
+        path_prefix = os.path.join(
+            _output_dir_, f"bandpass{call_counter_suffix}"
+        )
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -105,7 +112,7 @@ def bandpass_calibration_stage(
         )
 
     upstream_output["gaintable"] = gaintable
-
+    upstream_output.increment_call_count("bandpass")
     return upstream_output
 
 

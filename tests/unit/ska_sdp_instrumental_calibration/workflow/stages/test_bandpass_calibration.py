@@ -1,4 +1,4 @@
-from mock import Mock, patch
+from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.stages import (
@@ -71,7 +71,7 @@ def test_should_perform_bandpass_calibration(run_solver_mock):
     "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
     ".run_solver"
 )
-def test_should_plot_bp_gaintable(
+def test_should_plot_bp_gaintable_with_proper_suffix(
     run_solver_mock, plot_gaintable_mock, dask_delayed_mock
 ):
     upstream_output = UpstreamOutput()
@@ -102,12 +102,31 @@ def test_should_plot_bp_gaintable(
         _output_dir_="/output/path",
     )
 
-    plot_gaintable_mock.assert_called_once_with(
-        gaintable_mock,
-        "/output/path/bandpass",
-        figure_title="Bandpass",
-        fixed_axis=True,
-        all_station_plot=True,
+    bandpass_calibration_stage.stage_definition(
+        upstream_output,
+        run_solver_config=run_solver_config,
+        plot_config=plot_config,
+        flagging=False,
+        _output_dir_="/output/path",
+    )
+
+    plot_gaintable_mock.assert_has_calls(
+        [
+            call(
+                gaintable_mock,
+                "/output/path/bandpass",
+                figure_title="Bandpass",
+                fixed_axis=True,
+                all_station_plot=True,
+            ),
+            call(
+                gaintable_mock,
+                "/output/path/bandpass_1",
+                figure_title="Bandpass",
+                fixed_axis=True,
+                all_station_plot=True,
+            ),
+        ]
     )
 
 

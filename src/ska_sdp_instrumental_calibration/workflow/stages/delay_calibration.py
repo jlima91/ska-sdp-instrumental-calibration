@@ -52,10 +52,14 @@ def delay_calibration_stage(
 
     gaintable = upstream_output["gaintable"]
 
+    call_counter_suffix = ""
+    if call_count := upstream_output.get_call_count("delay"):
+        call_counter_suffix = f"_{call_count}"
+
     gaintable = dask.delayed(apply_delay)(gaintable, oversample)
 
     if plot_config["plot_table"]:
-        path_prefix = os.path.join(_output_dir_, "delay")
+        path_prefix = os.path.join(_output_dir_, f"delay{call_counter_suffix}")
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -66,5 +70,6 @@ def delay_calibration_stage(
         )
 
     upstream_output["gaintable"] = gaintable
+    upstream_output.increment_call_count("delay")
 
     return upstream_output

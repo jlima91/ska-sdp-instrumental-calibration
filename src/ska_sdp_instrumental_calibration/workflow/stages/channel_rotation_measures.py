@@ -73,11 +73,18 @@ def generate_channel_rm_stage(
     if fchunk != -1:
         initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
 
+    call_counter_suffix = ""
+    if call_count := upstream_output.get_call_count("channel_rm"):
+        call_counter_suffix = f"_{call_count}"
+
+    path_prefix = os.path.join(
+        _output_dir_, f"channel_rm{call_counter_suffix}"
+    )
     gaintable = dask.delayed(model_rotations)(
         initialtable,
         peak_threshold=peak_threshold,
         plot_sample=plot_table,
-        plot_path_prefix=_output_dir_,
+        plot_path_prefix=path_prefix,
     )
 
     gaintable = dask.delayed(run_solver)(
@@ -96,7 +103,6 @@ def generate_channel_rm_stage(
     )
 
     if plot_table:
-        path_prefix = os.path.join(_output_dir_, "channel_rm")
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -106,6 +112,8 @@ def generate_channel_rm_stage(
             )
         )
     upstream_output["gaintable"] = gaintable
+    upstream_output.increment_call_count("channel_rm")
+
     return upstream_output
 
 
