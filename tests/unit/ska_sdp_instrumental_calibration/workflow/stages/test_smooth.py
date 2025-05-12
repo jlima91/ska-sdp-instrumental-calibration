@@ -16,8 +16,14 @@ def test_should_smooth_the_gian_solution():
     gaintable_mock.gain.rolling.return_value = rolled_array_mock
     upstream_output.gaintable = gaintable_mock
 
+    plot_config = {
+        "plot_table": False,
+        "plot_path_prefix": "./some/path",
+        "plot_title": "plot title",
+    }
+
     smooth_gain_solution_stage.stage_definition(
-        upstream_output, 3, "median", False, "./output/path"
+        upstream_output, 3, "median", plot_config, "./output/path"
     )
 
     gaintable_mock.gain.rolling.assert_called_once_with(
@@ -37,8 +43,14 @@ def test_should_smooth_the_gian_solution_using_sliding_window_mean():
     gaintable_mock.gain.rolling.return_value = rolled_array_mock
     upstream_output.gaintable = gaintable_mock
 
+    plot_config = {
+        "plot_table": False,
+        "plot_path_prefix": "./some/path",
+        "plot_title": "plot title",
+    }
+
     smooth_gain_solution_stage.stage_definition(
-        upstream_output, 3, "mean", False, "./output/path"
+        upstream_output, 3, "mean", plot_config, "./output/path"
     )
 
     gaintable_mock.gain.rolling.assert_called_once_with(
@@ -59,15 +71,23 @@ def test_should_plot_the_smoothed_gain_solution(plot_gaintable_mock):
 
     rolled_array_mock.mean.return_value = smooth_gain_mock
     gaintable_mock.gain.rolling.return_value = rolled_array_mock
+    gaintable_mock.assign.return_value = gaintable_mock
+
     upstream_output.gaintable = gaintable_mock
 
+    plot_config = {
+        "plot_table": True,
+        "plot_path_prefix": "some/path",
+        "plot_title": "plot title",
+    }
+
     smooth_gain_solution_stage.stage_definition(
-        upstream_output, 3, "mean", True, "./output/path"
+        upstream_output, 3, "mean", plot_config, "./output/path"
     )
 
     plot_gaintable_mock.assert_called_once_with(
-        smooth_gain_mock,
-        "./output/path/smoothed-gaintable",
-        figure_title="Smoothed Gain",
+        gaintable_mock,
+        "./output/path/some/path",
+        figure_title="plot title",
         drop_cross_pols=False,
     )
