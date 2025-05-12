@@ -63,6 +63,10 @@ def smooth_gain_solution_stage(
         dict
             Updated upstream_output with gaintable
     """
+    call_counter_suffix = ""
+    if call_count := upstream_output.get_call_count("smooth"):
+        call_counter_suffix = f"_{call_count}"
+
     rolled_gain = upstream_output.gaintable.gain.rolling(
         frequency=window_size, center=True
     )
@@ -78,7 +82,8 @@ def smooth_gain_solution_stage(
 
     if plot_config["plot_table"]:
         path_prefix = os.path.join(
-            _output_dir_, plot_config["plot_path_prefix"]
+            _output_dir_,
+            f"{plot_config['plot_path_prefix']}{call_counter_suffix}",
         )
         upstream_output.add_compute_tasks(
             plot_gaintable(
@@ -88,5 +93,6 @@ def smooth_gain_solution_stage(
                 drop_cross_pols=False,
             )
         )
+    upstream_output.increment_call_count("smooth")
 
     return upstream_output
