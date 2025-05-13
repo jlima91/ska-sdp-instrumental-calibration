@@ -1,12 +1,11 @@
 import os
 from copy import deepcopy
 
-import dask
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import run_solver
-from ...processing_tasks.post_processing import model_rotations
+from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import plot_gaintable
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
@@ -80,14 +79,14 @@ def generate_channel_rm_stage(
     path_prefix = os.path.join(
         _output_dir_, f"channel_rm{call_counter_suffix}"
     )
-    gaintable = dask.delayed(model_rotations)(
+    gaintable = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
         plot_sample=plot_table,
         plot_path_prefix=path_prefix,
     )
 
-    gaintable = dask.delayed(run_solver)(
+    gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=gaintable,

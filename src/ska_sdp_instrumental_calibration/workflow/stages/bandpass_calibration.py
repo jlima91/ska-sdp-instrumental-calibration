@@ -1,7 +1,6 @@
 import os
 from copy import deepcopy
 
-import dask.delayed
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -75,14 +74,7 @@ def bandpass_calibration_stage(
     if call_count := upstream_output.get_call_count("bandpass"):
         call_counter_suffix = f"_{call_count}"
 
-    # [TODO] Remove this section once model_rotations returns xarray
-    run_solver_func = (
-        dask.delayed(run_solver)
-        if hasattr(initialtable, "dask")
-        else run_solver
-    )
-
-    gaintable = run_solver_func(
+    gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=initialtable,

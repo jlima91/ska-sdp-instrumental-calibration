@@ -8,11 +8,6 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
 
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
-    "channel_rotation_measures.dask.delayed",
-    side_effect=lambda f: f,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures.run_solver"
 )
 @patch(
@@ -22,7 +17,6 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
 def test_should_generate_channel_rm_using_initial_gaintable(
     model_rotations_mock,
     run_solver_mock,
-    dask_delayed_mock,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -77,22 +71,10 @@ def test_should_generate_channel_rm_using_initial_gaintable(
         jones_type="T",
         timeslice=None,
     )
-    dask_delayed_mock.assert_has_calls(
-        [
-            call(model_rotations_mock),
-            call(run_solver_mock),
-        ]
-    )
 
     assert result["gaintable"] == solved_gaintable_mock
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages."
-    "channel_rotation_measures"
-    ".dask.delayed",
-    side_effect=lambda f: f,
-)
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures"
@@ -104,7 +86,7 @@ def test_should_generate_channel_rm_using_initial_gaintable(
     ".model_rotations"
 )
 def test_should_generate_channel_rm_using_provided_fchunk(
-    model_rotations_mock, run_solver_mock, delayed_mock
+    model_rotations_mock, run_solver_mock
 ):
 
     upstream_output = UpstreamOutput()
@@ -163,12 +145,6 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         jones_type="T",
         timeslice=None,
     )
-    delayed_mock.assert_has_calls(
-        [
-            call(model_rotations_mock),
-            call(run_solver_mock),
-        ]
-    )
 
     assert result["gaintable"] == solved_gaintable_mock
 
@@ -181,12 +157,6 @@ def test_should_generate_channel_rm_using_provided_fchunk(
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures"
-    ".dask.delayed",
-    side_effect=lambda f: f,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages."
-    "channel_rotation_measures"
     ".run_solver"
 )
 @patch(
@@ -195,7 +165,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     ".model_rotations"
 )
 def test_should_plot_channel_rm_gaintable_with_proper_suffix(
-    model_rotations_mock, run_solver_mock, delayed_mock, plot_gaintable_mock
+    model_rotations_mock, run_solver_mock, plot_gaintable_mock
 ):
 
     upstream_output = UpstreamOutput()
