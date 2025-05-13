@@ -6,15 +6,17 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
 )
 
 
-def test_should_smooth_the_gian_solution():
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.sliding_window_smooth"
+)
+def test_should_smooth_the_gain_solution(sliding_window_smooth_mock):
     upstream_output = UpstreamOutput()
-    rolled_array_mock = Mock(name="rolled array")
-    gaintable_mock = Mock(name="gaintable")
-    smooth_gain_mock = Mock(name="smoothened_array")
 
-    rolled_array_mock.median.return_value = smooth_gain_mock
-    gaintable_mock.gain.rolling.return_value = rolled_array_mock
+    gaintable_mock = Mock(name="gaintable")
     upstream_output.gaintable = gaintable_mock
+
+    sliding_window_smooth_mock.return_value = gaintable_mock
 
     plot_config = {
         "plot_table": False,
@@ -26,22 +28,24 @@ def test_should_smooth_the_gian_solution():
         upstream_output, 3, "median", plot_config, "./output/path"
     )
 
-    gaintable_mock.gain.rolling.assert_called_once_with(
-        frequency=3, center=True
+    sliding_window_smooth_mock.assert_called_once_with(
+        upstream_output.gaintable, 3, "median"
     )
-    rolled_array_mock.median.assert_called_once_with()
-    gaintable_mock.assign.assert_called_once_with({"gain": smooth_gain_mock})
 
 
-def test_should_smooth_the_gian_solution_using_sliding_window_mean():
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.sliding_window_smooth"
+)
+def test_should_smooth_the_gain_solution_using_sliding_window_mean(
+    sliding_window_smooth_mock,
+):
     upstream_output = UpstreamOutput()
-    rolled_array_mock = Mock(name="rolled array")
-    gaintable_mock = Mock(name="gaintable")
-    smooth_gain_mock = Mock(name="smoothened_array")
 
-    rolled_array_mock.mean.return_value = smooth_gain_mock
-    gaintable_mock.gain.rolling.return_value = rolled_array_mock
+    gaintable_mock = Mock(name="gaintable")
     upstream_output.gaintable = gaintable_mock
+
+    sliding_window_smooth_mock.return_value = gaintable_mock
 
     plot_config = {
         "plot_table": False,
@@ -53,25 +57,26 @@ def test_should_smooth_the_gian_solution_using_sliding_window_mean():
         upstream_output, 3, "mean", plot_config, "./output/path"
     )
 
-    gaintable_mock.gain.rolling.assert_called_once_with(
-        frequency=3, center=True
+    sliding_window_smooth_mock.assert_called_once_with(
+        upstream_output.gaintable, 3, "mean"
     )
-    rolled_array_mock.mean.assert_called_once_with()
-    gaintable_mock.assign.assert_called_once_with({"gain": smooth_gain_mock})
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.smooth.plot_gaintable"
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.sliding_window_smooth"
 )
-def test_should_plot_the_smoothed_gain_solution(plot_gaintable_mock):
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.plot_gaintable"
+)
+def test_should_plot_the_smoothed_gain_solution(
+    plot_gaintable_mock, sliding_window_smooth_mock
+):
     upstream_output = UpstreamOutput()
-    rolled_array_mock = Mock(name="rolled array")
     gaintable_mock = Mock(name="gaintable")
-    smooth_gain_mock = Mock(name="smoothened_array")
 
-    rolled_array_mock.mean.return_value = smooth_gain_mock
-    gaintable_mock.gain.rolling.return_value = rolled_array_mock
-    gaintable_mock.assign.return_value = gaintable_mock
+    sliding_window_smooth_mock.return_value = gaintable_mock
 
     upstream_output.gaintable = gaintable_mock
 
@@ -94,19 +99,21 @@ def test_should_plot_the_smoothed_gain_solution(plot_gaintable_mock):
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.smooth.plot_gaintable"
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.sliding_window_smooth"
 )
-def test_should_plot_smoothed_gain_solution_with_suffix(plot_gaintable_mock):
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".smooth_gain_solution.plot_gaintable"
+)
+def test_should_plot_smoothed_gain_solution_with_suffix(
+    plot_gaintable_mock, sliding_window_smooth_mock
+):
     upstream_output = UpstreamOutput()
-    rolled_array_mock = Mock(name="rolled array")
     gaintable_mock = Mock(name="gaintable")
-    smooth_gain_mock = Mock(name="smoothened_array")
-
-    rolled_array_mock.mean.return_value = smooth_gain_mock
-    gaintable_mock.gain.rolling.return_value = rolled_array_mock
-    gaintable_mock.assign.return_value = gaintable_mock
 
     upstream_output.gaintable = gaintable_mock
+    sliding_window_smooth_mock.return_value = gaintable_mock
 
     plot_config = {
         "plot_table": True,

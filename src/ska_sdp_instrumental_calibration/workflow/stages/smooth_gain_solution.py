@@ -9,6 +9,8 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
+from ...processing_tasks.sliding_window_smooth import sliding_window_smooth
+
 
 @ConfigurableStage(
     "smooth_gain_solution",
@@ -67,17 +69,8 @@ def smooth_gain_solution_stage(
     if call_count := upstream_output.get_call_count("smooth"):
         call_counter_suffix = f"_{call_count}"
 
-    rolled_gain = upstream_output.gaintable.gain.rolling(
-        frequency=window_size, center=True
-    )
-
-    if mode == "mean":
-        smooth_gain = rolled_gain.mean()
-    else:
-        smooth_gain = rolled_gain.median()
-
-    upstream_output.gaintable = upstream_output.gaintable.assign(
-        {"gain": smooth_gain}
+    upstream_output.gaintable = sliding_window_smooth(
+        upstream_output.gaintable, window_size, mode
     )
 
     if plot_config["plot_table"]:
