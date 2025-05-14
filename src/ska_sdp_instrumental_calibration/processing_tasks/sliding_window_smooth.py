@@ -11,4 +11,6 @@ def sliding_window_smooth(
     else:
         smooth_gain = rolled_gain.median()
 
-    return gaintable.assign({"gain": smooth_gain})
+    return gaintable.assign(
+        {"gain": smooth_gain.chunk(gaintable.gain.chunksizes)}
+    )

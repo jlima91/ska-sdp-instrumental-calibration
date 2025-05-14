@@ -85,7 +85,7 @@ def model_rotations(
             ax.set_xlim((-xlim, xlim))
             ax.grid()
             ax.legend()
-            plt.savefig(f"{plot_path_prefix}-rm-station.png")
+            plt.savefig(f"{plot_path_prefix}/rm-station.png")
 
     modeltable = gaintable.copy(deep=True)
     for stn in range(nstations):
