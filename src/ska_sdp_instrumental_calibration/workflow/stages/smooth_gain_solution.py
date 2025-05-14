@@ -9,7 +9,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
-from ...processing_tasks.sliding_window_smooth import sliding_window_smooth
+from ...processing_tasks.gain_smoothing import sliding_window_smooth
 
 
 @ConfigurableStage(

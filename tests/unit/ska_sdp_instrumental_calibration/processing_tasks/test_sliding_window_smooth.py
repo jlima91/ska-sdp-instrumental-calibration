@@ -1,7 +1,8 @@
 # flake8: noqa:E501
+import pytest
 from mock import Mock
 
-from ska_sdp_instrumental_calibration.processing_tasks.sliding_window_smooth import (
+from ska_sdp_instrumental_calibration.processing_tasks.gain_smoothing import (
     sliding_window_smooth,
 )
 
@@ -50,3 +51,14 @@ def test_sliding_window_smooth_with_median():
         {"gain": chunked_smooth_gain_mock}
     )
     smooth_gain_mock.chunk.assert_called_once_with("chunksizes")
+
+
+def test_sliding_window_smooth_with_invalid_mode():
+    rolled_array_mock = Mock(name="rolled array")
+    gaintable_mock = Mock(name="gaintable")
+
+    gaintable_mock.gain.rolling.return_value = rolled_array_mock
+
+    with pytest.raises(ValueError) as error:
+        sliding_window_smooth(gaintable_mock, 3, "invalid")
+        assert error.msg == "Unsupported sliding window smooth mode invalid"
