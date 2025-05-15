@@ -1,7 +1,8 @@
 from mock import MagicMock, Mock, call, patch
-from numpy import array, testing
+from numpy import array, nan, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    apply_weights_on_gain,
     plot_all_stations,
     plot_gaintable,
     subplot_gaintable,
@@ -532,3 +533,21 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
             call(2, 1, sharex=True),
         ]
     )
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.xr")
+def test_should_apply_weights_on_gaintable(xr_mock):
+    xr_mock.where.return_value = "weighted_gain"
+
+    gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.weight = "weight"
+    gaintable_mock.gain = "gain"
+    gaintable_mock.assign.return_value = "weighted_gaintable"
+
+    result = apply_weights_on_gain(gaintable_mock)
+
+    xr_mock.where.assert_called_once_with("weight", nan, "gain")
+
+    gaintable_mock.assign.assert_called_once_with({"gain": "weighted_gain"})
+
+    assert result == "weighted_gaintable"

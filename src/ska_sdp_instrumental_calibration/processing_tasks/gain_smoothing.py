@@ -12,10 +12,10 @@ def sliding_window_smooth(
 
     if mode == "mean":
         logger.info("Using sliding window smooth with mean mode.")
-        smooth_gain = rolled_gain.mean()
+        smooth_gain = rolled_gain.mean(skipna=True)
     elif mode == "median":
         logger.info("Using sliding window smooth with median mode.")
-        smooth_gain = rolled_gain.median()
+        smooth_gain = rolled_gain.median(skipna=True)
     else:
         raise ValueError(f"Unsupported sliding window smooth mode {mode}")
 

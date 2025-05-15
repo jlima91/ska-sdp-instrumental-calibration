@@ -23,7 +23,7 @@ def test_sliding_window_smooth_with_mean():
     gaintable_mock.gain.rolling.assert_called_once_with(
         frequency=3, center=True
     )
-    rolled_array_mock.mean.assert_called_once_with()
+    rolled_array_mock.mean.assert_called_once_with(skipna=True)
     gaintable_mock.assign.assert_called_once_with(
         {"gain": chunked_smooth_gain_mock}
     )
@@ -46,7 +46,7 @@ def test_sliding_window_smooth_with_median():
     gaintable_mock.gain.rolling.assert_called_once_with(
         frequency=3, center=True
     )
-    rolled_array_mock.median.assert_called_once_with()
+    rolled_array_mock.median.assert_called_once_with(skipna=True)
     gaintable_mock.assign.assert_called_once_with(
         {"gain": chunked_smooth_gain_mock}
     )

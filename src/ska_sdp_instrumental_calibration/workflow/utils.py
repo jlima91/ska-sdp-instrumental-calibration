@@ -630,3 +630,8 @@ def subplot_gaintable(
     fig.legend(handles, labels, loc="outside upper right")
     fig.savefig(path)
     plt.close()
+
+
+def apply_weights_on_gain(gaintable: xr.Dataset) -> xr.Dataset:
+    gain = xr.where(gaintable.weight, np.nan, gaintable.gain)
+    return gaintable.assign({"gain": gain})

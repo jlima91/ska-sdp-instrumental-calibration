@@ -7,7 +7,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    apply_weights_on_gain,
+    plot_gaintable,
+)
 
 from ...processing_tasks.gain_smoothing import sliding_window_smooth
 
@@ -21,6 +24,11 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
             "median",
             description="Mode of smoothing",
             allowed_values=["mean", "median"],
+        ),
+        apply_weights=ConfigParam(
+            bool,
+            False,
+            description="Should apply weights on gaintable",
         ),
         plot_config=NestedConfigParam(
             "Plot parameters",
@@ -41,7 +49,12 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
     ),
 )
 def smooth_gain_solution_stage(
-    upstream_output, window_size, mode, plot_config, _output_dir_
+    upstream_output,
+    window_size,
+    mode,
+    apply_weights,
+    plot_config,
+    _output_dir_,
 ):
     """
     Smooth the gain solution.
@@ -54,6 +67,8 @@ def smooth_gain_solution_stage(
             Size of the window for running window smoothing
     mode: str
             Mode of smoothing. [mean or median]
+    apply_weights: bool
+            Should apply weights on gaintable.
     plot_config: dict
         Configuration required for plotting.
         {plot_table: False, plot_path_prefix: "smoothed-gain",
@@ -68,6 +83,11 @@ def smooth_gain_solution_stage(
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("smooth"):
         call_counter_suffix = f"_{call_count}"
+
+    if apply_weights:
+        upstream_output.gaintable = apply_weights_on_gain(
+            upstream_output.gaintable
+        )
 
     upstream_output.gaintable = sliding_window_smooth(
         upstream_output.gaintable, window_size, mode
