@@ -3,6 +3,7 @@
 
 __all__ = [
     "predict_from_components",
+    "generate_rotation_matrices",
 ]
 
 import gc
@@ -11,11 +12,11 @@ import os
 from typing import Optional
 
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import AltAz
 from astropy.time import Time
-from numpy import typing
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
@@ -28,9 +29,9 @@ logger = setup_logger("processing_tasks.predict")
 
 
 def gaussian_tapers(
-    uvw: typing.NDArray[float],
+    uvw: npt.NDArray[float],
     params: dict[float],
-) -> typing.NDArray[float]:
+) -> npt.NDArray[float]:
     """Calculated visibility amplitude tapers for Gaussian components.
 
     Note: this needs to be tested. Generate, image and fit a model component?
@@ -101,6 +102,30 @@ def dft_skycomponent_local(
     return vis
 
 
+def generate_rotation_matrices(
+    rm: npt.NDArray[float],
+    frequency: npt.NDArray[float],
+    dtype: float = float,
+) -> npt.NDArray[float]:
+    """Generate station rotation matrices from RM values.
+
+    :param rm: 1D array of rotation measure values [nstation].
+    :param frequency: 1D array of frequency values [nfrequency].
+    :return: 4D array of rotation matrices: [nstation, nfrequency, 2, 2].
+    """
+    rot_array = np.zeros((len(rm), len(frequency), 2, 2), dtype=dtype)
+    lambda_sq = (const.c.value / frequency) ** 2  # pylint: disable=no-member
+    for stn, val in enumerate(rm):
+        phi = val * lambda_sq
+        rot_array[stn] = np.stack(
+            (np.cos(phi), -np.sin(phi), np.sin(phi), np.cos(phi)),
+            axis=1,
+            dtype=dtype,
+        ).reshape(-1, 2, 2)
+
+    return rot_array
+
+
 def predict_from_components(
     vis: xr.Dataset,
     skycomponents: list[SkyComponent],
@@ -108,6 +133,7 @@ def predict_from_components(
     beam_type: str = "everybeam",
     eb_coeffs: Optional[str] = None,
     eb_ms: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
 ) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 
@@ -121,6 +147,7 @@ def predict_from_components(
         Required if beam_type is "everybeam".
     :param eb_ms: Measurement set need to initialise the everybeam telescope.
         Required if bbeam_type is "everybeam".
+    :param station_rm: Station rotation measure values. Default is None.
     :param reset_vis: Whether or not to set visibilities to zero before
             accumulating components. Default is False.
     """
@@ -160,11 +187,20 @@ def predict_from_components(
 
     else:
         logger.info("No beam model used in predict")
-        response = np.zeros(
+
+    # Set up the Faraday rotation model
+    if station_rm is not None:
+        if len(station_rm) != len(vis.configuration.id):
+            raise ValueError("unexpected length for station_rm")
+        rot_array = generate_rotation_matrices(
+            station_rm, vis.frequency.data, dtype=vis.vis.dtype
+        )
+    else:
+        rot_array = np.zeros(
             (len(vis.configuration.id), len(vis.frequency), 2, 2),
             dtype=vis.vis.dtype,
         )
-        response[..., :, :] = np.eye(2)
+        rot_array[..., :, :] = np.eye(2)
 
     # Use dft_skycomponent_local when the sdp-func DFT is unavailable
     use_local_dft = importlib.util.find_spec("ska_sdp_func") is None
@@ -210,12 +246,23 @@ def predict_from_components(
             if altaz.alt.degree < 0:
                 logger.warning("LSM component [%s] below horizon", comp.name)
                 continue
-
-            response = beams.array_response(
-                direction=comp.direction,
-                frequency=vis.frequency.data,
-                time=time,
+            max_ant = max(
+                np.max(compvis.antenna1.data),
+                np.max(compvis.antenna2.data),
             )
+            # This ID mapping will not always work when the eb_ms file is
+            # different. Should restrict the form of the eb_ms files allowed,
+            # or preferably deprecate the eb_ms option.
+            response = (
+                beams.array_response(
+                    direction=comp.direction,
+                    frequency=vis.frequency.data,
+                    time=time,
+                )[vis.configuration.id]
+                @ rot_array
+            )
+        else:
+            response = rot_array
 
         # Accumulate component in the main dataset
         vis.vis.data = vis.vis.data + (

@@ -28,7 +28,6 @@ from ska_sdp_func_python.preprocessing.averaging import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    ingest_predict_and_solve,
     load_ms,
     predict_vis,
     run_solver,
@@ -107,125 +106,108 @@ def run(pipeline_config) -> None:
     logger.info(f"LSM contains {len(config.lsm)} components")
 
     if config.end_to_end_subbands:
+        logger.warning("Not running end-to-end version.")
 
-        # Call the solver
-        refant = 0
-        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
-        logger.info("end_to_end_subbands = true")
-        initialtable = ingest_predict_and_solve(
-            ms_name=config.ms_name,
-            fchunk=config.fchunk,
-            lsm=config.lsm,
-            beam_type=config.beam_type,
-            eb_ms=config.eb_ms,
-            eb_coeffs=config.eb_coeffs,
-            solver="jones_substitution",
-            niter=20,
-            refant=refant,
-        )
+    # If the vis data and model can fit into memory, the load_ms and
+    # predict_vis calls could be returned with .persist() so that they do
+    # not need to be run again for the second run_solver call.
+    # For now they will just be regenerated.
 
-    else:
+    # Read in the Visibility dataset
+    logger.info(
+        f"Will ingest {config.ms_name} in {config.fchunk}-channel chunks"
+    )
+    vis = load_ms(config.ms_name, config.fchunk)  # .persist()
 
-        # If the vis data and model can fit into memory, the load_ms and
-        # predict_vis calls could be returned with .persist() so that they do
-        # not need to be run again for the second run_solver call.
-        # For now they will just be regenerated.
+    # Pre-processing
+    rfi_flagging = False  # not yet set up for dask chunks
+    preproc_ave_time = 1  # not yet set up for dask chunks
+    preproc_ave_frequency = 1  # not yet set up for dask chunks
 
-        # Read in the Visibility dataset
-        logger.info(
-            f"Will ingest {config.ms_name} in {config.fchunk}-channel chunks"
-        )
-        vis = load_ms(config.ms_name, config.fchunk)  # .persist()
+    # Pre-processing
+    #  - Full-band operations trigger the computation, so leave for now.
+    #  - Move to dask_wrappers?
+    #     - Any time or freq averaging should perhaps be added to load_ms
+    #  - Do RFI flagging?
+    if rfi_flagging:
+        logger.info("Calling rfi_flagger")
+        vis = rfi_flagger(vis)
+    #  - Time averaging?
+    if preproc_ave_time > 1:
+        logger.info(f"Averaging vis by {preproc_ave_time} time steps")
+        vis = averaging_time(vis, timestep=preproc_ave_time)
+    #  - Frequency averaging?
+    if preproc_ave_frequency > 1:
+        logger.info(f"Averaging vis by {preproc_ave_frequency} channels")
+        # Auto average to 781.25 kHz?
+        # dfrequency_bf = 781.25e3
+        # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
+        # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
+        vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
 
-        # Pre-processing
-        rfi_flagging = False  # not yet set up for dask chunks
-        preproc_ave_time = 1  # not yet set up for dask chunks
-        preproc_ave_frequency = 1  # not yet set up for dask chunks
+    # Predict model visibilities
+    logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
+    modelvis = predict_vis(
+        vis,
+        config.lsm,
+        beam_type=config.beam_type,
+        eb_ms=config.eb_ms,
+        eb_coeffs=config.eb_coeffs,
+    )  # .persist()
 
-        # Pre-processing
-        #  - Full-band operations trigger the computation, so leave for now.
-        #  - Move to dask_wrappers?
-        #     - Any time or freq averaging should perhaps be added to load_ms
-        #  - Do RFI flagging?
-        if rfi_flagging:
-            logger.info("Calling rfi_flagger")
-            vis = rfi_flagger(vis)
-        #  - Time averaging?
-        if preproc_ave_time > 1:
-            logger.info(f"Averaging vis by {preproc_ave_time} time steps")
-            vis = averaging_time(vis, timestep=preproc_ave_time)
-        #  - Frequency averaging?
-        if preproc_ave_frequency > 1:
-            logger.info(f"Averaging vis by {preproc_ave_frequency} channels")
-            # Auto average to 781.25 kHz?
-            # dfrequency_bf = 781.25e3
-            # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
-            # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
-            vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
-
-        # Predict model visibilities
-        logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
-        modelvis = predict_vis(
-            vis,
-            config.lsm,
-            beam_type=config.beam_type,
-            eb_ms=config.eb_ms,
-            eb_coeffs=config.eb_coeffs,
-        )  # .persist()
-
-        # Call the solver
-        refant = 0
-        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver jones_substitution")
-        initialtable = run_solver(
-            vis=vis,
-            modelvis=modelvis,
-            solver="jones_substitution",
-            niter=20,
-            refant=refant,
-        )
+    # Call the solver
+    refant = 0
+    logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
+    logger.info(" - Using solver jones_substitution")
+    logger.info(" - Using niter=20 and tol=1e-4 for this initial run")
+    initialtable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        solver="jones_substitution",
+        niter=20,
+        tol=1e-4,
+        refant=refant,
+    )
 
     # Load all of the solutions into a numpy array
     logger.info("Running graph and returning calibration solutions")
     initialtable.load()
 
     # Fit for any differential rotations (single call for all channels).
-    # Return gaintable filled with pure rotations.
+    # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    gaintable = model_rotations(initialtable, plot_sample=True).chunk(
-        {"frequency": config.fchunk}
+    rm_estimates = model_rotations(initialtable, plot_sample=True)
+
+    # Re-predict model visibilities
+    logger.info("Re-predicting model vis with RM estimates")
+    modelvis = predict_vis(
+        vis,
+        config.lsm,
+        beam_type=config.beam_type,
+        eb_ms=config.eb_ms,
+        eb_coeffs=config.eb_coeffs,
+        station_rm=rm_estimates,
+    )  # .persist()
+
+    logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
+    logger.info(" - First using solver jones_substitution again")
+    gaintable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        solver="jones_substitution",
+        niter=20,
+        tol=1e-4,
+        refant=refant,
     )
-
-    # Call the solver with updated initial solutions
-    if config.end_to_end_subbands:
-
-        logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver normal_equations")
-        gaintable = ingest_predict_and_solve(
-            ms_name=config.ms_name,
-            fchunk=config.fchunk,
-            lsm=config.lsm,
-            beam_type=config.beam_type,
-            eb_ms=config.eb_ms,
-            eb_coeffs=config.eb_coeffs,
-            gaintable=gaintable,
-            solver="normal_equations",
-            niter=50,
-            refant=refant,
-        )
-
-    else:
-
-        logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver normal_equations")
-        gaintable = run_solver(
-            vis=vis,
-            modelvis=modelvis,
-            gaintable=gaintable,
-            solver="normal_equations",
-            niter=50,
-            refant=refant,
-        )
+    logger.info(" - Then improving using solver normal_equations")
+    gaintable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        gaintable=gaintable,
+        solver="normal_equations",
+        niter=50,
+        refant=refant,
+    )
 
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")

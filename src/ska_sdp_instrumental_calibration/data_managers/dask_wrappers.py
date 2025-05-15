@@ -187,6 +187,7 @@ def _predict(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Call predict_from_components.
@@ -197,6 +198,7 @@ def _predict(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param reset_vis: Whether or not to set visibilities to zero before
         accumulating components. Default is False.
     :return: Predicted Visibility dataset
@@ -215,6 +217,7 @@ def _predict(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
+            station_rm=station_rm,
             reset_vis=reset_vis,
         )
         # Change variable names back for map_blocks I/O checks
@@ -239,6 +242,7 @@ def predict_vis(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Distributed Visibility predict.
@@ -252,6 +256,7 @@ def predict_vis(
     :param eb_coeffs: Path to Everybeam coeffs directory.
     :param reset_vis: Whether or not to set visibilities to zero before
             accumulating components. Default is False.
+    :param station_rm: Station rotation measure values. Default is None.
     :return: Predicted Visibility dataset
     """
     # Create an empty model Visibility dataset
@@ -259,7 +264,8 @@ def predict_vis(
 
     # Call map_blocks function and return result
     return modelvis.map_blocks(
-        _predict, args=[lsm, beam_type, eb_ms, eb_coeffs, reset_vis]
+        _predict,
+        args=[lsm, beam_type, eb_ms, eb_coeffs, station_rm, reset_vis],
     )
 
 
@@ -412,6 +418,7 @@ def _solve_with_vis_setup(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -467,6 +474,7 @@ def _solve_with_vis_setup(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
+            station_rm=station_rm,
         )
         # Fixme: remove reassignment once YAN-1990 is finalised
         #   current version sets vis: complex128, weight: float64, flags: int64

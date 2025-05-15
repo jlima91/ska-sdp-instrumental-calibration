@@ -197,6 +197,15 @@ def create_demo_ms(
     # Convert the LSM to a Skycomponents list
     lsm_components = convert_model_to_skycomponents(lsm, vis.frequency.data)
 
+    if rotation:
+        logger.info("Applying DI lambda^2-dependent rotations during predict")
+        # Not particularly realistic Faraday rotation
+        # Just a DI term with some nominal variation across the array
+        x = low_config.xyz.data[:, 0]
+        rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
+    else:
+        rm = None
+
     # Predict visibilities and add to the vis dataset
     predict_from_components(
         vis=vis,
@@ -204,6 +213,7 @@ def create_demo_ms(
         beam_type=beam_type,
         eb_coeffs=eb_coeffs,
         eb_ms=eb_ms,
+        station_rm=rm,
     )
 
     # Generate direction-independent random complex antenna Jones matrices
@@ -212,7 +222,7 @@ def create_demo_ms(
     )
     if gains:
         logger.info("Applying direction-independent gain corruptions")
-        g_sigma = 0.1
+        g_sigma = 0.03
         jones.gain.data[..., 0, 0] = (
             np.random.normal(1, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
@@ -225,7 +235,7 @@ def create_demo_ms(
         # Should perhaps do the proper multiplication with the gains.
         # Will do if other effects like xy-phase are added.
         logger.info("Applying direction-independent leakage corruptions")
-        g_sigma = 0.1
+        g_sigma = 0.03
         jones.gain.data[..., 0, 1] = (
             np.random.normal(0, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
@@ -234,23 +244,6 @@ def create_demo_ms(
             np.random.normal(0, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
         )
-    if rotation:
-        logger.info("Applying DI lambda^2-dependent rotations")
-        # Not particularly realistic Faraday rotation gradient across the array
-        x = low_config.xyz.data[:, 0]
-        # pp_rm = 1 + 4 * (x - np.min(x)) / (np.max(x) - np.min(x))
-        pp_rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
-        lambda_sq = (
-            const.c.value / frequency
-        ) ** 2  # pylint: disable=no-member
-        for stn in range(nstations):
-            d_pa = pp_rm[stn] * lambda_sq
-            fr_mat = np.stack(
-                (np.cos(d_pa), -np.sin(d_pa), np.sin(d_pa), np.cos(d_pa)),
-                axis=1,
-            ).reshape(-1, 2, 2)
-            tmp = jones.gain.data[:, stn].copy()
-            jones.gain.data[:, stn] = np.einsum("tfpx,fxq->tfpq", tmp, fr_mat)
 
     # Apply Jones matrices to the dataset
     vis = apply_gaintable(vis=vis, gt=jones, inverse=False)
