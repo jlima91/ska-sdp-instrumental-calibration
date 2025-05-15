@@ -246,10 +246,6 @@ def predict_from_components(
             if altaz.alt.degree < 0:
                 logger.warning("LSM component [%s] below horizon", comp.name)
                 continue
-            max_ant = max(
-                np.max(compvis.antenna1.data),
-                np.max(compvis.antenna2.data),
-            )
             # This ID mapping will not always work when the eb_ms file is
             # different. Should restrict the form of the eb_ms files allowed,
             # or preferably deprecate the eb_ms option.

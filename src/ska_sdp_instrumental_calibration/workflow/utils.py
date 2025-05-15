@@ -23,7 +23,6 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from astropy import constants as const
 from astropy.coordinates import SkyCoord
 from casacore.tables import table
 
