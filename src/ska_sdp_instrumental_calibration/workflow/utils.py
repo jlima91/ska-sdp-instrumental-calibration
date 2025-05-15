@@ -482,7 +482,7 @@ def plot_gaintable(
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.assign_coords({"pol": polstrs})
-    number_of_stations = gaintable.antenna.size
+    stations = gaintable.configuration.names
 
     if all_station_plot:
         plot_all_stations(gaintable, path_prefix)
@@ -491,8 +491,8 @@ def plot_gaintable(
     n_cols = 3
     plots_per_group = n_rows * n_cols
     plot_groups = np.split(
-        range(number_of_stations),
-        range(plots_per_group, number_of_stations, plots_per_group),
+        stations,
+        range(plots_per_group, stations.size, plots_per_group),
     )
 
     if drop_cross_pols:
@@ -565,7 +565,7 @@ def subplot_gaintable(
     ----------
         gaintable: xr.Dataset
             Gaintable to plot.
-        stations: np.array
+        stations: xr.DataArray
             Stations to plot.
         path_prefix: str
             Path prefix to save the plots.
@@ -581,6 +581,7 @@ def subplot_gaintable(
     frequency = gaintable.frequency / 1e6
     channel = np.arange(len(frequency))
     label = gaintable.pol.values
+    station_names = stations.values
 
     def channel_to_freq(channel):
         return np.interp(channel, np.arange(len(frequency)), frequency)
@@ -593,9 +594,9 @@ def subplot_gaintable(
     primary_axes = None
 
     for idx, subfig in enumerate(subfigs):
-        if idx >= len(stations):
+        if idx >= stations.size:
             break
-        gain = gaintable.gain.isel(time=0, antenna=stations[idx])
+        gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
         amplitude = np.abs(gain)
         phase = np.angle(gain, deg=True)
         phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
@@ -618,10 +619,13 @@ def subplot_gaintable(
 
         for pol_idx, phase_pols in enumerate(phase.T):
             phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
-        subfig.suptitle(f"Station - {stations[idx]}", fontsize="large")
+        subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
 
     handles, labels = primary_axes.get_legend_handles_labels()
-    path = f"{path_prefix}-amp-phase_freq{stations[0]}-{stations[-1]}.png"
+    path = (
+        f"{path_prefix}-amp-phase_freq-"
+        f"{station_names[0]}-{station_names[-1]}.png"
+    )
     fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
     fig.legend(handles, labels, loc="outside upper right")
     fig.savefig(path)
