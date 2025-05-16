@@ -4,6 +4,7 @@ import xarray as xr
 
 from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     apply_delay,
+    calculate_delay,
     calculate_gain_rot,
     coarse_delay,
 )
@@ -13,12 +14,16 @@ def test_should_calculate_coarse_delay():
     oversample = 8
     nstations = 20
     nchan = 4
-    frequency = xr.DataArray(np.linspace(100e6, 150e6, nchan))
+    frequency = np.linspace(100e6, 150e6, nchan)
     gains_per_station = np.ones(nchan) + 1j * np.ones(nchan)
-    gains = np.stack([gains_per_station] * nstations)
+    gains = xr.DataArray(
+        np.stack([gains_per_station] * nstations),
+        dims=["antenna", "frequency"],
+        coords={"antenna": np.arange(nstations), "frequency": frequency},
+    )
 
     expected = np.zeros(nstations)
-    actual = coarse_delay(frequency, gains, oversample)
+    actual = coarse_delay(gains, oversample)
 
     assert np.allclose(expected, actual, atol=1e-11)
 
@@ -79,9 +84,12 @@ def test_calculate_apply_delay():
             "weight": weights,
         },
         coords=coords,
+        attrs={"configuration": "Antenna Configuration"},
     )
 
-    actual_gaintable = apply_delay(gaintable, 4)
+    delay = calculate_delay(gaintable, 4)
+
+    actual_gaintable = apply_delay(gaintable, delay)
 
     expected_gain = np.array(
         [

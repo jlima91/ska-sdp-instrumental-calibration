@@ -7,7 +7,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.processing_tasks.delay import apply_delay
+from ska_sdp_instrumental_calibration.processing_tasks.delay import (
+    apply_delay,
+    calculate_delay,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
 
@@ -55,7 +58,9 @@ def delay_calibration_stage(
     if call_count := upstream_output.get_call_count("delay"):
         call_counter_suffix = f"_{call_count}"
 
-    gaintable = apply_delay(gaintable, oversample)
+    delay = calculate_delay(gaintable, oversample)
+
+    gaintable = apply_delay(gaintable, delay)
 
     if plot_config["plot_table"]:
         path_prefix = os.path.join(_output_dir_, f"delay{call_counter_suffix}")
