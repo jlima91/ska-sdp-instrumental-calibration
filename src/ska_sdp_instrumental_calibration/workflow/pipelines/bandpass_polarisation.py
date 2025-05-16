@@ -4,18 +4,22 @@
 2. Read the Measurement Set in frequency chunks
 3. Initialisations
     - Get a Local Sky Model
-    - RFI flagging
+    - Preprocessing (flagging and averaging) -- currently disabled
 4. Predict model visibilities
     - Convert LSM to Skycomponents list
     - Convert list to vis dataset using dft_skycomponent_visibility
     - Apply Gaussian tapers to extended components
     - Apply everybeam beam models, per component, frequency and baseline
-5. Solve for antenna-based gain terms and add to a GainTable dataset
-6. Save GainTable dataset to HDF5
+5. Solve for station- and frequency-based Jones matrices
+6. Solve for differential Faraday rotation (DI RM per station)
+7. Re-predict model visibilities
+    - Apply station-based RM estimates to components before beam models
+8. Re-solve for station- and frequency-based Jones matrices
+9. Save GainTable dataset to H5Parm
 """
 
 import warnings
-
+import matplotlib.pyplot as plt
 import numpy as np
 from dask.distributed import Client, LocalCluster
 from ska_sdp_datamodels.calibration.calibration_functions import (
@@ -33,12 +37,18 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
+)
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
     model_rotations,
+)
+from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+    generate_rotation_matrices,
 )
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
@@ -176,7 +186,8 @@ def run(pipeline_config) -> None:
     # Fit for any differential rotations (single call for all channels).
     # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    rm_estimates = model_rotations(initialtable, plot_sample=True)
+    rm_est = model_rotations(initialtable, plot_sample=True)
+    # rm_est = np.zeros(20)
 
     # Re-predict model visibilities
     logger.info("Re-predicting model vis with RM estimates")
@@ -186,7 +197,7 @@ def run(pipeline_config) -> None:
         beam_type=config.beam_type,
         eb_ms=config.eb_ms,
         eb_coeffs=config.eb_coeffs,
-        station_rm=rm_estimates,
+        station_rm=rm_est,
     )  # .persist()
 
     logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
@@ -212,6 +223,54 @@ def run(pipeline_config) -> None:
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")
     gaintable.load()
+
+    # Plot a sample of the results
+    fig, axs = plt.subplots(3, 3, figsize=(14, 14), sharey=True)
+    # plot stations at a low RM, the median RM and the max RM
+    x = gaintable.frequency.data / 1e6
+    stns = np.abs(rm_est).argsort()[[len(rm_est)//4, len(rm_est)//2, -1]]
+    for k, stn in enumerate(stns):
+        J = (
+            initialtable.gain.data[0, stn]
+            @ np.linalg.inv(initialtable.gain.data[0, 0, ..., :, :])
+        )
+        ax = axs[k, 0]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
+        ax.set_title(f"Bandpass for station {stn} (rel to 0) (re: -, im: --)")
+        ax.grid()
+        ax.legend()
+
+        J = generate_rotation_matrices(rm_est, gaintable.frequency.data)[stn]
+        ax = axs[k, 1]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
+        ax.set_title(f"Bandpass RM model, RM = {rm_est[stn]:.3f}")
+        ax.grid()
+        ax.legend()
+
+        J = (
+            gaintable.gain.data[0, stn]
+            @ np.linalg.inv(gaintable.gain.data[0, 0, ..., :, :])
+        )
+        ax = axs[k, 2]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
+        ax.set_title("De-rotated bandpass")
+        ax.grid()
+        ax.legend()
+
+    plt.savefig(f"bandpass_stages.png")
+
     if config.h5parm_name is not None:
         logger.info(f"Writing solutions to {config.h5parm_name}")
         export_gaintable_to_h5parm(gaintable, config.h5parm_name)
@@ -220,28 +279,26 @@ def run(pipeline_config) -> None:
         export_gaintable_to_hdf5(gaintable, config.hdf5_name)
 
     # Convergence checks (noise-free demo version)
-    #  - Note that this runs the graph again. I tried assigning both vis
-    #    and modelvis to gaintable for a single load, but it got confused
-    #    by the baseline MultiIndex. MultiIndex causes a lot of trouble...
+    #  - Note that this runs the graph again.
     #  - This is just a quick check, so it shouldn't hurt to run it again.
+    #  - RM matrices are now applied before the beam matrices.
     if config.do_simulation:
         logger.info("Checking results")
-        gfit = gaintable.gain.data
-        true = truetable.gain.data
-        # Reference all polarisations again the X gain for the ref antenna
-        gfit *= np.exp(
-            -1j
-            * np.angle(gfit[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
+        vis = vis.load()
+        modelvis.load()
+        vis = apply_gaintable(vis=vis, gt=gaintable, inverse=True)
+        diff = (vis.vis - modelvis.vis).data
+        logger.info(f"model max = {np.max(np.abs(modelvis.vis.data)):.1f}")
+        logger.info(f"corrected max = {np.max(np.abs(vis.vis.data)):.1f}")
+        logger.info(f"diff max = {np.max(np.abs(diff)):.1e}")
+        logger.info(
+            "diff max (relative) = "
+            +f"{np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)):.1e}"
         )
-        true *= np.exp(
-            -1j
-            * np.angle(true[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
-        )
-        converged = np.allclose(gfit, true, atol=1e-6)
-        if converged:
+        if np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)) < 2e-4:
             logger.info("Convergence checks passed")
         else:
-            logger.warning("Solving failed")
+            logger.warning("Solving failed to converge")
 
     # Shut down the scheduler and workers
     client.close()
