@@ -17,10 +17,17 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
+)
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     dft_skycomponent_local,
     gaussian_tapers,
+    generate_central_beams,
     predict_from_components,
+)
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    create_bandpass_table,
 )
 
 
@@ -150,3 +157,59 @@ def test_predict_from_components(
             call(vis, skycomp_2),
         ]
     )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.processing_tasks.beams.eb.load_telescope"
+)
+def test_generate_central_beams(mock_telescope, generate_vis):
+    """Test that generate_central_beams matches predict_from_components."""
+    # Get dataset but reinitialise vis to zero
+    vis, _ = generate_vis
+    vis.vis = xr.zeros_like(vis.vis)
+
+    skycomp = SkyComponent(
+        direction=SkyCoord(ra=0, dec=-27, unit="deg"),
+        frequency=vis.frequency.data,
+        name="test-comp",
+        flux=np.random.rand(len(vis.frequency), 4),
+        polarisation_frame=PolarisationFrame("linear"),
+        shape="POINT",
+        params={},
+    )
+
+    # Predict vis with a unit beam model
+    vis_nobeam = vis.assign({"vis": xr.zeros_like(vis.vis)})
+    vis_nobeam = predict_from_components(vis_nobeam, [skycomp], beam_type=None)
+
+    # Mock station_response then predict vis with eb beam
+    mock = MagicMock(name="mock_telescope")
+    mock.station_response.return_value = np.array(
+        [
+            [2 - 0.001j, -0.1 - 0.02j],
+            [-0.1 + 0.02j, 1.6 + 0.01j],
+        ]
+    )
+    mock_telescope.return_value = mock
+    vis = predict_from_components(
+        vis,
+        [skycomp],
+        eb_coeffs="/path/to/eb",
+        eb_ms="/path/to/ms",
+        beam_type="everybeam",
+    )
+
+    # Get the eb beam model
+    gaintable = create_bandpass_table(vis_nobeam).load()
+    gaintable = generate_central_beams(
+        gaintable=gaintable,
+        vis=vis_nobeam,
+        eb_coeffs="/path/to/eb",
+        eb_ms="/path/to/ms",
+        beam_type="everybeam",
+    )
+    assert np.allclose(gaintable.gain.data, mock.station_response.return_value)
+
+    # Remove the beam model and test
+    vis = apply_gaintable(vis=vis, gt=gaintable, inverse=True)
+    assert np.allclose(vis_nobeam.vis.data, vis.vis.data)
