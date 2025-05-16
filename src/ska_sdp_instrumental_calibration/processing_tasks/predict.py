@@ -3,6 +3,7 @@
 
 __all__ = [
     "predict_from_components",
+    "generate_central_beams",
     "generate_rotation_matrices",
 ]
 
@@ -148,8 +149,6 @@ def predict_from_components(
     :param eb_ms: Measurement set need to initialise the everybeam telescope.
         Required if bbeam_type is "everybeam".
     :param station_rm: Station rotation measure values. Default is None.
-    :param reset_vis: Whether or not to set visibilities to zero before
-            accumulating components. Default is False.
     """
     if not isinstance(vis, xr.Dataset):
         raise ValueError(f"vis is not of type xr.Dataset: {type(vis)}")
@@ -275,3 +274,73 @@ def predict_from_components(
     gc.collect()
 
     return vis
+
+
+def generate_central_beams(
+    gaintable: xr.Dataset,
+    vis: xr.Dataset,
+    beam_type: str = "everybeam",
+    eb_coeffs: Optional[str] = None,
+    eb_ms: Optional[str] = None,
+) -> xr.Dataset:
+    """Generate beam models used in prediction at beam centre.
+
+    :param gain_table: GainTable dataset to update.
+    :param vis: Visibility dataset.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_coeffs: Everybeam coeffs datadir containing beam coefficients.
+        Required if beam_type is "everybeam".
+    :param eb_ms: Measurement set need to initialise the everybeam telescope.
+        Required if bbeam_type is "everybeam".
+    """
+    if not isinstance(gaintable, xr.Dataset):
+        raise ValueError("gaintable is not of type xr.Dataset")
+    if not isinstance(vis, xr.Dataset):
+        raise ValueError("vis is not of type xr.Dataset")
+    if np.any(gaintable.frequency.data != vis.frequency.data):
+        raise ValueError("Inconsistent frequencies")
+    if len(gaintable.time) != 1:
+        raise ValueError("Unexpected gaintable time axis")
+
+    # Just use the beam near the middle of the scan?
+    time = np.mean(Time(vis.datetime.data))
+
+    # Set up the beam model
+    # Keep this consistent with predict_from_components
+    if beam_type == "everybeam":
+        logger.info("Using EveryBeam model in predict")
+        if eb_coeffs is None or eb_ms is None:
+            raise ValueError("eb_coeffs and eb_ms required for everybeam")
+        # Could do this once externally, but don't want to pass around
+        # exotic data types.
+        os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
+
+        beams = GenericBeams(vis=vis, array="Low", ms_path=eb_ms)
+
+        # Update ITRF coordinates of the beam and normalisation factors
+        beams.update_beam(frequency=vis.frequency.data, time=time)
+
+        # Check beam pointing direction
+        altaz = beams.beam_direction.transform_to(
+            AltAz(obstime=time, location=beams.array_location)
+        )
+        if altaz.alt.degree < 0:
+            raise ValueError(f"Pointing below horizon el={altaz.alt.degree}")
+
+        response = beams.array_response(
+            direction=beams.beam_direction,
+            frequency=vis.frequency.data,
+            time=time,
+        )[vis.configuration.id]
+
+    else:
+        logger.info("No beam model used in predict")
+        response = np.zeros(
+            (len(vis.configuration.id), len(vis.frequency.data), 2, 2),
+            dtype=gaintable.gain.dtype,
+        )
+
+    assert np.all(response.shape == gaintable.gain.data[0].shape)
+    gaintable.gain.data[0] = response
+
+    return gaintable

@@ -33,8 +33,10 @@ from ska_sdp_func_python.preprocessing.averaging import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
+    apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
+    prediction_central_beams,
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -166,6 +168,17 @@ def run(pipeline_config) -> None:
         eb_coeffs=config.eb_coeffs,
     )  # .persist()
 
+    # Divide out the beam response at the centre of the field?
+    if config.norm_beam_centre:
+        beams = prediction_central_beams(
+            vis,
+            beam_type=config.beam_type,
+            eb_ms=config.eb_ms,
+            eb_coeffs=config.eb_coeffs,
+        )  # .persist()
+        vis = apply_gaintable_to_dataset(vis, beams, inverse=True)
+        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
+
     # Call the solver
     refant = 0
     logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
@@ -200,6 +213,10 @@ def run(pipeline_config) -> None:
         eb_coeffs=config.eb_coeffs,
         station_rm=rm_est,
     )  # .persist()
+
+    # Divide out the beam response at the centre of the field?
+    if config.norm_beam_centre:
+        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
 
     logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
     logger.info(" - First using solver jones_substitution again")

@@ -18,6 +18,7 @@ Topics from Vincent's MR review to be considered in ongoing work:
 __all__ = [
     "load_ms",
     "predict_vis",
+    "prediction_central_beams",
     "run_solver",
     "ingest_predict_and_solve",
     "apply_gaintable_to_dataset",
@@ -56,6 +57,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     convert_model_to_skycomponents,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+    generate_central_beams,
     predict_from_components,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
@@ -267,6 +269,76 @@ def predict_vis(
         _predict,
         args=[lsm, beam_type, eb_ms, eb_coeffs, station_rm, reset_vis],
     )
+
+
+def _get_beams(
+    gainchunk: xr.Dataset,
+    vischunk: xr.Dataset,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+) -> xr.Dataset:
+    """Return beam models used in prediction at beam centre.
+
+    Set up to run with function generate_central_beams.
+
+    :param gaintable: GainTable dataset containing initial solutions.
+    :param vischunk: Visibility dataset containing observed data.
+
+    :return: Chunked GainTable dataset
+    """
+    if len(vischunk.frequency) > 0:
+        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        # Switch to standard variable names and coords for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+        vischunk = restore_baselines_dim(vischunk)
+        # Call solver
+        generate_central_beams(
+            gaintable=gainchunk,
+            vis=vischunk,
+            beam_type=beam_type,
+            eb_coeffs=eb_coeffs,
+            eb_ms=eb_ms,
+        )
+        # Change the time dimension name back for map_blocks I/O checks
+        gainchunk = gainchunk.rename({"time": "soln_time"})
+
+    return gainchunk
+
+
+def prediction_central_beams(
+    vis: xr.Dataset,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+) -> xr.Dataset:
+    """Return beam models used in prediction at beam centre.
+
+    :param vis: Chunked Visibility dataset containing observed data.
+
+    :return: Chunked GainTable dataset
+    """
+    # Create a bandpass calibration gain table
+    fchunk = vis.chunks["frequency"][0]
+    if fchunk <= 0:
+        logger.warning("vis dataset does not appear to be chunked")
+        fchunk = len(vis.frequency)
+    gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
+
+    if len(gaintable.time) != 1:
+        raise ValueError("error setting up gaintable")
+
+    # map_blocks won't accept dimensions that differ but have the same name
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.rename({"time": "soln_time"})
+    gaintable = gaintable.map_blocks(
+        _get_beams, args=[vis, beam_type, eb_ms, eb_coeffs]
+    )
+
+    # Undo any temporary variable name changes
+    gaintable = gaintable.rename({"soln_time": "time"})
+    return gaintable
 
 
 def _solve(

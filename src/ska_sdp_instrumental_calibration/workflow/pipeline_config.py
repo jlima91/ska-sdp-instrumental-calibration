@@ -102,6 +102,9 @@ class PipelineConfig:
             If beam_type is "everybeam" but dataset ms_name does not have all
             of the metadata required by everybeam, this parameter is used to
             specify a separate dataset to use when setting up the beam models.
+        normalise_at_beam_centre (bool):
+            If true, before running calibration, multiply vis and model vis by
+            the inverse of the beam response in the beam pointing direction.
     """
 
     def __init__(self, config):
@@ -176,6 +179,7 @@ class PipelineConfig:
         self.beam_type = config.get("beam_type", "everybeam")
         self.eb_coeffs = config.get("eb_coeffs", None)
         self.eb_ms = config.get("eb_ms", self.ms_name)
+        self.norm_beam_centre = config.get("normalise_at_beam_centre", False)
         if self.beam_type.lower() == "everybeam":
             # Required external data
             if self.eb_coeffs is None:
