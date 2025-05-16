@@ -18,12 +18,15 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
 @ConfigurableStage(
     "smooth_gain_solution",
     configuration=Configuration(
-        window_size=ConfigParam(int, None, description="Sliding window size."),
+        window_size=ConfigParam(
+            int, 1, description="Sliding window size.", nullable=False
+        ),
         mode=ConfigParam(
             str,
             "median",
             description="Mode of smoothing",
             allowed_values=["mean", "median"],
+            nullable=False,
         ),
         apply_weights=ConfigParam(
             bool,
