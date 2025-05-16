@@ -243,7 +243,7 @@ def run(pipeline_config) -> None:
     gaintable.load()
 
     # Plot a sample of the results
-    _, axs = plt.subplots(3, 3, figsize=(14, 14), sharey=True)
+    _, axs = plt.subplots(3, 4, figsize=(14, 14), sharey=True)
     # plot stations at a low RM, the median RM and the max RM
     x = gaintable.frequency.data / 1e6
     stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
@@ -256,8 +256,8 @@ def run(pipeline_config) -> None:
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
-        ax.set_title(f"Bandpass for station {stn} (rel to 0) (re: -, im: --)")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(f"Bandpass for station {stn} (rel to {refant})")
         ax.grid()
         ax.legend()
 
@@ -267,8 +267,8 @@ def run(pipeline_config) -> None:
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
-        ax.set_title(f"Bandpass RM model, RM = {rm_est[stn]:.3f}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(f"RM model, RM = {rm_est[stn]:.3f}")
         ax.grid()
         ax.legend()
 
@@ -280,8 +280,19 @@ def run(pipeline_config) -> None:
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
-        ax.set_title("De-rotated bandpass")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (re: -, im: --)")
+        ax.grid()
+        ax.legend()
+
+        ax = axs[k, 3]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.abs(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            if p == q:
+                ax.plot(x, np.angle(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (abs: -, angle: --)")
         ax.grid()
         ax.legend()
 

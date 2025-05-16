@@ -66,6 +66,7 @@ logger = setup_logger("workflow.utils")
 
 def create_demo_ms(
     ms_name: str = "demo.ms",
+    delays: bool = False,
     gains: bool = True,
     leakage: bool = False,
     rotation: bool = False,
@@ -85,6 +86,7 @@ def create_demo_ms(
     Should have an option to add sample noise.
 
     :param ms_name: Name of output Measurement Set.
+    :param delays: Whether to include DI antenna delay terms (def=False).
     :param gains: Whether to include DI antenna gain terms (def=True).
     :param leakage: Whether to include DI antenna leakage terms (def=False).
     :param rotation: Whether to include differential rotation (def=False).
@@ -201,7 +203,7 @@ def create_demo_ms(
         # Not particularly realistic Faraday rotation
         # Just a DI term with some nominal variation across the array
         x = low_config.xyz.data[:, 0]
-        rm = 1 + 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
+        rm = 0.5 * (x - np.min(x)) / (np.max(x) - np.min(x))
     else:
         rm = None
 
@@ -221,7 +223,7 @@ def create_demo_ms(
     )
     if gains:
         logger.info("Applying direction-independent gain corruptions")
-        g_sigma = 0.03
+        g_sigma = 0.05
         jones.gain.data[..., 0, 0] = (
             np.random.normal(1, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
@@ -230,11 +232,12 @@ def create_demo_ms(
             np.random.normal(1, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
         )
+
     if leakage:
         # Should perhaps do the proper multiplication with the gains.
         # Will do if other effects like xy-phase are added.
         logger.info("Applying direction-independent leakage corruptions")
-        g_sigma = 0.03
+        g_sigma = 0.01
         jones.gain.data[..., 0, 1] = (
             np.random.normal(0, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
@@ -243,6 +246,21 @@ def create_demo_ms(
             np.random.normal(0, g_sigma, jones.gain.shape[:3])
             + np.random.normal(0, g_sigma, jones.gain.shape[:3]) * 1j
         )
+
+    if delays:
+        # Non-dispersive delays
+        # Multiply the existing Jones matrices on the LHS
+        stndelayX = 5e-9 * np.random.rand(nstations)
+        stndelayY = stndelayX
+        dl_mat = np.zeros((nstations, nfrequency, 2, 2), "complex")
+        dl_mat[:, :, 0, 0] = np.exp(
+            -2j * np.pi * np.einsum("s,f->sf", stndelayX, frequency)
+        )
+        dl_mat[:, :, 1, 1] = np.exp(
+            -2j * np.pi * np.einsum("s,f->sf", stndelayY, frequency)
+        )
+        tmp = jones.gain.data.copy()
+        jones.gain.data = np.einsum("sfpx,tsfxq->tsfpq", dl_mat, tmp)
 
     # Apply Jones matrices to the dataset
     vis = apply_gaintable(vis=vis, gt=jones, inverse=False)
