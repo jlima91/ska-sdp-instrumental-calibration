@@ -271,11 +271,11 @@ Parameters
     +------------------------------+--------+---------------+------------------------------------------+------------+--------------------+
     | mode                         | str    | median        | Mode of smoothing                        | False      | ['mean', 'median'] |
     +------------------------------+--------+---------------+------------------------------------------+------------+--------------------+
-    | plot_config.plot_table       | bool   | False         | Plot the smoothed gaintable              | True       |                    |
+    | plot_config.plot_table       | bool   | False         | Plot the smoothed gaintable              | False      |                    |
     +------------------------------+--------+---------------+------------------------------------------+------------+--------------------+
-    | plot_config.plot_path_prefix | str    | smoothed-gain | Path prefix to store smoothed gain plots | True       |                    |
+    | plot_config.plot_path_prefix | str    | smoothed-gain | Path prefix to store smoothed gain plots | False      |                    |
     +------------------------------+--------+---------------+------------------------------------------+------------+--------------------+
-    | plot_config.plot_title       | str    | Smoothed Gain | Title for smoothed gain plots            | True       |                    |
+    | plot_config.plot_title       | str    | Smoothed Gain | Title for smoothed gain plots            | False      |                    |
     +------------------------------+--------+---------------+------------------------------------------+------------+--------------------+
 
 

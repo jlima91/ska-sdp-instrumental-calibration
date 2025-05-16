@@ -28,17 +28,22 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
-                bool, False, description="Plot the smoothed gaintable"
+                bool,
+                False,
+                description="Plot the smoothed gaintable",
+                nullable=False,
             ),
             plot_path_prefix=ConfigParam(
                 str,
                 "smoothed-gain",
                 description="Path prefix to store smoothed gain plots",
+                nullable=False,
             ),
             plot_title=ConfigParam(
                 str,
                 "Smoothed Gain",
                 description="Title for smoothed gain plots",
+                nullable=False,
             ),
         ),
     ),
