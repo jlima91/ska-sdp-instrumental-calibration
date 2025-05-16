@@ -19,6 +19,7 @@
 """
 
 import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 from dask.distributed import Client, LocalCluster
@@ -74,9 +75,6 @@ def run(pipeline_config) -> None:
     """
 
     config = PipelineConfig(pipeline_config)
-
-    if config.do_simulation:
-        truetable = config.simulate_input_dataset()
 
     logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
@@ -186,7 +184,7 @@ def run(pipeline_config) -> None:
     # Fit for any differential rotations (single call for all channels).
     # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    rm_est = model_rotations(initialtable, plot_sample=True)
+    rm_est = model_rotations(initialtable, refant=refant, plot_sample=True)
     # rm_est = np.zeros(20)
 
     # Re-predict model visibilities
@@ -225,14 +223,13 @@ def run(pipeline_config) -> None:
     gaintable.load()
 
     # Plot a sample of the results
-    fig, axs = plt.subplots(3, 3, figsize=(14, 14), sharey=True)
+    _, axs = plt.subplots(3, 3, figsize=(14, 14), sharey=True)
     # plot stations at a low RM, the median RM and the max RM
     x = gaintable.frequency.data / 1e6
-    stns = np.abs(rm_est).argsort()[[len(rm_est)//4, len(rm_est)//2, -1]]
+    stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
     for k, stn in enumerate(stns):
-        J = (
-            initialtable.gain.data[0, stn]
-            @ np.linalg.inv(initialtable.gain.data[0, 0, ..., :, :])
+        J = initialtable.gain.data[0, stn] @ np.linalg.inv(
+            initialtable.gain.data[0, refant, ..., :, :]
         )
         ax = axs[k, 0]
         for pol in range(4):
@@ -255,9 +252,8 @@ def run(pipeline_config) -> None:
         ax.grid()
         ax.legend()
 
-        J = (
-            gaintable.gain.data[0, stn]
-            @ np.linalg.inv(gaintable.gain.data[0, 0, ..., :, :])
+        J = gaintable.gain.data[0, stn] @ np.linalg.inv(
+            gaintable.gain.data[0, refant, ..., :, :]
         )
         ax = axs[k, 2]
         for pol in range(4):
@@ -269,7 +265,7 @@ def run(pipeline_config) -> None:
         ax.grid()
         ax.legend()
 
-    plt.savefig(f"bandpass_stages.png")
+    plt.savefig("bandpass_stages.png")
 
     if config.h5parm_name is not None:
         logger.info(f"Writing solutions to {config.h5parm_name}")
@@ -293,7 +289,7 @@ def run(pipeline_config) -> None:
         logger.info(f"diff max = {np.max(np.abs(diff)):.1e}")
         logger.info(
             "diff max (relative) = "
-            +f"{np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)):.1e}"
+            + f"{np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)):.1e}"
         )
         if np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)) < 2e-4:
             logger.info("Convergence checks passed")

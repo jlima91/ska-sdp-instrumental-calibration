@@ -35,6 +35,7 @@ def model_rotations(
     gaintable: xr.Dataset,
     peak_threshold: float = 0.5,
     refine_fit: bool = True,
+    refant: int = 0,
     plot_sample: bool = False,
     plot_path_prefix: str = "./",
 ) -> npt.NDArray[float]:
@@ -52,14 +53,13 @@ def model_rotations(
         rotation detection.
     :param refine_fit: Whether or not to refine the RM spectrum peak locations
         with a nonlinear optimisation of the station RM values.
+    :param refant: Reference antenna (defaults to 0).
     :param plot_sample: Whether or not to plot a sample RM spectrum.
+    :param plot_path_prefix: Output directory for sample plot.
     :return: Estimated station RM values.
     """
     if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
         raise ValueError("gaintable must contain Jones matrices")
-
-    # Set reference station for rotations
-    ref = 0
 
     # Set constants
     nstations = len(gaintable.antenna)
@@ -82,16 +82,16 @@ def model_rotations(
     # so for now just set a flag if any matrix element has zero weight.
     # Some solvers may set a diagonal weight matrix, so test.
     diag_weights = np.all(
-        gaintable.weight.data[0, ref, :, 0, 1] == 0
-    ) & np.all(gaintable.weight.data[0, ref, :, 1, 0] == 0)
+        gaintable.weight.data[0, refant, :, 0, 1] == 0
+    ) & np.all(gaintable.weight.data[0, refant, :, 1, 0] == 0)
     if diag_weights:
         # Just check the cross pol weights
-        ref_mask = (gaintable.weight.data[0, ref, :, 0, 0] > 0) & (
-            gaintable.weight.data[0, ref, :, 1, 1] > 0
+        ref_mask = (gaintable.weight.data[0, refant, :, 0, 0] > 0) & (
+            gaintable.weight.data[0, refant, :, 1, 1] > 0
         )
     else:
         # Check all polarisation weights
-        ref_mask = np.all(gaintable.weight.data[0, ref] > 0, axis=(1, 2))
+        ref_mask = np.all(gaintable.weight.data[0, refant] > 0, axis=(1, 2))
 
     for stn in range(nstations):
         # Reference against a single station
@@ -100,8 +100,8 @@ def model_rotations(
         J = np.einsum(
             "fpx,fqx->fpq",
             # gaintable.gain.data[0, stn],
-            # gaintable.gain.data[0, ref].conj(),
-            gaintable.gain.data[0, ref].conj(),
+            # gaintable.gain.data[0, refant].conj(),
+            gaintable.gain.data[0, refant].conj(),
             gaintable.gain.data[0, stn],
         )
         # Normalise
