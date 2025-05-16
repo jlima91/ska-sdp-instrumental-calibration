@@ -42,10 +42,18 @@ def calculate_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
 
     return xr.Dataset(
         data_vars=dict(
-            delay=(["antenna", "pol"], np.stack([Xdelay, Ydelay], axis=1)),
-            offset=(["antenna", "pol"], np.stack([Xoffset, Yoffset], axis=1)),
+            delay=(
+                ["time", "antenna", "pol"],
+                np.stack([Xdelay, Ydelay], axis=1).reshape(1, nstations, 2),
+            ),
+            offset=(
+                ["time", "antenna", "pol"],
+                np.stack([Xoffset, Yoffset], axis=1).reshape(1, nstations, 2),
+            ),
         ),
-        coords=dict(antenna=gaintable.antenna, pol=["XX", "YY"]),
+        coords=dict(
+            antenna=gaintable.antenna, pol=["XX", "YY"], time=gaintable.time
+        ),
         attrs=dict(configuration=gaintable.configuration),
     )
 
@@ -70,11 +78,11 @@ def apply_delay(gaintable: xr.Dataset, delay: xr.Dataset) -> xr.Dataset:
     Xgain = gaintable.gain[0, :, :, 0, 0]
     Ygain = gaintable.gain[0, :, :, 1, 1]
 
-    Xdelay = delay.delay.data[:, 0]
-    Xoffset = delay.offset.data[:, 0]
+    Xdelay = delay.delay.data[0, :, 0]
+    Xoffset = delay.offset.data[0, :, 0]
 
-    Ydelay = delay.delay.data[:, 1]
-    Yoffset = delay.offset.data[:, 1]
+    Ydelay = delay.delay.data[0, :, 1]
+    Yoffset = delay.offset.data[0, :, 1]
 
     new_gain_data[0, :, :, 0, 0] = calculate_gain_rot(
         Xgain, Xdelay, Xoffset, gaintable.frequency.data.reshape(1, -1)

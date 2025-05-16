@@ -414,7 +414,7 @@ def create_bandpass_table(vis: xr.Dataset) -> xr.Dataset:
 
 
 def create_soltab_group(
-    solset: h5py.Group, solution_type: Literal["amplitude", "phase"]
+    solset: h5py.Group, solution_type: Literal["amplitude", "phase", "clock"]
 ) -> h5py.Group:
     """Create soltab group under given solset group.
 
@@ -448,6 +448,29 @@ def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
     weight.attrs["AXES"] = axes
 
     return val, weight
+
+
+def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
+    """Add a dataset for each of the Delay dimensions.
+
+    :param soltab: HDF5 table to update
+    :param delaytable: xr.Dataset
+    """
+    # create a dataset for each dimension
+    for dim in list(delaytable.delay.sizes):
+        soltab.create_dataset(dim, data=delaytable[dim].data)
+
+    # create datasets for the data and weights
+    shape = delaytable.delay.shape
+    axes = np.bytes_(",".join(list(delaytable.delay.sizes)))
+
+    val = soltab.create_dataset("val", shape=shape, dtype=float)
+    val.attrs["AXES"] = axes
+
+    offset = soltab.create_dataset("offset", shape=shape, dtype=float)
+    offset.attrs["AXES"] = axes
+
+    return val, offset
 
 
 @dask.delayed

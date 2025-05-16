@@ -14,7 +14,10 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
-from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...data_managers.data_export import (
+    export_clock_to_h5parm,
+    export_gaintable_to_h5parm,
+)
 
 
 @ConfigurableStage(
@@ -69,9 +72,9 @@ def delay_calibration_stage(
     if call_count := upstream_output.get_call_count("delay"):
         call_counter_suffix = f"_{call_count}"
 
-    delay = calculate_delay(gaintable, oversample)
+    delaytable = calculate_delay(gaintable, oversample)
 
-    gaintable = apply_delay(gaintable, delay)
+    gaintable = apply_delay(gaintable, delaytable)
 
     if plot_config["plot_table"]:
         path_prefix = os.path.join(_output_dir_, f"delay{call_counter_suffix}")
@@ -89,10 +92,18 @@ def delay_calibration_stage(
             _output_dir_, f"delay{call_counter_suffix}.gaintable.h5parm"
         )
 
+        delaytable_file_path = os.path.join(
+            _output_dir_, f"delay{call_counter_suffix}.clock.h5parm"
+        )
+
         upstream_output.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
+        )
+
+        upstream_output.add_compute_tasks(
+            export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
 
     upstream_output["gaintable"] = gaintable
