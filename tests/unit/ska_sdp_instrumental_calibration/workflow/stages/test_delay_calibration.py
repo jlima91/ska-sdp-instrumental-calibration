@@ -27,6 +27,7 @@ def test_should_perform_delay_calibration(
         upstream_output,
         oversample=oversample,
         plot_config=plot_config,
+        export_gaintable=False,
         _output_dir_="/output/path",
     )
 
@@ -63,6 +64,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         upstream_output,
         oversample=oversample,
         plot_config=plot_config,
+        export_gaintable=False,
         _output_dir_="/output/path",
     )
 
@@ -70,6 +72,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         upstream_output,
         oversample=oversample,
         plot_config=plot_config,
+        export_gaintable=False,
         _output_dir_="/output/path",
     )
 
@@ -88,4 +91,64 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
                 fixed_axis=True,
             ),
         ]
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
+    ".dask.delayed",
+    side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
+    ".export_gaintable_to_h5parm"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
+    ".calculate_delay"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
+    ".apply_delay"
+)
+def test_should_export_gaintable_with_proper_suffix(
+    apply_delay_mock, calculate_delay_mock, export_gaintable_mock, delay_mock
+):
+    upstream_output = UpstreamOutput()
+    gaintable_mock = Mock(name="gaintable")
+    upstream_output["gaintable"] = gaintable_mock
+    oversample = 16
+    plot_config = {"plot_table": False, "fixed_axis": True}
+
+    delay_calibration_stage.stage_definition(
+        upstream_output,
+        oversample=oversample,
+        plot_config=plot_config,
+        export_gaintable=True,
+        _output_dir_="/output/path",
+    )
+
+    delay_calibration_stage.stage_definition(
+        upstream_output,
+        oversample=oversample,
+        plot_config=plot_config,
+        export_gaintable=True,
+        _output_dir_="/output/path",
+    )
+
+    export_gaintable_mock.assert_has_calls(
+        [
+            call(
+                apply_delay_mock.return_value,
+                "/output/path/delay.gaintable.h5parm",
+            ),
+            call(
+                apply_delay_mock.return_value,
+                "/output/path/delay_1.gaintable.h5parm",
+            ),
+        ]
+    )
+
+    delay_mock.assert_has_calls(
+        [call(export_gaintable_mock), call(export_gaintable_mock)]
     )

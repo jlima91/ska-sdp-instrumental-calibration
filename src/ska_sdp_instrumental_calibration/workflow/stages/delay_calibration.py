@@ -1,5 +1,6 @@
 import os
 
+import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -12,6 +13,8 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     calculate_delay,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
+
+from ...data_managers.data_export import export_gaintable_to_h5parm
 
 
 @ConfigurableStage(
@@ -27,10 +30,16 @@ from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
                 bool, False, description="Limit amplitude axis to [0-1]"
             ),
         ),
+        export_gaintable=ConfigParam(
+            bool,
+            False,
+            description="Export intermediate gain solutions.",
+            nullable=False,
+        ),
     ),
 )
 def delay_calibration_stage(
-    upstream_output, oversample, plot_config, _output_dir_
+    upstream_output, oversample, plot_config, export_gaintable, _output_dir_
 ):
     """
     Performs delay calibration
@@ -44,6 +53,8 @@ def delay_calibration_stage(
         plot_config: dict
             Configuration required for plotting.
             eg: {plot_table: False, fixed_axis: False}
+        export_gaintable: bool
+            Export intermediate gain solutions
         _output_dir_ : str
             Directory path where the output file will be written.
     Returns
@@ -70,6 +81,17 @@ def delay_calibration_stage(
                 path_prefix,
                 figure_title="Delay",
                 fixed_axis=plot_config["fixed_axis"],
+            )
+        )
+
+    if export_gaintable:
+        gaintable_file_path = os.path.join(
+            _output_dir_, f"delay{call_counter_suffix}.gaintable.h5parm"
+        )
+
+        upstream_output.add_compute_tasks(
+            dask.delayed(export_gaintable_to_h5parm)(
+                gaintable, gaintable_file_path
             )
         )
 
