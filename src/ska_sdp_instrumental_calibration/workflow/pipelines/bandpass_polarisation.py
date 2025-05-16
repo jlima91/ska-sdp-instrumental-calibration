@@ -76,6 +76,9 @@ def run(pipeline_config) -> None:
 
     config = PipelineConfig(pipeline_config)
 
+    if config.do_simulation:
+        config.simulate_input_dataset()
+
     logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
     # Set up a local dask cluster and client
