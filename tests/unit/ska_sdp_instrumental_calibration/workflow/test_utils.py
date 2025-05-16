@@ -220,6 +220,9 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     amp_axis_mock = Mock(name="amp axis")
     phase_axis_mock = Mock(name="phase axis")
 
+    gain_mock.isel.return_value = gain_mock
+    gaintable_mock.gain = gain_mock
+
     def secondary_axis_side_effect(pos, functions):
         assert pos == "top"
         assert len(functions) == 2
@@ -241,7 +244,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.pol.values = ["XX", "YY"]
-    gaintable_mock.gain.isel.return_value = gain_mock
+
     gaintable_mock.stack.return_value = gaintable_mock
     numpy_mock.abs.return_value = amp_mock
     numpy_mock.angle.return_value = phase_mock
@@ -276,7 +279,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     )
     fig_mock.subfigures.assert_called_once_with(2, 2)
 
-    gaintable_mock.gain.isel.assert_has_calls(
+    gain_mock.isel.assert_has_calls(
         [
             call(time=0, antenna=1),
             call(time=0, antenna=2),
@@ -492,10 +495,13 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
     handles_mock = Mock(name="handles")
     labels_mock = Mock(name="labels")
 
+    gain_mock.isel.return_value = gain_mock
+    gaintable_mock.gain = gain_mock
+
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.pol.values = ["XX", "YY"]
-    gaintable_mock.gain.isel.return_value = gain_mock
+
     gaintable_mock.stack.return_value = gaintable_mock
     numpy_mock.abs.return_value = amp_mock
     numpy_mock.angle.return_value = phase_mock
@@ -521,8 +527,8 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
         "/some/path/file",
         n_rows,
         n_cols,
-        True,
         figure_title,
+        True,
     )
 
     amp_axis_mock.set_ylim.assert_called_with([0, 1])
