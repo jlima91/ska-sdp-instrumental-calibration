@@ -256,9 +256,9 @@ def predict_vis(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param reset_vis: Whether or not to set visibilities to zero before
             accumulating components. Default is False.
-    :param station_rm: Station rotation measure values. Default is None.
     :return: Predicted Visibility dataset
     """
     # Create an empty model Visibility dataset
@@ -505,12 +505,28 @@ def _solve_with_vis_setup(
 
     Set up to run with function run_solver.
 
-    :param gaintable: GainTable dataset containing initial solutions.
-    :param vischunk: Visibility dataset containing observed data.
-    :param modelchunk: Visibility dataset containing model data.
-    :param solver: Solver type to use. Default is "gain_substitution".
-    :param refant: Reference antenna (defaults to 0).
+    :param gainchunk: GainTable dataset containing initial solutions.
+    :param ms_name: Name of input Measurement Set.
+    :param frequency: list of all frequencies in the MSv2 dataset.
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_ms: Pathname of Everybeam mock Measurement Set.
+    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
+    :param solver: Solver type to use. Currently any solver type accepted by
+        solve_gaintable. Default is "gain_substitution".
+    :param refant: Reference antenna (defaults to 0). Note that how referencing
+        is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -585,6 +601,7 @@ def ingest_predict_and_solve(
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
     gaintable: Optional[xr.Dataset] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -604,6 +621,7 @@ def ingest_predict_and_solve(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param gaintable: Optional chunked GainTable dataset containing initial
         solutions.
     :param solver: Solver type to use. Currently any solver type accepted by
@@ -611,6 +629,14 @@ def ingest_predict_and_solve(
     :param refant: Reference antenna (defaults to 0). Note that how referencing
         is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -675,6 +701,7 @@ def ingest_predict_and_solve(
             beam_type,
             eb_ms,
             eb_coeffs,
+            station_rm,
             solver,
             refant,
             niter,
