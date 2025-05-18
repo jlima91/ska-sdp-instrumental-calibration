@@ -25,8 +25,10 @@ logger = logging.getLogger()
         eb_ms=ConfigParam(
             str,
             None,
-            description="""Measurement set need to initialise the everybeam
-            telescope. Required if bbeam_type is 'everybeam'.""",
+            description="""If beam_type is "everybeam" but input ms does
+            not have all of the metadata required by everybeam, this parameter
+            is used to specify a separate dataset to use when setting up
+            the beam models.""",
         ),
         eb_coeffs=ConfigParam(
             str,
@@ -99,8 +101,10 @@ def predict_vis_stage(
         beam_type : str
             Type of beam model to use (default: 'everybeam').
         eb_ms : str
-            Path to measurement set for everybeam initialization.
-            Required when beam_type is 'everybeam'.
+            If beam_type is "everybeam" but input ms does
+            not have all of the metadata required by everybeam, this parameter
+            is used to specify a separate dataset to use when setting up
+            the beam models.
         eb_coeffs : str
             Path to everybeam coefficients directory.
             Required when beam_type is 'everybeam'.
@@ -138,6 +142,7 @@ def predict_vis_stage(
     logger.info(f" - Flux limit: {flux_limit} Jy")
 
     phase_centre = get_phasecentre(_cli_args_["input"])
+    eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
 
     if gleamfile is not None and lsm_csv_path is not None:
         logger.warning("LSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
@@ -179,5 +184,6 @@ def predict_vis_stage(
         pass
 
     upstream_output["modelvis"] = modelvis
+    upstream_output.increment_call_count("predict_vis")
 
     return upstream_output

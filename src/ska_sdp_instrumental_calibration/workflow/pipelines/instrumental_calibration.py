@@ -1,11 +1,14 @@
 # flake8: noqa: E501
+import copy
 import logging
+import tempfile
 
 import yaml
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
 from ska_sdp_piper.piper.pipeline import Pipeline
 from ska_sdp_piper.piper.stage import Stages
+from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from ska_sdp_instrumental_calibration.scheduler import DefaultScheduler
 from ska_sdp_instrumental_calibration.workflow.stages import (
@@ -15,6 +18,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
     generate_channel_rm_stage,
     load_data_stage,
     predict_vis_stage,
+    smooth_gain_solution_stage,
 )
 
 # from ska_sdp_instrumental_calibration.workflow.stages.delay_calibration import delay_calibration_stage
@@ -33,6 +37,7 @@ ska_sdp_instrumental_calibration = Pipeline(
             bandpass_calibration_stage,
             generate_channel_rm_stage,
             delay_calibration_stage,
+            smooth_gain_solution_stage,
             export_gaintable_stage,
         ]
     ),
@@ -40,7 +45,7 @@ ska_sdp_instrumental_calibration = Pipeline(
     global_config=Configuration(
         experimental=ConfigParam(
             dict,
-            {"stage_order": []},
+            {"pipeline": []},
             description="""Configurations for experimental sub command.""",
         )
     ),
@@ -64,11 +69,7 @@ def experimental(cli_args):
         cli_args: argparse.Namespace
             CLI arguments
     """
-    fixed_stages = [
-        load_data_stage.name,
-        predict_vis_stage.name,
-        export_gaintable_stage.name,
-    ]
+    fixed_stages = [load_data_stage.name]
 
     stage_mapping = {
         stage.name: stage
@@ -79,44 +80,60 @@ def experimental(cli_args):
     logger.warning("=========== INST Experimental ============")
 
     if cli_args.config_path:
-        with open(cli_args.config_path, "r") as f:
-            config = yaml.safe_load(f)
+        config = read_yml(cli_args.config_path)
 
-            unique_stages = []
-            stage_order = (
-                config.get("global_parameters", {})
-                .get("experimental", {})
-                .get("stage_order", [])
+        reconfigured_stages = []
+        duplicate_counter = {}
+        stage_order = (
+            config.get("global_parameters", {})
+            .get("experimental", {})
+            .get("pipeline", [])
+        )
+        parameters = config.get("parameters", {})
+        new_parameters = {}
+        for stage_dict in stage_order:
+            stage_name, stage_config = list(stage_dict.items())[0]
+
+            if stage_name in fixed_stages:
+                raise RuntimeError(
+                    f"Mandatory stage {stage_name} included in the stage_order "
+                    "section"
+                )
+
+            stage = stage_mapping[stage_name]
+
+            if stage in reconfigured_stages:
+                stage = copy.deepcopy(stage)
+                duplicate_counter[stage_name] = (
+                    duplicate_counter.get(stage_name, 0) + 1
+                )
+                new_stage_name = (
+                    f"{stage_name}_{duplicate_counter[stage_name]}"
+                )
+                stage.name = new_stage_name
+
+            if stage_config:
+                new_parameters[stage.name] = stage_config
+            elif stage_config := parameters.get(stage_name):
+                new_parameters[stage.name] = copy.deepcopy(stage_config)
+
+            reconfigured_stages.append(stage)
+
+        if reconfigured_stages:
+            stages = Stages([load_data_stage, *reconfigured_stages])
+
+            ska_sdp_instrumental_calibration._stages = stages
+            config["parameters"] = new_parameters
+            config["pipeline"] = {}
+            _, temp_config = tempfile.mkstemp(text=True, suffix=".yml")
+            write_yml(temp_config, config)
+            cli_args.config_path = temp_config
+            logger.info("Created temprory experimental config %s", temp_config)
+        else:
+            logger.warning(
+                "No stage reordering provided. Using the default stage "
+                "order"
             )
-            for stage_name in stage_order:
-                if stage_name in fixed_stages:
-                    raise RuntimeError(
-                        f"Mandatory stage {stage_name} included in the stage_order "
-                        "section"
-                    )
-
-                if stage_name in unique_stages:
-                    raise RuntimeError(
-                        f"Duplicate stage {stage_name} in stage_order section"
-                    )
-                unique_stages.append(stage_name)
-
-            if unique_stages:
-                stages = Stages(
-                    [
-                        load_data_stage,
-                        predict_vis_stage,
-                        *[stage_mapping[stage] for stage in unique_stages],
-                        export_gaintable_stage,
-                    ]
-                )
-
-                ska_sdp_instrumental_calibration._stages = stages
-            else:
-                logger.warning(
-                    "No stage reordering provided. Using the default stage "
-                    "order"
-                )
     else:
         logger.warning("No Config provided. Using the default stage order")
     logger.warning("==========================================")

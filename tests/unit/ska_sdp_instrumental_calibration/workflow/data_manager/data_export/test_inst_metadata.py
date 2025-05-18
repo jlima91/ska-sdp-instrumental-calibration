@@ -1,30 +1,46 @@
 import pytest
 from mock import Mock, call, patch
-from ska_sdp_dataproduct_metadata import ObsCore
 
+try:
+    from ska_sdp_dataproduct_metadata import ObsCore
+
+    skip_obscore_test = False
+except ImportError:
+    skip_obscore_test = True
+
+from ska_sdp_instrumental_calibration.data_managers.data_export import (
+    inst_metadata,
+)
 from ska_sdp_instrumental_calibration.data_managers.data_export.inst_metadata import (  # noqa: E501
     INSTMetaData,
 )
 
 
 @pytest.mark.parametrize(
-    "eb,pb,expected",
+    "package_available,eb,pb,expected",
     [
-        ("eb_id", "pb_id", True),
-        ("eb_id", None, False),
-        (None, "pb_id", False),
-        (None, None, False),
+        (True, "eb_id", "pb_id", True),
+        (False, "eb_id", "pb_id", False),
+        (True, "eb_id", None, False),
+        (True, None, "pb_id", False),
+        (True, None, None, False),
     ],
 )
 @patch(
     "ska_sdp_instrumental_calibration.data_managers.data_export."
     "inst_metadata.os.environ.get"
 )
-def test_should_check_for_prerequisites(env_get_mock, eb, pb, expected):
+def test_should_check_for_prerequisites(
+    env_get_mock, package_available, eb, pb, expected
+):
     env_get_mock.side_effect = [eb, pb]
+    inst_metadata.metadata_package_available = package_available
     assert INSTMetaData.can_create_metadata() == expected
 
 
+@pytest.mark.skipif(
+    skip_obscore_test, reason="requires ska_sdp_dataproduct_metadata"
+)
 @patch(
     "ska_sdp_instrumental_calibration.data_managers.data_export."
     "inst_metadata.os.path.exists",
@@ -53,6 +69,9 @@ def test_should_initialise_metadata_with_path(path_exists_mock):
         assert metadata_mock.output_path == path
 
 
+@pytest.mark.skipif(
+    skip_obscore_test, reason="requires ska_sdp_dataproduct_metadata"
+)
 @patch(
     "ska_sdp_instrumental_calibration.data_managers.data_export."
     "inst_metadata.MetaData"

@@ -23,6 +23,7 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   MINIKUBE: "false"
+  POETRY_DOCS_INSTALL_GROUPS: main,docs
 
 # Include CI templates
 include:

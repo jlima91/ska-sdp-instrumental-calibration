@@ -1,4 +1,4 @@
-from mock import Mock, patch
+from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.stages import (
@@ -53,7 +53,7 @@ def test_should_perform_delay_calibration(apply_delay_mock, dask_delayed_mock):
     "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
     ".apply_delay"
 )
-def test_should_plot_the_delayed_gaintable(
+def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     apply_delay_mock, plot_gaintable_mock, dask_delayed_mock
 ):
     upstream_output = UpstreamOutput()
@@ -72,9 +72,26 @@ def test_should_plot_the_delayed_gaintable(
         _output_dir_="/output/path",
     )
 
-    plot_gaintable_mock.assert_called_once_with(
-        delayed_gaintable_mock,
-        "/output/path/delay",
-        figure_title="Delay",
-        fixed_axis=True,
+    delay_calibration_stage.stage_definition(
+        upstream_output,
+        oversample=oversample,
+        plot_config=plot_config,
+        _output_dir_="/output/path",
+    )
+
+    plot_gaintable_mock.assert_has_calls(
+        [
+            call(
+                delayed_gaintable_mock,
+                "/output/path/delay",
+                figure_title="Delay",
+                fixed_axis=True,
+            ),
+            call(
+                delayed_gaintable_mock,
+                "/output/path/delay_1",
+                figure_title="Delay",
+                fixed_axis=True,
+            ),
+        ]
     )

@@ -1,23 +1,32 @@
-###########
-Change Log
-###########
+Changelog
+#########
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
-0.2.0
-****
+0.2.2
+*****
+
+Added
+-----
+* Make metadata generation optional.
+
+
+0.2.1
+*****
 
 Added
 -----
 * Changed the way everybeam is called and added normalisation for OSKAR datasets.
 * Functionality to use a csv file to generate the sky model.
-* CLI installable using Piper
+* CLI installable using Piper.
 * Instrument calibration pipeline as a collection of stages.
 * Delay calibration stage.
 * Ability to reorder stages.
 * Generation of calibration plots.
 * Generation of metadata file along with data products.
 * Allow configuring csv based custom components.
+* The way everybeam models are initialised for Low datasets has been updated.
+* Normalisation has been simplified and updated for OSKAR simulations.
 
 Fixed
 -----
