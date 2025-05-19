@@ -3,6 +3,13 @@ Changelog
 
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+Main
+****
+
+Changed
+-------
+* Improved differential Faraday rotation fits in model_rotations and associated udpates to bandpass_polarisation.
+
 0.2.2
 *****
 
