@@ -41,12 +41,18 @@ def model_rotations(
 ) -> npt.NDArray[float]:
     """Fit a rotation measure for each station Jones matrix.
 
-    For each station, the Jones matrix for each channel is used to
-    operate on a unit vector. The result is expressed as a complex
-    number, and the spectrum of complex numbers is the Fourier
-    transformed with respect to wavelength squared. The peaks of this
-    transformed spectrum is taken as the rotation measure for the
-    station, and used to initialise a new gaintable.
+    For each station, the approach discussed in appendix B of de Gasperin et
+    al. (2019) A&A 622, A5, is used to estimate the angle of rotation in each
+    Jones matrix as a function of frequency. The result is expressed as a
+    spectrum of complex numbers and Fourier transformed with respect to
+    wavelength squared. The peak of this RM spectrum is taken as the rotation
+    measure for the station, and optionally improved upon using a secondary
+    nonlinear fit to the original spectrum.
+
+    In the current form, each matrix is first multiplied by the Hermitian
+    transpose of the matrix of a reference station at the same frequency, and
+    the product is normalised by the L2 norm. This will likely be updated as
+    actual data are processed.
 
     :param gaintable: GainTable dataset to be to modelled.
     :param peak_threshold: Height of peak in the RM spectrum required for a
