@@ -58,33 +58,27 @@ The
 :py:func:`~ska_sdp_instrumental_calibration.workflow.pipelines.bandpass_polarisation`
 pipeline is similar but has extra steps, including an intermediate,
 post-calibration full-band fit for relative rotation of linear polarisation
-between stations. With some testing and development this workflow may be a good
-match for the needs of Low, but this initial version is also intended to show
-some of the different options available. Other dedicated ionospheric solvers
-are also available and will be demonstrated in other pipelines.
+between stations.
 
  * If called with `ms_name` set to "demo.ms", function
    :py:func:`~ska_sdp_instrumental_calibration.workflow.utils.create_demo_ms`
-   is called with gain and leakage Jones matrix corruptions, as well as
-   matrix rotations that increase with wavelength squared and change across the
-   array.
+   is called with gain and leakage Jones matrix corruptions, and polarisation
+   rotations that increase with wavelength squared and change across the array
+   are included before multiplication with direction-dependent beam models.
  * Read the MSv2 data into Visibility dataset.\ :sup:`1`
  * Predict model visibilities with no knowledge of the rotations.\ :sup:`1`
- * Do bandpass calibration.\ :sup:`1` A polarised solver is used, but for some
-   channels it is not fully converging. It is likely that the solutions are
-   converging, but to local minima due to the range of large rotations (need to
-   check how the func-python solvers declare convergence). In any case, the
-   solutions are good enough for subsequent full-band fits. And these can be
-   used to redo calibration with better starting conditions.
+ * Do bandpass calibration.\ :sup:`1` A polarised solver is used with moderate
+   convergence thresholds to form an initial estimate of the Jones matrices.
  * Function
    :py:func:`~ska_sdp_instrumental_calibration.processing_tasks.post_processing.model_rotations`
-   is used to fit for a Rotation Measure that models the relative station
-   polarisation rotations that increase linearly with wavelength squared.
-   An example of the RM spectrum produced for one station is show below.
-   The model RMs are used generate a pure rotation Jones dataset that can
-   be used to better initialise calibration.
- * Do bandpass calibration again, starting with the new model Jones matrices.\
-   :sup:`1`
+   is used to estimate a Rotation Measure value for each station, modelling the
+   relative station polarisation rotations that increase linearly with
+   wavelength squared. An example of the RM spectrum produced for one station
+   is show below.
+ * Re-predict model visibilities with the new RM estimates. These need to be
+   applied to sky component model visibilities before the direction-dependent
+   beam models are applied.
+ * Redo bandpass calibration.\ :sup:`1`
  * Apply calibration corrections to the corrupted dataset and check against
    the model dataset.\ :sup:`1`
 
