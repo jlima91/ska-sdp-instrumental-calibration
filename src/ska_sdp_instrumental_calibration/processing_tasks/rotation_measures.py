@@ -198,10 +198,14 @@ def model_rotations(
     peek_diff = rm_peeks - rm_peeks[ref]
     d_pa = lambda_sq.data * peek_diff.reshape(nstations, -1)
 
-    updated_gain = da.stack(
-        (np.cos(d_pa), -np.sin(d_pa), np.sin(d_pa), np.cos(d_pa)),
-        axis=2,
-    ).reshape(1, nstations, nfreq, 2, 2).astype(gaintable.gain.dtype)
+    updated_gain = (
+        da.stack(
+            (np.cos(d_pa), -np.sin(d_pa), np.sin(d_pa), np.cos(d_pa)),
+            axis=2,
+        )
+        .reshape(1, nstations, nfreq, 2, 2)
+        .astype(gaintable.gain.dtype)
+    )
 
     updated_gain_xdr = gaintable.gain.copy()
     updated_gain_xdr.data = updated_gain
