@@ -98,7 +98,6 @@ def delay_calibration_stage(
 
         upstream_output.add_compute_tasks(
             plot_station_delays(
-                gaintable,
                 delaytable,
                 path_prefix,
                 show_station_label=plot_config.get("anotate_stations", False),
