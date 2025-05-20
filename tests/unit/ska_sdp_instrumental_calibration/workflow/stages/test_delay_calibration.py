@@ -106,11 +106,13 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
                 apply_delay_mock.return_value,
                 calculate_delay_mock.return_value,
                 "/output/path/delay",
+                show_station_label=False,
             ),
             call(
                 apply_delay_mock.return_value,
                 calculate_delay_mock.return_value,
                 "/output/path/delay_1",
+                show_station_label=False,
             ),
         ]
     )

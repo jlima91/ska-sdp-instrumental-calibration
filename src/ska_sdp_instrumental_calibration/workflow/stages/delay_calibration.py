@@ -35,6 +35,12 @@ from ...data_managers.data_export import (
             fixed_axis=ConfigParam(
                 bool, False, description="Limit amplitude axis to [0-1]"
             ),
+            anotate_stations=ConfigParam(
+                bool,
+                False,
+                description="""Show station labels in delay
+                vs station plot""",
+            ),
         ),
         export_gaintable=ConfigParam(
             bool,
@@ -91,7 +97,12 @@ def delay_calibration_stage(
         )
 
         upstream_output.add_compute_tasks(
-            plot_station_delays(gaintable, delaytable, path_prefix)
+            plot_station_delays(
+                gaintable,
+                delaytable,
+                path_prefix,
+                show_station_label=plot_config.get("anotate_stations", False),
+            )
         )
 
     if export_gaintable:
