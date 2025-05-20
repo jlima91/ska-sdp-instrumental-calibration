@@ -12,7 +12,10 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     apply_delay,
     calculate_delay,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    plot_gaintable,
+    plot_station_delays,
+)
 
 from ...data_managers.data_export import (
     export_clock_to_h5parm,
@@ -85,6 +88,10 @@ def delay_calibration_stage(
                 figure_title="Delay",
                 fixed_axis=plot_config["fixed_axis"],
             )
+        )
+
+        upstream_output.add_compute_tasks(
+            plot_station_delays(gaintable, delaytable, path_prefix)
         )
 
     if export_gaintable:

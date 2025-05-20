@@ -41,6 +41,10 @@ def test_should_perform_delay_calibration(
 
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
+    ".plot_station_delays"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.delay_calibration"
     ".plot_gaintable"
 )
 @patch(
@@ -52,7 +56,10 @@ def test_should_perform_delay_calibration(
     ".apply_delay"
 )
 def test_should_plot_the_delayed_gaintable_with_proper_suffix(
-    apply_delay_mock, calculate_delay_mock, plot_gaintable_mock
+    apply_delay_mock,
+    calculate_delay_mock,
+    plot_gaintable_mock,
+    plot_station_delays_mock,
 ):
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
@@ -89,6 +96,21 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
                 "/output/path/delay_1",
                 figure_title="Delay",
                 fixed_axis=True,
+            ),
+        ]
+    )
+
+    plot_station_delays_mock.assert_has_calls(
+        [
+            call(
+                apply_delay_mock.return_value,
+                calculate_delay_mock.return_value,
+                "/output/path/delay",
+            ),
+            call(
+                apply_delay_mock.return_value,
+                calculate_delay_mock.return_value,
+                "/output/path/delay_1",
             ),
         ]
     )

@@ -8,6 +8,7 @@ __all__ = [
     "create_soltab_group",
     "create_soltab_datasets",
     "plot_gaintable",
+    "plot_station_delays",
 ]
 
 # pylint: disable=no-member
@@ -648,4 +649,58 @@ def subplot_gaintable(
     fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
     fig.legend(handles, labels, loc="outside upper right")
     fig.savefig(path)
+    plt.close()
+
+
+@dask.delayed
+def plot_station_delays(
+    gaintable, delay, path_prefix, show_station_label=False
+):
+    """
+    Plot the station delays against the station configuration
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable dataset
+        delay: xr.Dataset
+            Delay dataset
+        path_prefix: str
+            Path prefix to save the plots.
+        show_station_label: bool
+            Anotate plot points with station names
+    """
+
+    ant_conf = delay.configuration.xyz.data.T
+    ref_pos = np.mean(ant_conf, axis=1, keepdims=True)
+    rel_pos = ant_conf - ref_pos
+
+    east = -rel_pos[0]
+    north = rel_pos[1]
+
+    fig, subfigs = plt.subplots(figsize=(18, 5), ncols=2)
+    station_name = gaintable.configuration.names.data
+
+    fig.suptitle("Station Delays")
+    for idx, ax in enumerate(subfigs):
+        sc = ax.scatter(
+            east, north, c=delay.delay.data[:, :, idx], cmap="plasma", s=10
+        )
+        ax.set_xlabel("X (m)")
+        ax.set_ylabel("Y (m)")
+        cbar = fig.colorbar(sc, ax=ax, shrink=0.5, aspect=10)
+        cbar.set_label("Delays", rotation=270)
+        ax.grid()
+        ax.set_title(f"Polarization: {delay.pol.data[idx]}")
+        if show_station_label:
+            for i in range(len(east)):
+                ax.annotate(
+                    station_name[i],
+                    (east[i], north[i]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha="center",
+                )
+
+    plt.savefig(f"{path_prefix}_station_delay.png")
     plt.close()
