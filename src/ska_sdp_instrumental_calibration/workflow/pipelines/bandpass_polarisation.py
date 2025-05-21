@@ -19,9 +19,12 @@
 """
 
 import warnings
+from copy import deepcopy
+from typing import Annotated
 
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 from dask.distributed import Client, LocalCluster
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
@@ -31,6 +34,7 @@ from ska_sdp_func_python.preprocessing.averaging import (
     averaging_time,
 )
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
+from typer import Option, Typer
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
@@ -44,6 +48,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+    Component,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
@@ -331,3 +336,50 @@ def run(pipeline_config) -> None:
     client.close()
     if config.dask_scheduler_address is None:
         client.shutdown()
+
+
+bandpass_polarisation_app = Typer(no_args_is_help=True)
+
+
+@bandpass_polarisation_app.command(
+    help="A cli wrapper for bandpass_polarisation pipeline.",
+)
+def run_bandpass_polarisation(
+    output_dir: Annotated[str, Option(help="""Path to output directory""")],
+    config_path: Annotated[str, Option(help="""Path to the yaml config""")],
+    input_ms: Annotated[str, Option(help="""Path to input measurement set""")],
+    dask_scheduler: Annotated[
+        str,
+        Option(
+            help="""Dask scheduler url.
+            If None, pipeline will start a local cluster."""
+        ),
+    ] = None,
+    sky_model_csv: Annotated[
+        str,
+        Option(
+            help="""Path to sky model csv file.
+            No need to pass if lsm or gleamfile is provided in the config."""
+        ),
+    ] = None,
+):
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+
+    config_copy = deepcopy(config)
+
+    # CLI Overrides
+    config_copy["ms_name"] = input_ms
+    config_copy["dask_scheduler_address"] = dask_scheduler
+    config_copy["csvfile"] = sky_model_csv
+
+    if lsm := config.get("lsm"):
+        config_copy["lsm"] = [Component(**params) for params in lsm]
+
+    if h5parm_name := config.get("h5parm_name"):
+        config_copy["h5parm_name"] = f"{output_dir}/{h5parm_name}"
+
+    if hdf5_name := config.get("hdf5_name"):
+        config_copy["hdf5_name"] = f"{output_dir}/{hdf5_name}"
+
+    run(config_copy)
