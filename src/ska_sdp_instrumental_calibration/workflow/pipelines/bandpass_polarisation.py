@@ -18,6 +18,7 @@
 9. Save GainTable dataset to H5Parm
 """
 
+import os
 import warnings
 from copy import deepcopy
 from typing import Annotated
@@ -72,7 +73,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 logger = setup_logger("pipeline.bandpass_calibration")
 
 
-def run(pipeline_config) -> None:
+def run(pipeline_config, output_dir = ".") -> None:
     """Pipeline to generate bandpass calibration solutions.
 
     Args:
@@ -205,7 +206,7 @@ def run(pipeline_config) -> None:
     # Fit for any differential rotations (single call for all channels).
     # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    rm_est = model_rotations(initialtable, refant=refant, plot_sample=True)
+    rm_est = model_rotations(initialtable, refant=refant, plot_sample=True, plot_path_prefix=output_dir)
     # rm_est = np.zeros(20)
 
     # Re-predict model visibilities
@@ -301,7 +302,7 @@ def run(pipeline_config) -> None:
         ax.grid()
         ax.legend()
 
-    plt.savefig("bandpass_stages.png")
+    plt.savefig(f"{output_dir}/bandpass_stages.png")
 
     if config.h5parm_name is not None:
         logger.info(f"Writing solutions to {config.h5parm_name}")
@@ -355,11 +356,18 @@ def run_bandpass_polarisation(
             If None, pipeline will start a local cluster."""
         ),
     ] = None,
-    sky_model_csv: Annotated[
+    csvfile: Annotated[
         str,
         Option(
-            help="""Path to sky model csv file.
-            No need to pass if lsm or gleamfile is provided in the config."""
+            help="""Path to sky model csv file. Overrides the corresponding value from config.
+            No need to pass if lsm is provided in the config, OR gleamfile is provided."""
+        ),
+    ] = None,
+    gleamfile: Annotated[
+        str,
+        Option(
+            help="""Path to gleam sky model file, e.g. gleamegc.dat. Overrides the corresponding value from config.
+            No need to pass if lsm is provided in the config, OR csvfile is provided."""
         ),
     ] = None,
 ):
@@ -371,7 +379,11 @@ def run_bandpass_polarisation(
     # CLI Overrides
     config_copy["ms_name"] = input_ms
     config_copy["dask_scheduler_address"] = dask_scheduler
-    config_copy["csvfile"] = sky_model_csv
+    config_copy["csvfile"] = csvfile or config.get("csvfile")
+    config_copy["gleamfile"] = gleamfile or config.get("gleamfile")
+
+    # create output directory if doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
 
     if lsm := config.get("lsm"):
         config_copy["lsm"] = [Component(**params) for params in lsm]
@@ -382,4 +394,4 @@ def run_bandpass_polarisation(
     if hdf5_name := config.get("hdf5_name"):
         config_copy["hdf5_name"] = f"{output_dir}/{hdf5_name}"
 
-    run(config_copy)
+    run(config_copy, output_dir)
