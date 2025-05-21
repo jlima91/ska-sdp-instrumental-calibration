@@ -73,7 +73,7 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 logger = setup_logger("pipeline.bandpass_calibration")
 
 
-def run(pipeline_config, output_dir = ".") -> None:
+def run(pipeline_config, output_dir=".") -> None:
     """Pipeline to generate bandpass calibration solutions.
 
     Args:
@@ -206,7 +206,12 @@ def run(pipeline_config, output_dir = ".") -> None:
     # Fit for any differential rotations (single call for all channels).
     # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    rm_est = model_rotations(initialtable, refant=refant, plot_sample=True, plot_path_prefix=output_dir)
+    rm_est = model_rotations(
+        initialtable,
+        refant=refant,
+        plot_sample=True,
+        plot_path_prefix=output_dir,
+    )
     # rm_est = np.zeros(20)
 
     # Re-predict model visibilities
@@ -359,15 +364,19 @@ def run_bandpass_polarisation(
     csvfile: Annotated[
         str,
         Option(
-            help="""Path to sky model csv file. Overrides the corresponding value from config.
-            No need to pass if lsm is provided in the config, OR gleamfile is provided."""
+            help="""Path to sky model csv file.
+            Overrides the corresponding value from config.
+            No need to pass if lsm is provided in the config,
+            OR if gleamfile is provided."""
         ),
     ] = None,
     gleamfile: Annotated[
         str,
         Option(
-            help="""Path to gleam sky model file, e.g. gleamegc.dat. Overrides the corresponding value from config.
-            No need to pass if lsm is provided in the config, OR csvfile is provided."""
+            help="""Path to gleam sky model file, e.g. gleamegc.dat.
+            Overrides the corresponding value from config.
+            No need to pass if lsm is provided in the config,
+            OR if csvfile is provided."""
         ),
     ] = None,
 ):
