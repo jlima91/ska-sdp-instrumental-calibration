@@ -18,6 +18,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
     generate_channel_rm_stage,
     load_data_stage,
     predict_vis_stage,
+    smooth_gain_solution_stage,
 )
 
 # from ska_sdp_instrumental_calibration.workflow.stages.delay_calibration import delay_calibration_stage
@@ -36,6 +37,7 @@ ska_sdp_instrumental_calibration = Pipeline(
             bandpass_calibration_stage,
             generate_channel_rm_stage,
             delay_calibration_stage,
+            smooth_gain_solution_stage,
             export_gaintable_stage,
         ]
     ),

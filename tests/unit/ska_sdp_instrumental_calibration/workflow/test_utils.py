@@ -1,6 +1,6 @@
 import numpy as np
 from mock import MagicMock, Mock, call, patch
-from numpy import array
+from numpy import array, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     ecef_to_lla,
@@ -10,17 +10,14 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 )
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.utils.np.split",
-    return_value=["first set of stations", "second set of stations"],
-)
 @patch("ska_sdp_instrumental_calibration.workflow.utils.subplot_gaintable")
-def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
+def test_should_plot_the_gaintable(subplot_gaintable_mock):
     gaintable_mock = MagicMock(name="gaintable")
 
     gaintable_mock.stack.return_value = gaintable_mock
     gaintable_mock.pol.data = [("X", "X"), ("Y", "Y")]
     gaintable_mock.assign_coords.return_value = gaintable_mock
+    gaintable_mock.configuration.names = array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
     plot_gaintable(
         gaintable_mock,
@@ -31,28 +28,32 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock, split_mock):
 
     gaintable_mock.stack.assert_called_with(pol=("receptor1", "receptor2"))
     gaintable_mock.assign_coords.assert_called_with({"pol": ["XX", "YY"]})
-    subplot_gaintable_mock.assert_has_calls(
-        [
-            call(
-                gaintable=gaintable_mock,
-                stations="first set of stations",
-                path_prefix="/some/path",
-                n_rows=3,
-                n_cols=3,
-                figure_title="some_title",
-                fixed_axis=False,
-            ),
-            call(
-                gaintable=gaintable_mock,
-                stations="second set of stations",
-                path_prefix="/some/path",
-                n_rows=3,
-                n_cols=3,
-                figure_title="some_title",
-                fixed_axis=False,
-            ),
-        ]
+
+    first_call_actual = subplot_gaintable_mock.call_args_list[0].kwargs
+    testing.assert_allclose(first_call_actual["gaintable"], gaintable_mock)
+    testing.assert_string_equal(first_call_actual["path_prefix"], "/some/path")
+    testing.assert_allclose(first_call_actual["n_rows"], 3)
+    testing.assert_allclose(first_call_actual["n_cols"], 3)
+    testing.assert_string_equal(
+        first_call_actual["figure_title"], "some_title"
     )
+    testing.assert_allclose(first_call_actual["fixed_axis"], False)
+    testing.assert_allclose(
+        first_call_actual["stations"], [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    )
+
+    second_call_actual = subplot_gaintable_mock.call_args_list[1].kwargs
+    testing.assert_allclose(second_call_actual["gaintable"], gaintable_mock)
+    testing.assert_string_equal(
+        second_call_actual["path_prefix"], "/some/path"
+    )
+    testing.assert_allclose(second_call_actual["n_rows"], 3)
+    testing.assert_allclose(second_call_actual["n_cols"], 3)
+    testing.assert_string_equal(
+        second_call_actual["figure_title"], "some_title"
+    )
+    testing.assert_allclose(second_call_actual["fixed_axis"], False)
+    testing.assert_allclose(second_call_actual["stations"], [10])
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.subplot_gaintable")
@@ -200,7 +201,6 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
 @patch("ska_sdp_instrumental_calibration.workflow.utils.plt")
 @patch("ska_sdp_instrumental_calibration.workflow.utils.np")
 def test_should_create_subplots(numpy_mock, plt_mock):
-    stations = [1, 2, 3, 4]
     n_rows = 2
     n_cols = 2
     figure_title = "figure title"
@@ -209,6 +209,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
         [Mock(name="yy2"), Mock(name="yy2")],
     ]
 
+    stations = Mock(name="stations")
     gaintable_mock = MagicMock(name="gaintable")
     amp_mock = MagicMock(name="amp")
     phase_mock = MagicMock(name="phase")
@@ -235,6 +236,9 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     handles_mock = Mock(name="handles")
     labels_mock = Mock(name="labels")
 
+    stations.id = [1, 2, 3, 4]
+    stations.values = ["a", "b", "c", "d"]
+    stations.size = 4
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.pol.values = ["XX", "YY"]
@@ -410,10 +414,10 @@ def test_should_create_subplots(numpy_mock, plt_mock):
 
     subfig_mock.suptitle.assert_has_calls(
         [
-            call("Station - 1", fontsize="large"),
-            call("Station - 2", fontsize="large"),
-            call("Station - 3", fontsize="large"),
-            call("Station - 4", fontsize="large"),
+            call("Station - a", fontsize="large"),
+            call("Station - b", fontsize="large"),
+            call("Station - c", fontsize="large"),
+            call("Station - d", fontsize="large"),
         ]
     )
 
@@ -452,7 +456,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     )
 
     fig_mock.savefig.assert_called_once_with(
-        "/some/path/file-amp-phase_freq1-4.png"
+        "/some/path/file-amp-phase_freq-a-d.png"
     )
 
     plt_mock.close.assert_called_once_with()
@@ -463,7 +467,6 @@ def test_should_create_subplots(numpy_mock, plt_mock):
 def test_should_plot_when_stations_are_less_than_subplot_capacity(
     numpy_mock, plt_mock
 ):
-    stations = [1, 2, 3]
     n_rows = 2
     n_cols = 2
     figure_title = "figure title"
@@ -472,10 +475,15 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
         [Mock(name="yy2"), Mock(name="yy2")],
     ]
 
+    stations_mock = Mock(name="stations")
     gaintable_mock = MagicMock(name="gaintable")
     amp_mock = MagicMock(name="amp")
     phase_mock = MagicMock(name="phase")
     frequency_mock = MagicMock(name="frequency")
+
+    stations_mock.id = [11, 12, 13]
+    stations_mock.values = ["x", "y", "z"]
+    stations_mock.size = 3
 
     gain_mock = Mock(name="gain")
     fig_mock = Mock(name="fig mock")
@@ -510,7 +518,7 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
 
     subplot_gaintable(
         gaintable_mock,
-        stations,
+        stations_mock,
         "/some/path/file",
         n_rows,
         n_cols,
@@ -519,6 +527,14 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
     )
 
     amp_axis_mock.set_ylim.assert_called_with([0, 1])
+    subfig_mock.subplots.assert_has_calls(
+        [
+            call(2, 1, sharex=True),
+            call(2, 1, sharex=True),
+            call(2, 1, sharex=True),
+        ]
+    )
+
 
 
 def test_should_convert_earth_centric_coordinates_to_geodetic():
@@ -531,3 +547,4 @@ def test_should_convert_earth_centric_coordinates_to_geodetic():
     np.testing.assert_allclose(lat, np.array([-26.753052, -26.753052]))
     np.testing.assert_allclose(lng, np.array([116.787894, 243.212106]))
     np.testing.assert_allclose(alt, np.array([6374502.632896, 6374502.632896]))
+
