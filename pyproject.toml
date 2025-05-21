@@ -38,6 +38,8 @@ ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^1.0.1"
 xarray = "^2024.7"
 ska-sdp-exec-piper = "^1.0.1"
+# Temporary fix until piper's typer dep is upgraded to >=0.15.4
+click = "8.1.*"
 ska-sdp-config = "^1.0.0"
 ska-sdp-dataproduct-metadata = "^1.0.0.post1"
 
@@ -83,4 +85,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration:ska_sdp_instrumental_calibration"
-bandpass-polarisation = "ska_sdp_instrumental_calibration.workflow.pipelines.bandpass_polarisation.bandpass_polarisation_app"
+bandpass-polarisation = "ska_sdp_instrumental_calibration.workflow.pipelines.bandpass_polarisation:bandpass_polarisation_app"
