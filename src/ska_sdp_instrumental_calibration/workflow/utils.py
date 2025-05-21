@@ -684,10 +684,10 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
         ax.grid()
         ax.set_title(f"Polarization: {delaytable.pol.data[idx]}")
         if show_station_label:
-            for i in range(len(east)):
+            for i in range(len(longitude)):
                 ax.annotate(
                     station_name[i],
-                    (east[i], north[i]),
+                    (longitude[i], latitude[i]),
                     textcoords="offset points",
                     xytext=(5, 5),
                     ha="center",
@@ -698,7 +698,8 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
 
 
 def ecef_to_lla(x, y, z):
-    """Translate Earth-Centred Earth-Fixed (in meters) to geodetic (WGS84) coordinates.
+    """Translate Earth-Centred Earth-Fixed (in meters) to
+    geodetic (WGS84) coordinates.
 
     Parameters
     ----------
