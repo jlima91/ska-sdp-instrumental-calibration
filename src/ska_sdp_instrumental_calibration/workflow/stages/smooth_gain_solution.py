@@ -17,27 +17,35 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
 @ConfigurableStage(
     "smooth_gain_solution",
     configuration=Configuration(
-        window_size=ConfigParam(int, None, description="Sliding window size."),
+        window_size=ConfigParam(
+            int, 1, description="Sliding window size.", nullable=False
+        ),
         mode=ConfigParam(
             str,
             "median",
             description="Mode of smoothing",
             allowed_values=["mean", "median"],
+            nullable=False,
         ),
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
-                bool, False, description="Plot the smoothed gaintable"
+                bool,
+                False,
+                description="Plot the smoothed gaintable",
+                nullable=False,
             ),
             plot_path_prefix=ConfigParam(
                 str,
                 "smoothed-gain",
                 description="Path prefix to store smoothed gain plots",
+                nullable=False,
             ),
             plot_title=ConfigParam(
                 str,
                 "Smoothed Gain",
                 description="Title for smoothed gain plots",
+                nullable=False,
             ),
         ),
         export_gaintable=ConfigParam(

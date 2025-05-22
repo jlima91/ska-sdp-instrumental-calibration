@@ -36,14 +36,18 @@ class PipelineConfig:
         ms_name (str):
             Input MSv2 filename. Defaults to "demo.ms". If the filename is
             "demo.ms", a demo dataset will be generated and written to this
-            file. See also parameters ntimes, nchannels, gains, leakage and
-            rotation.
+            file. See also parameters ntimes, nchannels, delays, gains,
+            leakage and rotation.
         ntimes (int):
             If filename is "demo.ms", this sets the number of simulated time
             steps. Default is 1.
         nchannels (int):
             If filename is "demo.ms", this sets the number of simulated
             frequency channels. Default is 64.
+        delays (bool):
+            If filename is "demo.ms", this specifies whether or not random
+            station delay corrumptions should be included in the simulation.
+            Default is False.
         gains (bool):
             If filename is "demo.ms", this specifies whether or not random
             station gain corrumptions should be included in the simulation.
@@ -102,6 +106,9 @@ class PipelineConfig:
             If beam_type is "everybeam" but dataset ms_name does not have all
             of the metadata required by everybeam, this parameter is used to
             specify a separate dataset to use when setting up the beam models.
+        normalise_at_beam_centre (bool):
+            If true, before running calibration, multiply vis and model vis by
+            the inverse of the beam response in the beam pointing direction.
     """
 
     def __init__(self, config):
@@ -134,6 +141,7 @@ class PipelineConfig:
         self.ntimes = config.get("ntimes", 1)
         self.nchannels = config.get("nchannels", 64)
         # Simulation station corruptions
+        self.delays = config.get("delays", False)
         self.gains = config.get("gains", True)
         self.leakage = config.get("leakage", False)
         self.rotation = config.get("rotation", False)
@@ -176,6 +184,7 @@ class PipelineConfig:
         self.beam_type = config.get("beam_type", "everybeam")
         self.eb_coeffs = config.get("eb_coeffs", None)
         self.eb_ms = config.get("eb_ms", self.ms_name)
+        self.norm_beam_centre = config.get("normalise_at_beam_centre", False)
         if self.beam_type.lower() == "everybeam":
             # Required external data
             if self.eb_coeffs is None:
@@ -234,6 +243,7 @@ class PipelineConfig:
                 ms_name=self.ms_name,
                 ntimes=self.ntimes,
                 nchannels=self.nchannels,
+                delays=self.delays,
                 gains=self.gains,
                 leakage=self.leakage,
                 rotation=self.rotation,

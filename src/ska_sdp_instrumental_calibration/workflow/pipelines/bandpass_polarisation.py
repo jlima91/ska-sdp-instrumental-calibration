@@ -4,18 +4,23 @@
 2. Read the Measurement Set in frequency chunks
 3. Initialisations
     - Get a Local Sky Model
-    - RFI flagging
+    - Preprocessing (flagging and averaging) -- currently disabled
 4. Predict model visibilities
     - Convert LSM to Skycomponents list
     - Convert list to vis dataset using dft_skycomponent_visibility
     - Apply Gaussian tapers to extended components
     - Apply everybeam beam models, per component, frequency and baseline
-5. Solve for antenna-based gain terms and add to a GainTable dataset
-6. Save GainTable dataset to HDF5
+5. Solve for station- and frequency-based Jones matrices
+6. Solve for differential Faraday rotation (DI RM per station)
+7. Re-predict model visibilities
+    - Apply station-based RM estimates to components before beam models
+8. Re-solve for station- and frequency-based Jones matrices
+9. Save GainTable dataset to H5Parm
 """
 
 import warnings
 
+import matplotlib.pyplot as plt
 import numpy as np
 from dask.distributed import Client, LocalCluster
 from ska_sdp_datamodels.calibration.calibration_functions import (
@@ -28,18 +33,25 @@ from ska_sdp_func_python.preprocessing.averaging import (
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    ingest_predict_and_solve,
+    apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
+    prediction_central_beams,
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
+)
 from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
     model_rotations,
+)
+from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+    generate_rotation_matrices,
 )
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
@@ -67,7 +79,7 @@ def run(pipeline_config) -> None:
     config = PipelineConfig(pipeline_config)
 
     if config.do_simulation:
-        truetable = config.simulate_input_dataset()
+        config.simulate_input_dataset()
 
     logger.info(f"Starting pipeline with {config.fchunk}-channel chunks")
 
@@ -107,129 +119,185 @@ def run(pipeline_config) -> None:
     logger.info(f"LSM contains {len(config.lsm)} components")
 
     if config.end_to_end_subbands:
+        logger.warning("Not running end-to-end version.")
 
-        # Call the solver
-        refant = 0
-        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
-        logger.info("end_to_end_subbands = true")
-        initialtable = ingest_predict_and_solve(
-            ms_name=config.ms_name,
-            fchunk=config.fchunk,
-            lsm=config.lsm,
-            beam_type=config.beam_type,
-            eb_ms=config.eb_ms,
-            eb_coeffs=config.eb_coeffs,
-            solver="jones_substitution",
-            niter=20,
-            refant=refant,
-        )
+    # If the vis data and model can fit into memory, the load_ms and
+    # predict_vis calls could be returned with .persist() so that they do
+    # not need to be run again for the second run_solver call.
+    # For now they will just be regenerated.
 
-    else:
+    # Read in the Visibility dataset
+    logger.info(
+        f"Will ingest {config.ms_name} in {config.fchunk}-channel chunks"
+    )
+    vis = load_ms(config.ms_name, config.fchunk)  # .persist()
 
-        # If the vis data and model can fit into memory, the load_ms and
-        # predict_vis calls could be returned with .persist() so that they do
-        # not need to be run again for the second run_solver call.
-        # For now they will just be regenerated.
+    # Pre-processing
+    rfi_flagging = False  # not yet set up for dask chunks
+    preproc_ave_time = 1  # not yet set up for dask chunks
+    preproc_ave_frequency = 1  # not yet set up for dask chunks
 
-        # Read in the Visibility dataset
-        logger.info(
-            f"Will ingest {config.ms_name} in {config.fchunk}-channel chunks"
-        )
-        vis = load_ms(config.ms_name, config.fchunk)  # .persist()
+    # Pre-processing
+    #  - Full-band operations trigger the computation, so leave for now.
+    #  - Move to dask_wrappers?
+    #     - Any time or freq averaging should perhaps be added to load_ms
+    #  - Do RFI flagging?
+    if rfi_flagging:
+        logger.info("Calling rfi_flagger")
+        vis = rfi_flagger(vis)
+    #  - Time averaging?
+    if preproc_ave_time > 1:
+        logger.info(f"Averaging vis by {preproc_ave_time} time steps")
+        vis = averaging_time(vis, timestep=preproc_ave_time)
+    #  - Frequency averaging?
+    if preproc_ave_frequency > 1:
+        logger.info(f"Averaging vis by {preproc_ave_frequency} channels")
+        # Auto average to 781.25 kHz?
+        # dfrequency_bf = 781.25e3
+        # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
+        # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
+        vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
 
-        # Pre-processing
-        rfi_flagging = False  # not yet set up for dask chunks
-        preproc_ave_time = 1  # not yet set up for dask chunks
-        preproc_ave_frequency = 1  # not yet set up for dask chunks
+    # Predict model visibilities
+    logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
+    modelvis = predict_vis(
+        vis,
+        config.lsm,
+        beam_type=config.beam_type,
+        eb_ms=config.eb_ms,
+        eb_coeffs=config.eb_coeffs,
+    )  # .persist()
 
-        # Pre-processing
-        #  - Full-band operations trigger the computation, so leave for now.
-        #  - Move to dask_wrappers?
-        #     - Any time or freq averaging should perhaps be added to load_ms
-        #  - Do RFI flagging?
-        if rfi_flagging:
-            logger.info("Calling rfi_flagger")
-            vis = rfi_flagger(vis)
-        #  - Time averaging?
-        if preproc_ave_time > 1:
-            logger.info(f"Averaging vis by {preproc_ave_time} time steps")
-            vis = averaging_time(vis, timestep=preproc_ave_time)
-        #  - Frequency averaging?
-        if preproc_ave_frequency > 1:
-            logger.info(f"Averaging vis by {preproc_ave_frequency} channels")
-            # Auto average to 781.25 kHz?
-            # dfrequency_bf = 781.25e3
-            # dfrequency = vis.frequency.data[1] - vis.frequency.data[0]
-            # freqstep = int(numpy.round(dfrequency_bf / dfrequency))
-            vis = averaging_frequency(vis, freqstep=preproc_ave_frequency)
-
-        # Predict model visibilities
-        logger.info(f"Setting vis predict in {config.fchunk}-channel chunks")
-        modelvis = predict_vis(
+    # Divide out the beam response at the centre of the field?
+    if config.norm_beam_centre:
+        beams = prediction_central_beams(
             vis,
-            config.lsm,
             beam_type=config.beam_type,
             eb_ms=config.eb_ms,
             eb_coeffs=config.eb_coeffs,
         )  # .persist()
+        vis = apply_gaintable_to_dataset(vis, beams, inverse=True)
+        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
 
-        # Call the solver
-        refant = 0
-        logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver jones_substitution")
-        initialtable = run_solver(
-            vis=vis,
-            modelvis=modelvis,
-            solver="jones_substitution",
-            niter=20,
-            refant=refant,
-        )
+    # Call the solver
+    refant = 0
+    logger.info(f"Setting calibration in {config.fchunk}-channel chunks")
+    logger.info(" - Using solver jones_substitution")
+    logger.info(" - Using niter=20 and tol=1e-4 for this initial run")
+    initialtable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        solver="jones_substitution",
+        niter=20,
+        tol=1e-4,
+        refant=refant,
+    )
 
     # Load all of the solutions into a numpy array
     logger.info("Running graph and returning calibration solutions")
     initialtable.load()
 
     # Fit for any differential rotations (single call for all channels).
-    # Return gaintable filled with pure rotations.
+    # Return 1D array of rotation measure values.
     logger.info("Fitting differential rotations")
-    gaintable = model_rotations(initialtable, plot_sample=True).chunk(
-        {"frequency": config.fchunk}
+    rm_est = model_rotations(initialtable, refant=refant, plot_sample=True)
+    # rm_est = np.zeros(20)
+
+    # Re-predict model visibilities
+    logger.info("Re-predicting model vis with RM estimates")
+    modelvis = predict_vis(
+        vis,
+        config.lsm,
+        beam_type=config.beam_type,
+        eb_ms=config.eb_ms,
+        eb_coeffs=config.eb_coeffs,
+        station_rm=rm_est,
+    )  # .persist()
+
+    # Divide out the beam response at the centre of the field?
+    if config.norm_beam_centre:
+        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
+
+    logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
+    logger.info(" - First using solver jones_substitution again")
+    gaintable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        solver="jones_substitution",
+        niter=20,
+        tol=1e-4,
+        refant=refant,
     )
-
-    # Call the solver with updated initial solutions
-    if config.end_to_end_subbands:
-
-        logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver normal_equations")
-        gaintable = ingest_predict_and_solve(
-            ms_name=config.ms_name,
-            fchunk=config.fchunk,
-            lsm=config.lsm,
-            beam_type=config.beam_type,
-            eb_ms=config.eb_ms,
-            eb_coeffs=config.eb_coeffs,
-            gaintable=gaintable,
-            solver="normal_equations",
-            niter=50,
-            refant=refant,
-        )
-
-    else:
-
-        logger.info(f"Resetting calibration in {config.fchunk}-channel chunks")
-        logger.info(" - Using solver normal_equations")
-        gaintable = run_solver(
-            vis=vis,
-            modelvis=modelvis,
-            gaintable=gaintable,
-            solver="normal_equations",
-            niter=50,
-            refant=refant,
-        )
+    logger.info(" - Then improving using solver normal_equations")
+    gaintable = run_solver(
+        vis=vis,
+        modelvis=modelvis,
+        gaintable=gaintable,
+        solver="normal_equations",
+        niter=50,
+        refant=refant,
+    )
 
     # Output hdf5 file
     logger.info("Running graph and returning calibration solutions")
     gaintable.load()
+
+    # Plot a sample of the results
+    _, axs = plt.subplots(3, 4, figsize=(14, 14), sharey=True)
+    # plot stations at a low RM, the median RM and the max RM
+    x = gaintable.frequency.data / 1e6
+    stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
+    for k, stn in enumerate(stns):
+        J = initialtable.gain.data[0, stn] @ np.linalg.inv(
+            initialtable.gain.data[0, refant, ..., :, :]
+        )
+        ax = axs[k, 0]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(f"Bandpass for station {stn} (rel to {refant})")
+        ax.grid()
+        ax.legend()
+
+        J = generate_rotation_matrices(rm_est, gaintable.frequency.data)[stn]
+        ax = axs[k, 1]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(f"RM model, RM = {rm_est[stn]:.3f}")
+        ax.grid()
+        ax.legend()
+
+        J = gaintable.gain.data[0, stn] @ np.linalg.inv(
+            gaintable.gain.data[0, refant, ..., :, :]
+        )
+        ax = axs[k, 2]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (re: -, im: --)")
+        ax.grid()
+        ax.legend()
+
+        ax = axs[k, 3]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.abs(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            if p == q:
+                ax.plot(x, np.angle(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (abs: -, angle: --)")
+        ax.grid()
+        ax.legend()
+
+    plt.savefig("bandpass_stages.png")
+
     if config.h5parm_name is not None:
         logger.info(f"Writing solutions to {config.h5parm_name}")
         export_gaintable_to_h5parm(gaintable, config.h5parm_name)
@@ -238,28 +306,26 @@ def run(pipeline_config) -> None:
         export_gaintable_to_hdf5(gaintable, config.hdf5_name)
 
     # Convergence checks (noise-free demo version)
-    #  - Note that this runs the graph again. I tried assigning both vis
-    #    and modelvis to gaintable for a single load, but it got confused
-    #    by the baseline MultiIndex. MultiIndex causes a lot of trouble...
+    #  - Note that this runs the graph again.
     #  - This is just a quick check, so it shouldn't hurt to run it again.
+    #  - RM matrices are now applied before the beam matrices.
     if config.do_simulation:
         logger.info("Checking results")
-        gfit = gaintable.gain.data
-        true = truetable.gain.data
-        # Reference all polarisations again the X gain for the ref antenna
-        gfit *= np.exp(
-            -1j
-            * np.angle(gfit[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
+        vis = vis.load()
+        modelvis.load()
+        vis = apply_gaintable(vis=vis, gt=gaintable, inverse=True)
+        diff = (vis.vis - modelvis.vis).data
+        logger.info(f"model max = {np.max(np.abs(modelvis.vis.data)):.1f}")
+        logger.info(f"corrected max = {np.max(np.abs(vis.vis.data)):.1f}")
+        logger.info(f"diff max = {np.max(np.abs(diff)):.1e}")
+        logger.info(
+            "diff max (relative) = "
+            + f"{np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)):.1e}"
         )
-        true *= np.exp(
-            -1j
-            * np.angle(true[:, [refant], :, 0, 0][..., np.newaxis, np.newaxis])
-        )
-        converged = np.allclose(gfit, true, atol=1e-6)
-        if converged:
+        if np.max(np.abs(diff)) / np.max(np.abs(modelvis.vis.data)) < 2e-4:
             logger.info("Convergence checks passed")
         else:
-            logger.warning("Solving failed")
+            logger.warning("Solving failed to converge")
 
     # Shut down the scheduler and workers
     client.close()

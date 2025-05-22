@@ -4,10 +4,10 @@ import logging
 
 import everybeam as eb
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from astropy.coordinates import ITRS, AltAz, SkyCoord
 from astropy.time import Time
-from numpy import typing
 
 logger = logging.getLogger("processing_tasks.beams")
 
@@ -91,6 +91,7 @@ class GenericBeams:
             self.delay_dir_itrf = None
             self.set_scale = None
             if type(self.telescope) is eb.OSKAR:
+                # why not just set the normalisation now?
                 logger.info("Setting beam normalisation for OSKAR data")
                 self.set_scale = "oskar"
             self.scale = np.ones(len(vis.frequency))
@@ -111,7 +112,7 @@ class GenericBeams:
         """
         self.beam_direction = direction
 
-    def update_beam(self, frequency: typing.NDArray[float], time: Time):
+    def update_beam(self, frequency: npt.NDArray[float], time: Time):
         """Update the ITRF coordinates of the beam and normalisation factors.
 
         :param frequency: 1D array of frequencies
@@ -173,9 +174,9 @@ class GenericBeams:
     def array_response(
         self,
         direction: SkyCoord,
-        frequency: typing.NDArray[float],
+        frequency: npt.NDArray[float],
         time: Time = None,
-    ) -> typing.NDArray[complex]:
+    ) -> npt.NDArray[complex]:
         """Return the response of each antenna or station in a given direction
 
         :param direction: Direction of desired response

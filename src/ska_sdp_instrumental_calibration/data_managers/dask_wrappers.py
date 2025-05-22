@@ -18,6 +18,7 @@ Topics from Vincent's MR review to be considered in ongoing work:
 __all__ = [
     "load_ms",
     "predict_vis",
+    "prediction_central_beams",
     "run_solver",
     "ingest_predict_and_solve",
     "apply_gaintable_to_dataset",
@@ -56,6 +57,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     convert_model_to_skycomponents,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+    generate_central_beams,
     predict_from_components,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
@@ -187,6 +189,7 @@ def _predict(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Call predict_from_components.
@@ -197,6 +200,7 @@ def _predict(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param reset_vis: Whether or not to set visibilities to zero before
         accumulating components. Default is False.
     :return: Predicted Visibility dataset
@@ -215,6 +219,7 @@ def _predict(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
+            station_rm=station_rm,
             reset_vis=reset_vis,
         )
         # Change variable names back for map_blocks I/O checks
@@ -239,6 +244,7 @@ def predict_vis(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Distributed Visibility predict.
@@ -250,6 +256,7 @@ def predict_vis(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param reset_vis: Whether or not to set visibilities to zero before
             accumulating components. Default is False.
     :return: Predicted Visibility dataset
@@ -259,8 +266,79 @@ def predict_vis(
 
     # Call map_blocks function and return result
     return modelvis.map_blocks(
-        _predict, args=[lsm, beam_type, eb_ms, eb_coeffs, reset_vis]
+        _predict,
+        args=[lsm, beam_type, eb_ms, eb_coeffs, station_rm, reset_vis],
     )
+
+
+def _get_beams(
+    gainchunk: xr.Dataset,
+    vischunk: xr.Dataset,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+) -> xr.Dataset:
+    """Return beam models used in prediction at beam centre.
+
+    Set up to run with function generate_central_beams.
+
+    :param gaintable: GainTable dataset containing initial solutions.
+    :param vischunk: Visibility dataset containing observed data.
+
+    :return: Chunked GainTable dataset
+    """
+    if len(vischunk.frequency) > 0:
+        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        # Switch to standard variable names and coords for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+        vischunk = restore_baselines_dim(vischunk)
+        # Call solver
+        generate_central_beams(
+            gaintable=gainchunk,
+            vis=vischunk,
+            beam_type=beam_type,
+            eb_coeffs=eb_coeffs,
+            eb_ms=eb_ms,
+        )
+        # Change the time dimension name back for map_blocks I/O checks
+        gainchunk = gainchunk.rename({"time": "soln_time"})
+
+    return gainchunk
+
+
+def prediction_central_beams(
+    vis: xr.Dataset,
+    beam_type: Optional[str] = "everybeam",
+    eb_ms: Optional[str] = None,
+    eb_coeffs: Optional[str] = None,
+) -> xr.Dataset:
+    """Return beam models used in prediction at beam centre.
+
+    :param vis: Chunked Visibility dataset containing observed data.
+
+    :return: Chunked GainTable dataset
+    """
+    # Create a bandpass calibration gain table
+    fchunk = vis.chunks["frequency"][0]
+    if fchunk <= 0:
+        logger.warning("vis dataset does not appear to be chunked")
+        fchunk = len(vis.frequency)
+    gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
+
+    if len(gaintable.time) != 1:
+        raise ValueError("error setting up gaintable")
+
+    # map_blocks won't accept dimensions that differ but have the same name
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.rename({"time": "soln_time"})
+    gaintable = gaintable.map_blocks(
+        _get_beams, args=[vis, beam_type, eb_ms, eb_coeffs]
+    )
+
+    # Undo any temporary variable name changes
+    gaintable = gaintable.rename({"soln_time": "time"})
+    return gaintable
 
 
 def _solve(
@@ -412,6 +490,7 @@ def _solve_with_vis_setup(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -426,12 +505,28 @@ def _solve_with_vis_setup(
 
     Set up to run with function run_solver.
 
-    :param gaintable: GainTable dataset containing initial solutions.
-    :param vischunk: Visibility dataset containing observed data.
-    :param modelchunk: Visibility dataset containing model data.
-    :param solver: Solver type to use. Default is "gain_substitution".
-    :param refant: Reference antenna (defaults to 0).
+    :param gainchunk: GainTable dataset containing initial solutions.
+    :param ms_name: Name of input Measurement Set.
+    :param frequency: list of all frequencies in the MSv2 dataset.
+    :param lsm: List of LSM components. This is an intermediate format between
+        the GSM and the evaluated SkyComponent list.
+    :param beam_type: Type of beam model to use. Default is "everybeam".
+    :param eb_ms: Pathname of Everybeam mock Measurement Set.
+    :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
+    :param solver: Solver type to use. Currently any solver type accepted by
+        solve_gaintable. Default is "gain_substitution".
+    :param refant: Reference antenna (defaults to 0). Note that how referencing
+        is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -467,6 +562,7 @@ def _solve_with_vis_setup(
             beam_type=beam_type,
             eb_coeffs=eb_coeffs,
             eb_ms=eb_ms,
+            station_rm=station_rm,
         )
         # Fixme: remove reassignment once YAN-1990 is finalised
         #   current version sets vis: complex128, weight: float64, flags: int64
@@ -505,6 +601,7 @@ def ingest_predict_and_solve(
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
     gaintable: Optional[xr.Dataset] = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
@@ -524,6 +621,7 @@ def ingest_predict_and_solve(
     :param beam_type: Type of beam model to use. Default is "everybeam".
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
+    :param station_rm: Station rotation measure values. Default is None.
     :param gaintable: Optional chunked GainTable dataset containing initial
         solutions.
     :param solver: Solver type to use. Currently any solver type accepted by
@@ -531,6 +629,14 @@ def ingest_predict_and_solve(
     :param refant: Reference antenna (defaults to 0). Note that how referencing
         is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
+    :param phase_only: Solve only for the phases.
+    :param tol: Iteration stops when the fractional change in the gain solution
+        is below this tolerance.
+    :param crosspol: Do solutions including cross polarisations.
+    :param normalise_gains: Normalises the gains (default="mean").
+    :param jones_type: Type of calibration matrix T or G or B.
+    :param timeslice: Defines the time scale over which each
+        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -595,6 +701,7 @@ def ingest_predict_and_solve(
             beam_type,
             eb_ms,
             eb_coeffs,
+            station_rm,
             solver,
             refant,
             niter,
