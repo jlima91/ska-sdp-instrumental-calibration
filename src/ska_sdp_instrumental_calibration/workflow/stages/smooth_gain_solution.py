@@ -1,5 +1,6 @@
 import os
 
+import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -9,6 +10,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
+from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.gain_smoothing import sliding_window_smooth
 
 
@@ -46,10 +48,21 @@ from ...processing_tasks.gain_smoothing import sliding_window_smooth
                 nullable=False,
             ),
         ),
+        export_gaintable=ConfigParam(
+            bool,
+            False,
+            description="Export intermediate gain solutions.",
+            nullable=False,
+        ),
     ),
 )
 def smooth_gain_solution_stage(
-    upstream_output, window_size, mode, plot_config, _output_dir_
+    upstream_output,
+    window_size,
+    mode,
+    plot_config,
+    export_gaintable,
+    _output_dir_,
 ):
     """
     Smooth the gain solution.
@@ -66,6 +79,9 @@ def smooth_gain_solution_stage(
         Configuration required for plotting.
         {plot_table: False, plot_path_prefix: "smoothed-gain",
           plot_title: "Smooth gain"}
+    export_gaintable: bool
+        Export intermediate gain solutions
+
     _output_dir_ : str
             Directory path where the output file will be written
     Returns
@@ -94,6 +110,18 @@ def smooth_gain_solution_stage(
                 drop_cross_pols=False,
             )
         )
+
+    if export_gaintable:
+        gaintable_file_path = os.path.join(
+            _output_dir_, f"smooth_gain{call_counter_suffix}.gaintable.h5parm"
+        )
+
+        upstream_output.add_compute_tasks(
+            dask.delayed(export_gaintable_to_h5parm)(
+                upstream_output.gaintable, gaintable_file_path
+            )
+        )
+
     upstream_output.increment_call_count("smooth")
 
     return upstream_output

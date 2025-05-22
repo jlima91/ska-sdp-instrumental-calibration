@@ -8,6 +8,7 @@ __all__ = [
     "create_soltab_group",
     "create_soltab_datasets",
     "plot_gaintable",
+    "plot_station_delays",
 ]
 
 # pylint: disable=no-member
@@ -424,7 +425,7 @@ def create_bandpass_table(vis: xr.Dataset) -> xr.Dataset:
 
 
 def create_soltab_group(
-    solset: h5py.Group, solution_type: Literal["amplitude", "phase"]
+    solset: h5py.Group, solution_type: Literal["amplitude", "phase", "clock"]
 ) -> h5py.Group:
     """Create soltab group under given solset group.
 
@@ -458,6 +459,29 @@ def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
     weight.attrs["AXES"] = axes
 
     return val, weight
+
+
+def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
+    """Add a dataset for each of the Delay dimensions.
+
+    :param soltab: HDF5 table to update
+    :param delaytable: xr.Dataset
+    """
+    # create a dataset for each dimension
+    for dim in list(delaytable.delay.sizes):
+        soltab.create_dataset(dim, data=delaytable[dim].data)
+
+    # create datasets for the data and weights
+    shape = delaytable.delay.shape
+    axes = np.bytes_(",".join(list(delaytable.delay.sizes)))
+
+    val = soltab.create_dataset("val", shape=shape, dtype=float)
+    val.attrs["AXES"] = axes
+
+    offset = soltab.create_dataset("offset", shape=shape, dtype=float)
+    offset.attrs["AXES"] = axes
+
+    return val, offset
 
 
 @dask.delayed
@@ -640,3 +664,97 @@ def subplot_gaintable(
     fig.legend(handles, labels, loc="outside upper right")
     fig.savefig(path)
     plt.close()
+
+
+@dask.delayed
+def plot_station_delays(delaytable, path_prefix, show_station_label=False):
+    """
+    Plot the station delays against the station configuration
+
+    Parameters
+    ----------
+        delaytable: xr.Dataset
+            Delay dataset
+        path_prefix: str
+            Path prefix to save the plots.
+        show_station_label: bool
+            Anotate plot points with station names
+    """
+
+    latitude, longitude, _ = ecef_to_lla(*delaytable.configuration.xyz.data.T)
+
+    fig, subfigs = plt.subplots(figsize=(20, 5), ncols=2)
+    station_name = delaytable.configuration.names.data
+    fig.suptitle("Station Delays")
+    for idx, ax in enumerate(subfigs):
+        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
+        sc = ax.scatter(
+            longitude, latitude, c=calibration_delay, cmap="plasma", s=10
+        )
+        ax.set_xlabel("Longitude (deg)")
+        ax.set_ylabel("Latitude (deg)")
+        cbar = fig.colorbar(sc, ax=ax, shrink=0.5, aspect=10)
+        cbar.set_label("Absolute Delay (ns)", rotation=270, labelpad=15)
+        ax.grid()
+        ax.set_title(f"Polarization: {delaytable.pol.data[idx]}")
+        if show_station_label:
+            for i in range(len(longitude)):
+                ax.annotate(
+                    station_name[i],
+                    (longitude[i], latitude[i]),
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    ha="center",
+                )
+
+    plt.savefig(f"{path_prefix}_station_delay.png")
+    plt.close()
+
+
+def ecef_to_lla(x, y, z):
+    """Translate Earth-Centred Earth-Fixed (in meters) to
+    geodetic (WGS84) coordinates.
+
+    Parameters
+    ----------
+    x : array of position(s) on x-axis in meters
+    y : array of position(s) on y-axis in meters
+    z : array of position(s) on z-axis in meters
+
+    Returns
+    -------
+    Single set/array of latitude(s), longitude(s) in radians or decimal degrees
+    and elevation(s) in meters.
+
+    Notes
+    -----
+    Based on Vermeille, H. Journal of Geodesy (2002) 76: 451
+    (https://doi.org/10.1007/s00190-002-0273-6) and
+    Vermeille, H. Journal of Geodesy (2004) 78: 94
+    (https://doi.org/10.1007/s00190-004-0375-4).
+    """
+    equatorial_radius = 6378137.0  # Semi-major axis of the Earth (in meters).
+    polar_radius = 6356752.314245179
+    flattening_factor = (
+        equatorial_radius - polar_radius
+    ) / equatorial_radius  # Flattening of the reference ellipsoid.
+    p = (x * x + y * y) / (equatorial_radius * equatorial_radius)
+    esq = flattening_factor * (2.0 - flattening_factor)
+    q = (1.0 - esq) / (equatorial_radius * equatorial_radius) * z * z
+    r = (p + q - esq * esq) / 6.0
+    s = esq * esq * p * q / (4 * r * r * r)
+    t = np.power(1.0 + s + np.sqrt(s * (2.0 + s)), 1.0 / 3.0)
+    u = r * (1.0 + t + 1.0 / t)
+    v = np.sqrt(u * u + esq * esq * q)
+    w = esq * (u + v - q) / (2.0 * v)
+    k = np.sqrt(u + v + w * w) - w
+    D = k * np.sqrt(x * x + y * y) / (k + esq)
+    altitude = (k + esq - 1.0) / k * np.sqrt(D * D + z * z)
+    latitude = np.rad2deg(2.0 * np.arctan2(z, D + np.sqrt(D * D + z * z)))
+
+    sign = 1 if np.any(y) >= 0.0 else -1
+    longitude = np.rad2deg(
+        sign * 0.5 * np.pi
+        - sign * 2.0 * np.arctan2(x, np.sqrt(x * x + y * y) + (sign * y))
+    )
+    return latitude, longitude, altitude

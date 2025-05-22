@@ -1,7 +1,7 @@
 import os
 from copy import deepcopy
 
-import dask.delayed
+import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -12,6 +12,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 
 from ...data_managers.dask_wrappers import run_solver
+from ...data_managers.data_export import export_gaintable_to_h5parm
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 
@@ -37,10 +38,21 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
         flagging=ConfigParam(
             bool, False, description="Run RFI flagging", nullable=False
         ),
+        export_gaintable=ConfigParam(
+            bool,
+            False,
+            description="Export intermediate gain solutions.",
+            nullable=False,
+        ),
     ),
 )
 def bandpass_calibration_stage(
-    upstream_output, run_solver_config, plot_config, flagging, _output_dir_
+    upstream_output,
+    run_solver_config,
+    plot_config,
+    flagging,
+    export_gaintable,
+    _output_dir_,
 ):
     """
     Performs Bandpass Calibration
@@ -56,6 +68,8 @@ def bandpass_calibration_stage(
             eg: {{plot_table: False, fixed_axis: False}}
         flagging: bool
             Run Flagging for time
+        export_gaintable: bool
+            Export intermediate gain solutions
         _output_dir_ : str
             Directory path where the output file will be written.
 
@@ -75,14 +89,7 @@ def bandpass_calibration_stage(
     if call_count := upstream_output.get_call_count("bandpass"):
         call_counter_suffix = f"_{call_count}"
 
-    # [TODO] Remove this section once model_rotations returns xarray
-    run_solver_func = (
-        dask.delayed(run_solver)
-        if hasattr(initialtable, "dask")
-        else run_solver
-    )
-
-    gaintable = run_solver_func(
+    gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=initialtable,
@@ -108,6 +115,17 @@ def bandpass_calibration_stage(
                 figure_title="Bandpass",
                 fixed_axis=plot_config["fixed_axis"],
                 all_station_plot=True,
+            )
+        )
+
+    if export_gaintable:
+        gaintable_file_path = os.path.join(
+            _output_dir_, f"bandpass{call_counter_suffix}.gaintable.h5parm"
+        )
+
+        upstream_output.add_compute_tasks(
+            dask.delayed(export_gaintable_to_h5parm)(
+                gaintable, gaintable_file_path
             )
         )
 
