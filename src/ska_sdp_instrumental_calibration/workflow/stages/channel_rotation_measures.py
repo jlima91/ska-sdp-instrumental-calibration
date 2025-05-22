@@ -6,7 +6,8 @@ from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import run_solver
-from ...processing_tasks.post_processing import model_rotations
+from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import plot_gaintable
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
@@ -30,6 +31,12 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
             bool, False, description="Plot the generated gain table"
         ),
         run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        export_gaintable=ConfigParam(
+            bool,
+            False,
+            description="Export intermediate gain solutions.",
+            nullable=False,
+        ),
     ),
 )
 def generate_channel_rm_stage(
@@ -38,6 +45,7 @@ def generate_channel_rm_stage(
     peak_threshold,
     plot_table,
     run_solver_config,
+    export_gaintable,
     _output_dir_,
 ):
     """
@@ -57,6 +65,8 @@ def generate_channel_rm_stage(
             Plot the gaintable.
         run_solver_config: dict
             {run_solver_docstring}
+        export_gaintable: bool
+            Export intermediate gain solutions
         _output_dir_ : str
             Directory path where the output file will be written.
             Provided by piper.
@@ -80,14 +90,14 @@ def generate_channel_rm_stage(
     path_prefix = os.path.join(
         _output_dir_, f"channel_rm{call_counter_suffix}"
     )
-    gaintable = dask.delayed(model_rotations)(
+    gaintable = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
         plot_sample=plot_table,
         plot_path_prefix=path_prefix,
     )
 
-    gaintable = dask.delayed(run_solver)(
+    gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=gaintable,
@@ -111,6 +121,18 @@ def generate_channel_rm_stage(
                 drop_cross_pols=True,
             )
         )
+
+    if export_gaintable:
+        gaintable_file_path = os.path.join(
+            _output_dir_, f"channel_rm{call_counter_suffix}.gaintable.h5parm"
+        )
+
+        upstream_output.add_compute_tasks(
+            dask.delayed(export_gaintable_to_h5parm)(
+                gaintable, gaintable_file_path
+            )
+        )
+
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("channel_rm")
 
