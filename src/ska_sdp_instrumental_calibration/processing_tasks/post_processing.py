@@ -84,7 +84,7 @@ def model_rotations(
     rm_est = np.zeros(nstations)
     const_rot = np.zeros(nstations)
 
-    # Set RM intergral weights. Don't want variable weights across a matrix,
+    # Set RM integral weights. Don't want variable weights across a matrix,
     # so for now just set a flag if any matrix element has zero weight.
     # Some solvers may set a diagonal weight matrix, so test.
     diag_weights = np.all(
@@ -110,8 +110,24 @@ def model_rotations(
             gaintable.gain.data[0, refant].conj(),
             gaintable.gain.data[0, stn],
         )
-        # Normalise
-        J *= np.sqrt(2) / np.linalg.norm(J, axis=(1, 2), keepdims=True)
+
+        # Set RM integral masking
+        if diag_weights:
+            mask = (
+                (gaintable.weight.data[0, stn, :, 0, 0] > 0)
+                & (gaintable.weight.data[0, stn, :, 1, 1] > 0)
+                & ref_mask
+            )
+        else:
+            mask = (
+                np.all(gaintable.weight.data[0, stn] > 0, axis=(1, 2))
+                & ref_mask
+            )
+
+        # Normalise and update masking if necessary
+        norms = np.linalg.norm(J, axis=(1, 2), keepdims=True)
+        mask = mask & (norms[:, 0, 0] > 0)
+        J[mask, :, :] *= np.sqrt(2) / norms[mask, :, :]
 
         # Extract the rotation angle from each Jones matrix
         co_sum = J[:, 0, 0] + J[:, 1, 1]
@@ -125,17 +141,6 @@ def model_rotations(
         )
 
         # Take the RM transform of the rotations and find the peak
-        if diag_weights:
-            mask = (
-                (gaintable.weight.data[0, stn, :, 0, 0] > 0)
-                & (gaintable.weight.data[0, stn, :, 1, 1] > 0)
-                & ref_mask
-            )
-        else:
-            mask = (
-                np.all(gaintable.weight.data[0, stn] > 0, axis=(1, 2))
-                & ref_mask
-            )
         rm_spec = (
             1
             / sum(mask)
