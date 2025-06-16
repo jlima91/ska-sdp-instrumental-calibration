@@ -45,8 +45,8 @@ logger = logging.getLogger()
         lsm_csv_path=ConfigParam(
             str,
             None,
-            description="""Specifies the location of CSV file for custom
-            components""",
+            description="""Specifies the location of CSV file containing the
+            sky model. The CSV file should be in OSKAR CSV format.""",
         ),
         fov=ConfigParam(
             float,
@@ -111,10 +111,11 @@ def predict_vis_stage(
         gleamfile : str
             Path to the GLEAM catalog file.
         lsm_csv_path : str
-            Path to the Custom component CSV.
+            Specifies the location of CSV file containing the
+            sky model. The CSV file should be in OSKAR CSV format.
         fov : float
-            Field of view diameter in degrees for source selection\
-                  (default: 10.0).
+            Field of view diameter in degrees for source selection
+            (default: 10.0).
         flux_limit : float
             Minimum flux density in Jy for source selection
             (default: 1.0).
@@ -137,17 +138,16 @@ def predict_vis_stage(
     vis = upstream_output.vis
 
     logger.info("Generating LSM for predict with:")
-    logger.info(f" - Catalogue file: {gleamfile}")
     logger.info(f" - Search radius: {fov/2} deg")
     logger.info(f" - Flux limit: {flux_limit} Jy")
 
     phase_centre = get_phasecentre(_cli_args_["input"])
-    eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
 
     if gleamfile is not None and lsm_csv_path is not None:
         logger.warning("LSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
 
     if gleamfile is not None:
+        logger.info(f" - Catalogue file: {gleamfile}")
         lsm = generate_lsm_from_gleamegc(
             gleamfile=gleamfile,
             phasecentre=phase_centre,
@@ -156,6 +156,7 @@ def predict_vis_stage(
             alpha0=alpha0,
         )
     elif lsm_csv_path is not None:
+        logger.info(f" - Catalogue file: {lsm_csv_path}")
         lsm = generate_lsm_from_csv(
             csvfile=lsm_csv_path,
             phasecentre=phase_centre,
@@ -169,6 +170,8 @@ def predict_vis_stage(
         )
 
     logger.info(f"LSM: found {len(lsm)} components")
+
+    eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
 
     modelvis = predict_vis(
         vis,
