@@ -12,8 +12,8 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
         apply_gaintable=ConfigParam(
             str,
             default=None,
-            description="Apply gaintable to vis and/or modelvis.",
-            allowed_values=["vis", "modelvis", "all", None],
+            description="Apply gaintable to vis",
+            allowed_values=["vis"],
             nullable=True,
         ),
     ),
@@ -36,14 +36,9 @@ def export_visibilities_stage(upstream_output, apply_gaintable):
     """
     gaintable = upstream_output["gaintable"]
     vis = upstream_output["vis"]
-    modelvis = upstream_output["modelvis"]
 
-    if apply_gaintable in ("vis", "all"):
+    if apply_gaintable == "vis":
         corrected_vis = apply_gaintable_to_dataset(vis, gaintable)
         upstream_output["corrected_vis"] = corrected_vis
-
-    if apply_gaintable in ("modelvis", "all"):
-        corrected_modelvis = apply_gaintable_to_dataset(modelvis, gaintable)
-        upstream_output["corrected_modelvis"] = corrected_modelvis
 
     return upstream_output
