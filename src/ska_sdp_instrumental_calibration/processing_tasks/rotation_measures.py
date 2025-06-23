@@ -2,212 +2,307 @@
 
 __all__ = ["model_rotations"]
 
-from pathlib import Path
 
 import dask
 import dask.array as da
-import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import xarray as xr
 from astropy import constants as const
+from scipy.optimize import curve_fit
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("processing_tasks.post_processing")
 
 
-def _plot_rm(
-    rm_peek: np.float64,
-    rm_spec: npt.NDArray[np.complex128],
-    rm_vals: npt.NDArray[np.float64],
-    title: str,
-    plot_path: Path | str,
-):
-    """
-    Plot the rotation measure spectrum for a station.
+class ModelRotationData:
+    def __init__(self, gaintable, refant):
+        """
+        Create Model Rotation Data
 
-    Parameters
-    ----------
-    rm_peek : float
-        The peak value of the rotation measure.
-    rm_spec : array-like of complex
-        The complex valued rotation measure spectrum.
-    rm_vals : array-like of float
-        The possible values of rotation measure.
-    title : str
-        The title of the plot.
-    plot_path : Path or str
-        The path to save the plot to.
-    """
-    xlim = 3 * np.max(np.abs(rm_peek))
+        Parameters
+        ----------
+            gaintable: Gaintable dataset
+                Gaintable.
+            refant: int
+                Reference antenna.
+        """
+        if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
+            raise ValueError("gaintable must contain Jones matrices")
 
-    plt.figure()
+        self.gaintable = gaintable
+        self.refant = refant
+        self.nstations = len(gaintable.antenna)
+        self.nfreq = len(gaintable.frequency)
+        self.lambda_sq = (
+            const.c.value / gaintable.frequency  # pylint: disable=no-member
+        ) ** 2
 
-    ax = plt.subplot(111)
-    ax.set_title(title)
-    ax.set_xlabel("RM (rad / m^2)")
-    ax.plot(rm_vals, np.abs(rm_spec), "b", label="abs")
-    ax.plot(rm_vals, np.real(rm_spec), "c", label="re")
-    ax.plot(rm_vals, np.imag(rm_spec), "m", label="im")
-    ax.plot(rm_peek * np.ones(2), ax.get_ylim(), "b--")
-    ax.set_xlim((-xlim, xlim))
-    ax.grid()
-    ax.legend()
+        oversample = 99
+        self.rm_res = (
+            1 / oversample / (da.max(self.lambda_sq) - da.min(self.lambda_sq))
+        )
+        self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
+        self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
+        self.rm_vals = da.arange(-self.rm_max, self.rm_max, self.rm_res)
+        self.phasor = da.exp(
+            da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
+        )
+        self.rm_spec = None
 
-    plt.savefig(plot_path)
-
-
-@dask.delayed
-def _get_rm_peeks(
-    rm_spec: npt.NDArray[np.complex128],
-    rm_vals: npt.NDArray[np.float64],
-    peak_threshold: float,
-    nstations: int,
-    plot_path_prefix: str,
-    plot_sample: bool = False,
-):
-    """
-    Get the rotation measure values for each station in the gain table.
-
-    Parameters
-    ----------
-    rm_spec : array-like of complex
-        The rotation measure spectrum for each station.
-    rm_vals : array-like of float
-        The possible values of rotation measure.
-    peak_threshold : float, optional
-        The minimum absolute amplitude of the rotation measure spectrum
-        required to consider it a valid peak.
-    nstations : int, optional
-        The number of stations in the gain table.
-    plot_path_prefix : str, optional
-        The prefix to be used for the plots.
-    plot_sample : bool, optional
-        Whether to plot the rotation measure spectrum for a sample station.
-
-    Returns
-    -------
-    rm_peeks : array-like of float
-        The rotation measure values for each station in the gain table.
-    """
-    stn = nstations - 1
-    rm_peeks = np.zeros(nstations)
-
-    update_indexes = np.where(np.max(np.abs(rm_spec), axis=1) > peak_threshold)
-    rm_peeks[update_indexes] = rm_vals[
-        np.argmax(np.abs(rm_spec[update_indexes]), axis=1)
-    ]
-
-    if plot_sample:
-        _plot_rm(
-            rm_peeks[stn],
-            rm_spec[stn],
-            rm_vals,
-            f"RM spectrum for station {stn}",
-            f"{plot_path_prefix}_{stn}.png",
+        self.rm_est = da.zeros(self.nstations)
+        self.rm_peak = da.zeros(self.nstations)
+        self.const_rot = da.zeros(self.nstations)
+        self.J = da.einsum(
+            "fpx,sfqx->sfpq",
+            gaintable.gain[0, refant].conj(),
+            gaintable.gain[0, :],
         )
 
-    return rm_peeks
+    def get_plot_params_for_station(self, stn=None):
+        """
+        Getter for plot params for any particular station.
+
+        Parameters
+        ----------
+            stn: int
+                Station number.
+        Returns
+        -------
+            rm_vals: dask.array
+                rm value array.
+            rm_spec: dask.array
+                rm spec array.
+            rm_peak: dask.array
+                rm peak array.
+            rm_est: dask.array
+                rm estimate array.
+            rm_est_refant: dask.array
+                rm estimate of refant.
+            J: dask.array
+                Jones array.
+            lambda_sq: dask.array
+                lambda square array.
+            xlim: dask.array
+                x-limit array.
+            stn: int
+                Station number.
+        """
+        stn = stn if stn is not None else len(self.gaintable.antenna) - 1
+
+        return {
+            "rm_vals": self.rm_vals,
+            "rm_spec": self.rm_spec[stn],
+            "rm_peak": self.rm_peak[stn],
+            "rm_est": self.rm_est[stn],
+            "rm_est_refant": self.rm_est[self.refant],
+            "J": self.J[stn],
+            "lambda_sq": self.lambda_sq,
+            "xlim": 10 * da.max(da.abs(self.rm_est)),
+            "stn": stn,
+        }
 
 
 def model_rotations(
     gaintable: xr.Dataset,
     peak_threshold: float = 0.5,
-    plot_sample: bool = False,
-    plot_path_prefix: str = "./",
-    ref: int = 0,
-    oversample: int = 5,
-) -> xr.Dataset:
+    refine_fit: bool = True,
+    refant: int = 0,
+):
     """
-    Fit a rotation measure for each station Jones matrix.
-
-    For each station, the Jones matrix for each channel is used to
-    operate on a unit vector. The result is expressed as a complex
-    number, and the spectrum of complex numbers is the Fourier
-    transformed with respect to wavelength squared. The peaks of this
-    transformed spectrum is taken as the rotation measure for the
-    station, and used to initialise a new gaintable.
+    Performs Model Rotations
 
     Parameters
     ----------
-    gaintable : xr.Dataset
-        GainTable dataset to be to modelled.
-    peak_threshold : float
-        Height of peak in the RM spectrum required for a
-        rotation detection.
-    plot_sample : bool
-        Whether or not to plot a sample RM spectrum.
-    plot_path_prefix : str
-        Path prefix to save the plots.
-    ref : int
-        Reference station to rotate against.
-    oversample : int
-        Oversampling factor for the rotation measure spectrum.
-
+        gaintable: Gaintable dataset
+            Gaintable.
+        peak_threshold: float
+            Peak threshold.
+        refine_fit: bool
+            Refine the fit.
+        refant: int
+            Reference antenna.
     Returns
     -------
-    new_gaintable : xr.Dataset
-        New GainTable dataset with model rotations.
+        rotations: ModelRotation obj.
     """
-    nstations = len(gaintable.antenna)
-    nfreq = len(gaintable.frequency)
 
-    lambda_sq = (
-        const.c.value / gaintable.frequency  # pylint: disable=no-member
-    ) ** 2
+    rotations = ModelRotationData(gaintable, refant)
 
-    rm_res = 1 / oversample / (np.max(lambda_sq) - np.min(lambda_sq))
-    rm_max = 1 / (lambda_sq[-2] - lambda_sq[-1])
-    rm_vals = da.arange(-rm_max, rm_max, rm_res)
-
-    uvec = np.array([1, 0])
-
-    invN = 1 / nfreq
-    invR = 1 / np.sqrt(2)
-
-    reljones = da.einsum(
-        "sfpx,fqx->sfpq",
-        gaintable.gain[0, :],
-        gaintable.gain[0, ref].conj(),
-    )
-    reljones /= invR * da.linalg.norm(reljones, axis=(2, 3), keepdims=True)
-
-    rvec = da.einsum("sfpq,q->sfp", reljones, uvec)
-    f_spec = rvec[:, :, 0] + 1j * rvec[:, :, 1]
-
-    rm_spec = invN * da.einsum(
-        "rf,sf->sr",
-        np.exp(np.einsum("i,j->ij", -1j * rm_vals, lambda_sq)),
-        f_spec,
-    )
-
-    rm_peeks = da.from_delayed(
-        _get_rm_peeks(
-            rm_spec,
-            rm_vals,
-            peak_threshold,
-            nstations,
-            plot_path_prefix,
-            plot_sample,
+    norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
+    mask = da.from_delayed(
+        get_stn_masks(gaintable.weight, refant),
+        (
+            rotations.nstations,
+            rotations.nfreq,
         ),
-        (nstations,),
-        rm_vals.dtype,
+        bool,
+    ) & (norms[:, :, 0, 0] > 0)
+
+    phi_raw = da.from_delayed(
+        calculate_phi_raw(rotations.J, mask, norms, rotations.nstations),
+        (rotations.nstations, rotations.nfreq),
+        da.float32,
     )
 
-    peek_diff = rm_peeks - rm_peeks[ref]
-    d_pa = lambda_sq.data * peek_diff.reshape(nstations, -1)
+    rotations.rm_spec = da.from_delayed(
+        get_rm_spec(phi_raw, rotations.phasor, mask, rotations.nstations),
+        (rotations.nstations, rotations.phasor.shape[0]),
+        da.float32,
+    )
 
-    updated_gain = (
-        da.stack(
-            (np.cos(d_pa), -np.sin(d_pa), np.sin(d_pa), np.cos(d_pa)),
-            axis=2,
+    rm_peak = da.where(
+        da.max(da.abs(rotations.rm_spec), axis=1) > peak_threshold,
+        rotations.rm_vals[da.argmax(da.abs(rotations.rm_spec), axis=1)],
+        0,
+    )
+
+    rotations.rm_peak = rotations.rm_est = rm_peak
+
+    if refine_fit:
+        exp_stack = da.hstack((da.cos(phi_raw), da.sin(phi_raw)))
+        fit_rm = da.from_delayed(
+            fit_curve(
+                rotations.lambda_sq,
+                exp_stack,
+                rotations.rm_peak,
+                rotations.nstations,
+            ),
+            (2, rotations.nstations),
+            da.float32,
         )
-        .reshape(1, nstations, nfreq, 2, 2)
-        .astype(gaintable.gain.dtype)
+        rotations.rm_est = fit_rm[0]
+        rotations.rm_const = fit_rm[1]
+
+    return rotations
+
+
+@dask.delayed
+def calculate_phi_raw(jones, mask, norms, nstations):
+    """
+    Calculates phi raw
+
+    Parameters
+    ----------
+        jones: np.array
+            Jones array.
+        mask: np.array
+            Mask for stations.
+        norms: np.array
+            Normalization array.
+        nstations: int
+            Number of stations.
+    Returns
+    -------
+        Array of phi raw.
+    """
+    for stn in range(nstations):
+        jones[stn, mask[stn], :, :] *= np.sqrt(2) / norms[stn, mask[stn], :, :]
+    co_sum = jones[:, :, 0, 0] + jones[:, :, 1, 1]
+    cross_diff = 1j * (jones[:, :, 0, 1] - jones[:, :, 1, 0])
+    return 0.5 * (
+        np.unwrap(np.angle(co_sum + cross_diff))
+        - np.unwrap(np.angle(co_sum - cross_diff))
     )
 
-    updated_gain_xdr = gaintable.gain.copy()
-    updated_gain_xdr.data = updated_gain
 
-    return gaintable.assign({"gain": updated_gain_xdr}).chunk(gaintable.chunks)
+@dask.delayed
+def get_stn_masks(weight, refant):
+    """
+    Gets station masks.
+
+    Parameters
+    ----------
+        weight: np.array
+            Weight.
+        refant: int
+            Reference antenna.
+     Returns
+     -------
+        Array of masks for stations.
+    """
+    if np.all(weight[0, refant, :, 0, 1] == 0) & np.all(
+        weight[0, refant, :, 1, 0] == 0
+    ):
+        return (
+            (weight[0, :, :, 0, 0] > 0)
+            & (weight[0, :, :, 1, 1] > 0)
+            & (weight[0, refant, :, 0, 0] > 0)
+            & (weight[0, refant, :, 1, 1] > 0)
+        )
+
+    return np.all(weight[0, :] > 0, axis=(2, 3)) & np.all(
+        weight[0, refant] > 0, axis=(1, 2)
+    )
+
+
+@dask.delayed
+def get_rm_spec(phi_raw, phasor, mask, nstations):
+    """
+    Gets RM spec
+
+    Parameters
+    ----------
+        phi_raw: np.array
+            Phi raw value
+        phasor: np.array
+            Phasor
+        mask: np.array
+            Mask
+        nstations: int
+            Number of stations.
+    Returns
+    -------
+        Array of RM spec.
+    """
+    return np.array(
+        [
+            (
+                1
+                / sum(mask[stn])
+                * np.einsum(
+                    "rf,f->r",
+                    phasor[:, mask[stn]],
+                    np.exp(1j * phi_raw[stn, mask[stn]]),
+                )
+            )
+            for stn in range(nstations)
+        ]
+    )
+
+
+@dask.delayed
+def fit_curve(lambda_sq, exp_stack, rm_est, nstations):
+    """
+    Fits the curve
+
+    Parameters
+    ----------
+        lambda_sq: np.array
+            Lambda square
+        exp_stack: np.array
+            exp stack
+        rm_est: np.array
+            rm estimate
+        nstations: int
+            Number of stations
+    Returns
+    -------
+        Array after fitting the curve.
+    """
+    return np.array(
+        [
+            (popt[0], popt[1])
+            for popt, _ in [
+                curve_fit(
+                    lambda wl2, rm, phi0: np.hstack(
+                        (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
+                    ),
+                    lambda_sq,
+                    exp_stack[stn],
+                    p0=[rm_est[stn], 0],
+                )
+                for stn in range(nstations)
+            ]
+        ]
+    ).T

@@ -711,6 +711,107 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
     plt.close()
 
 
+@dask.delayed
+def plot_rm_station(
+    gaintable,
+    rm_vals,
+    rm_spec,
+    rm_peak,
+    rm_est,
+    rm_est_refant,
+    J,
+    lambda_sq,
+    xlim,
+    stn,
+    plot_path_prefix,
+):
+    """
+    Plot RM estimates of stations
+
+    Parameters
+    ----------
+        gaintable: Gaintable Dataset
+            Gaintable
+        rm_vals: xr.DataArray
+            rm value array.
+        rm_spec: xr.DataArray
+            rm spec array.
+        rm_peak: xr.DataArray
+            rm peak array.
+        rm_est: xr.DataArray
+            rm estimate array.
+        rm_est_refant: xr.DataArray
+            rm estimate of refant.
+        J: xr.DataArray
+            Jones array.
+        lambda_sq: xr.DataArray
+            lambda square array.
+        xlim: xr.DataArray
+            x-limit array.
+        stn: int
+            station number.
+        plot_path_prefix: str
+            plot prefix
+    """
+    plt.figure(figsize=(14, 12))
+
+    x = gaintable.frequency.data / 1e6
+
+    ax = plt.subplot(311)
+    ax.plot(rm_vals, np.abs(rm_spec), "b", label="abs")
+    ax.plot(rm_vals, np.real(rm_spec), "c", label="re")
+    ax.plot(rm_vals, np.imag(rm_spec), "m", label="im")
+    ax.plot(rm_peak * np.ones(2), ax.get_ylim(), "c-")
+    ax.plot(rm_est * np.ones(2), ax.get_ylim(), "b--")
+    ax.set_xlim((-xlim, xlim))
+    ax.set_title(f"RM spectrum. Peak = {rm_est:.3f} (rad / m^2)")
+    ax.set_xlabel("RM (rad / m^2)")
+    ax.grid()
+    ax.legend()
+
+    ax = plt.subplot(323)
+    for pol in range(4):
+        p = pol // 2
+        q = pol % 2
+        ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+        ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
+    ax.set_title(f"Bandpass Jones for station {stn} (re: -, im: --)")
+    ax.grid()
+    ax.legend()
+
+    ax = plt.subplot(324)
+    d_pa = (rm_est - rm_est_refant) * lambda_sq
+    R = np.stack(
+        (np.cos(d_pa), np.sin(d_pa), -np.sin(d_pa), np.cos(d_pa)),
+        axis=1,
+    ).reshape(-1, 2, 2)
+    for p in range(4):
+        ax.plot(x, np.real(R[:, p // 2, p % 2]), f"C{p}")
+        ax.plot(x, np.imag(R[:, p // 2, p % 2]), f"C{p}--")
+    ax.set_title("RM rotation matrices")
+    ax.grid()
+
+    ax = plt.subplot(325)
+    B = J @ np.linalg.inv(R[..., :, :])
+    for p in range(4):
+        ax.plot(x, np.real(B[:, p // 2, p % 2]), f"C{p}")
+        ax.plot(x, np.imag(B[:, p // 2, p % 2]), f"C{p}--")
+    ax.set_title("De-rotated bandpass Jones (re: -, im: --)")
+    ax.set_xlabel("Frequency (MHz)")
+    ax.grid()
+
+    ax = plt.subplot(326)
+    B = J @ np.linalg.inv(R[..., :, :])
+    for p in [0, 3]:
+        ax.plot(x, np.abs(B[:, p // 2, p % 2]), f"C{p}")
+        ax.plot(x, np.angle(B[:, p // 2, p % 2]), f"C{p}--")
+    ax.set_title("De-rotated bandpass Jones (abs: -, angle: --)")
+    ax.set_xlabel("Frequency (MHz)")
+    ax.grid()
+
+    plt.savefig(f"{plot_path_prefix}-rm-station.png")
+
+
 def ecef_to_lla(x, y, z):
     """Translate Earth-Centred Earth-Fixed (in meters) to
     geodetic (WGS84) coordinates.

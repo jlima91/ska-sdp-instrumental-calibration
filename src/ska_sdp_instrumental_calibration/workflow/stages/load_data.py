@@ -106,7 +106,7 @@ def load_data_stage(
         average_channels=average_channels,
     )
     gaintable = create_bandpass_table(vis)
-
     upstream_output["vis"] = vis
     upstream_output["gaintable"] = gaintable.chunk({"frequency": fchunk})
+    upstream_output["beams"] = None
     return upstream_output

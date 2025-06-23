@@ -3,7 +3,11 @@ import logging
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...data_managers.dask_wrappers import predict_vis
+from ...data_managers.dask_wrappers import (
+    apply_gaintable_to_dataset,
+    predict_vis,
+    prediction_central_beams,
+)
 from ...exceptions import RequiredArgumentMissingException
 from ...processing_tasks.lsm import (
     generate_lsm_from_csv,
@@ -21,6 +25,13 @@ logger = logging.getLogger()
             str,
             "everybeam",
             description="Type of beam model to use. Default is 'everybeam'",
+        ),
+        normalise_at_beam_centre=ConfigParam(
+            bool,
+            False,
+            description="""If true, before running calibration, multiply vis
+            and model vis by the inverse of the beam response in the
+            beam pointing direction.""",
         ),
         eb_ms=ConfigParam(
             str,
@@ -80,6 +91,7 @@ logger = logging.getLogger()
 def predict_vis_stage(
     upstream_output,
     beam_type,
+    normalise_at_beam_centre,
     eb_ms,
     eb_coeffs,
     gleamfile,
@@ -100,6 +112,9 @@ def predict_vis_stage(
             Output from the upstream stage.
         beam_type : str
             Type of beam model to use (default: 'everybeam').
+        normalise_at_beam_centre: bool
+            If true, before running calibration, multiply vis and model vis by
+            the inverse of the beam response in the beam pointing direction
         eb_ms : str
             If beam_type is "everybeam" but input ms does
             not have all of the metadata required by everybeam, this parameter
@@ -168,6 +183,10 @@ def predict_vis_stage(
             "No LSM components provided. "
             "Either provide GLEAMFILE or LSM CSV file"
         )
+    upstream_output["lsm"] = lsm
+    upstream_output["beam_type"] = beam_type
+    upstream_output["eb_ms"] = eb_ms
+    upstream_output["eb_coeffs"] = eb_coeffs
 
     logger.info(f"LSM: found {len(lsm)} components")
 
@@ -181,6 +200,17 @@ def predict_vis_stage(
         eb_coeffs=eb_coeffs,
         reset_vis=reset_vis,
     )
+    if normalise_at_beam_centre:
+        beams = prediction_central_beams(
+            vis,
+            beam_type=beam_type,
+            eb_ms=eb_ms,
+            eb_coeffs=eb_coeffs,
+        )
+        vis = apply_gaintable_to_dataset(vis, beams, inverse=True)
+        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
+        upstream_output["beams"] = beams
+        upstream_output["vis"] = vis
 
     if export_model_vis:
         # [TODO] : export the model visibilities to file.
