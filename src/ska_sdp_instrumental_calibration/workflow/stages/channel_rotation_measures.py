@@ -129,7 +129,7 @@ def generate_channel_rm_stage(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rotations.rm_est.compute(),
+        station_rm=rotations.rm_est,
     )
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(

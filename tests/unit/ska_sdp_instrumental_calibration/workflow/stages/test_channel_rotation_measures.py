@@ -96,7 +96,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock.compute(),
+        station_rm=rm_est_mock,
     )
 
     run_solver_mock.assert_called_once_with(
@@ -214,7 +214,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock.compute(),
+        station_rm=rm_est_mock,
     )
 
     run_solver_mock.assert_called_once_with(
@@ -321,7 +321,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock.compute(),
+        station_rm=rm_est_mock,
     )
     run_solver_mock.assert_called_once_with(
         vis=upstream_output.vis,

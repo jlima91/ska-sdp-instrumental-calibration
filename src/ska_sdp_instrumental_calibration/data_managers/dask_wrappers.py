@@ -189,7 +189,7 @@ def _predict(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
-    station_rm: Optional[npt.NDArray[float]] = None,
+    station_rm: xr.DataArray = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Call predict_from_components.
@@ -244,7 +244,7 @@ def predict_vis(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
-    station_rm: Optional[npt.NDArray[float]] = None,
+    station_rm: xr.DataArray = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
     """Distributed Visibility predict.
