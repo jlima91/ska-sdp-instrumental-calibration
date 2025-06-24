@@ -2,7 +2,11 @@ import os
 from copy import deepcopy
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import (
+    ConfigParam,
+    Configuration,
+    NestedConfigParam,
+)
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import (
@@ -38,11 +42,20 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
             peak locations with a nonlinear optimisation of
             the station RM values.""",
         ),
-        plot_rm=ConfigParam(
-            bool,
-            False,
-            description="""Plot the estimated rotational measures
-            per station""",
+        plot_rm_config=NestedConfigParam(
+            "Plot Parameters for rotational measures",
+            plot_rm=ConfigParam(
+                bool,
+                False,
+                description="""Plot the estimated rotational measures
+                per station""",
+            ),
+            station=ConfigParam(
+                int,
+                0,
+                description="""Station number to be plotted""",
+                nullable=True,
+            ),
         ),
         plot_table=ConfigParam(
             bool, False, description="Plot the generated gain table"
@@ -61,7 +74,7 @@ def generate_channel_rm_stage(
     fchunk,
     peak_threshold,
     refine_fit,
-    plot_rm,
+    plot_rm_config,
     plot_table,
     run_solver_config,
     export_gaintable,
@@ -84,8 +97,9 @@ def generate_channel_rm_stage(
             Whether or not to refine the RM spectrum peak
             locations with a nonlinear optimisation
             of the station RM values.
-        plot_rm: bool
-            Plot the estimated rotational measures
+        plot_rm_config:
+            Configs required for RM plots.
+            eg: {{plot_rm: False, station: 0}}
             per station.
         plot_table: bool
             Plot the gaintable.
@@ -129,7 +143,7 @@ def generate_channel_rm_stage(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rotations.rm_est,
+        station_rm=rotations.rm_est.compute(),
     )
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
@@ -142,11 +156,13 @@ def generate_channel_rm_stage(
         **run_solver_config,
     )
 
-    if plot_rm:
+    if plot_rm_config["plot_rm"]:
         upstream_output.add_compute_tasks(
             plot_rm_station(
                 initialtable,
-                **rotations.get_plot_params_for_station(),
+                **rotations.get_plot_params_for_station(
+                    plot_rm_config["station"]
+                ),
                 plot_path_prefix=path_prefix,
             )
         )

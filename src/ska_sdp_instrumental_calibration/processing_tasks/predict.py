@@ -134,7 +134,7 @@ def predict_from_components(
     beam_type: str = "everybeam",
     eb_coeffs: Optional[str] = None,
     eb_ms: Optional[str] = None,
-    station_rm: xr.DataArray = None,
+    station_rm: Optional[npt.NDArray[float]] = None,
 ) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 
@@ -189,7 +189,6 @@ def predict_from_components(
 
     # Set up the Faraday rotation model
     if station_rm is not None:
-        station_rm = station_rm.compute()
         if len(station_rm) != len(vis.configuration.id):
             raise ValueError("unexpected length for station_rm")
         rot_array = generate_rotation_matrices(

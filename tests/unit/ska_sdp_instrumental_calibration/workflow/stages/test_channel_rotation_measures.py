@@ -71,12 +71,16 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         "jones_type": "T",
         "timeslice": None,
     }
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=True,
+        plot_rm_config=plot_rm_config,
         plot_table=False,
         export_gaintable=False,
         run_solver_config=run_solver_config,
@@ -96,7 +100,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.compute(),
     )
 
     run_solver_mock.assert_called_once_with(
@@ -184,13 +188,16 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         "jones_type": "T",
         "timeslice": None,
     }
-
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=False,
         export_gaintable=False,
         run_solver_config=run_solver_config,
@@ -214,7 +221,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.compute(),
     )
 
     run_solver_mock.assert_called_once_with(
@@ -296,12 +303,16 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         "jones_type": "T",
         "timeslice": None,
     }
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=False,
         run_solver_config=run_solver_config,
         export_gaintable=False,
@@ -321,7 +332,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.compute(),
     )
     run_solver_mock.assert_called_once_with(
         vis=upstream_output.vis,
@@ -413,13 +424,16 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
         "jones_type": "T",
         "timeslice": None,
     }
-
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=False,
@@ -432,7 +446,7 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
         fchunk=40,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=True,
@@ -543,12 +557,16 @@ def test_should_export_gaintable_with_proper_suffix(
         "jones_type": "T",
         "timeslice": None,
     }
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=True,
@@ -561,7 +579,7 @@ def test_should_export_gaintable_with_proper_suffix(
         fchunk=40,
         peak_threshold=0.5,
         refine_fit=False,
-        plot_rm=False,
+        plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=True,

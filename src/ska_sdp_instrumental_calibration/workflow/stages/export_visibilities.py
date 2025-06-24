@@ -13,7 +13,7 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
             str,
             default=None,
             description="Apply gaintable to vis",
-            allowed_values=["vis"],
+            allowed_values=["vis", None],
             nullable=True,
         ),
     ),

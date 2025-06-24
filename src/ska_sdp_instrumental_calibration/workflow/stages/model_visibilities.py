@@ -185,12 +185,12 @@ def predict_vis_stage(
         )
     upstream_output["lsm"] = lsm
     upstream_output["beam_type"] = beam_type
-    upstream_output["eb_ms"] = eb_ms
     upstream_output["eb_coeffs"] = eb_coeffs
 
     logger.info(f"LSM: found {len(lsm)} components")
 
     eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
+    upstream_output["eb_ms"] = eb_ms
 
     modelvis = predict_vis(
         vis,
