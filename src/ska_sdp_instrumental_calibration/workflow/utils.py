@@ -9,6 +9,7 @@ __all__ = [
     "create_soltab_datasets",
     "plot_gaintable",
     "plot_station_delays",
+    "plot_rm_station",
 ]
 
 # pylint: disable=no-member
