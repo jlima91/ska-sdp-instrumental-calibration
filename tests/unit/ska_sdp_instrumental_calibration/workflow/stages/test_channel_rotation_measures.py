@@ -360,6 +360,16 @@ def test_should_generate_channel_rm_using_provided_fchunk(
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
     ".channel_rotation_measures"
+    ".plot_rm_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".plot_bandpass_stages"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
     ".plot_gaintable"
 )
 @patch(
@@ -381,12 +391,14 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures.predict_vis"
 )
-def test_should_plot_channel_rm_gaintable_with_proper_suffix(
+def test_should_plot_with_proper_suffix(
     predict_vis_mock,
     model_rotations_mock,
     run_solver_mock,
     export_h5parm_mock,
     plot_gaintable_mock,
+    plot_bandpass_stages_mock,
+    plot_rm_station_mock,
     delayed_mock,
 ):
 
@@ -408,6 +420,9 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
+    model_rotations_obj_mock.get_plot_params_for_station = Mock(
+        name="get_plot_params_for_station", return_value={"rm_vals": "rm_vals"}
+    )
     model_rotations_mock.return_value = model_rotations_obj_mock
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
@@ -425,7 +440,7 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
         "timeslice": None,
     }
     plot_rm_config = {
-        "plot_rm": False,
+        "plot_rm": True,
         "station": 1,
     }
     generate_channel_rm_stage.stage_definition(
@@ -466,6 +481,39 @@ def test_should_plot_channel_rm_gaintable_with_proper_suffix(
                 peak_threshold=0.5,
                 refine_fit=False,
                 refant=2,
+            ),
+        ]
+    )
+
+    plot_bandpass_stages_mock.assert_has_calls(
+        [
+            call(
+                solved_gaintable_mock,
+                chunked_table_mock,
+                rm_est_mock,
+                2,
+                plot_path_prefix="/output/path/channel_rm",
+            ),
+            call(
+                solved_gaintable_mock,
+                chunked_table_mock,
+                rm_est_mock,
+                2,
+                plot_path_prefix="/output/path/channel_rm_1",
+            ),
+        ]
+    )
+    plot_rm_station_mock.assert_has_calls(
+        [
+            call(
+                chunked_table_mock,
+                rm_vals="rm_vals",
+                plot_path_prefix="/output/path/channel_rm",
+            ),
+            call(
+                chunked_table_mock,
+                rm_vals="rm_vals",
+                plot_path_prefix="/output/path/channel_rm_1",
             ),
         ]
     )

@@ -10,6 +10,7 @@ __all__ = [
     "plot_gaintable",
     "plot_station_delays",
     "plot_rm_station",
+    "plot_bandpass_stages",
 ]
 
 # pylint: disable=no-member
@@ -55,6 +56,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
     convert_model_to_skycomponents,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+    generate_rotation_matrices,
     predict_from_components,
 )
 
@@ -713,6 +715,89 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
 
 
 @dask.delayed
+def plot_bandpass_stages(
+    gaintable, initialtable, rm_est, refant, plot_path_prefix
+):
+    """
+    Plot RM estimates of stations
+
+    Parameters
+    ----------
+        gaintable: Gaintable Dataset
+            Gaintable
+        initialtable: Gaintable Dataset
+            Initial gaintable
+        rm_est: xr.DataArray
+            rm estimate array.
+        refant: int
+            Reference antenna
+        plot_path_prefix: str
+            plot prefix
+    """
+    x = gaintable.frequency.data / 1e6
+    stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
+    _, axs = plt.subplots(3, 4, figsize=(16, 16), sharey=True)
+
+    station_names = gaintable.configuration.names.data
+    ref_stn_name = station_names[refant]
+
+    for k, stn in enumerate(stns):
+        stn_name = station_names[stn]
+        J = initialtable.gain.data[0, stn] @ np.linalg.inv(
+            initialtable.gain.data[0, refant, ..., :, :]
+        )
+        ax = axs[k, 0]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(
+            f"Bandpass for station {stn_name} \n(in rel to {ref_stn_name})",
+            fontsize=10,
+        )
+        ax.grid()
+        ax.legend()
+
+        J = generate_rotation_matrices(rm_est, gaintable.frequency.data)[stn]
+        ax = axs[k, 1]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title(f"RM model, RM = {rm_est[stn]:.3f}")
+        ax.grid()
+        ax.legend()
+
+        J = gaintable.gain.data[0, stn] @ np.linalg.inv(
+            gaintable.gain.data[0, refant, ..., :, :]
+        )
+        ax = axs[k, 2]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (re: -, im: --)")
+        ax.grid()
+        ax.legend()
+
+        ax = axs[k, 3]
+        for pol in range(4):
+            p = pol // 2
+            q = pol % 2
+            ax.plot(x, np.abs(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
+            if p == q:
+                ax.plot(x, np.angle(J[:, p, p]), f"C{pol}--")
+        ax.set_title("De-rotated (abs: -, angle: --)")
+        ax.grid()
+        ax.legend()
+
+    plt.savefig(f"{plot_path_prefix}-bandpass_stages.png")
+
+
+@dask.delayed
 def plot_rm_station(
     gaintable,
     rm_vals,
@@ -757,6 +842,8 @@ def plot_rm_station(
     plt.figure(figsize=(14, 12))
 
     x = gaintable.frequency.data / 1e6
+    station_names = gaintable.configuration.names.data
+    stn_name = station_names[stn]
 
     ax = plt.subplot(311)
     ax.plot(rm_vals, np.abs(rm_spec), "b", label="abs")
@@ -776,7 +863,7 @@ def plot_rm_station(
         q = pol % 2
         ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
         ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
-    ax.set_title(f"Bandpass Jones for station {stn} (re: -, im: --)")
+    ax.set_title(f"Bandpass Jones for station {stn_name} (re: -, im: --)")
     ax.grid()
     ax.legend()
 
@@ -810,7 +897,7 @@ def plot_rm_station(
     ax.set_xlabel("Frequency (MHz)")
     ax.grid()
 
-    plt.savefig(f"{plot_path_prefix}-rm-station.png")
+    plt.savefig(f"{plot_path_prefix}-rm-station-{stn_name}.png")
 
 
 def ecef_to_lla(x, y, z):

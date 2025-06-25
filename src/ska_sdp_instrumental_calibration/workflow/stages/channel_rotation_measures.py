@@ -16,7 +16,7 @@ from ...data_managers.dask_wrappers import (
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
-from ..utils import plot_gaintable, plot_rm_station
+from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 
@@ -158,13 +158,20 @@ def generate_channel_rm_stage(
 
     if plot_rm_config["plot_rm"]:
         upstream_output.add_compute_tasks(
+            plot_bandpass_stages(
+                gaintable,
+                initialtable,
+                rotations.rm_est,
+                run_solver_config["refant"],
+                plot_path_prefix=path_prefix,
+            ),
             plot_rm_station(
                 initialtable,
                 **rotations.get_plot_params_for_station(
                     plot_rm_config["station"]
                 ),
                 plot_path_prefix=path_prefix,
-            )
+            ),
         )
 
     if plot_table:
