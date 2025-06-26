@@ -118,7 +118,7 @@ ska-sdp-instrumental-calibration experimental \
 --output /path/to/output/dir
 ```
 
-The configuration is used to control both the execution order and any additional settings for each stage. The `experimental` subcommand allows reuse of the same stage multiple times, except for `load_data`, which is fixed as the first of the pipeline, and its positions are enforced programmatically.
+The configuration is used to control both the execution order and any additional settings for each stage. The `experimental` subcommand allows reuse of the same stage multiple times.
 
 #### Experimental Configuration
 
@@ -126,6 +126,7 @@ The configuration is used to control both the execution order and any additional
 global_parameters:
   experimental:
     pipeline:
+      - load_data: {}
       - predict_vis:
           beam_type: everybeam
           export_model_vis: true
