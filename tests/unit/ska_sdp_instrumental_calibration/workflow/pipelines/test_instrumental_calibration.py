@@ -1,4 +1,3 @@
-import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration import (  # noqa: E501
@@ -73,6 +72,7 @@ def test_should_run_pipeline_with_custom_order_of_stages(
         "global_parameters": {
             "experimental": {
                 "pipeline": [
+                    {"load_data": {}},
                     {"generate_channel_rm": {}},
                     {"bandpass_calibration": {}},
                     {"bandpass_calibration": {}},
@@ -203,35 +203,6 @@ def test_should_use_initial_config_provided(
     )
 
     assert cli_args.config_path == "tmp/tempfile.yml"
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.pipelines."
-    "instrumental_calibration.read_yml"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.pipelines."
-    "instrumental_calibration.Stages"
-)
-def test_should_validate_for_reorderable_stages(stages_mock, read_yml_mock):
-
-    cli_args = Mock(name="cli_args")
-    cli_args.config_path = "path/to/config"
-
-    stages_mock.return_value = stages_mock
-
-    read_yml_mock.return_value = {
-        "global_parameters": {
-            "experimental": {
-                "pipeline": [
-                    {"load_data": {}},
-                    {"bandpass_calibration": {}},
-                ]
-            }
-        }
-    }
-    with pytest.raises(RuntimeError):
-        experimental(cli_args)
 
 
 @patch(
