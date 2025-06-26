@@ -2,13 +2,21 @@ import os
 from copy import deepcopy
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import (
+    ConfigParam,
+    Configuration,
+    NestedConfigParam,
+)
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...data_managers.dask_wrappers import run_solver
+from ...data_managers.dask_wrappers import (
+    apply_gaintable_to_dataset,
+    predict_vis,
+    run_solver,
+)
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
-from ..utils import plot_gaintable
+from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 
@@ -27,6 +35,28 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
             description="""Height of peak in the RM spectrum required
             for a rotation detection.""",
         ),
+        refine_fit=ConfigParam(
+            bool,
+            True,
+            description="""Whether or not to refine the RM spectrum
+            peak locations with a nonlinear optimisation of
+            the station RM values.""",
+        ),
+        plot_rm_config=NestedConfigParam(
+            "Plot Parameters for rotational measures",
+            plot_rm=ConfigParam(
+                bool,
+                False,
+                description="""Plot the estimated rotational measures
+                per station""",
+            ),
+            station=ConfigParam(
+                int,
+                0,
+                description="""Station number to be plotted""",
+                nullable=True,
+            ),
+        ),
         plot_table=ConfigParam(
             bool, False, description="Plot the generated gain table"
         ),
@@ -43,6 +73,8 @@ def generate_channel_rm_stage(
     upstream_output,
     fchunk,
     peak_threshold,
+    refine_fit,
+    plot_rm_config,
     plot_table,
     run_solver_config,
     export_gaintable,
@@ -61,6 +93,14 @@ def generate_channel_rm_stage(
         peak_threshold: float
             Height of peak in the RM spectrum required
             for a rotation detection.
+        refine_fit: bool
+            Whether or not to refine the RM spectrum peak
+            locations with a nonlinear optimisation
+            of the station RM values.
+        plot_rm_config:
+            Configs required for RM plots.
+            eg: {{plot_rm: False, station: 0}}
+            per station.
         plot_table: bool
             Plot the gaintable.
         run_solver_config: dict
@@ -90,27 +130,49 @@ def generate_channel_rm_stage(
     path_prefix = os.path.join(
         _output_dir_, f"channel_rm{call_counter_suffix}"
     )
-    gaintable = model_rotations(
+
+    rotations = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
-        plot_sample=plot_table,
-        plot_path_prefix=path_prefix,
+        refine_fit=refine_fit,
+        refant=run_solver_config["refant"],
     )
+    modelvis = predict_vis(
+        vis,
+        upstream_output["lsm"],
+        beam_type=upstream_output["beam_type"],
+        eb_ms=upstream_output["eb_ms"],
+        eb_coeffs=upstream_output["eb_coeffs"],
+        station_rm=rotations.rm_est,
+    )
+    if upstream_output["beams"] is not None:
+        modelvis = apply_gaintable_to_dataset(
+            modelvis, upstream_output["beams"], inverse=True
+        )
 
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
-        gaintable=gaintable,
-        solver=run_solver_config["solver"],
-        niter=run_solver_config["niter"],
-        refant=run_solver_config["refant"],
-        phase_only=run_solver_config["phase_only"],
-        tol=run_solver_config["tol"],
-        crosspol=run_solver_config["crosspol"],
-        normalise_gains=run_solver_config["normalise_gains"],
-        jones_type=run_solver_config["jones_type"],
-        timeslice=run_solver_config["timeslice"],
+        **run_solver_config,
     )
+
+    if plot_rm_config["plot_rm"]:
+        upstream_output.add_compute_tasks(
+            plot_bandpass_stages(
+                gaintable,
+                initialtable,
+                rotations.rm_est,
+                run_solver_config["refant"],
+                plot_path_prefix=path_prefix,
+            ),
+            plot_rm_station(
+                initialtable,
+                **rotations.get_plot_params_for_station(
+                    plot_rm_config["station"]
+                ),
+                plot_path_prefix=path_prefix,
+            ),
+        )
 
     if plot_table:
         upstream_output.add_compute_tasks(

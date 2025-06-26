@@ -93,15 +93,7 @@ def bandpass_calibration_stage(
         vis=vis,
         modelvis=modelvis,
         gaintable=initialtable,
-        solver=run_solver_config["solver"],
-        niter=run_solver_config["niter"],
-        refant=run_solver_config["refant"],
-        phase_only=run_solver_config["phase_only"],
-        tol=run_solver_config["tol"],
-        crosspol=run_solver_config["crosspol"],
-        normalise_gains=run_solver_config["normalise_gains"],
-        jones_type=run_solver_config["jones_type"],
-        timeslice=run_solver_config["timeslice"],
+        **run_solver_config,
     )
 
     if plot_config["plot_table"]:

@@ -264,6 +264,9 @@ def predict_vis(
     # Create an empty model Visibility dataset
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
 
+    if type(station_rm) == da.Array:
+        station_rm = station_rm.compute()
+
     # Call map_blocks function and return result
     return modelvis.map_blocks(
         _predict,

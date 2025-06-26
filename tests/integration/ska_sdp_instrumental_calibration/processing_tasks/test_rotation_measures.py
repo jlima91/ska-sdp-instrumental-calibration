@@ -1,3 +1,4 @@
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -7,44 +8,38 @@ from ska_sdp_instrumental_calibration.processing_tasks.rotation_measures import 
 
 
 def test_model_rotations():
+
     coords = {
+        "time": [0],
         "antenna": ["antenna1", "antenna2"],
         "frequency": np.array(
             [1.001350e08, 1.001404e08, 1.001458e08, 1.001512e08],
             dtype=np.float64,
         ),
     }
-
-    gains = xr.DataArray(
-        np.arange(32, dtype=np.float64).reshape(1, 2, 4, 2, 2),
-        dims=["time", "antenna", "frequency", "rec1", "rec2"],
-    )
+    gain_data = (
+        np.arange(32, dtype=np.float64)
+        + 1
+        + 1j * (np.arange(32, dtype=np.float64) + 1)
+    ).reshape(1, 2, 4, 2, 2)
+    gains = da.from_array(gain_data, chunks=(1, 2, 4, 2, 2))
+    weight_data = np.ones_like(gain_data, dtype=np.float64)
+    weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
     gaintable = xr.Dataset(
         {
-            "gain": gains,
+            "gain": (["time", "antenna", "frequency", "rec1", "rec2"], gains),
+            "weight": (
+                ["time", "antenna", "frequency", "rec1", "rec2"],
+                weight,
+            ),
         },
         coords=coords,
     )
+    actual_rotations = model_rotations(gaintable, refine_fit=True, refant=0)
 
-    actual_gaintable = model_rotations(gaintable)
+    actual_rm_est_computed = actual_rotations.rm_est.compute()
+    expected_rm_est = np.array([-3.17552938e-314, -9.48602991e001])
 
-    expected_gain = np.array(
-        [
-            [
-                [
-                    [[1.0, -0.0], [0.0, 1.0]],
-                    [[1.0, -0.0], [0.0, 1.0]],
-                    [[1.0, -0.0], [0.0, 1.0]],
-                    [[1.0, -0.0], [0.0, 1.0]],
-                ],
-                [
-                    [[0.31254094, -0.94990429], [0.94990429, 0.31254094]],
-                    [[0.18346674, -0.98302592], [0.98302592, 0.18346674]],
-                    [[0.05115623, -0.99869066], [0.99869066, 0.05115623]],
-                    [[-0.08204089, -0.99662896], [0.99662896, -0.08204089]],
-                ],
-            ]
-        ]
+    np.testing.assert_allclose(
+        actual_rm_est_computed, expected_rm_est, rtol=1e-5, atol=1e-10
     )
-
-    np.testing.assert_allclose(actual_gaintable.gain, expected_gain)
