@@ -736,7 +736,7 @@ def plot_bandpass_stages(
     """
     x = gaintable.frequency.data / 1e6
     stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
-    _, axs = plt.subplots(3, 4, figsize=(16, 16), sharey=True)
+    fig, axs = plt.subplots(3, 4, figsize=(16, 16), sharey=True)
 
     station_names = gaintable.configuration.names.data
     ref_stn_name = station_names[refant]
@@ -794,7 +794,7 @@ def plot_bandpass_stages(
         ax.grid()
         ax.legend()
 
-    plt.savefig(f"{plot_path_prefix}-bandpass_stages.png")
+    fig.savefig(f"{plot_path_prefix}-bandpass_stages.png")
 
 
 @dask.delayed
@@ -839,13 +839,13 @@ def plot_rm_station(
         plot_path_prefix: str
             plot prefix
     """
-    plt.figure(figsize=(14, 12))
+    fig = plt.figure(figsize=(14, 12))
 
     x = gaintable.frequency.data / 1e6
     station_names = gaintable.configuration.names.data
     stn_name = station_names[stn]
 
-    ax = plt.subplot(311)
+    ax = fig.add_subplot(311)
     ax.plot(rm_vals, np.abs(rm_spec), "b", label="abs")
     ax.plot(rm_vals, np.real(rm_spec), "c", label="re")
     ax.plot(rm_vals, np.imag(rm_spec), "m", label="im")
@@ -857,7 +857,7 @@ def plot_rm_station(
     ax.grid()
     ax.legend()
 
-    ax = plt.subplot(323)
+    ax = fig.add_subplot(323)
     for pol in range(4):
         p = pol // 2
         q = pol % 2
@@ -867,7 +867,7 @@ def plot_rm_station(
     ax.grid()
     ax.legend()
 
-    ax = plt.subplot(324)
+    ax = fig.add_subplot(324)
     d_pa = (rm_est - rm_est_refant) * lambda_sq
     R = np.stack(
         (np.cos(d_pa), np.sin(d_pa), -np.sin(d_pa), np.cos(d_pa)),
@@ -879,7 +879,7 @@ def plot_rm_station(
     ax.set_title("RM rotation matrices")
     ax.grid()
 
-    ax = plt.subplot(325)
+    ax = fig.add_subplot(325)
     B = J @ np.linalg.inv(R[..., :, :])
     for p in range(4):
         ax.plot(x, np.real(B[:, p // 2, p % 2]), f"C{p}")
@@ -888,7 +888,7 @@ def plot_rm_station(
     ax.set_xlabel("Frequency (MHz)")
     ax.grid()
 
-    ax = plt.subplot(326)
+    ax = fig.add_subplot(326)
     B = J @ np.linalg.inv(R[..., :, :])
     for p in [0, 3]:
         ax.plot(x, np.abs(B[:, p // 2, p % 2]), f"C{p}")
@@ -897,7 +897,7 @@ def plot_rm_station(
     ax.set_xlabel("Frequency (MHz)")
     ax.grid()
 
-    plt.savefig(f"{plot_path_prefix}-rm-station-{stn_name}.png")
+    fig.savefig(f"{plot_path_prefix}-rm-station-{stn_name}.png")
 
 
 def ecef_to_lla(x, y, z):
