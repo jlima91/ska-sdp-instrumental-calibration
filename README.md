@@ -166,7 +166,7 @@ parameters:
 pipeline: {}
 ```
 
-The pipeline defined under `global_parameters.experimental.pipeline` will be used to construct the execution pipeline. It will consist of the following stages in the order: (1) `load_data` (2) `predict_vis` (3) `bandpass_calibration` (4) `delay_calibration` (5) `generate_channel_rm` (6) `delay_calibration_1` and (7) `export_gain_table`.
+The pipeline defined under `global_parameters.experimental.pipeline` will be used to construct the execution pipeline. It will consist of the following stages in the order: (1) `load_data` (2) `predict_vis` (3) `bandpass_calibration` (4) `delay_calibration` (5) `generate_channel_rm` (6) `delay_calibration_1` and (7) `export_gain_table`. There is no stage specific validations done while constructing the execution order, hence the user should pay special attention to stage order, and inclusion of mandatory and required stages. The pipeline would not function if `load_data` stage is not set as the first stage.
 
 __Stage Names__: The `ska-sdp-instrumental-calibration experimental` feature will update the stage names for duplicated stages as follows: the first occurrence of a stage name will remain unchanged, without a suffix. Subsequent duplicates will be renamed using the format `<stage-name>_x`, where `x` is the duplicate index starting from 1. For example, the second occurrence of `delay_calibration` will be renamed to `delay_calibration_1`. This numbering is automatically incremented for each duplicate, preserving the order as defined in the `global_parameters.experimental.pipeline` section. This approach ensures that each stage has a unique and identifiable name.
 
@@ -174,7 +174,7 @@ The stage configurations have the following precedence - (1) `--set` (2) Configu
 
 While using the `--set` cli-option, please be mindful of the suffix appended to the stage name. Example: `ska-sdp-instrumental-calibration experimental ... --set parameters.delay_calibration_1.plot_config.plot_table true`
 
-Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stages to be run would be decided from `global_parameters.experimental.pipeline` section.
+Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section. 
 
 Testing
 -------
