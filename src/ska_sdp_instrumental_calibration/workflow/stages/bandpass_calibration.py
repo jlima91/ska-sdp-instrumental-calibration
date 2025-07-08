@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import deepcopy
 
@@ -14,6 +15,8 @@ from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 from ...data_managers.dask_wrappers import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+
+logger = logging.getLogger()
 
 
 @ConfigurableStage(
@@ -98,7 +101,13 @@ def bandpass_calibration_stage(
     vis = upstream_output.vis
 
     if use_corrected_vis:
-        vis = upstream_output.corrected_vis
+        if "corrected_vis" in upstream_output:
+            vis = upstream_output.corrected_vis
+        else:
+            logger.info(
+                "Corrected vis not found in the upstream. "
+                "Using the original vis."
+            )
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

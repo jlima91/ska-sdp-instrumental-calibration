@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import deepcopy
 
@@ -18,6 +19,8 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+
+logger = logging.getLogger()
 
 
 @ConfigurableStage(
@@ -163,7 +166,13 @@ def generate_channel_rm_stage(
         )
 
     if use_corrected_vis:
-        vis = upstream_output.corrected_vis
+        if "corrected_vis" in upstream_output:
+            vis = upstream_output.corrected_vis
+        else:
+            logger.info(
+                "Corrected vis not found in the upstream. "
+                "Using the original vis."
+            )
 
     gaintable = run_solver(
         vis=vis,

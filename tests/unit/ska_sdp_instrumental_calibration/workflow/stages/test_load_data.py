@@ -56,7 +56,6 @@ def test_should_load_data(load_ms_mock, create_bandpass_table_mock):
     upstream_output.__setitem__.assert_has_calls(
         [
             mock.call("vis", "vis"),
-            mock.call("corrected_vis", "vis"),
             mock.call("gaintable", gaintable_mock),
             mock.call("beams", None),
         ]

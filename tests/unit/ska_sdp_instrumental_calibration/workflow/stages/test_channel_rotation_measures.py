@@ -780,3 +780,119 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
 
     assert result["modelvis"] == new_model_vis_mock
     assert result["gaintable"] == solved_gaintable_mock
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".dask.delayed",
+    side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "channel_rotation_measures.run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "channel_rotation_measures.model_rotations"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "channel_rotation_measures.apply_gaintable_to_dataset"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
+    "channel_rotation_measures.predict_vis"
+)
+def test_should_use_vis_when_corrected_vis_is_not_found(
+    predict_vis_mock,
+    apply_gaintable_mock,
+    model_rotations_mock,
+    run_solver_mock,
+    delayed_mock,
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["lsm"] = Mock(name="lsm")
+    upstream_output["eb_ms"] = Mock(name="eb_ms")
+    upstream_output["eb_coeffs"] = Mock(name="eb_coeffs")
+    upstream_output["refant"] = Mock(name="refant")
+    upstream_output["beam_type"] = Mock(name="beam_type")
+    upstream_output["beams"] = None
+    new_model_vis_mock = Mock(name="new model vis")
+
+    initial_table_mock = MagicMock(name="initial gaintable")
+    solved_gaintable_mock = Mock(name="run solver gaintable")
+    initial_table_mock.chunk.return_value = Mock(
+        name="initial gaintable chunk"
+    )
+    model_rotations_obj_mock = MagicMock(name="model rotation mock")
+    rm_est_mock = Mock(name="rm est")
+    model_rotations_obj_mock.rm_est = rm_est_mock
+    model_rotations_mock.return_value = model_rotations_obj_mock
+
+    upstream_output["gaintable"] = initial_table_mock
+    predict_vis_mock.return_value = new_model_vis_mock
+    run_solver_mock.return_value = solved_gaintable_mock
+
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
+    plot_rm_config = {
+        "plot_rm": False,
+        "station": 1,
+    }
+    result = generate_channel_rm_stage.stage_definition(
+        upstream_output,
+        fchunk=-1,
+        peak_threshold=0.5,
+        refine_fit=False,
+        use_corrected_vis=False,
+        plot_rm_config=plot_rm_config,
+        plot_table=False,
+        export_gaintable=False,
+        run_solver_config=run_solver_config,
+        _output_dir_="/output/path",
+    )
+
+    model_rotations_mock.assert_called_once_with(
+        initial_table_mock,
+        peak_threshold=0.5,
+        refine_fit=False,
+        refant=run_solver_config["refant"],
+    )
+
+    predict_vis_mock.assert_called_once_with(
+        upstream_output["vis"],
+        upstream_output["lsm"],
+        beam_type=upstream_output["beam_type"],
+        eb_ms=upstream_output["eb_ms"],
+        eb_coeffs=upstream_output["eb_coeffs"],
+        station_rm=rm_est_mock,
+    )
+
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output["vis"],
+        modelvis=new_model_vis_mock,
+        solver="solver",
+        niter=1,
+        refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
+    )
+
+    assert result["modelvis"] == new_model_vis_mock
+    assert result["gaintable"] == solved_gaintable_mock

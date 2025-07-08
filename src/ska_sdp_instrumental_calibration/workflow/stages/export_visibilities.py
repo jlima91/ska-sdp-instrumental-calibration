@@ -63,7 +63,7 @@ def export_visibilities_stage(
 
     if data_to_export == "vis" or data_to_export == "all":
         path_prefix = os.path.join(
-            _output_dir_, f"vis{call_counter_suffix}.ms"
+            _output_dir_, f"corrected_vis{call_counter_suffix}.ms"
         )
         upstream_output.add_compute_tasks(
             dask.delayed(export_visibility_to_ms)(path_prefix, [vis])
@@ -71,7 +71,7 @@ def export_visibilities_stage(
 
     if data_to_export == "modelvis" or data_to_export == "all":
         path_prefix = os.path.join(
-            _output_dir_, f"modelvis{call_counter_suffix}.ms"
+            _output_dir_, f"corrected_modelvis{call_counter_suffix}.ms"
         )
         upstream_output.add_compute_tasks(
             dask.delayed(export_visibility_to_ms)(

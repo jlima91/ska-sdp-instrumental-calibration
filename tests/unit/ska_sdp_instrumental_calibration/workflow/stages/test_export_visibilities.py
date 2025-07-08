@@ -37,7 +37,9 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
     apply_gaintable_to_dataset_mock.assert_called_once_with(
         vis_mock, upstream_output["gaintable"]
     )
-    export_mock.assert_called_once_with("./vis.ms", [corrected_vis_mock])
+    export_mock.assert_called_once_with(
+        "./corrected_vis.ms", [corrected_vis_mock]
+    )
     assert result["corrected_vis"] == corrected_vis_mock
 
 
@@ -69,7 +71,7 @@ def test_should_export_model_vis(
         upstream_output, "modelvis", False, "./"
     )
 
-    export_mock.assert_called_once_with("./modelvis.ms", [model_vis])
+    export_mock.assert_called_once_with("./corrected_modelvis.ms", [model_vis])
     apply_gaintable_to_dataset_mock.assert_not_called()
 
 
@@ -103,8 +105,8 @@ def test_should_export_both_vis_and_model_vis(
 
     export_mock.assert_has_calls(
         [
-            call("./vis.ms", [upstream_output["vis"]]),
-            call("./modelvis.ms", [upstream_output["modelvis"]]),
+            call("./corrected_vis.ms", [upstream_output["vis"]]),
+            call("./corrected_modelvis.ms", [upstream_output["modelvis"]]),
         ]
     )
     apply_gaintable_to_dataset_mock.assert_not_called()
@@ -143,10 +145,10 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
 
     export_mock.assert_has_calls(
         [
-            call("./vis.ms", [upstream_output["vis"]]),
-            call("./modelvis.ms", [upstream_output["modelvis"]]),
-            call("./vis_1.ms", [upstream_output["vis"]]),
-            call("./modelvis_1.ms", [upstream_output["modelvis"]]),
+            call("./corrected_vis.ms", [upstream_output["vis"]]),
+            call("./corrected_modelvis.ms", [upstream_output["modelvis"]]),
+            call("./corrected_vis_1.ms", [upstream_output["vis"]]),
+            call("./corrected_modelvis_1.ms", [upstream_output["modelvis"]]),
         ]
     )
     apply_gaintable_to_dataset_mock.assert_not_called()
