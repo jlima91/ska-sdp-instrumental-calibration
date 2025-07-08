@@ -54,5 +54,10 @@ def test_should_load_data(load_ms_mock, create_bandpass_table_mock):
     create_bandpass_table_mock.assert_called_once_with("vis")
     gaintable_mock.chunk.assert_called_once_with({"frequency": 1})
     upstream_output.__setitem__.assert_has_calls(
-        [mock.call("vis", "vis"), mock.call("gaintable", gaintable_mock)]
+        [
+            mock.call("vis", "vis"),
+            mock.call("corrected_vis", "vis"),
+            mock.call("gaintable", gaintable_mock),
+            mock.call("beams", None),
+        ]
     )

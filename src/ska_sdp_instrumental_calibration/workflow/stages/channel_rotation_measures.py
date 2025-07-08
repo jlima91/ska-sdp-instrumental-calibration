@@ -42,6 +42,13 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
             peak locations with a nonlinear optimisation of
             the station RM values.""",
         ),
+        use_corrected_vis=ConfigParam(
+            bool,
+            True,
+            description="""Corrected visibilities(Visibilities with
+            applied Gaintable from previous stages) will be used.
+            If false, original vis will be used.""",
+        ),
         plot_rm_config=NestedConfigParam(
             "Plot Parameters for rotational measures",
             plot_rm=ConfigParam(
@@ -74,6 +81,7 @@ def generate_channel_rm_stage(
     fchunk,
     peak_threshold,
     refine_fit,
+    use_corrected_vis,
     plot_rm_config,
     plot_table,
     run_solver_config,
@@ -97,6 +105,10 @@ def generate_channel_rm_stage(
             Whether or not to refine the RM spectrum peak
             locations with a nonlinear optimisation
             of the station RM values.
+        use_corrected_vis: bool
+            Corrected visibilities(Visibilities with
+            applied Gaintable from previous stages) will be used.
+            If false, original vis will be used.
         plot_rm_config:
             Configs required for RM plots.
             eg: {{plot_rm: False, station: 0}}
@@ -150,6 +162,9 @@ def generate_channel_rm_stage(
             modelvis, upstream_output["beams"], inverse=True
         )
 
+    if use_corrected_vis:
+        vis = upstream_output.corrected_vis
+
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
@@ -195,6 +210,7 @@ def generate_channel_rm_stage(
             )
         )
 
+    upstream_output["modelvis"] = modelvis
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("channel_rm")
 

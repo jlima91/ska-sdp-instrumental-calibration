@@ -13,6 +13,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
 def test_should_perform_bandpass_calibration(run_solver_mock):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
+    upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
     initable = "initial_gaintable"
     upstream_output["gaintable"] = initable
@@ -37,12 +38,13 @@ def test_should_perform_bandpass_calibration(run_solver_mock):
         run_solver_config=run_solver_config,
         plot_config=plot_config,
         flagging=False,
+        use_corrected_vis=True,
         export_gaintable=False,
         _output_dir_="/output/path",
     )
 
     run_solver_mock.assert_called_once_with(
-        vis=upstream_output.vis,
+        vis=upstream_output.corrected_vis,
         modelvis=upstream_output.modelvis,
         gaintable=initable,
         solver="solver",
@@ -72,6 +74,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
+    upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
 
     run_solver_config = {
@@ -95,6 +98,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         run_solver_config=run_solver_config,
         plot_config=plot_config,
         flagging=False,
+        use_corrected_vis=True,
         export_gaintable=False,
         _output_dir_="/output/path",
     )
@@ -104,6 +108,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         run_solver_config=run_solver_config,
         plot_config=plot_config,
         flagging=False,
+        use_corrected_vis=True,
         export_gaintable=False,
         _output_dir_="/output/path",
     )
@@ -146,6 +151,7 @@ def test_should_export_gaintable_with_proper_suffix(
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
+    upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
 
     run_solver_config = {
@@ -169,6 +175,7 @@ def test_should_export_gaintable_with_proper_suffix(
         run_solver_config=run_solver_config,
         plot_config=plot_config,
         flagging=False,
+        use_corrected_vis=True,
         export_gaintable=True,
         _output_dir_="/output/path",
     )
@@ -178,6 +185,7 @@ def test_should_export_gaintable_with_proper_suffix(
         run_solver_config=run_solver_config,
         plot_config=plot_config,
         flagging=False,
+        use_corrected_vis=True,
         export_gaintable=True,
         _output_dir_="/output/path",
     )
@@ -198,3 +206,58 @@ def test_should_export_gaintable_with_proper_suffix(
     delayed_mock.assert_has_calls(
         [call(export_gaintable_mock), call(export_gaintable_mock)]
     )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
+    ".run_solver"
+)
+def test_should_not_use_corrected_vis_when_config_is_false(run_solver_mock):
+    upstream_output = UpstreamOutput()
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["corrected_vis"] = Mock(name="corrected_vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    initable = "initial_gaintable"
+    upstream_output["gaintable"] = initable
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
+    plot_config = {"plot_table": False, "fixed_axis": False}
+
+    gaintable_mock = Mock(name="gaintable")
+    run_solver_mock.return_value = gaintable_mock
+
+    actual_output = bandpass_calibration_stage.stage_definition(
+        upstream_output,
+        run_solver_config=run_solver_config,
+        plot_config=plot_config,
+        flagging=False,
+        use_corrected_vis=False,
+        export_gaintable=False,
+        _output_dir_="/output/path",
+    )
+
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output.vis,
+        modelvis=upstream_output.modelvis,
+        gaintable=initable,
+        solver="solver",
+        niter=1,
+        refant=2,
+        phase_only=False,
+        tol=1e-06,
+        crosspol=False,
+        normalise_gains="mean",
+        jones_type="T",
+        timeslice=None,
+    )
+
+    assert actual_output.gaintable == gaintable_mock

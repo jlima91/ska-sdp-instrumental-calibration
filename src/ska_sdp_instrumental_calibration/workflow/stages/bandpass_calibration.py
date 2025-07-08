@@ -38,6 +38,13 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
         flagging=ConfigParam(
             bool, False, description="Run RFI flagging", nullable=False
         ),
+        use_corrected_vis=ConfigParam(
+            bool,
+            True,
+            description="""Corrected visibilities(Visibilities with
+            applied Gaintable from previous stages) will be used.
+            If false, original vis will be used.""",
+        ),
         export_gaintable=ConfigParam(
             bool,
             False,
@@ -51,6 +58,7 @@ def bandpass_calibration_stage(
     run_solver_config,
     plot_config,
     flagging,
+    use_corrected_vis,
     export_gaintable,
     _output_dir_,
 ):
@@ -68,6 +76,10 @@ def bandpass_calibration_stage(
             eg: {{plot_table: False, fixed_axis: False}}
         flagging: bool
             Run Flagging for time
+        use_corrected_vis: bool
+            Corrected visibilities(Visibilities with
+            applied Gaintable from previous stages) will be used.
+            If false, original vis will be used.
         export_gaintable: bool
             Export intermediate gain solutions
         _output_dir_ : str
@@ -84,6 +96,9 @@ def bandpass_calibration_stage(
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
     vis = upstream_output.vis
+
+    if use_corrected_vis:
+        vis = upstream_output.corrected_vis
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):
