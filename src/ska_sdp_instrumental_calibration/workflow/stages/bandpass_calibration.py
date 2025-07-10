@@ -41,12 +41,11 @@ logger = logging.getLogger()
         flagging=ConfigParam(
             bool, False, description="Run RFI flagging", nullable=False
         ),
-        use_corrected_vis=ConfigParam(
-            bool,
-            True,
-            description="""Corrected visibilities(Visibilities with
-            applied Gaintable from previous stages) will be used.
-            If false, original vis will be used.""",
+        visibility_key=ConfigParam(
+            str,
+            "vis",
+            description="Visibility data to be used for calibration.",
+            allowed_values=["vis", "corrected_vis"],
         ),
         export_gaintable=ConfigParam(
             bool,
@@ -61,7 +60,7 @@ def bandpass_calibration_stage(
     run_solver_config,
     plot_config,
     flagging,
-    use_corrected_vis,
+    visibility_key,
     export_gaintable,
     _output_dir_,
 ):
@@ -79,10 +78,8 @@ def bandpass_calibration_stage(
             eg: {{plot_table: False, fixed_axis: False}}
         flagging: bool
             Run Flagging for time
-        use_corrected_vis: bool
-            Corrected visibilities(Visibilities with
-            applied Gaintable from previous stages) will be used.
-            If false, original vis will be used.
+        visibility_key: str
+            Visibility data to be used for calibration.
         export_gaintable: bool
             Export intermediate gain solutions
         _output_dir_ : str
@@ -98,16 +95,9 @@ def bandpass_calibration_stage(
 
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
-    vis = upstream_output.vis
 
-    if use_corrected_vis:
-        if "corrected_vis" in upstream_output:
-            vis = upstream_output.corrected_vis
-        else:
-            logger.info(
-                "Corrected vis not found in the upstream. "
-                "Using the original vis."
-            )
+    vis = upstream_output[visibility_key]
+    logger.info(f"Using {visibility_key} for calibration.")
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

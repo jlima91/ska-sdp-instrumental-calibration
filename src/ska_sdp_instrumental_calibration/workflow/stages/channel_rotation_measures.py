@@ -45,12 +45,11 @@ logger = logging.getLogger()
             peak locations with a nonlinear optimisation of
             the station RM values.""",
         ),
-        use_corrected_vis=ConfigParam(
-            bool,
-            True,
-            description="""Corrected visibilities(Visibilities with
-            applied Gaintable from previous stages) will be used.
-            If false, original vis will be used.""",
+        visibility_key=ConfigParam(
+            str,
+            "vis",
+            description="Visibility data to be used for calibration.",
+            allowed_values=["vis", "corrected_vis"],
         ),
         plot_rm_config=NestedConfigParam(
             "Plot Parameters for rotational measures",
@@ -84,7 +83,7 @@ def generate_channel_rm_stage(
     fchunk,
     peak_threshold,
     refine_fit,
-    use_corrected_vis,
+    visibility_key,
     plot_rm_config,
     plot_table,
     run_solver_config,
@@ -108,10 +107,8 @@ def generate_channel_rm_stage(
             Whether or not to refine the RM spectrum peak
             locations with a nonlinear optimisation
             of the station RM values.
-        use_corrected_vis: bool
-            Corrected visibilities(Visibilities with
-            applied Gaintable from previous stages) will be used.
-            If false, original vis will be used.
+        visibility_key: str
+            Visibility data to be used for calibration.
         plot_rm_config:
             Configs required for RM plots.
             eg: {{plot_rm: False, station: 0}}
@@ -132,7 +129,9 @@ def generate_channel_rm_stage(
             Updated upstream_output with gaintable
     """
 
-    vis = upstream_output.vis
+    vis = upstream_output[visibility_key]
+    logger.info(f"Using {visibility_key} for calibration.")
+
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
     if fchunk != -1:
@@ -164,15 +163,6 @@ def generate_channel_rm_stage(
         modelvis = apply_gaintable_to_dataset(
             modelvis, upstream_output["beams"], inverse=True
         )
-
-    if use_corrected_vis:
-        if "corrected_vis" in upstream_output:
-            vis = upstream_output.corrected_vis
-        else:
-            logger.info(
-                "Corrected vis not found in the upstream. "
-                "Using the original vis."
-            )
 
     gaintable = run_solver(
         vis=vis,
