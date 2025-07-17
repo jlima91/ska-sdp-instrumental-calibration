@@ -1,16 +1,15 @@
 import dask.array as da
 import numpy as np
 import xarray as xr
-from astropy import constants as const
 from mock import ANY, MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.processing_tasks.rotation_measures import (  # noqa: E501
     ModelRotationData,
-    calculate_phi_raw,
     fit_curve,
     get_rm_spec,
     get_stn_masks,
     model_rotations,
+    update_jones_with_masks,
 )
 
 
@@ -58,10 +57,19 @@ def test_model_rotation_data_initialization():
     assert rot_data.nfreq == nfreq
     assert rot_data.refant == refant
 
-    expected_lambda_sq = (
-        const.c.value  # pylint: disable=no-member
-        / mock_gaintable.frequency.values
-    ) ** 2
+    expected_lambda_sq = [
+        8.98755179,
+        7.27991695,
+        6.01646029,
+        5.05549788,
+        4.30764316,
+        3.71424334,
+        3.23551864,
+        2.84371756,
+        2.5190024,
+        2.24688795,
+    ]
+
     np.testing.assert_allclose(rot_data.lambda_sq, expected_lambda_sq)
 
     assert rot_data.rm_res > 0
@@ -112,7 +120,7 @@ def test_model_rotation_data_value_error():
 )
 @patch(
     "ska_sdp_instrumental_calibration.processing_tasks."
-    "rotation_measures.calculate_phi_raw"
+    "rotation_measures.update_jones_with_masks"
 )
 @patch(
     "ska_sdp_instrumental_calibration.processing_tasks."
@@ -170,7 +178,7 @@ def test_model_rotations_function(
     mock_from_delayed,
     mock_fit_curve,
     mock_get_rm_spec,
-    mock_calculate_phi_raw,
+    mock_update_jones_with_masks,
     mock_get_stn_masks,
     MockModelRotationData,
 ):
@@ -208,9 +216,6 @@ def test_model_rotations_function(
     mock_mask_dask_array = MagicMock(
         spec=da.Array, name="mock_mask_dask_array"
     )
-    mock_phi_raw_dask_array = MagicMock(
-        spec=da.Array, name="mock_phi_raw_dask_array"
-    )
     mock_rm_spec_dask_array = MagicMock(
         spec=da.Array, name="mock_rm_spec_dask_array"
     )
@@ -219,7 +224,7 @@ def test_model_rotations_function(
     )
     mock_from_delayed.side_effect = [
         mock_mask_dask_array,
-        mock_phi_raw_dask_array,
+        mock_rotations_instance.J,
         mock_rm_spec_dask_array,
         mock_fit_rm_dask_array,
     ]
@@ -233,7 +238,7 @@ def test_model_rotations_function(
     )  # noqa: E501
 
     mock_get_stn_masks.return_value = np.ones((3, 5), dtype=bool)
-    mock_calculate_phi_raw.return_value = np.zeros((3, 5))
+    mock_update_jones_with_masks.return_value = mock_rotations_instance.J
     mock_get_rm_spec.return_value = np.random.random((3, 199))
     mock_fit_curve.return_value = np.array([0.123, 0.456])
 
@@ -273,16 +278,10 @@ def test_model_rotations_function(
     mock_mask_dask_array.__and__.assert_called_once_with(
         mock_norms_dask_array.__getitem__.return_value.__gt__.return_value
     )
-    mock_calculate_phi_raw.assert_called_once_with(
+    mock_update_jones_with_masks.assert_called_once_with(
         mock_rotations_instance.J,
         mock_mask_dask_array.__and__.return_value,
         mock_norm.return_value,
-        mock_rotations_instance.nstations,
-    )
-    mock_get_rm_spec.assert_called_once_with(
-        mock_phi_raw_dask_array,
-        mock_rotations_instance.phasor,
-        mock_mask_dask_array.__and__.return_value,
         mock_rotations_instance.nstations,
     )
 
@@ -299,11 +298,6 @@ def test_model_rotations_function(
         0,
     )
     mock_rotations_instance.rm_peak = mock_dask_where.return_value
-    mock_dask_cos.assert_called_once_with(mock_phi_raw_dask_array)
-    mock_dask_sin.assert_called_once_with(mock_phi_raw_dask_array)
-    mock_dask_hstack.assert_called_once_with(
-        (mock_dask_cos.return_value, mock_dask_sin.return_value)
-    )
     mock_fit_curve.assert_called_once_with(
         mock_rotations_instance.lambda_sq,
         mock_dask_hstack.return_value,
@@ -337,20 +331,36 @@ def test_should_calculate_phi_raw():
     mask = np.array([[True, False], [True, True]])
     norms = np.full((nstations, nfreq, 2, 2), 2.0)
 
-    jones_expected = jones.copy()
-    for stn in range(nstations):
-        jones_expected[stn, mask[stn], :, :] *= (
-            np.sqrt(2) / norms[stn, mask[stn], :, :]
-        )
-    co_sum = jones_expected[:, :, 0, 0] + jones_expected[:, :, 1, 1]
-    cross_diff = 1j * (jones_expected[:, :, 0, 1] - jones_expected[:, :, 1, 0])
-    expected = 0.5 * (
-        np.unwrap(np.angle(co_sum + cross_diff))
-        - np.unwrap(np.angle(co_sum - cross_diff))
-    )
+    jones_expected = [
+        [
+            [
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+            ],
+            [
+                [
+                    1.0 + 0.0j,
+                    1.0 + 0.0j,
+                ],
+                [1.0 + 0.0j, 1.0 + 0.0j],
+            ],
+        ],
+        [
+            [
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+            ],
+            [
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+                [0.70710678 + 0.0j, 0.70710678 + 0.0j],
+            ],
+        ],
+    ]
 
-    out = calculate_phi_raw(jones, mask, norms, nstations).compute()
-    np.testing.assert_allclose(out, expected)
+    out = update_jones_with_masks(  # pylint: disable=no-member
+        jones, mask, norms, nstations
+    ).compute()  # pylint: disable=no-member
+    np.testing.assert_allclose(out, jones_expected)
 
 
 def test_get_station_masks_when_refant_weights_are_all_zeros():

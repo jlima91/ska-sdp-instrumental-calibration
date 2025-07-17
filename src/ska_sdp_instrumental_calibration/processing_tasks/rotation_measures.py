@@ -137,12 +137,21 @@ def model_rotations(
             rotations.nfreq,
         ),
         bool,
-    ) & (norms[:, :, 0, 0] > 0)
+    )
 
-    phi_raw = da.from_delayed(
-        calculate_phi_raw(rotations.J, mask, norms, rotations.nstations),
-        (rotations.nstations, rotations.nfreq),
-        da.float32,
+    mask = mask & (norms[:, :, 0, 0] > 0)
+
+    rotations.J = da.from_delayed(
+        update_jones_with_masks(rotations.J, mask, norms, rotations.nstations),
+        rotations.J.shape,
+        rotations.J.dtype,
+    )
+
+    co_sum = rotations.J[:, :, 0, 0] + rotations.J[:, :, 1, 1]
+    cross_diff = 1j * (rotations.J[:, :, 0, 1] - rotations.J[:, :, 1, 0])
+    phi_raw = 0.5 * (
+        np.unwrap(np.angle(co_sum + cross_diff))
+        - np.unwrap(np.angle(co_sum - cross_diff))
     )
 
     rotations.rm_spec = da.from_delayed(
@@ -151,13 +160,13 @@ def model_rotations(
         da.float32,
     )
 
-    rm_peak = da.where(
+    rotations.rm_est = da.where(
         da.max(da.abs(rotations.rm_spec), axis=1) > peak_threshold,
         rotations.rm_vals[da.argmax(da.abs(rotations.rm_spec), axis=1)],
         0,
     )
 
-    rotations.rm_peak = rotations.rm_est = rm_peak
+    rotations.rm_peak = rotations.rm_est
 
     if refine_fit:
         exp_stack = da.hstack((da.cos(phi_raw), da.sin(phi_raw)))
@@ -178,10 +187,9 @@ def model_rotations(
 
 
 @dask.delayed
-def calculate_phi_raw(jones, mask, norms, nstations):
+def update_jones_with_masks(jones, mask, norms, nstations):
     """
-    Calculates phi raw
-
+    Update the Jones array for mask values
     Parameters
     ----------
         jones: np.array
@@ -194,16 +202,12 @@ def calculate_phi_raw(jones, mask, norms, nstations):
             Number of stations.
     Returns
     -------
-        Array of phi raw.
+        Array of updated jones values.
     """
     for stn in range(nstations):
         jones[stn, mask[stn], :, :] *= np.sqrt(2) / norms[stn, mask[stn], :, :]
-    co_sum = jones[:, :, 0, 0] + jones[:, :, 1, 1]
-    cross_diff = 1j * (jones[:, :, 0, 1] - jones[:, :, 1, 0])
-    return 0.5 * (
-        np.unwrap(np.angle(co_sum + cross_diff))
-        - np.unwrap(np.angle(co_sum - cross_diff))
-    )
+
+    return jones
 
 
 @dask.delayed

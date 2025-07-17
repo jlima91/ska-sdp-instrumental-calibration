@@ -6,9 +6,30 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Main
 ****
 
+(Latest changes on main)
+
+
+0.3.0
+*****
+
+Added
+-----
+* Added Faraday Rotation into modular INST Pipeline.
+* Introduced export_visibility stage which currently supports applying gaintable on visibilities.
+* Added smooth gain solutions stage.
+* Allow exporting intermediate gain solutions as h5parm file.
+
 Changed
 -------
-* Improved differential Faraday rotation fits in model_rotations and associated udpates to bandpass_polarisation.
+* Improved differential Faraday rotation fits in model_rotations and associated updates to bandpass_polarisation.
+* Made load_data stage as reorderable.
+* Made model rotation dask compatible.
+* Input configuration file schema is changed slightly for generate_channel_rm stage.
+
+Fixed
+-----
+* Logging issue in LSM generation.
+
 
 0.2.2
 *****
