@@ -9,7 +9,7 @@ authors = [
 
 [tool.poetry]
 name = "ska-sdp-instrumental-calibration"
-version = "0.3.1"
+version = "0.3.2"
 description = "SKA Instrumental Calibration Pipeline"
 authors = ["Daniel Mitchell <daniel.mitchell@csiro.au>", "Stephen Ord <stephen.ord@csiro.au>"]
 license = "BSD-3-Clause"
