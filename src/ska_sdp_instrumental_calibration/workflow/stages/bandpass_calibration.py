@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import deepcopy
 
@@ -14,6 +15,8 @@ from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
 from ...data_managers.dask_wrappers import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+
+logger = logging.getLogger()
 
 
 @ConfigurableStage(
@@ -38,6 +41,12 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
         flagging=ConfigParam(
             bool, False, description="Run RFI flagging", nullable=False
         ),
+        visibility_key=ConfigParam(
+            str,
+            "vis",
+            description="Visibility data to be used for calibration.",
+            allowed_values=["vis", "corrected_vis"],
+        ),
         export_gaintable=ConfigParam(
             bool,
             False,
@@ -51,6 +60,7 @@ def bandpass_calibration_stage(
     run_solver_config,
     plot_config,
     flagging,
+    visibility_key,
     export_gaintable,
     _output_dir_,
 ):
@@ -68,6 +78,8 @@ def bandpass_calibration_stage(
             eg: {{plot_table: False, fixed_axis: False}}
         flagging: bool
             Run Flagging for time
+        visibility_key: str
+            Visibility data to be used for calibration.
         export_gaintable: bool
             Export intermediate gain solutions
         _output_dir_ : str
@@ -83,7 +95,9 @@ def bandpass_calibration_stage(
 
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
-    vis = upstream_output.vis
+
+    vis = upstream_output[visibility_key]
+    logger.info(f"Using {visibility_key} for calibration.")
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

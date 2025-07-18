@@ -8,6 +8,14 @@ Main
 
 (Latest changes on main)
 
+0.3.3
+*****
+
+Added
+-----
+* Apply gaintable on visibility.
+* Export corrected visibility and model visibility.
+
 
 0.3.0
 *****

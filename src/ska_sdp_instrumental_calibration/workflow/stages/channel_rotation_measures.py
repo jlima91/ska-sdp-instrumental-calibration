@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import deepcopy
 
@@ -18,6 +19,8 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+
+logger = logging.getLogger()
 
 
 @ConfigurableStage(
@@ -41,6 +44,12 @@ from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
             description="""Whether or not to refine the RM spectrum
             peak locations with a nonlinear optimisation of
             the station RM values.""",
+        ),
+        visibility_key=ConfigParam(
+            str,
+            "vis",
+            description="Visibility data to be used for calibration.",
+            allowed_values=["vis", "corrected_vis"],
         ),
         plot_rm_config=NestedConfigParam(
             "Plot Parameters for rotational measures",
@@ -74,6 +83,7 @@ def generate_channel_rm_stage(
     fchunk,
     peak_threshold,
     refine_fit,
+    visibility_key,
     plot_rm_config,
     plot_table,
     run_solver_config,
@@ -97,6 +107,8 @@ def generate_channel_rm_stage(
             Whether or not to refine the RM spectrum peak
             locations with a nonlinear optimisation
             of the station RM values.
+        visibility_key: str
+            Visibility data to be used for calibration.
         plot_rm_config:
             Configs required for RM plots.
             eg: {{plot_rm: False, station: 0}}
@@ -117,7 +129,9 @@ def generate_channel_rm_stage(
             Updated upstream_output with gaintable
     """
 
-    vis = upstream_output.vis
+    vis = upstream_output[visibility_key]
+    logger.info(f"Using {visibility_key} for calibration.")
+
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
     if fchunk != -1:
@@ -195,6 +209,7 @@ def generate_channel_rm_stage(
             )
         )
 
+    upstream_output["modelvis"] = modelvis
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("channel_rm")
 

@@ -13,10 +13,17 @@ class UpstreamOutput:
         self.__stage_outputs[key] = value
 
     def __getitem__(self, key):
+        if key not in self.__stage_outputs:
+            raise AttributeError(f"{key} not present in upstream-output.")
         return self.__stage_outputs[key]
 
     def __getattr__(self, key):
+        if key not in self.__stage_outputs:
+            raise AttributeError(f"{key} not present in upstream-output.")
         return self.__stage_outputs[key]
+
+    def __contains__(self, key):
+        return key in self.__stage_outputs
 
     def get_call_count(self, stage_name):
         return self.__call_count.get(stage_name, 0)
