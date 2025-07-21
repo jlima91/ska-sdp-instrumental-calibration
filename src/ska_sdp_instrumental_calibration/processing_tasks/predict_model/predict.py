@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 import dask.array as da
 import numpy as np
@@ -52,9 +52,30 @@ def convert_comp_to_skycomponent(
     chunks: dict | None = None,
 ) -> SkyComponent:
     """
-    Addition to regular function, this also converts
-    the flux into a xarray Datarrray with dask backend
-    and given chunks
+    Convert the LocalSkyModel to a list of SkyComponent.
+
+    All sources are unpolarised and specified in the linear polarisation frame
+    using XX = YY = Stokes I/2.
+
+    Function :func:`~deconvolve_gaussian` is used to deconvolve the MWA
+    synthesised beam from catalogue shape parameters of each component.
+    Components with non-zero widths after this process are stored with
+    shape = "GAUSSIAN". Otherwise shape = "POINT".
+
+    Parameters
+    ----------
+    comp: Component
+    frequency_xdr: xr.DataArray
+        Frequency list in Hz ("frequency")
+    polarisation_coord: xr.DataArray
+        Polarisation ("pol")
+    chunks: dict | None, default=None
+        Chunks information required for chunking skycomponent flux DataArray.
+
+    Returns
+    --------
+    SkyComponent
+        A SkyComponent.
     """
     chunks = chunks or {}
     if not np.array_equal(["XX", "XY", "YX", "YY"], polarisation_coord.data):
@@ -110,14 +131,22 @@ def generate_rotation_matrices(
     rm: da.Array,
     frequency_xdr: xr.DataArray,
     antenna_id_coord: xr.DataArray,
-    chunks: dict = {},
+    chunks: Mapping[Any, tuple[int, ...]] = {},
     output_dtype: type = np.float64,
 ) -> xr.DataArray:
     """Generate station rotation matrices from RM values.
 
-    :param rm: 1D array of rotation measure values [nstation].
-    :param frequency: 1D array of frequency values [nfrequency].
-    :return: 4D array of rotation matrices: [nstation, nfrequency, 2, 2].
+    Parameters
+    ----------
+    rm: da.Array
+        1D dask array of rotation measure values [nstation]
+    frequency_xdr: xr.DataArray
+        1D array of frequency values [nfrequency].
+
+    Returns
+    -------
+    xr.DataArray
+        4D array of rotation matrices: [nstation, nfrequency, 2, 2].
     """
     rm_xdr = xr.DataArray(rm, coords={"id": antenna_id_coord}).pipe(
         with_chunks, chunks
@@ -155,13 +184,27 @@ def generate_rotation_matrices(
 
 
 def gaussian_tapers_ufunc(
-    scaled_u: np.array,
-    scaled_v: np.array,
+    scaled_u: np.ndarray,
+    scaled_v: np.ndarray,
     params: dict[str, float],
-) -> np.array:
+) -> np.ndarray:
     """Calculated visibility amplitude tapers for Gaussian components.
 
     Note: this needs to be tested. Generate, image and fit a model component?
+
+    Parameters
+    ----------
+    scaled_u: np.ndarray
+        ("time", "frequency", "baselineid")
+    scaled_v: np.ndarray
+        ("time", "frequency", "baselineid")
+    params: dict
+        Dictionary of shape params {bmaj, bmin, bpa} in degrees.
+
+    Returns
+    --------
+    np.ndarray
+        visibility tapers ([time, frequency, baselineid]).
     """
     scale = -(np.pi * np.pi) / (4 * np.log(2.0))
     # Rotate baselines to the major/minor axes:
@@ -176,19 +219,34 @@ def gaussian_tapers_ufunc(
 
 
 def dft_skycomponent_ufunc(
-    scaled_u: np.array,
-    scaled_v: np.array,
-    scaled_w: np.array,
-    skycomponent_flux: np.array,
+    scaled_u: np.ndarray,
+    scaled_v: np.ndarray,
+    scaled_w: np.ndarray,
+    skycomponent_flux: np.ndarray,
     skycomponent: SkyComponent,
     phase_centre: SkyCoord,
-    chunks: dict = None,
-) -> np.array:
-    """ """
-    chunks = chunks or {}
+) -> np.ndarray:
+    """
+    Quick 'n dirty numpy-based predict for local testing without sdp.func.
+
+    Parameters
+    ----------
+    scaled_u: np.ndarray
+         ("time", "frequency", "baselineid")
+    scaled_v: np.ndarray
+         ("time", "frequency", "baselineid")
+    scaled_w: np.ndarray
+         ("time", "frequency", "baselineid")
+    skycomponent_flux: np.ndarray
+        (frequency, polarisation)
+    skycomponent: SkyComponent
+    phase_centre: SkyCoord
+        SkyCoord (ICRS): (ra, dec) in deg
+    """
 
     # Get coordaintes of phase centre
     ra0 = phase_centre.ra.radian
+    phase_centre.dec
     cdec0 = np.cos(phase_centre.dec.radian)
     sdec0 = np.sin(phase_centre.dec.radian)
 
@@ -217,12 +275,35 @@ def dft_skycomponent_ufunc(
     )
 
 
-def correct_comp_vis_ufunc(comp_vis, correction, antenna1, antenna2):
+def correct_comp_vis_ufunc(
+    comp_vis: np.ndarray,
+    correction: np.ndarray,
+    antenna1: np.ndarray,
+    antenna2: np.ndarray,
+):
     """
-    comp_vis: [time, freq, "baselineid", "polarisation"]
-    correction: [freq, id, x, y]
-    antenna1: [baselineid]
-    antenna2: [baselineid]
+    Apply correction on component visibilities.
+
+    Parameters
+    ----------
+    comp_vis: np.ndarray
+        ("time", "freq", "baselineid", "polarisation")
+
+    correction: np.ndarray
+        ("freq", "id", "x", "y")
+
+    antenna1: np.ndarray
+        ("baselineid")
+
+    antenna2: np.ndarray
+        ("baselineid")
+
+
+    Returns
+    -------
+    np.ndarray
+        ("time", "freq", "baselineid", "polarisation")
+        Corrected component visibilities.
     """
     return np.einsum(  # pylint: disable=too-many-function-args
         "fbpx,tfbxy,fbqy->tfbpq",
@@ -246,7 +327,54 @@ def predict_vis(
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
 ) -> xr.DataArray:
-    """Predict model visibilities from a SkyComponent List."""
+    """Predict model visibilities from a SkyComponent List.
+
+    Parameters
+    ----------
+    visibility: xr.DataArray
+        ('time', 'baselineid', 'frequency', 'polarisation')
+
+    uvw: xr.DataArray
+        ('time', 'baselineid', 'spatial')
+
+    datetime: xr.DataArray
+        ('time',)
+
+    configuration: Configuration
+        ('id', 'spatial')
+
+    antenna1: xr.DataArray
+        ('baselineid',)
+
+    antenna2: xr.DataArray
+        ('baselineid',)
+
+    components: list[Component]
+        LSM components.
+
+    phase_centre: SkyCoord
+        SkyCoord (ICRS): (ra, dec) in deg
+
+    station_rm: Optional[da.Array], default=None
+        Station rotation measure values.
+
+    beam_type: Optional[str] = "everybeam"
+        Type of beam model to use. Default is "everybeam". If set
+        to None, no beam will be applied.
+
+    eb_ms: Optional[str], default=None
+        Measurement set need to initialise the everybeam telescope.
+        Required if beam_type is "everybeam".
+
+    eb_coeffs: Optional[str], default=None
+        Everybeam coeffs datadir containing beam coefficients.
+        Required if beam_type is "everybeam".
+
+    Returns
+    -------
+    Visibilities: xr.DataArray
+        Model Visibilities predicted from components.
+    """
     chunks = visibility.chunksizes
 
     frequency_xdr = xr.DataArray(visibility.frequency).pipe(
@@ -376,7 +504,6 @@ def predict_vis(
             kwargs={
                 "skycomponent": skycomponent,
                 "phase_centre": phase_centre,
-                "chunks": chunks,
             },
         )
 

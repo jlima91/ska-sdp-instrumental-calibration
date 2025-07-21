@@ -126,7 +126,6 @@ class TestPredictVis:
                     kwargs={
                         "skycomponent": skycomponent_mock_1,
                         "phase_centre": vis.phasecentre,
-                        "chunks": vis.chunksizes,
                     },
                 ),
                 call(
@@ -153,7 +152,6 @@ class TestPredictVis:
                     kwargs={
                         "skycomponent": skycomponent_mock_2,
                         "phase_centre": vis.phasecentre,
-                        "chunks": vis.chunksizes,
                     },
                 ),
             ]
