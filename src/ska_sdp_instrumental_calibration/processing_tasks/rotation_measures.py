@@ -157,7 +157,7 @@ def model_rotations(
     rotations.rm_spec = da.from_delayed(
         get_rm_spec(phi_raw, rotations.phasor, mask, rotations.nstations),
         (rotations.nstations, rotations.phasor.shape[0]),
-        da.float32,
+        np.float32,
     )
 
     rotations.rm_est = da.where(
@@ -178,7 +178,7 @@ def model_rotations(
                 rotations.nstations,
             ),
             (2, rotations.nstations),
-            da.float32,
+            np.float32,
         )
         rotations.rm_est = fit_rm[0]
         rotations.rm_const = fit_rm[1]
