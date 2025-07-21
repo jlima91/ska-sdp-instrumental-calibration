@@ -159,6 +159,24 @@ def generate_channel_rm_stage(
         eb_coeffs=upstream_output["eb_coeffs"],
         station_rm=rotations.rm_est,
     )
+
+    # modelvis_xda = predict_vis_new(
+    #     vis.vis,
+    #     vis.uvw,
+    #     vis.datetime,
+    #     vis.configuration,
+    #     vis.antenna1,
+    #     vis.antenna2,
+    #     upstream_output["lsm"],
+    #     vis.phasecentre,
+    #     beam_type=upstream_output["beam_type"],
+    #     eb_ms=upstream_output["eb_ms"],
+    #     eb_coeffs=upstream_output["eb_coeffs"],
+    #     station_rm=rotations.rm_est,
+    # )
+
+    # modelvis = vis.assign({"vis": modelvis_xda})
+
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
             modelvis, upstream_output["beams"], inverse=True

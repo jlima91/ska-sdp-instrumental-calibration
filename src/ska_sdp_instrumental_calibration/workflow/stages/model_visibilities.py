@@ -200,6 +200,23 @@ def predict_vis_stage(
         eb_coeffs=eb_coeffs,
         reset_vis=reset_vis,
     )
+
+    # modelvis_xda = predict_vis_new(
+    #     vis.vis,
+    #     vis.uvw,
+    #     vis.datetime,
+    #     vis.configuration,
+    #     vis.antenna1,
+    #     vis.antenna2,
+    #     lsm,
+    #     vis.phasecentre,
+    #     beam_type=beam_type,
+    #     eb_ms=eb_ms,
+    #     eb_coeffs=eb_coeffs,
+    # )
+
+    # modelvis = vis.assign({"vis": modelvis_xda})
+
     if normalise_at_beam_centre:
         beams = prediction_central_beams(
             vis,
