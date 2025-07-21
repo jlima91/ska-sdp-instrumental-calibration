@@ -8,6 +8,13 @@ Main
 
 (Latest changes on main)
 
+0.3.4
+*****
+
+Fixed
+-----
+* Fixed issue with dask.array.float32 targeted at spack builds. 
+
 0.3.3
 *****
 
