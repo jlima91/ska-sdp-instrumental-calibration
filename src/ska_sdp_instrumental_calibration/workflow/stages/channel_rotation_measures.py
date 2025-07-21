@@ -10,9 +10,12 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.processing_tasks.predict_model.predict import (  # noqa: E501
+    predict_vis,
+)
+
 from ...data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
-    predict_vis,
     run_solver,
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
@@ -151,14 +154,24 @@ def generate_channel_rm_stage(
         refine_fit=refine_fit,
         refant=run_solver_config["refant"],
     )
-    modelvis = predict_vis(
-        vis,
+
+    modelvis_xda = predict_vis(
+        vis.vis,
+        vis.uvw,
+        vis.datetime,
+        vis.configuration,
+        vis.antenna1,
+        vis.antenna2,
         upstream_output["lsm"],
+        vis.phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
         station_rm=rotations.rm_est,
     )
+
+    modelvis = vis.assign({"vis": modelvis_xda})
+
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
             modelvis, upstream_output["beams"], inverse=True
