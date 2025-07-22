@@ -56,7 +56,7 @@ For that, you can use `conda` or [uv](https://docs.astral.sh/uv/getting-started/
 ```bash
 # To create a virtual environment using uv
 # This will be created in the `.venv` directory
-uv venv --python 3.11 --seed
+uv venv --python 3.10 --seed
 
 #To activate the environment
 source .venv/bin/activate

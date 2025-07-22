@@ -19,7 +19,7 @@ git submodule update --init
 To [install poetry with specific version](https://python-poetry.org/docs/#installing-with-the-official-installer), run
 
 ```bash
-curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3.11 -
+curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3.10 -
 ```
 
 This will install poetry in the default user path `$HOME/.local/bin`. To ensure that `poetry` is available, you need to add this path to the `PATH` environment variable.
@@ -37,6 +37,8 @@ echo "export PATH=\$PATH:\$HOME/.local/bin" >> $HOME/.bashrc
 Once poetry is in path, you need to run following command from the INST git repo's directory:
 
 ```bash
+poetry env use python3.10
+
 poetry install
 ```
 
