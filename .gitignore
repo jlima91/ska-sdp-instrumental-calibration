@@ -19,6 +19,7 @@ coverage.xml
 docs/_build
 docs/src/_build
 docs/apidocs
+docs/src/api
 
 # ide
 .idea

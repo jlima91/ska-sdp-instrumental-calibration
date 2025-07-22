@@ -8,6 +8,7 @@ authors = [
 ]
 
 [tool.poetry]
+include = ["MANIFEST.skao.int"]
 name = "ska-sdp-instrumental-calibration"
 version = "0.3.4"
 description = "SKA Instrumental Calibration Pipeline"

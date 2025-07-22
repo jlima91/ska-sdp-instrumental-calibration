@@ -27,5 +27,5 @@ SKA SDP Instrumental Calibration (INST) Pipeline
    :maxdepth: 1
    :caption: API
 
-   package/guide
+   api/api
 
