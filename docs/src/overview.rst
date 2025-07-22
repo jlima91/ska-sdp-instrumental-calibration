@@ -1,5 +1,5 @@
-Overview of Pipelines
-=====================
+Overview of PI25 Pipelines
+==========================
 
 Instrumental calibration pipelines will need to be flexible to be useful for
 both Mid and Low, but also to adapt as the array assemblies and our knowledge

@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+
+set -e
+
+exec < /dev/tty
+
+# Function to prompt the user with a message
+ask_input() {
+    local prompt="$1"
+    local var_name="$2"
+    read -erp "$prompt: " $var_name
+}
+
+# Function to prompt the user with a yes/no question
+ask_yes_no() {
+    local prompt="$1"
+    local response
+    while true; do
+        read -erp "$prompt [y/n]: " response
+        case "$response" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
+}
+
+# Only run for commit message templates (not for merges, etc.)
+if [[ "$2" != "" && "$2" != "template" ]]; then
+    exit 0
+fi
+
+# Get commit message file path
+COMMIT_MSG_FILE="$1"
+
+TEMP_COMMIT_MSG_FILE="${COMMIT_MSG_FILE}.tmp"
+
+echo -e "\n\
+==========================================\n\
+         Generating commit message        \n\
+==========================================\n";
+
+# Ask for JIRA ticket, title, and description
+ask_input "Enter JIRA ticket" jira_ticket
+ask_input "Enter title of the commit" commit_title
+
+# Generate the commit message
+echo "$jira_ticket: $commit_title" >> "$TEMP_COMMIT_MSG_FILE"
+
+echo "" >> "$TEMP_COMMIT_MSG_FILE"
+echo -e "# Keep at least one blank line between title, body and co-author tag." >> "$TEMP_COMMIT_MSG_FILE"
+echo -e "# Consecutive empty lines will be removed by git.\n" >> "$TEMP_COMMIT_MSG_FILE"
+
+# Ask if the user wants to add a co-author
+if ask_yes_no "Add a co-author template?"; then
+    COAUTHOR=""
+    if command -v fzf 2>&1 >/dev/null
+    then
+        COAUTHOR=$(git log --format='%aN <%aE>' | sort -u | fzf)
+    fi
+
+    echo "" >> "$TEMP_COMMIT_MSG_FILE"
+    echo "Co-authored-by: $COAUTHOR" >> "$TEMP_COMMIT_MSG_FILE"
+    echo "# Example: Rob Bob <rob.bob@gmail.com>" >> "$TEMP_COMMIT_MSG_FILE"
+    echo "" >> "$TEMP_COMMIT_MSG_FILE"
+fi
+
+exec <&-
+
+echo "" >> "$TEMP_COMMIT_MSG_FILE"
+cat "$COMMIT_MSG_FILE" >> "$TEMP_COMMIT_MSG_FILE"
+
+mv "$TEMP_COMMIT_MSG_FILE" "$COMMIT_MSG_FILE"
+
+echo $'\n\n'
+
+exit 0

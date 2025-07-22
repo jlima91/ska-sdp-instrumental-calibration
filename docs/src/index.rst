@@ -1,22 +1,14 @@
 .. INST pipeline documentation main index file
 
-
-Instrumental Calibration (INST) Pipelines
-=========================================
-
-Batch instrumental calibration pipelines for the SKA SDP.
-
-This project contains the functions and scripts needed to generate the initial
-calibration products during standard SKA batch processing. It includes
-processing functions to prepare, model and calibrate a visibility dataset, data
-handling functions for parallel processing, and high level pipeline scripts and
-notebooks.
+SKA SDP Instrumental Calibration (INST) Pipeline
+================================================
 
 .. toctree::
    :maxdepth: 1
    :caption: Readme
 
    README
+   DEVELOPMENT
 
 .. toctree::
    :maxdepth: 1
@@ -28,7 +20,12 @@ notebooks.
    :maxdepth: 1
    :caption: Contents
 
-   overview
    stage_config
+   overview
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API
+
    package/guide
 
