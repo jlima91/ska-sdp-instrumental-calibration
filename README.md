@@ -1,36 +1,41 @@
-SKA Instrumental Calibration Pipeline
-=====================================
+# SKA SDP Instrumental Calibration Pipeline
 
 [![Documentation Status](https://readthedocs.org/projects/ska-telescope-ska-sdp-instrumental-calibration/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
 
-Instrument calibration pipeline for the SKA SDP. See
-[online documentation](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest).
+The **Instrumental Calibration Pipeline (INST)** is a cli application which is used
+to perform calibration operations on the SKA visibility data.
 
-The INST pipeline project contains the functions and scripts needed to generate the
+This repository contains the functions to generate the
 initial calibration products during standard SKA batch processing. It includes
 processing functions to prepare, model and calibrate a visibility dataset, data
 handling functions for parallel processing, and high level workflow scripts and
 notebooks.
 
-Requirements
-------------
+If you wish to contribute to this repository, please refer [Developer Guide](./DEVELOPMENT.md)
 
-The system used for development needs to have Python 3, `pip` and Poetry installed.
-It uses standard SKA processing functions in the
-[func](https://developer.skao.int/projects/ska-sdp-func/en/) and
-[func-python](https://developer.skao.int/projects/ska-sdp-func-python/en/)
-repositories, and standard data models in the
-[datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
+## Requirements for running the pipeline
 
-If `predict_from_components` is used with either a user-defined LSM compoent list or
-one genearted using `generate_lsm_from_gleamegc` or `generate_lsm_from_csv` to
-generate model visibilities for calibration, a number of external datasets may also
-be required:
+The INST pipeline is primarily dependent on these external astronomy related libraries:
+
+1. [python-casacore](https://github.com/casacore/python-casacore)
+2. [everybeam](https://git.astron.nl/RD/EveryBeam)
+
+Apart from above, the pipeline uses standard SKA processing functions in the
+
+1. [sdp-func-python](https://developer.skao.int/projects/ska-sdp-func-python/en/)
+2. [sdp-func](https://developer.skao.int/projects/ska-sdp-func/en/) (optional)
+
+and SKA standard data models in the
+[ska-sdp-datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
+
+All above dependencies are installed along with the pipeline using [standard installation steps](#installing-the-pipeline).
+
+For prediction of model visibilities, here are the pre-requisites:
 
  * The GLEAM extragalactic catalogue or a csv file. This and other catalogues will
    soon be available via
    [global-sky-model](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/),
-   but at present a hard copy is needed to use `processing_tasks.lsm_tmp`. The
+   but at present a hard copy is needed for prediction of model visibilities. The
    gleamegc catalogue can be downloaded via FTP from
    [VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/100).
  * A measurement set with appropriate metadata to initialise the everybeam beam models.
@@ -41,40 +46,101 @@ be required:
    directory is also needed to generate beam models. The directory path supplied to
    `predict_from_components` is used to set environment variable `EVERYBEAM_DATADIR`.
 
-For detailed package requirements, see `pyproject.toml`. This is the Poetry config file
-to manage application dependencies. To install Poetry, use:
+## Installing the pipeline
+
+### In python environments
+
+It is always recommended to create a seperate python environment for the pipeline.
+For that, you can use `conda` or [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
 ```bash
-$ curl -sSL https://install.python-poetry.org | python3 -
+# To create a virtual environment using uv
+# This will be created in the `.venv` directory
+uv venv --python 3.10 --seed
+
+#To activate the environment
+source .venv/bin/activate
 ```
 
-**Always** use a virtual environment.
-[Pipenv](https://pipenv.readthedocs.io/en/latest/) is now Python's officially
-recommended method. You are encouraged to use your preferred environment isolation
-(i.e. `pip`, `conda` or `pipenv`) while developing locally.
+#### Stable release from SKAO pip index (recommended)
 
-Using the INST CLI
---------------------
-
-### Install the CLI
-
-After cloning the [repo](https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration) and setting up the environment, run `poetry install` command. This should install `ska-sdp-instrumental-calibration` cli command and it should be accessible in the current environment.
+Run the following command to install the latest stable release (0.3.4) of the pipeline from SKAO python artifact repository:
 
 ```bash
-ska-sdp-instrumental-calibration --help                                                       (inst-cal-new) 
-usage: ska-sdp-instrumental-calibration [-h] {run,install-config} ...
+INST_VERSION=0.3.4
+
+# if using uv, use `uv pip install ...` 
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]==$INST_VERSION"
+```
+
+#### Latest pipeline from git
+
+Run the following command to install the latest pipeline from the `main` branch of the git repository
+
+```bash
+INST_BRANCH=main
+
+# if using uv, use `uv pip install ...` 
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
+```
+
+### As spack package
+
+The INST pipeline is available as a [spack](https://spack.readthedocs.io/en/v0.23.1/) package, in the [ska-sdp-spack](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack) repository. Please follow the [README](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack/-/blob/main/README.md) to setup spack on your machine. Then install the e2e pipeline using this command:
+
+```bash
+INST_VERSION=0.3.4
+
+spack install "py-ska-sdp-instrumental-calibration@$INST_VERSION"
+```
+
+Then load the spack package with this command
+
+```bash
+spack load "py-ska-sdp-instrumental-calibration"
+```
+
+### As OCI container
+
+We also provide a OCI (docker) image which is hosted on the SKA Docker artifact repository.
+To pull the docker image for the latest stable release, please run:
+
+```bash
+INST_VERSION=0.3.4
+docker pull "artefact.skao.int/ska-sdp-instrumental-calibration:$INST_VERSION"
+```
+
+The entrypoint of above image is set to the executable `ska-sdp-instrumental-calibration`.
+
+Run image with volume mounts to enable read write to storage.
+
+```bash
+docker run [-v local:container] <image-name> ...<cli_options>...
+```
+
+## Using the CLI
+
+Once you install the pipeline, you should be able to access the pipeline cli with `ska-sdp-instrumental-calibration` command.
+
+Running `ska-sdp-instrumental-calibration --help` should show following output: 
+
+```bash
+usage: ska-sdp-instrumental-calibration [-h] {run,install-config,experimental} ...
 
 positional arguments:
-  {run,install-config}
+  {run,install-config,experimental}
     run                 Run the pipeline
     install-config      Installs the default config at --config-install-path
+    experimental        Allows reordering of stages via additional config section
 
 options:
   -h, --help            show this help message and exit
 ```
 
-As of now, this command consists of placeholder stages which will not yield any useful results. 
+### Generating YAML config of the pipeline
 
-### Install the config
+The INST pipeline expects a YAML config file as one of the inputs, which defines the stages and their parameters.
+The information about stages is present in the documentation
 
 Install the default config YAML of the pipeline to a specific directory using the `install-config` subcommand.
 
@@ -90,7 +156,7 @@ ska-sdp-instrumental-calibration install-config --config-install-path path/to/di
                     --set parameters.load_data.fchunk 64
 ```
 
-### Run the pipeline
+### Running the pipeline
 
 Run the instrumental calibration pipeline using `run` subcommand.
 
@@ -103,9 +169,9 @@ ska-sdp-instrumental-calibration run \
 --output /path/to/output/dir
 ```
 
-For all the options, run `ska-sdp-instrumental-calibration run --help`.
+Please run `ska-sdp-instrumental-calibration run --help` to see  all supported options of the `run` subcommand.\
 
-### Reorder stages in pipeline
+### Reordering stages in pipeline
 
 Run the instrumental calibration pipeline using `experimental` subcommand, to provide alternate stage order than the default order.
 
@@ -175,32 +241,3 @@ The stage configurations have the following precedence - (1) `--set` (2) Configu
 While using the `--set` cli-option, please be mindful of the suffix appended to the stage name. Example: `ska-sdp-instrumental-calibration experimental ... --set parameters.delay_calibration_1.plot_config.plot_table true`
 
 Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section. 
-
-Testing
--------
-
-This project uses [PyTest](https://pytest.org) as the testing framework.
-
- * Run tests with `make python-test`
- * Running the test creates the `htmlcov` folder
-    - Inside this folder a rundown of the issues found will be accessible using the
-      `index.html` file
- * Or run tests directly, e.g. `pytest -s tests/*.py`
- 
-Documentation
--------------
-
-The documentation generator for this project is derived from SKA's
-[SKA Developer Portal repository](https://github.com/ska-telescope/developer.skatelescope.org)
-
- * In order to build the documentation for this project, execute the following under
-`./docs`:
-```bash
-$ make html
-```
- * Or from the base directory:
-```bash
-$ make docs-build html
-```
-* The documentation be viewed by opening the file `./docs/build/html/index.html`
-
