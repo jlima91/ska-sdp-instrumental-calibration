@@ -42,6 +42,7 @@ def station_response_beam_ufunc(
     return beams
 
 
+# Revisit when moving to MSv4
 class GenericBeams:
     """A generic class for beam handling.
 
@@ -57,14 +58,22 @@ class GenericBeams:
     )
     For other array types, all beam values are set to 2x2 identity matrices.
 
-    Args:
-        vis (xr.Dataset) dataset containing required metadata.
-        array (str) array type (e.g. "low" or "mid"). By default the vis
-            configuration name will be searched for an obvious match.
-        direction (SkyCoord) beam direction. By default the vis phase centre
-            will be used.
-        ms_path (str) location of measurement set for everybeam (e.g.
-            OSKAR_MOCK.ms).
+    Parameters
+    ----------
+    configuration: Configuration
+        The dataset containing antenna configuration information.
+
+    direction: SkyCoord
+        The beam phase center value. This is an astropy
+        skycoord object.
+
+    array: str, optional
+        Array type (e.g. "low" or "mid"). By default the vis
+        configuration name will be searched for an obvious match.
+
+    ms_path: str, optional
+        Location of measurement set for everybeam (e.g.
+        OSKAR_MOCK.ms).
     """
 
     def __init__(
@@ -134,9 +143,14 @@ class GenericBeams:
             logger.info("Unknown beam")
 
     def update_beam_direction(self, direction: SkyCoord):
-        """Return the response of each antenna or station in a given direction.
+        """
+        Update beam direction
 
-        :param direction: Pointing direction of the beams
+        Parameters
+        ----------
+        direction: SkyCoord
+            Pointing direction of the beams. This is an astropy
+            skycoord object.
         """
         self.beam_direction = direction
 
@@ -145,8 +159,17 @@ class GenericBeams:
         Sets the "scale" attribute to a chunked xarray Dataarray
         with frequency coordinates.
 
-        :param frequency: xr.Datarray of dask chuncked frequency values
-        :param time: obstime
+        Parameters
+        ----------
+        frequency_xdr: xarray.DataArray
+            The frequency dataarray whose data is a 1D dask/numpy array
+            containing all frequency values.
+
+            Dimensions: ``[frequency,]``
+
+        time: Time
+            Observation time. This is an astropy time object.
+            Typically the mean of the observation time duration.
         """
         # Coordinates of beam centre
         self.delay_dir_itrf = radec_to_xyz(self.beam_direction, time)
@@ -221,10 +244,34 @@ class GenericBeams:
     ) -> xr.DataArray:
         """Return the response of each antenna or station in a given direction
 
-        :param direction: Direction of desired response
-        :param frequency: 1D array of frequencies
-        :param time: obstime
-        :return: array of beam matrices [nant, nfreq, 2, 2]
+        Parameters
+        ----------
+        direction: SkyCoord
+            Pointing direction of the beams. This is an astropy
+            skycoord object.
+
+        frequency_xdr: xarray.DataArray
+            The frequency dataarray whose data is a 1D dask/numpy array
+            containing all frequency values.
+
+            Dimensions: ``[frequency,]``
+
+        time: Time, optional
+            Observation time. This is an astropy time object.
+            Typically the mean of the observation time duration.
+
+
+        output_dtype: type, default: np.complex128
+            Datatype of the output station reponse. Its expected that
+            this is same as the visibility datatype.
+
+        Returns
+        -------
+        xarray.DataArray
+            4D array of station responses. The size of
+            'x' and 'y' dimensions will always be 2.
+
+            Dimensions: ``[frequency, id, x, y]``
         """
         nstations = len(self.antenna_names)
 
@@ -318,12 +365,40 @@ class GenericBeams:
 
 def create_beams(
     time: Time,
-    frequency: xr.DataArray,
+    frequency_xdr: xr.DataArray,
     configuration: Configuration,
     phasecentre: SkyCoord,
     eb_coeffs: str,
     eb_ms: str,
 ):
+    """
+    Create GenericBeams object based on the given configuration,
+    phasecentre, EveryBeam coefficient files and the EveryBeam MS file.
+
+    Parameters
+    ----------
+    time: Time
+        The time of the observation.
+    frequency_xdr: xarray.DataArray
+        The frequency dataarray whose data is a 1D dask/numpy array
+        containing all frequency values.
+
+        Dimensions: ``[frequency,]``
+
+    configuration: Configuration
+        Configuration dataset.
+    phasecentre: SkyCoord
+        The phase centre of the observation.
+    eb_coeffs: str
+        The path to the EveryBeam coefficient files.
+    eb_ms: str
+        The path to the EveryBeam MS file.
+
+    Returns
+    -------
+    GenericBeams
+        The GenericBeams object.
+    """
     # Could do this once externally, but don't want to pass around
     # exotic data types.
     os.environ["EVERYBEAM_DATADIR"] = eb_coeffs
@@ -336,7 +411,7 @@ def create_beams(
     )
 
     # Update ITRF coordinates of the beam and normalisation factors
-    beams.update_beam(frequency, time=time)
+    beams.update_beam(frequency_xdr, time=time)
 
     # Check beam pointing direction
     altaz = beams.beam_direction.transform_to(

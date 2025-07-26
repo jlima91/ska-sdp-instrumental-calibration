@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Mapping, Optional
+from typing import Optional
 
 import dask.array as da
 import numpy as np
@@ -28,14 +28,14 @@ def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
 
     Parameters
     ----------
-    dataarray : xr.DataArray
+    dataarray : xarray.DataArray
         Input DataArray (can be Dask-backed or not).
-    chunks : dict
-        Dictionary mapping dimension names to chunk sizes.
+    chunks: dict
+        A dictionary mapping dimension names to chunk sizes.
 
     Returns
     -------
-    xr.DataArray
+    xarray.DataArray
         Rechunked DataArray if applicable.
     """
     relevant_chunks = {
@@ -49,7 +49,7 @@ def convert_comp_to_skycomponent(
     comp: Component,
     frequency_xdr: xr.DataArray,
     polarisation_coord: xr.DataArray,
-    chunks: dict | None = None,
+    chunks: dict = None,
 ) -> SkyComponent:
     """
     Convert the LocalSkyModel to a list of SkyComponent.
@@ -65,19 +65,32 @@ def convert_comp_to_skycomponent(
     Parameters
     ----------
     comp: Component
-    frequency_xdr: xr.DataArray
-        Frequency list in Hz ("frequency")
-    polarisation_coord: xr.DataArray
-        Polarisation ("pol")
-    chunks: dict | None, default=None
-        Chunks information required for chunking skycomponent flux DataArray.
+        Component to convert to SkyComponent
+
+    frequency_xdr: xarray.DataArray
+        The frequency dataarray whose data is a 1D dask/numpy array
+        containing all frequency values.
+
+        Dimensions: ``[frequency,]``
+
+    polarisation_coord: xarray.DataArray
+        The polarisation coordinate of the input Visbility dataset.
+        Its data must be a 1D numpy array, containing polarisation values.
+        For example: ``["XX", "XY", "YX", "YY"]``
+
+        Dimensions: ``[polarisation,]``
+
+    chunks: dict, optional
+        A dictionary mapping dimension names to chunk sizes.
 
     Returns
-    --------
+    -------
     SkyComponent
-        A SkyComponent.
+        A SkyComponent. Its ``flux`` attribute is a xarray datarray with
+        dimensions ``[frequency, polarisation]``.
     """
     chunks = chunks or {}
+
     if not np.array_equal(["XX", "XY", "YX", "YY"], polarisation_coord.data):
         raise ValueError(
             "Only polarisation ['XX', 'XY', 'YX', 'YY'] is supported."
@@ -127,27 +140,53 @@ def convert_comp_to_skycomponent(
     return skycomponent
 
 
+# Revisit for MSv4 transition
 def generate_rotation_matrices(
     rm: da.Array,
     frequency_xdr: xr.DataArray,
     antenna_id_coord: xr.DataArray,
-    chunks: Mapping[Any, tuple[int, ...]] = {},
+    chunks: dict = None,
     output_dtype: type = np.float64,
 ) -> xr.DataArray:
     """Generate station rotation matrices from RM values.
 
     Parameters
     ----------
-    rm: da.Array
-        1D dask array of rotation measure values [nstation]
-    frequency_xdr: xr.DataArray
-        1D array of frequency values [nfrequency].
+    rm: dask.Array
+        1D dask array of rotation measure values.
+        The size of the array is equal to number of stations.
+
+        Dimensions: ``[id,]``
+
+    frequency_xdr: xarray.DataArray
+        The frequency dataarray whose data is a 1D dask/numpy array
+        containing all frequency values.
+
+        Dimensions: ``[frequency,]``
+
+    antenna_id_coord: xarray.DataArray
+        The ``id`` coordinate of the ``configuration`` dataset. This dataset
+        contains the antenna configuration information.
+        Its data must be a 1D numpy array, containing antenna ids.
+
+        Dimensions: ``[id,]``
+
+    chunks: dict, optional
+        A dictionary mapping dimension names to chunk sizes.
+
+    output_dtype: type, default: np.float64
+        Datatype of the output rotation matrix dataarray
 
     Returns
     -------
-    xr.DataArray
-        4D array of rotation matrices: [nstation, nfrequency, 2, 2].
+    xarray.DataArray
+        4D array of rotation matrices. The size of
+        'x' and 'y' dimensions will always be 2.
+
+        Dimensions: ``[frequency, id, x, y]``
     """
+    chunks = chunks or {}
+
     rm_xdr = xr.DataArray(rm, coords={"id": antenna_id_coord}).pipe(
         with_chunks, chunks
     )
@@ -188,23 +227,33 @@ def gaussian_tapers_ufunc(
     scaled_v: np.ndarray,
     params: dict[str, float],
 ) -> np.ndarray:
-    """Calculated visibility amplitude tapers for Gaussian components.
+    """
+    Calculate visibility amplitude tapers for Gaussian components.
 
     Note: this needs to be tested. Generate, image and fit a model component?
 
     Parameters
     ----------
     scaled_u: np.ndarray
-        ("time", "frequency", "baselineid")
+        The 3D array with "u" values scaled across frequencies.
+
+        Dimensions: ``[time, frequency, baselineid]``
+
     scaled_v: np.ndarray
-        ("time", "frequency", "baselineid")
+        The 3D array with "v" values scaled across frequencies.
+
+        Dimensions: ``[time, frequency, baselineid]``
+
     params: dict
-        Dictionary of shape params {bmaj, bmin, bpa} in degrees.
+        Dictionary of shape params ``{bmaj, bmin, bpa}``
+        in degrees.
 
     Returns
-    --------
+    -------
     np.ndarray
-        visibility tapers ([time, frequency, baselineid]).
+        Visibility tapers
+
+        Dimensions: ``[time, frequency, baselineid]``
     """
     scale = -(np.pi * np.pi) / (4 * np.log(2.0))
     # Rotate baselines to the major/minor axes:
@@ -227,21 +276,51 @@ def dft_skycomponent_ufunc(
     phase_centre: SkyCoord,
 ) -> np.ndarray:
     """
-    Quick 'n dirty numpy-based predict for local testing without sdp.func.
+    Predict visibilities for a single skycomponent.
+    This is a numpy ufunc, compatible with
+    :py:func:`xarray.apply_ufunc` operation.
+    The data can be chunked across
+    ``time`` and ``frequency`` dimensions.
 
     Parameters
     ----------
-    scaled_u: np.ndarray
-         ("time", "frequency", "baselineid")
-    scaled_v: np.ndarray
-         ("time", "frequency", "baselineid")
-    scaled_w: np.ndarray
-         ("time", "frequency", "baselineid")
-    skycomponent_flux: np.ndarray
-        (frequency, polarisation)
+    scaled_u: numpy.ndarray
+        The 3D array with "u" values scaled across frequencies.
+
+        Dimensions: ``[time, frequency, baselineid]``
+
+    scaled_v: numpy.ndarray
+        The 3D array with "v" values scaled across frequencies.
+
+        Dimensions: ``[time, frequency, baselineid]``
+
+    scaled_w: numpy.ndarray
+        The 3D array with "w" values scaled across frequencies.
+
+        Dimensions: ``[time, frequency, baselineid]``
+
+    skycomponent_flux: numpy.ndarray
+        The flux value of skycomponent.
+        This value is passed seperately than the actual
+        "skycomponent" since this array can be distributed
+        per chunk by an apply_ufunc like operation.
+
+        Dimensions: ``[frequency, polarisation]``
+
     skycomponent: SkyComponent
+        The skycomponent to predict visibility for
+
     phase_centre: SkyCoord
-        SkyCoord (ICRS): (ra, dec) in deg
+        The beam phase center value. This is an astropy
+        skycoord object.
+
+    Returns
+    -------
+    np.ndarray
+        A 4D numpy array containing predicted visibilities
+        for the given skycomponent.
+
+        Dimensions: ``[time, frequency, baselineid, polarisation]``
     """
 
     # Get coordaintes of phase centre
@@ -276,41 +355,51 @@ def dft_skycomponent_ufunc(
 
 
 def correct_comp_vis_ufunc(
-    comp_vis: np.ndarray,
+    visibility: np.ndarray,
     correction: np.ndarray,
     antenna1: np.ndarray,
     antenna2: np.ndarray,
 ):
     """
-    Apply correction on component visibilities.
+    Apply correction on visibilities.
+    This is a numpy ufunc, compatible to be used with
+    :py:func:`xarray.apply_ufunc`.
 
     Parameters
     ----------
-    comp_vis: np.ndarray
-        ("time", "freq", "baselineid", "polarisation")
+    visibility: np.ndarray
+        Visibility data
+
+        Dimensions: ``[time, frequency, baselineid, polarisation]``
 
     correction: np.ndarray
-        ("freq", "id", "x", "y")
+        Corrections to apply on visibility data.
+
+        Dimensions: ``[frequency, id, x, y]``
 
     antenna1: np.ndarray
-        ("baselineid")
+        The indices of the first antennas in a baseline pair
+
+        Dimensions: ``[baselineid,]``
 
     antenna2: np.ndarray
-        ("baselineid")
+        The indices of the second antennas in a baseline pair
 
+        Dimensions: ``[baselineid,]``
 
     Returns
     -------
     np.ndarray
-        ("time", "freq", "baselineid", "polarisation")
-        Corrected component visibilities.
+        Corrected visibilities.
+
+        Dimensions: ``[time, frequency, baselineid, polarisation]``
     """
     return np.einsum(  # pylint: disable=too-many-function-args
         "fbpx,tfbxy,fbqy->tfbpq",
         correction[:, antenna1, :, :],
-        comp_vis.reshape(comp_vis.shape[:3] + (2, 2)),
+        visibility.reshape(visibility.shape[:3] + (2, 2)),
         correction[:, antenna2, :, :].conj(),
-    ).reshape(comp_vis.shape)
+    ).reshape(visibility.shape)
 
 
 def predict_vis(
@@ -327,53 +416,73 @@ def predict_vis(
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
 ) -> xr.DataArray:
-    """Predict model visibilities from a SkyComponent List.
+    """
+    Predict model visibilities from local sky model represented
+    as a list of components.
 
     Parameters
     ----------
-    visibility: xr.DataArray
-        ('time', 'baselineid', 'frequency', 'polarisation')
+    visibility: xarray.DataArray
+        The visibitlity dataarray.
+        This is only used to ensure that predicted visibitlies
+        have same shape and datatype as this one.
+        The actual data is never accessed.
+        The dimensions can be in any order, but the preferred
+        order is given below, which ensures less reshape/tranpose
+        operations during parallel computing.
 
-    uvw: xr.DataArray
-        ('time', 'baselineid', 'spatial')
+        Dimensions: ``[time, frequency, baselineid, polarisation]``
 
-    datetime: xr.DataArray
-        ('time',)
+    uvw: xarray.DataArray
+        The uvw dataarray from input dataset.
+
+        Dimensions: ``[time, baselineid, spatial]``
+
+    datetime: xarray.DataArray
+        The datetime dataarray from Visibility dataset
+
+        Dimensions: ``[time]``
 
     configuration: Configuration
-        ('id', 'spatial')
+        The dataset containing antenna configuration information.
 
-    antenna1: xr.DataArray
-        ('baselineid',)
+    antenna1: xarray.Dataarray
+        The indices of the first antennas in a baseline pair
 
-    antenna2: xr.DataArray
-        ('baselineid',)
+        Dimensions: ``[baselineid,]``
 
-    components: list[Component]
-        LSM components.
+    antenna2: xarray.Dataarray
+        The indices of the second antennas in a baseline pair
+
+        Dimensions: ``[baselineid,]``
+
+    components: list of Component
+        List of components in local sky model.
 
     phase_centre: SkyCoord
-        SkyCoord (ICRS): (ra, dec) in deg
+        The beam phase center value. This is an astropy
+        skycoord object.
 
-    station_rm: Optional[da.Array], default=None
+    station_rm: dask.Array, optional
         Station rotation measure values.
 
-    beam_type: Optional[str] = "everybeam"
+    beam_type: str, default: "everybeam"
         Type of beam model to use. Default is "everybeam". If set
         to None, no beam will be applied.
 
-    eb_ms: Optional[str], default=None
+    eb_ms: str, optional
         Measurement set need to initialise the everybeam telescope.
         Required if beam_type is "everybeam".
 
-    eb_coeffs: Optional[str], default=None
+    eb_coeffs: str, optional
         Everybeam coeffs datadir containing beam coefficients.
         Required if beam_type is "everybeam".
 
     Returns
     -------
-    Visibilities: xr.DataArray
-        Model Visibilities predicted from components.
+    xarray.DataArray
+        Model visibilities predicted from components. This has same dimension
+        as the input ``visibility`` dataarray.
     """
     chunks = visibility.chunksizes
 
