@@ -116,6 +116,10 @@ def test_model_rotation_data_value_error():
 )
 @patch(
     "ska_sdp_instrumental_calibration.processing_tasks."
+    "rotation_measures.calculate_phi_raw"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.processing_tasks."
     "rotation_measures.get_stn_masks"
 )
 @patch(
@@ -180,6 +184,7 @@ def test_model_rotations_function(
     mock_get_rm_spec,
     mock_update_jones_with_masks,
     mock_get_stn_masks,
+    mock_calculate_phi_raw,
     MockModelRotationData,
 ):
 
@@ -222,9 +227,13 @@ def test_model_rotations_function(
     mock_fit_rm_dask_array = MagicMock(
         spec=da.Array, name="mock_fit_rm_dask_array"
     )
+
+    mock_phi_raw = MagicMock(spec=da.Array, name="mock_phi_raw")
+
     mock_from_delayed.side_effect = [
         mock_mask_dask_array,
         mock_rotations_instance.J,
+        mock_phi_raw,
         mock_rm_spec_dask_array,
         mock_fit_rm_dask_array,
     ]
@@ -260,9 +269,11 @@ def test_model_rotations_function(
     mock_dask_cos.return_value = MagicMock(spec=da.Array)
     mock_dask_sin.return_value = MagicMock(spec=da.Array)
     mock_dask_hstack.return_value = MagicMock(spec=da.Array)
+
     model_rotations(
         mock_gaintable, peak_threshold=0.5, refine_fit=True, refant=1
     )
+
     MockModelRotationData.assert_called_once_with(mock_gaintable, 1)
     mock_norm.assert_called_once_with(
         mock_rotations_instance.J, axis=(2, 3), keepdims=True

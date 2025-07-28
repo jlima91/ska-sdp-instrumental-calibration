@@ -147,11 +147,10 @@ def model_rotations(
         rotations.J.dtype,
     )
 
-    co_sum = rotations.J[:, :, 0, 0] + rotations.J[:, :, 1, 1]
-    cross_diff = 1j * (rotations.J[:, :, 0, 1] - rotations.J[:, :, 1, 0])
-    phi_raw = 0.5 * (
-        np.unwrap(np.angle(co_sum + cross_diff))
-        - np.unwrap(np.angle(co_sum - cross_diff))
+    phi_raw = da.from_delayed(
+        calculate_phi_raw(rotations.J),
+        (rotations.nstations, rotations.nfreq),
+        np.float32,
     )
 
     rotations.rm_spec = da.from_delayed(
@@ -184,6 +183,16 @@ def model_rotations(
         rotations.rm_const = fit_rm[1]
 
     return rotations
+
+
+@dask.delayed
+def calculate_phi_raw(jones):
+    co_sum = jones[:, :, 0, 0] + jones[:, :, 1, 1]
+    cross_diff = 1j * (jones[:, :, 0, 1] - jones[:, :, 1, 0])
+    return 0.5 * (
+        np.unwrap(np.angle(co_sum + cross_diff))
+        - np.unwrap(np.angle(co_sum - cross_diff))
+    )
 
 
 @dask.delayed
