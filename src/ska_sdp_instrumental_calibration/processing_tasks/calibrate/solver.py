@@ -26,6 +26,15 @@ def _solve_gaintable(
     timeslice,
     refant,
 ):
+    """
+    A map-block compatible wrapper function which internally calls
+    `solve_gaintable` function.
+
+    Returns
+    -------
+    Gaintable
+        The gaintable xarray dataset
+    """
     gain = gain.rename({"soln_time": "time"})
 
     return solve_gaintable(
@@ -57,28 +66,45 @@ def run_solver(
     normalise_gains: str = None,
     jones_type: Literal["T", "G", "B"] = "T",
     timeslice: float = None,
-) -> xr.Dataset:
-    """Do the bandpass calibration.
+):
+    """
+    A generic function to solve for gaintables, given
+    visibility and model visibility data.
 
-    :param vis: Chunked Visibility dataset containing observed data.
-    :param modelvis: Chunked Visibility dataset containing model data.
-    :param gaintable: Optional chunked GainTable dataset containing initial
-        solutions.
-    :param solver: Solver type to use. Currently any solver type accepted by
-        solve_gaintable. Default is "gain_substitution".
-    :param refant: Reference antenna (defaults to 0). Note that how referencing
-        is done depends on the solver.
-    :param niter: Number of solver iterations (defaults to 200).
-    :param phase_only: Solve only for the phases.
-    :param tol: Iteration stops when the fractional change in the gain solution
-        is below this tolerance.
-    :param crosspol: Do solutions including cross polarisations.
-    :param normalise_gains: Normalises the gains (default="mean").
-    :param jones_type: Type of calibration matrix T or G or B.
-    :param timeslice: Defines the time scale over which each
-        gain solution is valid.
+    Parameters
+    ----------
+    vis: Visibility
+        Chunked Visibility dataset containing observed data.
+    modelvis: Visibility
+        Chunked Visibility dataset containing model data.
+    gaintable: Gaintable, optional
+        Optional chunked GainTable dataset containing initial solutions.
+    solver: str, default: "gain_substitution"
+        Solver type to use. Currently any solver type accepted by
+        solve_gaintable.
+    refant: int, default: 0
+        Reference antenna. Note that how referencing is done
+        depends on the solver.
+    niter: int, default: 200
+        Number of solver iterations.
+    phase_only: bool, default: False
+        Solve only for the phases.
+    tol: float, default: 1e-06
+        Iteration stops when the fractional change in the gain solution is
+        below this tolerance.
+    crosspol: bool, default: False
+        Do solutions including cross polarisations.
+    normalise_gains: str, default: "mean"
+        Normalises the gains.
+    jones_type: Literal["T", "G", "B"], default: "T"
+        Type of calibration matrix T or G or B.
+    timeslice: float, optional
+        Defines the time scale over which each gain solution is valid.
 
-    :return: Chunked GainTable dataset
+    Returns
+    -------
+    GainTable
+        A new gaintabel xarray dataset, or the mutated input gaintable
     """
 
     if gaintable is None:
@@ -94,9 +120,6 @@ def run_solver(
     if refant is not None:
         if refant < 0 or refant >= len(gaintable.antenna):
             raise ValueError(f"invalid refant: {refant}")
-
-    # Call solver
-    logger.debug("solving bandpass")
 
     # Check spectral axes
     if gaintable.frequency.equals(vis.frequency):
