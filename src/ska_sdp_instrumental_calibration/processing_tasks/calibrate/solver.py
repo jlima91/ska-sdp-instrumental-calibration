@@ -5,6 +5,9 @@ import numpy as np
 import xarray as xr
 from ska_sdp_func_python.calibration.solvers import solve_gaintable
 
+from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
+    restore_baselines_dim,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
 )
@@ -115,11 +118,12 @@ def run_solver(
         gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
 
     if len(gaintable.time) != 1:
-        raise ValueError("error setting up gaintable")
+        raise ValueError(
+            "Error setting up gaintable. Size of 'time' dimension is not 1."
+        )
 
-    if refant is not None:
-        if refant < 0 or refant >= len(gaintable.antenna):
-            raise ValueError(f"invalid refant: {refant}")
+    if refant < 0 or refant >= len(gaintable.antenna):
+        raise ValueError(f"Invalid refant: {refant}")
 
     # Check spectral axes
     if gaintable.frequency.equals(vis.frequency):
@@ -136,11 +140,14 @@ def run_solver(
     # Switch to standard variable names and coords for the SDP call
     gaintable = gaintable.rename({"time": "soln_time"})
 
+    restored_vis = restore_baselines_dim(vis)
+    restored_modelvis = restore_baselines_dim(modelvis)
+
     gaintable = gaintable.map_blocks(
         _solve_gaintable,
         args=[
-            vis,
-            modelvis,
+            restored_vis,
+            restored_modelvis,
             phase_only,
             niter,
             tol,

@@ -1,15 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""Test ska-sdp-instrumental-calibration wrappers around map_blocks calls."""
-
-# flake8 does not seem to like the generate_vis pytest fixture
-# flake8: noqa: F401
-
-import shutil
+# flake8: noqa
 
 import numpy as np
-import pytest
 import xarray as xr
 from distributed.utils_test import (
     cleanup,
@@ -21,10 +12,7 @@ from distributed.utils_test import (
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_datamodels.visibility.vis_io_ms import (
-    create_visibility_from_ms,
-    export_visibility_to_ms,
-)
+from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
@@ -43,19 +31,9 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
 
-ms_name = "test.ms"
 
-
-@pytest.fixture(autouse=True)
-def generate_ms(generate_vis):
-    """Create and later delete test MSv2."""
-    vis, _ = generate_vis
-    export_visibility_to_ms(ms_name, [vis])
-    yield
-    shutil.rmtree(ms_name)
-
-
-def test_load_ms(client):
+def test_load_ms(generate_ms, client):
+    ms_name = generate_ms
     # Read in the Visibility dataset directly
     vis = create_visibility_from_ms(ms_name)[0]
 
@@ -73,7 +51,8 @@ def test_load_ms(client):
     assert np.all(chunkedvis.flags.data == vis.flags.data)
 
 
-def test_predict_vis(client):
+def test_predict_vis(generate_ms, client):
+    ms_name = generate_ms
     # Read in the Visibility dataset directly and predict a model
     vis = create_visibility_from_ms(ms_name)[0]
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
@@ -125,7 +104,8 @@ def test_predict_vis(client):
     assert np.allclose(chunkedmdl.flags.data, modelvis.flags.data)
 
 
-def test_apply_gaintable(client):
+def test_apply_gaintable(generate_ms, client):
+    ms_name = generate_ms
     # Read in the Vis dataset directly and "correct" it with random gains
     vis = create_visibility_from_ms(ms_name)[0]
     solution_interval = vis.time.data.max() - vis.time.data.min()
@@ -156,7 +136,8 @@ def test_apply_gaintable(client):
     assert np.all(chunkedvis.flags.data == vis.flags.data)
 
 
-def test_run_solver(client):
+def test_run_solver(generate_ms, client):
+    ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]
     solution_interval = vis.time.data.max() - vis.time.data.min()

@@ -2,6 +2,7 @@
 test utilities for ska_sdp_instrumental_calibration
 """
 
+import shutil
 import tarfile
 from pathlib import Path
 
@@ -16,6 +17,9 @@ from ska_sdp_datamodels.configuration.config_create import (
 )
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
+from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
+
+ms_name = "test.ms"
 
 
 @pytest.fixture
@@ -77,3 +81,12 @@ def oskar_ms(tmp_path_factory: pytest.TempPathFactory) -> Path:
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(datasets_tmpdir)
         return datasets_tmpdir / tar.getnames()[0]
+
+
+@pytest.fixture
+def generate_ms(generate_vis):
+    """Create and later delete test MSv2."""
+    vis, _ = generate_vis
+    export_visibility_to_ms(ms_name, [vis])
+    yield ms_name
+    shutil.rmtree(ms_name)
