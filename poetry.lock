@@ -3426,6 +3426,7 @@ files = [
     {file = "python_casacore-3.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e5101fc6240b9283d4b7027c92125e6f267d507d77350101451fd7200e0645f"},
     {file = "python_casacore-3.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5734c96278022600fe43d6b7488f045762ffb305bcca6779c8caf6f1a40b0555"},
     {file = "python_casacore-3.7.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2805353e3f12d6c03c20267cfa6539b256c43f382ccb0f84436d99f36bd83520"},
+    {file = "python_casacore-3.7.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9f356b7f0e9a9dfb4a2d9e710586bada676a2f6c5fcf476e1f5fb6a86a01961a"},
     {file = "python_casacore-3.7.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccaccb942b436dcc85795a7ebdcb73356b6dee00355426a303de0326b27adef1"},
     {file = "python_casacore-3.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f88dddebed0a8e0d872b3cd49a5e06b4edfc5f86a054867eb7b36fbf85208721"},
     {file = "python_casacore-3.7.1.tar.gz", hash = "sha256:6c4e060cba73c0ab9d944eb4b6aa97f20c12b761e671587f313bfc59e3a775c3"},
@@ -4242,14 +4243,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-exec-piper"
-version = "1.0.2"
+version = "1.0.3"
 description = "SKA SDP Piper Execution Framework"
 optional = false
 python-versions = ">=3.10,<4.0"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_exec_piper-1.0.2-py3-none-any.whl", hash = "sha256:9e3168568a37a184169293b0af1a7d2727b5715c2f7ba1ef6c761ea0d2196e58"},
-    {file = "ska_sdp_exec_piper-1.0.2.tar.gz", hash = "sha256:8b1c1c995144c0e9c856850241d7e77aab72e564ac59fb071555bd194a49705b"},
+    {file = "ska_sdp_exec_piper-1.0.3-py3-none-any.whl", hash = "sha256:ef542733129dd2fb519576ef456ca83936be486cead1c7480416ff8cc5c0b7fa"},
+    {file = "ska_sdp_exec_piper-1.0.3.tar.gz", hash = "sha256:2e2eb897a58aad00e68b0a5a1774a993d1ba483ddeacf5f75478cf13aae3ffb8"},
 ]
 
 [package.dependencies]
@@ -5081,4 +5082,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "5ae08d10e1205217dae7bc0e61690de64ce3ec7dfc2817b2385331c26b53d0d2"
+content-hash = "fba0dd5cd257c0bd94e629f1860bb2ba6d30efc17b5aae7ba5dcf5686b3fe8f2"

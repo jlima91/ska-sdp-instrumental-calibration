@@ -1,9 +1,12 @@
 import numpy as np
+import pytest
+import xarray as xr
 from mock import MagicMock, Mock, call, patch
 from numpy import array, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     ecef_to_lla,
+    parse_reference_antenna,
     plot_all_stations,
     plot_gaintable,
     subplot_gaintable,
@@ -546,3 +549,38 @@ def test_should_convert_earth_centric_coordinates_to_geodetic():
     np.testing.assert_allclose(lat, np.array([-26.753052, -26.753052]))
     np.testing.assert_allclose(lng, np.array([116.787894, 243.212106]))
     np.testing.assert_allclose(alt, np.array([6374502.632896, 6374502.632896]))
+
+
+def test_should_parse_reference_antenna():
+    refant = "LOWBD2_344"
+    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
+    dims = "id"
+    coords = {"id": np.arange(4)}
+    gaintable_mock = MagicMock(name="gaintable")
+    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
+    gaintable_mock.configuration.names = ant_names
+    output = parse_reference_antenna(refant, gaintable_mock)
+
+    assert output == 0
+
+
+def test_should_raise_error_when_ref_ant_is_invalid():
+    refant = "ANTENNA-1"
+    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
+    dims = "id"
+    coords = {"id": np.arange(4)}
+    gaintable_mock = MagicMock(name="gaintable")
+    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
+    gaintable_mock.configuration.names = ant_names
+    with pytest.raises(ValueError) as error:
+        parse_reference_antenna(refant, gaintable_mock)
+    assert str(error.value) == "Reference antenna name is not valid"
+
+
+def test_should_raise_error_when_antenna_index_is_invalid():
+    refant = 10
+    gaintable_mock = MagicMock(name="gaintable")
+    gaintable_mock.antenna.size = 5
+    with pytest.raises(ValueError) as error:
+        parse_reference_antenna(refant, gaintable_mock)
+    assert str(error.value) == "Reference antenna index is not valid"

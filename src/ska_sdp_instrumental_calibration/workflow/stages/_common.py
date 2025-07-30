@@ -32,7 +32,7 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
         ],
     ),
     refant=ConfigParam(
-        int,
+        (int, str),
         0,
         description="""Reference antenna.
                 Currently only activated for gain_substitution solver""",

@@ -11,6 +11,7 @@ __all__ = [
     "plot_station_delays",
     "plot_rm_station",
     "plot_bandpass_stages",
+    "parse_reference_antenna",
 ]
 
 # pylint: disable=no-member
@@ -947,3 +948,34 @@ def ecef_to_lla(x, y, z):
         - sign * 2.0 * np.arctan2(x, np.sqrt(x * x + y * y) + (sign * y))
     )
     return latitude, longitude, altitude
+
+
+def parse_reference_antenna(refant, gaintable):
+    """
+    Checks and converts station names
+
+    Parameters
+    ----------
+        refant: int or str
+            Reference antenna.
+        gaintable: Gaintable Dataset
+            Gaintable
+    Returns
+    -------
+        refant: Reference antenna index
+    """
+    if type(refant) is str:
+        station_names = gaintable.configuration.names
+        try:
+            station_index = station_names.where(
+                station_names == refant, drop=True
+            ).id.values[0]
+        except IndexError:
+            raise ValueError("Reference antenna name is not valid")
+        return station_index
+    elif type(refant) is int:
+        station_count = gaintable.antenna.size
+        if refant > station_count - 1 or refant < 0:
+            raise ValueError("Reference antenna index is not valid")
+        else:
+            return refant

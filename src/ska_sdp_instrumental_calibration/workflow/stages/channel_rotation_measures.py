@@ -20,7 +20,12 @@ from ...data_managers.dask_wrappers import (
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
-from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
+from ..utils import (
+    parse_reference_antenna,
+    plot_bandpass_stages,
+    plot_gaintable,
+    plot_rm_station,
+)
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 logger = logging.getLogger()
@@ -63,9 +68,9 @@ logger = logging.getLogger()
                 per station""",
             ),
             station=ConfigParam(
-                int,
+                (int, str),
                 0,
-                description="""Station number to be plotted""",
+                description="""Station number/name to be plotted""",
                 nullable=True,
             ),
         ),
@@ -139,6 +144,11 @@ def generate_channel_rm_stage(
     initialtable = upstream_output.gaintable
     if fchunk != -1:
         initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
+
+    refant = run_solver_config["refant"]
+    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
+    station = plot_rm_config["station"]
+    plot_rm_config["station"] = parse_reference_antenna(station, initialtable)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("channel_rm"):
