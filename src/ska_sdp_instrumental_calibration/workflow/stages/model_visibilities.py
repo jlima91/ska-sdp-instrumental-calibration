@@ -3,12 +3,9 @@ import logging
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.processing_tasks.predict_model.predict import (  # noqa: E501
-    predict_vis,
-)
-
 from ...data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
+    predict_vis,
     prediction_central_beams,
 )
 from ...exceptions import RequiredArgumentMissingException
@@ -80,13 +77,7 @@ logger = logging.getLogger()
             description="""Nominal alpha value to use when fitted data
             are unspecified. Default is -0.78.""",
         ),
-        reset_vis=ConfigParam(
-            bool,
-            False,
-            description="""Whether or not to set visibilities to zero before
-            accumulating components. Default is False.""",
-        ),
-    ),
+    )
 )
 def predict_vis_stage(
     upstream_output,
@@ -99,7 +90,6 @@ def predict_vis_stage(
     fov,
     flux_limit,
     alpha0,
-    reset_vis,
     _cli_args_,
 ):
     """
@@ -191,21 +181,13 @@ def predict_vis_stage(
     eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
     upstream_output["eb_ms"] = eb_ms
 
-    modelvis_xda = predict_vis(
-        vis.vis,
-        vis.uvw,
-        vis.datetime,
-        vis.configuration,
-        vis.antenna1,
-        vis.antenna2,
+    modelvis = predict_vis(
+        vis,
         lsm,
-        vis.phasecentre,
         beam_type=beam_type,
         eb_ms=eb_ms,
         eb_coeffs=eb_coeffs,
     )
-
-    modelvis = vis.assign({"vis": modelvis_xda})
 
     if normalise_at_beam_centre:
         beams = prediction_central_beams(

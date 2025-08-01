@@ -274,7 +274,7 @@ def test_model_rotations_function(
         mock_gaintable, peak_threshold=0.5, refine_fit=True, refant=1
     )
 
-    MockModelRotationData.assert_called_once_with(mock_gaintable, 1)
+    MockModelRotationData.assert_called_once_with(mock_gaintable, 1, 5)
     mock_norm.assert_called_once_with(
         mock_rotations_instance.J, axis=(2, 3), keepdims=True
     )

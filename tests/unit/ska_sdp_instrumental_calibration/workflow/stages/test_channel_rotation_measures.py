@@ -52,7 +52,6 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     upstream_output["beam_type"] = Mock(name="beam_type")
     upstream_output["beams"] = None
     new_model_vis_mock = Mock(name="new model vis")
-    upstream_output["corrected_vis"].assign.return_value = new_model_vis_mock
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
     initial_table_mock.chunk.return_value = Mock(
@@ -86,6 +85,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -108,17 +108,12 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         peak_threshold=0.5,
         refine_fit=False,
         refant=run_solver_config["refant"],
+        oversample=9,
     )
 
     predict_vis_mock.assert_called_once_with(
-        upstream_output["corrected_vis"].vis,
-        upstream_output["corrected_vis"].uvw,
-        upstream_output["corrected_vis"].datetime,
-        upstream_output["corrected_vis"].configuration,
-        upstream_output["corrected_vis"].antenna1,
-        upstream_output["corrected_vis"].antenna2,
+        upstream_output["corrected_vis"],
         upstream_output["lsm"],
-        upstream_output["corrected_vis"].phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
@@ -199,7 +194,6 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     predict_vis_mock.return_value = new_model_vis_mock
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
-    upstream_output["corrected_vis"].assign.return_value = new_model_vis_mock
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
@@ -227,6 +221,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -242,6 +237,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         peak_threshold=0.5,
         refine_fit=False,
         refant=run_solver_config["refant"],
+        oversample=9,
     )
 
     apply_gaintable_mock.assert_called_once_with(
@@ -249,14 +245,8 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     )
 
     predict_vis_mock.assert_called_once_with(
-        upstream_output["corrected_vis"].vis,
-        upstream_output["corrected_vis"].uvw,
-        upstream_output["corrected_vis"].datetime,
-        upstream_output["corrected_vis"].configuration,
-        upstream_output["corrected_vis"].antenna1,
-        upstream_output["corrected_vis"].antenna2,
+        upstream_output["corrected_vis"],
         upstream_output["lsm"],
-        upstream_output["corrected_vis"].phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
@@ -331,7 +321,6 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     upstream_output["gaintable"] = initial_table_mock
     initial_table_mock.chunk.return_value = chunked_table_mock
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
-    upstream_output["corrected_vis"].assign.return_value = new_model_vis_mock
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
@@ -358,6 +347,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -374,17 +364,12 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         peak_threshold=0.5,
         refine_fit=False,
         refant=run_solver_config["refant"],
+        oversample=9,
     )
 
     predict_vis_mock.assert_called_once_with(
-        upstream_output["corrected_vis"].vis,
-        upstream_output["corrected_vis"].uvw,
-        upstream_output["corrected_vis"].datetime,
-        upstream_output["corrected_vis"].configuration,
-        upstream_output["corrected_vis"].antenna1,
-        upstream_output["corrected_vis"].antenna2,
+        upstream_output["corrected_vis"],
         upstream_output["lsm"],
-        upstream_output["corrected_vis"].phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
@@ -512,6 +497,7 @@ def test_should_plot_with_proper_suffix(
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -526,6 +512,7 @@ def test_should_plot_with_proper_suffix(
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -543,12 +530,14 @@ def test_should_plot_with_proper_suffix(
                 peak_threshold=0.5,
                 refine_fit=False,
                 refant=2,
+                oversample=9,
             ),
             call(
                 chunked_table_mock,
                 peak_threshold=0.5,
                 refine_fit=False,
                 refant=2,
+                oversample=9,
             ),
         ]
     )
@@ -688,6 +677,7 @@ def test_should_export_gaintable_with_proper_suffix(
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -702,6 +692,7 @@ def test_should_export_gaintable_with_proper_suffix(
     generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=40,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="corrected_vis",
@@ -776,7 +767,6 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     upstream_output["beam_type"] = Mock(name="beam_type")
     upstream_output["beams"] = None
     new_model_vis_mock = Mock(name="new model vis")
-    upstream_output["vis"].assign.return_value = new_model_vis_mock
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
     initial_table_mock.chunk.return_value = Mock(
@@ -810,6 +800,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     result = generate_channel_rm_stage.stage_definition(
         upstream_output,
         fchunk=-1,
+        oversample=9,
         peak_threshold=0.5,
         refine_fit=False,
         visibility_key="vis",
@@ -825,17 +816,12 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         peak_threshold=0.5,
         refine_fit=False,
         refant=run_solver_config["refant"],
+        oversample=9,
     )
 
     predict_vis_mock.assert_called_once_with(
-        upstream_output["vis"].vis,
-        upstream_output["vis"].uvw,
-        upstream_output["vis"].datetime,
-        upstream_output["vis"].configuration,
-        upstream_output["vis"].antenna1,
-        upstream_output["vis"].antenna2,
+        upstream_output["vis"],
         upstream_output["lsm"],
-        upstream_output["vis"].phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],

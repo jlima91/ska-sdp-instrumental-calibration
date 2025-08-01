@@ -1,62 +1,164 @@
-from mock import Mock, mock
+import numpy as np
+import xarray as xr
+from mock import MagicMock, patch
 
-from ska_sdp_instrumental_calibration.workflow.stages import load_data_stage
-
-
-@mock.patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.load_data."
-    "create_bandpass_table",
+from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
+from ska_sdp_instrumental_calibration.workflow.stages.load_data import (
+    load_data_stage,
 )
-@mock.patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.load_data.load_ms",
-)
-def test_should_load_data(load_ms_mock, create_bandpass_table_mock):
-    load_ms_mock.return_value = "vis"
-    gaintable_mock = Mock(name="gaintable")
-    create_bandpass_table_mock.return_value = gaintable_mock
 
-    upstream_output = Mock(name="upstream_output")
-    upstream_output.__setitem__ = Mock(name="upstream-output-setitem")
-    fchunk = 1
-    ack = False
-    start_chan = 0
-    end_chan = 5
-    datacolumn = "DATA"
-    selected_sources = ["S1"]
-    selected_dds = ["D1"]
-    average_channels = False
-    gaintable_mock.chunk.return_value = gaintable_mock
+
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data" ".os.makedirs"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".check_if_cache_files_exist"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".write_ms_to_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".read_dataset_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".create_bandpass_table"
+)
+def test_should_load_data_from_existing_cached_zarr_file(
+    create_bandpass_mock,
+    read_data_mock,
+    write_ms_mock,
+    check_cache_mock,
+    os_makedirs_mock,
+):
+    check_cache_mock.return_value = True
+
+    gaintable = xr.DataArray(
+        np.arange(12).reshape(1, 4, 3), dims=["time", "frequency", "antenna"]
+    )
+    create_bandpass_mock.return_value = gaintable
+
+    frequency_per_chunk = 2
+    times_per_ms_chunk = 3
+
+    upstream_output = UpstreamOutput()
+
+    new_up_output = load_data_stage.stage_definition(
+        upstream_output,
+        frequency_per_chunk,
+        times_per_ms_chunk,
+        "/cache/dir/path",
+        {"input": "/path/to/vis.ms"},
+        "/output/dir",
+    )
+
+    os_makedirs_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms", mode=0o755, exist_ok=True
+    )
+
+    check_cache_mock.assert_called_once_with("/cache/dir/path/vis.ms")
+
+    write_ms_mock.assert_not_called()
+
+    read_data_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms",
+        {
+            "baselineid": -1,
+            "polarisation": -1,
+            "spatial": -1,
+            "time": -1,
+            "frequency": frequency_per_chunk,
+        },
+    )
+
+    create_bandpass_mock.assert_called_once_with(read_data_mock.return_value)
+
+    assert new_up_output["vis"] == read_data_mock.return_value
+    assert new_up_output["beams"] is None
+
+    assert dict(new_up_output["gaintable"].chunksizes) == {
+        "time": (1,),
+        "frequency": (
+            2,
+            2,
+        ),
+        "antenna": (3,),
+    }
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data" ".os.makedirs"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".check_if_cache_files_exist"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".write_ms_to_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".read_dataset_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data"
+    ".create_bandpass_table"
+)
+def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
+    create_bandpass_mock,
+    read_data_mock,
+    write_ms_mock,
+    check_cache_mock,
+    os_makedirs_mock,
+):
+    check_cache_mock.return_value = False
+
+    gaintable = MagicMock(name="gaintable")
+    create_bandpass_mock.return_value = gaintable
+
+    frequency_per_chunk = 16
+    times_per_ms_chunk = 8
+
+    upstream_output = UpstreamOutput()
 
     load_data_stage.stage_definition(
         upstream_output,
-        fchunk,
-        ack,
-        start_chan,
-        end_chan,
-        datacolumn,
-        selected_sources,
-        selected_dds,
-        average_channels,
-        {"input": "path"},
+        frequency_per_chunk,
+        times_per_ms_chunk,
+        "/cache/dir/path",
+        {"input": "/path/to/vis.ms"},
+        "/output/dir",
     )
 
-    load_ms_mock.assert_called_once_with(
-        "path",
-        1,
-        ack=False,
-        start_chan=0,
-        end_chan=5,
-        datacolumn="DATA",
-        selected_sources=["S1"],
-        selected_dds=["D1"],
-        average_channels=False,
+    os_makedirs_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms", mode=0o755, exist_ok=True
     )
-    create_bandpass_table_mock.assert_called_once_with("vis")
-    gaintable_mock.chunk.assert_called_once_with({"frequency": 1})
-    upstream_output.__setitem__.assert_has_calls(
-        [
-            mock.call("vis", "vis"),
-            mock.call("gaintable", gaintable_mock),
-            mock.call("beams", None),
-        ]
+
+    check_cache_mock.assert_called_once_with("/cache/dir/path/vis.ms")
+
+    write_ms_mock.assert_called_once_with(
+        "/path/to/vis.ms",
+        "/cache/dir/path/vis.ms",
+        {
+            "baselineid": -1,
+            "polarisation": -1,
+            "spatial": -1,
+            "time": times_per_ms_chunk,
+            "frequency": frequency_per_chunk,
+        },
+    )
+
+    read_data_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms",
+        {
+            "baselineid": -1,
+            "polarisation": -1,
+            "spatial": -1,
+            "time": -1,
+            "frequency": frequency_per_chunk,
+        },
     )

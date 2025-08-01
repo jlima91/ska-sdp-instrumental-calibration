@@ -20,21 +20,27 @@ class GenericBeams:
 
     At present for the Low array, everybeam is used to generate a common beam
     pattern for all stations
+
     telescope = eb.load_telescope(
         OSKAR_MOCK.ms,
         use_differential_beam=False,
         element_response_model="skala40_wave"
     )
+
     For other array types, all beam values are set to 2x2 identity matrices.
 
-    Args:
-        vis (xr.Dataset) dataset containing required metadata.
-        array (str) array type (e.g. "low" or "mid"). By default the vis
-            configuration name will be searched for an obvious match.
-        direction (SkyCoord) beam direction. By default the vis phase centre
-            will be used.
-        ms_path (str) location of measurement set for everybeam (e.g.
-            OSKAR_MOCK.ms).
+    Parameters
+    ----------
+    vis: xr.Dataset
+        Dataset containing required metadata.
+    array: str
+        array type (e.g. "low" or "mid"). By default the vis
+        configuration name will be searched for an obvious match.
+    direction: SkyCoord
+        Beam direction. By default the vis phase centre
+        will be used.
+    ms_path: str
+        Location of measurement set for everybeam (e.g. OSKAR_MOCK.ms).
     """
 
     def __init__(
@@ -87,10 +93,12 @@ class GenericBeams:
             self.array = array.lower()
             if ms_path is None:
                 raise ValueError("Low array requires ms_path for everybeam.")
-            self.telescope = eb.load_telescope(ms_path)
+            self.telescope = eb.load_telescope(  # pylint: disable=I1101
+                ms_path
+            )
             self.delay_dir_itrf = None
             self.set_scale = None
-            if type(self.telescope) is eb.OSKAR:
+            if type(self.telescope) is eb.OSKAR:  # pylint: disable=I1101
                 # why not just set the normalisation now?
                 logger.info("Setting beam normalisation for OSKAR data")
                 self.set_scale = "oskar"

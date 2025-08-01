@@ -10,12 +10,9 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.processing_tasks.predict_model.predict import (  # noqa: E501
-    predict_vis,
-)
-
 from ...data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
+    predict_vis,
     run_solver,
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
@@ -39,6 +36,13 @@ logger = logging.getLogger()
             -1,
             description="""Number of frequency channels per chunk.
             If set to -1, use fchunk value from load_data""",
+        ),
+        oversample=ConfigParam(
+            int,
+            5,
+            description="""Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.""",
         ),
         peak_threshold=ConfigParam(
             float,
@@ -89,6 +93,7 @@ logger = logging.getLogger()
 def generate_channel_rm_stage(
     upstream_output,
     fchunk,
+    oversample,
     peak_threshold,
     refine_fit,
     visibility_key,
@@ -108,6 +113,10 @@ def generate_channel_rm_stage(
         fchunk: int
             Number of frequency channels per chunk.
             If it is '-1' fchunk of load_data will be used.
+        oversample: int
+            Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.
         peak_threshold: float
             Height of peak in the RM spectrum required
             for a rotation detection.
@@ -163,24 +172,17 @@ def generate_channel_rm_stage(
         peak_threshold=peak_threshold,
         refine_fit=refine_fit,
         refant=run_solver_config["refant"],
+        oversample=oversample,
     )
 
-    modelvis_xda = predict_vis(
-        vis.vis,
-        vis.uvw,
-        vis.datetime,
-        vis.configuration,
-        vis.antenna1,
-        vis.antenna2,
+    modelvis = predict_vis(
+        vis,
         upstream_output["lsm"],
-        vis.phasecentre,
         beam_type=upstream_output["beam_type"],
         eb_ms=upstream_output["eb_ms"],
         eb_coeffs=upstream_output["eb_coeffs"],
         station_rm=rotations.rm_est,
     )
-
-    modelvis = vis.assign({"vis": modelvis_xda})
 
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(

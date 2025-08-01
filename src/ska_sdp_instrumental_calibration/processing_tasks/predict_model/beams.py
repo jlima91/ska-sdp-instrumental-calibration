@@ -29,7 +29,7 @@ def station_response_beam_ufunc(
     beams = np.empty((len(frequency), nstations, 2, 2), dtype=beams_dtype)
 
     # TODO: Fix this nested looping
-    telescope = eb.load_telescope(beam_ms)
+    telescope = eb.load_telescope(beam_ms)  # pylint: disable=I1101
     for chan, freq in enumerate(frequency):
         for stn in range(nstations):
             beams[chan, stn, :, :] = (
@@ -44,36 +44,35 @@ def station_response_beam_ufunc(
 
 # Revisit when moving to MSv4
 class GenericBeams:
-    """A generic class for beam handling.
+    """
+    A generic class for beam handling.
 
     Generic interface to beams.
     Beams based on everybeam or other packages will be added or derived.
 
     At present for the Low array, everybeam is used to generate a common beam
-    pattern for all stations
+    pattern for all stations.
+
     telescope = eb.load_telescope(
         OSKAR_MOCK.ms,
         use_differential_beam=False,
         element_response_model="skala40_wave"
     )
+
     For other array types, all beam values are set to 2x2 identity matrices.
 
     Parameters
     ----------
     configuration: Configuration
         The dataset containing antenna configuration information.
-
     direction: SkyCoord
         The beam phase center value. This is an astropy
         skycoord object.
-
     array: str, optional
         Array type (e.g. "low" or "mid"). By default the vis
         configuration name will be searched for an obvious match.
-
     ms_path: str, optional
-        Location of measurement set for everybeam (e.g.
-        OSKAR_MOCK.ms).
+        Location of measurement set for everybeam (e.g. OSKAR_MOCK.ms).
     """
 
     def __init__(
@@ -124,8 +123,10 @@ class GenericBeams:
             self.array = array.lower()
             if self.beam_ms is None:
                 raise ValueError("Low array requires ms_path for everybeam.")
-            self.telescope = eb.load_telescope(self.beam_ms)
-            if type(self.telescope) is eb.OSKAR:
+            self.telescope = eb.load_telescope(  # pylint: disable=I1101
+                self.beam_ms
+            )
+            if type(self.telescope) is eb.OSKAR:  # pylint: disable=I1101
                 # why not just set the normalisation now?
                 logger.info("Setting beam normalisation for OSKAR data")
                 self.set_scale = "oskar"
