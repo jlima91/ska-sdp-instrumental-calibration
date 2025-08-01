@@ -550,7 +550,7 @@ def predict_vis(
 
         response = None
         # Apply beam distortions and add to combined model visibilities
-        if time and beams:
+        if not (time is None or beams is None):
             # Check component direction
             altaz = skycomponent.direction.transform_to(
                 AltAz(obstime=time, location=beams.array_location)
