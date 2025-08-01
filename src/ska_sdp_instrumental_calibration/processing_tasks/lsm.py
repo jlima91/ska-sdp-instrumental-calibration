@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 from astropy.coordinates import SkyCoord
 from numpy import typing
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
@@ -84,6 +85,8 @@ def generate_lsm_from_csv(
     Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2),
     FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
 
+    The header is mandatory, and is the first uncommented line of the CSV file.
+
     Frequency parameters (Q, U, V and RM) are ignored in this function.
 
     All components are Gaussians, although many will typically default to
@@ -100,65 +103,40 @@ def generate_lsm_from_csv(
 
     deg2rad = np.pi / 180.0
     max_separation = fov / 2 * deg2rad
-
     ra0 = phasecentre.ra.radian
     dec0 = phasecentre.dec.radian
     cosdec0 = np.cos(dec0)
     sindec0 = np.sin(dec0)
 
-    # Model is a list of components
-    model = []
+    lsm_df = pd.read_csv(csvfile, sep=",", comment="#")
+    lsm_df["comp_name"] = "comp" + lsm_df.index.astype("str")
 
-    with open(csvfile, "r") as f:
+    lsm_df = lsm_df[lsm_df["I (Jy)"] >= flux_limit]
+    lsm_df["ra"] = deg2rad * lsm_df["RA (deg)"]
+    lsm_df["dec"] = deg2rad * lsm_df["Dec (deg)"]
+    lsm_df["separation"] = np.arccos(
+        np.sin(lsm_df["dec"]) * sindec0
+        + np.cos(lsm_df["dec"]) * cosdec0 * np.cos(lsm_df["ra"] - ra0)
+    )
 
-        csvidx = -1
-        for line in f:
+    lsm_df = lsm_df[lsm_df["separation"] <= max_separation]
 
-            # skip blank and comment lines
-            if line == "" or line[0] == "#":
-                continue
+    model = lsm_df.apply(
+        lambda row: Component(
+            name=row["comp_name"],
+            RAdeg=row["RA (deg)"],
+            DEdeg=row["Dec (deg)"],
+            flux=row["I (Jy)"],
+            ref_freq=row["Ref. freq. (Hz)"],
+            alpha=row["Spectral index"],
+            major=row["FWHM major (arcsec)"],
+            minor=row["FWHM minor (arcsec)"],
+            pa=row["Position angle (deg)"],
+        ),
+        axis=1,
+    ).tolist()
 
-            # split into 12 comma-separated parameters
-            cmp = np.array(line.strip().split(",")).astype(float)
-            if len(cmp) != 12:
-                raise ValueError(f"Unexpected format for csv file {csvfile}")
-
-            # store the overall csv component index
-            csvidx += 1
-
-            # skip components that are too weak
-            flux = cmp[2]
-            if flux < flux_limit:
-                continue
-
-            # skip components that are too distant
-            ra = cmp[0] * deg2rad
-            dec = cmp[1] * deg2rad
-            separation = np.arccos(
-                np.sin(dec) * sindec0
-                + np.cos(dec) * cosdec0 * np.cos(ra - ra0)
-            )
-            if separation > max_separation:
-                continue
-
-            model.append(
-                Component(
-                    name=f"comp{csvidx}",
-                    RAdeg=cmp[0],
-                    DEdeg=cmp[1],
-                    flux=flux,
-                    ref_freq=cmp[6],
-                    alpha=cmp[7],
-                    major=cmp[9],
-                    minor=cmp[10],
-                    pa=cmp[11],
-                )
-            )
-
-        f.close()
-
-        logger.info(f"extracted {len(model)} csv components")
-
+    logger.info(f"extracted {len(model)} csv components")
     return model
 
 
