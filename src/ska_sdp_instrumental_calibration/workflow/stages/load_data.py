@@ -48,6 +48,31 @@ logger = logging.getLogger(__name__)
             and this zarr file will be stored in a new 'cache'
             subdirectory under the provided output directory.""",
         ),
+        ack=ConfigParam(
+            bool,
+            False,
+            nullable=False,
+            description="Ask casacore to acknowledge each table operation",
+        ),
+        datacolumn=ConfigParam(
+            str,
+            "DATA",
+            nullable=False,
+            description="MS data column to read visibility data from.",
+            allowed_values=["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+        ),
+        field_id=ConfigParam(
+            int,
+            0,
+            nullable=False,
+            description="Field ID of the data in measurement set",
+        ),
+        data_desc_id=ConfigParam(
+            int,
+            0,
+            nullable=False,
+            description="Data Description ID of the data in measurement set",
+        ),
     ),
 )
 def load_data_stage(
@@ -55,8 +80,11 @@ def load_data_stage(
     fchunk,
     times_per_ms_chunk,
     cache_directory,
+    ack,
+    datacolumn,
+    field_id,
+    data_desc_id,
     _cli_args_,
-    _output_dir_,
 ):
     """
     This stage loads the visibility data from either (in order of preference):
@@ -86,10 +114,16 @@ def load_data_stage(
         If None, the input ms will be converted to zarr file,
         and this zarr file will be stored in a new 'cache'
         subdirectory under the provided output directory.
+    ack: bool
+        Ask casacore to acknowledge each table operation
+    datacolumn: str
+        Measurement set data column name to read data from.
+    field_id: int
+        Field ID of the data in measurement set
+    data_desc_id: int
+        Data Description ID of the data in measurement set
     _cli_args_: dict
         CLI Arguments.
-    _output_dir_: str
-        Piper builtin. Gives output directory.
 
     Returns
     -------
@@ -128,7 +162,8 @@ def load_data_stage(
         raise ValueError("Cache directory must be provided.")
 
     vis_cache_directory = os.path.join(
-        cache_directory, os.path.basename(input_ms)
+        cache_directory,
+        f"{os.path.basename(input_ms)}_{field_id}_{data_desc_id}",
     )
     os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
@@ -146,6 +181,10 @@ def load_data_stage(
                 input_ms,
                 vis_cache_directory,
                 zarr_chunks,
+                ack=ack,
+                datacolumn=datacolumn,
+                field_id=field_id,
+                data_desc_id=data_desc_id,
             )
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)

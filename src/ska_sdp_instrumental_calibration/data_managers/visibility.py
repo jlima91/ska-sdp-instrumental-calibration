@@ -6,15 +6,15 @@ from typing import List
 
 import dask
 import dask.array as da
-import numpy
 import numpy as np
+import numpy.typing as npt
 import pandas
 import xarray as xr
 from astropy import units as u
 from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 from astropy.units import Quantity
-from casacore.tables import table
+from casacore.tables import table, taql
 from ska_sdp_datamodels.configuration.config_model import Configuration
 from ska_sdp_datamodels.science_data_model.polarisation_model import (
     PolarisationFrame,
@@ -36,9 +36,11 @@ BASELINE_FILE_NAME = "baselines.pickle"
 
 
 def create_template_vis_from_ms(
-    msname,
-    ack=False,
-    datacolumn="DATA",
+    msname: str,
+    ack: bool = False,
+    datacolumn: str = "DATA",
+    field_ids: List[int] = None,
+    data_desc_ids: List[int] = None,
 ) -> List[Visibility]:
     """
     Creates empty "template" visibility objects from given
@@ -49,22 +51,24 @@ def create_template_vis_from_ms(
     correct shapes and dtypes. These can be filled in later
     by reading the actual data.
 
+    If field_ids or data_desc_ids is None, by default this will
+    try to fetch the data corresponding the index 0 for both.
+
     Number of elements in the returned list correspond to
     field ids and data desc ids.
     """
-    # pylint: disable=import-outside-toplevel
-    vis_list = []
-    with table(msname, ack=ack, readonly=True) as tab:
-        fields = numpy.unique(tab.getcol("FIELD_ID"))
-        dds = numpy.unique(tab.getcol("DATA_DESC_ID"))
+    field_ids = field_ids or [0]
+    data_desc_ids = data_desc_ids or [0]
 
-        for field in fields:
+    vis_list = []
+
+    with table(msname, ack=ack, readonly=True) as tab:
+        for field in field_ids:
             with tab.query(f"FIELD_ID=={field}", style="") as ftab:
                 if ftab.nrows() <= 0:
                     raise ValueError(f"Empty selection for FIELD_ID={field}")
 
-                for dd in dds:
-                    # Now get info from the subtables
+                for dd in data_desc_ids:
                     with table(
                         f"{msname}/DATA_DESCRIPTION", ack=ack, readonly=True
                     ) as ddtab:
@@ -91,8 +95,8 @@ def create_template_vis_from_ms(
                         uvw_dtype = ms.getcol("UVW", nrow=1).dtype
 
                     time = otime - integration_time / 2.0
-                    start_time = numpy.min(time) / 86400.0
-                    end_time = numpy.max(time) / 86400.0
+                    start_time = np.min(time) / 86400.0
+                    end_time = np.max(time) / 86400.0
 
                     logger.debug(
                         "create_visibility_from_ms: Observation from %s to %s",
@@ -103,10 +107,10 @@ def create_template_vis_from_ms(
                     with table(
                         f"{msname}/SPECTRAL_WINDOW", ack=ack, readonly=True
                     ) as spwtab:
-                        cfrequency = numpy.array(
+                        cfrequency = np.array(
                             spwtab.getcol("CHAN_FREQ")[spwid]
                         )
-                        cchannel_bandwidth = numpy.array(
+                        cchannel_bandwidth = np.array(
                             spwtab.getcol("CHAN_WIDTH")[spwid]
                         )
 
@@ -119,33 +123,33 @@ def create_template_vis_from_ms(
                         corr_type = poltab.getcol("CORR_TYPE")[polid]
 
                     # These correspond to the CASA Stokes enumerations
-                    if numpy.array_equal(corr_type, [1, 2, 3, 4]):
+                    if np.array_equal(corr_type, [1, 2, 3, 4]):
                         polarisation_frame = PolarisationFrame("stokesIQUV")
                         npol = 4
-                    elif numpy.array_equal(corr_type, [1, 2]):
+                    elif np.array_equal(corr_type, [1, 2]):
                         polarisation_frame = PolarisationFrame("stokesIQ")
                         npol = 2
-                    elif numpy.array_equal(corr_type, [1, 4]):
+                    elif np.array_equal(corr_type, [1, 4]):
                         polarisation_frame = PolarisationFrame("stokesIV")
                         npol = 2
-                    elif numpy.array_equal(corr_type, [5, 6, 7, 8]):
+                    elif np.array_equal(corr_type, [5, 6, 7, 8]):
                         polarisation_frame = PolarisationFrame("circular")
                         npol = 4
-                    elif numpy.array_equal(corr_type, [5, 8]):
+                    elif np.array_equal(corr_type, [5, 8]):
                         polarisation_frame = PolarisationFrame("circularnp")
                         npol = 2
-                    elif numpy.array_equal(corr_type, [9, 10, 11, 12]):
+                    elif np.array_equal(corr_type, [9, 10, 11, 12]):
                         polarisation_frame = PolarisationFrame("linear")
                         npol = 4
-                    elif numpy.array_equal(corr_type, [9, 12, 10, 11]):
+                    elif np.array_equal(corr_type, [9, 12, 10, 11]):
                         polarisation_frame = PolarisationFrame("linearFITS")
                         npol = 4
-                    elif numpy.array_equal(corr_type, [9, 12]):
+                    elif np.array_equal(corr_type, [9, 12]):
                         polarisation_frame = PolarisationFrame("linearnp")
                         npol = 2
-                    elif numpy.array_equal(
-                        corr_type, [9]
-                    ) or numpy.array_equal(corr_type, [1]):
+                    elif np.array_equal(corr_type, [9]) or np.array_equal(
+                        corr_type, [1]
+                    ):
                         npol = 1
                         polarisation_frame = PolarisationFrame("stokesI")
                     else:
@@ -157,7 +161,7 @@ def create_template_vis_from_ms(
                     with table(
                         f"{msname}/ANTENNA", ack=ack, readonly=True
                     ) as anttab:
-                        names = numpy.array(anttab.getcol("NAME"))
+                        names = np.array(anttab.getcol("NAME"))
 
                         # pylint: disable=cell-var-from-loop
                         ant_map = []
@@ -172,25 +176,19 @@ def create_template_vis_from_ms(
 
                         if actual == 0:
                             ant_map = list(range(len(names)))
-                            names = numpy.repeat("No name", len(names))
+                            names = np.repeat("No name", len(names))
 
-                        mount = numpy.array(anttab.getcol("MOUNT"))[
-                            names != ""
-                        ]
+                        mount = np.array(anttab.getcol("MOUNT"))[names != ""]
                         # logger.info("mount is: %s" % (mount))
-                        diameter = numpy.array(anttab.getcol("DISH_DIAMETER"))[
+                        diameter = np.array(anttab.getcol("DISH_DIAMETER"))[
                             names != ""
                         ]
-                        xyz = numpy.array(anttab.getcol("POSITION"))[
+                        xyz = np.array(anttab.getcol("POSITION"))[names != ""]
+                        offset = np.array(anttab.getcol("OFFSET"))[names != ""]
+                        stations = np.array(anttab.getcol("STATION"))[
                             names != ""
                         ]
-                        offset = numpy.array(anttab.getcol("OFFSET"))[
-                            names != ""
-                        ]
-                        stations = numpy.array(anttab.getcol("STATION"))[
-                            names != ""
-                        ]
-                        names = numpy.array(anttab.getcol("NAME"))[names != ""]
+                        names = np.array(anttab.getcol("NAME"))[names != ""]
                         nants = len(names)
 
                     antenna1 = list(map(lambda i: ant_map[i], antenna1))
@@ -234,7 +232,7 @@ def create_template_vis_from_ms(
                         equinox="J2000",
                     )
 
-                    time_index_row = numpy.zeros_like(time, dtype="int")
+                    time_index_row = np.zeros_like(time, dtype="int")
                     time_last = time[0]
                     time_index = 0
                     for row, _ in enumerate(time):
@@ -249,7 +247,7 @@ def create_template_vis_from_ms(
                     ntimes = time_index + 1
 
                     assert ntimes == len(
-                        numpy.unique(time_index_row)
+                        np.unique(time_index_row)
                     ), "Error in finding data times"
 
                     bv_vis = da.empty(
@@ -263,8 +261,8 @@ def create_template_vis_from_ms(
                     )
                     bv_uvw = da.empty([ntimes, nbaselines, 3], dtype=uvw_dtype)
 
-                    bv_times = numpy.zeros([ntimes])
-                    bv_integration_time = numpy.zeros([ntimes])
+                    bv_times = np.zeros([ntimes])
+                    bv_integration_time = np.zeros([ntimes])
 
                     for row, _ in enumerate(time):
                         time_index = time_index_row[row]
@@ -309,7 +307,9 @@ def get_col_from_ms(
     ntimes: int,
     num_baselines: int,
     ack=False,
-) -> List[np.array]:
+    field_ids: List[int] = None,
+    data_desc_ids: List[int] = None,
+) -> List[npt.NDArray]:
     """
     Get data from a column in measurment set.
     The data is read from partial rows based on start_time_idx,
@@ -319,21 +319,21 @@ def get_col_from_ms(
     corresponds to corresponding column data
     from one field and one data description
     """
+    field_ids = field_ids or [0]
+    data_desc_ids = data_desc_ids or [0]
+
     start_row = start_time_idx * num_baselines
     n_rows = ntimes * num_baselines
 
     col_data_per_field_dd = []
 
     with table(msname, ack=ack, readonly=True) as tab:
-        fields = numpy.unique(tab.getcol("FIELD_ID"))
-        dds = numpy.unique(tab.getcol("DATA_DESC_ID"))
-
-        for field in fields:
+        for field in field_ids:
             with tab.query(f"FIELD_ID=={field}", style="") as ftab:
                 if ftab.nrows() <= 0:
                     raise ValueError(f"Empty selection for FIELD_ID={field}")
 
-                for dd in dds:
+                for dd in data_desc_ids:
                     with ftab.query(f"DATA_DESC_ID=={dd}", style="") as ms:
                         if ms.nrows() <= 0:
                             raise ValueError(
@@ -355,6 +355,8 @@ def _load_vis_xdr(
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
     datacolumn: str = "DATA",
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
@@ -371,6 +373,8 @@ def _load_vis_xdr(
         start_time_idx=start_time_idx,
         ntimes=ntimes,
         num_baselines=num_baselines_in_ms,
+        field_ids=[field_id],
+        data_desc_ids=[data_desc_id],
     )[0].reshape(vis_non_corr_shape)
 
     actual_vis_data = np.zeros_like(vis_chunk)
@@ -389,6 +393,8 @@ def _load_flags_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
@@ -405,6 +411,8 @@ def _load_flags_xdr(
         start_time_idx=start_time_idx,
         ntimes=ntimes,
         num_baselines=num_baselines_in_ms,
+        field_ids=[field_id],
+        data_desc_ids=[data_desc_id],
     )[0].reshape(flag_non_corr_shape)
 
     actual_flags_data = np.zeros_like(flags_chunk)
@@ -423,6 +431,8 @@ def _load_weight_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
@@ -439,6 +449,8 @@ def _load_weight_xdr(
         start_time_idx=start_time_idx,
         ntimes=ntimes,
         num_baselines=num_baselines_in_ms,
+        field_ids=[field_id],
+        data_desc_ids=[data_desc_id],
     )[0].reshape(weight_non_corr_shape)
 
     actual_weight_data = np.zeros_like(weight_chunk)
@@ -457,6 +469,8 @@ def _load_uvw_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
@@ -469,6 +483,8 @@ def _load_uvw_xdr(
         start_time_idx=start_time_idx,
         ntimes=ntimes,
         num_baselines=num_baselines_in_ms,
+        field_ids=[field_id],
+        data_desc_ids=[data_desc_id],
     )[0].reshape(uvw_non_corr_shape)
 
     # This sign switch was done in the original converter in data models
@@ -487,8 +503,9 @@ def _load_uvw_xdr(
 def _load_data_vars(
     vis: Visibility,
     ms_name: str,
-    time_index_xdr: xr.DataArray,
     datacolumn: str = "DATA",
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ):
     """
     Pre-requisites:
@@ -503,16 +520,40 @@ def _load_data_vars(
         are absent in MS, self-correlations in the Visibility dataset
         are set to zero.
 
-      * In a baseline, Antenna1 index is always less than or equal
-        to Antenna2 index.
-
-    Assumptions:
-      * Measurement set contains only one field id and one data
-        description id.
+      * In a baseline, ANTENNA1 index is always less than or equal
+        to ANTENNA2 index.
     """
-    nantennas = vis.configuration.id.size
+    time_index_xdr = xr.DataArray(
+        da.arange(vis.time.size), coords={"time": vis.time}
+    ).pipe(with_chunks, vis.chunksizes)
     ntime = time_index_xdr.size
 
+    with table(ms_name, readonly=True, ack=False) as tab:
+        with tab.query(
+            f"FIELD_ID=={field_id} AND DATA_DESC_ID=={data_desc_id}", style=""
+        ) as ms:
+            num_rows_in_ms = ms.nrows()
+            if num_rows_in_ms <= 0:
+                raise ValueError(
+                    f"Empty selection for FIELD_ID={field_id} "
+                    f"and DATA_DESC_ID={data_desc_id}"
+                )
+
+            if (
+                taql(
+                    "select from $1 where ANTENNA1 > ANTENNA2 limit 1",
+                    tables=[ms],
+                ).nrows()
+                > 0
+            ):
+                raise ValueError(
+                    "Measurement set ANTENNA1 values are greater than "
+                    "ANTENNA2. This is not supported."
+                )
+
+    num_baselines_in_ms = num_rows_in_ms // ntime
+
+    nantennas = vis.configuration.id.size
     baselines_self_corr = pandas.MultiIndex.from_arrays(
         np.triu_indices(nantennas, k=0), names=("antenna1", "antenna2")
     )
@@ -520,16 +561,14 @@ def _load_data_vars(
         np.triu_indices(nantennas, k=1), names=("antenna1", "antenna2")
     )
 
-    with table(ms_name, readonly=True, ack=False) as ms:
-        num_rows = ms.nrows()
-
     # MS contains self-correlated visibilities
-    if (ntime * nantennas * (nantennas + 1) // 2) == num_rows:
+    if (nantennas * (nantennas + 1) // 2) == num_baselines_in_ms:
         baseline_indices_pair = np.array(
             [[i, i] for i in range(len(baselines_self_corr))]
         )
-        num_baselines_in_ms = len(baselines_self_corr)
-    else:  # MS does not contain self-correlated visibilities
+
+    # MS contains only non self-correlated visibilities
+    elif (nantennas * (nantennas - 1) // 2) == num_baselines_in_ms:
         baseline_indices_pair = np.array(
             [
                 [baselines_self_corr.get_loc((ant1, ant2)), no_self_corr_row]
@@ -538,7 +577,12 @@ def _load_data_vars(
                 )
             ]
         )
-        num_baselines_in_ms = len(baselines_no_self_corr)
+
+    else:
+        raise ValueError(
+            "Can not infer whether MS contains self-corr baselines or not."
+            f"from rows: {num_rows_in_ms} and time: {ntime}"
+        )
 
     # vis
     vis_data_xdr = xr.map_blocks(
@@ -550,6 +594,8 @@ def _load_data_vars(
             baseline_indices_pair,
             num_baselines_in_ms,
             datacolumn,
+            field_id,
+            data_desc_id,
         ],
         template=vis.vis,
     )
@@ -563,6 +609,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            field_id,
+            data_desc_id,
         ],
         template=vis.flags,
     )
@@ -576,6 +624,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            field_id,
+            data_desc_id,
         ],
         template=vis.weight,
     )
@@ -589,6 +639,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            field_id,
+            data_desc_id,
         ],
         template=vis.uvw,
     )
@@ -608,6 +660,8 @@ def load_ms_as_dataset_with_time_chunks(
     times_per_chunk: int,
     ack: bool = False,
     datacolumn: str = "DATA",
+    field_id: int = 0,
+    data_desc_id: int = 0,
 ) -> xr.Dataset:
     """
     Distributed load of a MSv2 Measurement Set into a Visibility dataset,
@@ -622,6 +676,8 @@ def load_ms_as_dataset_with_time_chunks(
             ms_name,
             ack=ack,
             datacolumn=datacolumn,
+            field_ids=[field_id],
+            data_desc_ids=[data_desc_id],
         )[0]
     )
 
@@ -635,20 +691,39 @@ def load_ms_as_dataset_with_time_chunks(
 
     vis_template = vis_template.pipe(with_chunks, chunks)
 
-    time_index_xdr = xr.DataArray(
-        da.arange(vis_template.time.size), coords={"time": vis_template.time}
-    ).pipe(with_chunks, chunks)
-
-    return _load_data_vars(vis_template, ms_name, time_index_xdr, datacolumn)
+    return _load_data_vars(
+        vis_template, ms_name, datacolumn, field_id, data_desc_id
+    )
 
 
-def write_ms_to_zarr(input_ms_path, vis_cache_directory, zarr_chunks):
+def _generate_file_paths_for_vis_zarr_file(vis_cache_directory):
     attributes_file = os.path.join(vis_cache_directory, ATTRS_FILE_NAME)
     baselines_file = os.path.join(vis_cache_directory, BASELINE_FILE_NAME)
     vis_zarr_file = os.path.join(vis_cache_directory, VIS_FILE_NAME)
 
+    return attributes_file, baselines_file, vis_zarr_file
+
+
+def write_ms_to_zarr(
+    input_ms_path,
+    vis_cache_directory,
+    zarr_chunks,
+    ack=False,
+    datacolumn="DATA",
+    field_id: int = 0,
+    data_desc_id: int = 0,
+):
+    attributes_file, baselines_file, vis_zarr_file = (
+        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+    )
+
     data: xr.Dataset = load_ms_as_dataset_with_time_chunks(
-        input_ms_path, zarr_chunks["time"]
+        input_ms_path,
+        zarr_chunks["time"],
+        ack=ack,
+        datacolumn=datacolumn,
+        field_id=field_id,
+        data_desc_id=data_desc_id,
     )
 
     attrs = deepcopy(data.attrs)
@@ -671,20 +746,21 @@ def write_ms_to_zarr(input_ms_path, vis_cache_directory, zarr_chunks):
 
 
 def check_if_cache_files_exist(vis_cache_directory):
+    attributes_file, baselines_file, vis_zarr_file = (
+        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+    )
+
     return (
-        os.path.isfile(os.path.join(vis_cache_directory, ATTRS_FILE_NAME))
-        and os.path.isfile(
-            os.path.join(vis_cache_directory, BASELINE_FILE_NAME)
-        )
-        and os.path.isdir(os.path.join(vis_cache_directory, VIS_FILE_NAME))
+        os.path.isfile(attributes_file)
+        and os.path.isfile(baselines_file)
+        and os.path.isdir(vis_zarr_file)
     )
 
 
 def read_dataset_from_zarr(vis_cache_directory, vis_chunks):
-
-    attributes_file = os.path.join(vis_cache_directory, ATTRS_FILE_NAME)
-    baselines_file = os.path.join(vis_cache_directory, BASELINE_FILE_NAME)
-    vis_zarr_file = os.path.join(vis_cache_directory, VIS_FILE_NAME)
+    attributes_file, baselines_file, vis_zarr_file = (
+        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+    )
 
     zarr_data = xr.open_dataset(
         vis_zarr_file, chunks=vis_chunks, engine="zarr"
