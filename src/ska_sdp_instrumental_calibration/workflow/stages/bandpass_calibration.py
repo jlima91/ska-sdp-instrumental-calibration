@@ -41,9 +41,6 @@ logger = logging.getLogger()
                 nullable=False,
             ),
         ),
-        flagging=ConfigParam(
-            bool, False, description="Run RFI flagging", nullable=False
-        ),
         visibility_key=ConfigParam(
             str,
             "vis",
@@ -62,7 +59,6 @@ def bandpass_calibration_stage(
     upstream_output,
     run_solver_config,
     plot_config,
-    flagging,
     visibility_key,
     export_gaintable,
     _output_dir_,
@@ -79,8 +75,6 @@ def bandpass_calibration_stage(
         plot_config: dict
             Configuration required for plotting.
             eg: {{plot_table: False, fixed_axis: False}}
-        flagging: bool
-            Run Flagging for time
         visibility_key: str
             Visibility data to be used for calibration.
         export_gaintable: bool

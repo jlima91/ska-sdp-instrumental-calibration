@@ -31,12 +31,6 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "generate_channel_rm",
     configuration=Configuration(
-        fchunk=ConfigParam(
-            int,
-            -1,
-            description="""Number of frequency channels per chunk.
-            If set to -1, use fchunk value from load_data""",
-        ),
         oversample=ConfigParam(
             int,
             5,
@@ -92,7 +86,6 @@ logger = logging.getLogger()
 )
 def generate_channel_rm_stage(
     upstream_output,
-    fchunk,
     oversample,
     peak_threshold,
     refine_fit,
@@ -110,9 +103,6 @@ def generate_channel_rm_stage(
     ----------
         upstream_output: dict
             Output from the upstream stage
-        fchunk: int
-            Number of frequency channels per chunk.
-            If it is '-1' fchunk of load_data will be used.
         oversample: int
             Oversampling value used in the rotation
             calculatiosn. Note that setting this value to some higher
@@ -151,8 +141,6 @@ def generate_channel_rm_stage(
 
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
-    if fchunk != -1:
-        initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
