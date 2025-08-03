@@ -59,15 +59,17 @@ def test_should_load_data_from_existing_cached_zarr_file(
     )
 
     os_makedirs_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_2_4", mode=0o755, exist_ok=True
+        "/cache/dir/path/vis.ms_fid2_ddid4", mode=0o755, exist_ok=True
     )
 
-    check_cache_mock.assert_called_once_with("/cache/dir/path/vis.ms_2_4")
+    check_cache_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms_fid2_ddid4"
+    )
 
     write_ms_mock.assert_not_called()
 
     read_data_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_2_4",
+        "/cache/dir/path/vis.ms_fid2_ddid4",
         {
             "baselineid": -1,
             "polarisation": -1,
@@ -141,14 +143,16 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
     os_makedirs_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_10_5", mode=0o755, exist_ok=True
+        "/cache/dir/path/vis.ms_fid10_ddid5", mode=0o755, exist_ok=True
     )
 
-    check_cache_mock.assert_called_once_with("/cache/dir/path/vis.ms_10_5")
+    check_cache_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms_fid10_ddid5"
+    )
 
     write_ms_mock.assert_called_once_with(
         "/path/to/vis.ms",
-        "/cache/dir/path/vis.ms_10_5",
+        "/cache/dir/path/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,
@@ -163,7 +167,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
     read_data_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_10_5",
+        "/cache/dir/path/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,

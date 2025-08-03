@@ -163,7 +163,7 @@ def load_data_stage(
 
     vis_cache_directory = os.path.join(
         cache_directory,
-        f"{os.path.basename(input_ms)}_{field_id}_{data_desc_id}",
+        f"{os.path.basename(input_ms)}_fid{field_id}_ddid{data_desc_id}",
     )
     os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
