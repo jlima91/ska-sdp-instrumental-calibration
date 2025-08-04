@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @ConfigurableStage(
     "load_data",
     configuration=Configuration(
-        fchunk=ConfigParam(
+        nchannels_per_chunk=ConfigParam(
             int,
             32,
             nullable=False,
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
             written zarr file. This is also the size of frequency chunk
             used across the pipeline.""",
         ),
-        times_per_ms_chunk=ConfigParam(
+        ntimes_per_ms_chunk=ConfigParam(
             int,
             5,
             nullable=False,
@@ -77,8 +77,8 @@ logger = logging.getLogger(__name__)
 )
 def load_data_stage(
     upstream_output,
-    fchunk,
-    times_per_ms_chunk,
+    nchannels_per_chunk,
+    ntimes_per_ms_chunk,
     cache_directory,
     ack,
     datacolumn,
@@ -99,13 +99,14 @@ def load_data_stage(
     ----------
     upstream_output: dict
         Output from the upstream stage
-    fchunk: int
+    nchannels_per_chunk: int
         Number of frequency channels per chunk in the
-        written zarr file. This is also the fchunk value used across
-        the pipeline.
-    times_per_ms_chunk: int
+        written zarr file. This value is used across the pipeline,
+        i.e. for zarr file and for the visibility dataset.
+    ntimes_per_ms_chunk: int
         Number of time dimension to include in each chunk
-        while reading from measurement set.
+        while reading from measurement set. This also sets
+        the number of times per chunk for zarr file.
     cache_directory: str
         Cache directory containing previously stored
         visibility datasets as zarr files. The directory should contain
@@ -145,8 +146,8 @@ def load_data_stage(
     # This is chunking of the intermidiate zarr file
     zarr_chunks = {
         **non_chunked_dims,
-        "time": times_per_ms_chunk,
-        "frequency": fchunk,
+        "time": ntimes_per_ms_chunk,
+        "frequency": nchannels_per_chunk,
     }
 
     # Pipeline only works on frequency chunks
@@ -154,7 +155,7 @@ def load_data_stage(
     vis_chunks = {
         **non_chunked_dims,
         "time": -1,
-        "frequency": fchunk,
+        "frequency": nchannels_per_chunk,
     }
     upstream_output["chunks"] = vis_chunks
 
