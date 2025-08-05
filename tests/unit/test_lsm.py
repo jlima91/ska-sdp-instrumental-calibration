@@ -20,9 +20,8 @@ GLEAM J235139-894114 -0.001036 0.026022 23 51 39.45 -89 41 14.30 357.914368   0.
 
 
 # noqa: E501
-CSV_CONTENT = """
-# Number of sources: 1434
- RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
+CSV_CONTENT = """# Number of sources: 1434
+# RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
  357.914368, -89.687309, 2.71901e-01, 0.000000e+00, 0.000000e+00, 0.000000e+00, 2.000000e+08,-3.70882e-01, 0.000000, 2.19263e+02, 1.464811e+02, -4.158033e+00
 """  # noqa: E501
 
