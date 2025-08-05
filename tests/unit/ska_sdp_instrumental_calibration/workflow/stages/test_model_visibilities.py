@@ -42,7 +42,6 @@ def test_should_predict_visibilities(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
         "reset_vis": False,
     }
@@ -110,7 +109,6 @@ def test_should_predict_visibilities_using_csv_lsm(
         "lsm_csv_path": "/path/to/lsm.csv",
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
         "reset_vis": False,
     }
@@ -177,7 +175,6 @@ def test_should_update_call_count(
         "lsm_csv_path": "/path/to/lsm.csv",
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
         "reset_vis": False,
     }
@@ -222,7 +219,6 @@ def test_should_throw_exception_if_lsm_is_none(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
         "reset_vis": False,
     }
@@ -288,7 +284,6 @@ def test_should_normalise_at_beam_centre(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
         "reset_vis": False,
     }

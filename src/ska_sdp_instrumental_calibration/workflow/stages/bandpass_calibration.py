@@ -10,7 +10,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    parse_reference_antenna,
+    plot_gaintable,
+)
 
 from ...data_managers.dask_wrappers import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
@@ -98,6 +101,9 @@ def bandpass_calibration_stage(
 
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
+
+    refant = run_solver_config["refant"]
+    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

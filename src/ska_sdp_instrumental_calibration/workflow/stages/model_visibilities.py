@@ -86,9 +86,6 @@ logger = logging.getLogger()
             description="""Whether or not to set visibilities to zero before
             accumulating components. Default is False.""",
         ),
-        export_model_vis=ConfigParam(
-            bool, False, "Export predicted model visibilities"
-        ),
     ),
 )
 def predict_vis_stage(
@@ -103,7 +100,6 @@ def predict_vis_stage(
     flux_limit,
     alpha0,
     reset_vis,
-    export_model_vis,
     _cli_args_,
 ):
     """
@@ -222,10 +218,6 @@ def predict_vis_stage(
         modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
         upstream_output["beams"] = beams
         upstream_output["vis"] = vis
-
-    if export_model_vis:
-        # [TODO] : export the model visibilities to file.
-        pass
 
     upstream_output["modelvis"] = modelvis
     upstream_output.increment_call_count("predict_vis")

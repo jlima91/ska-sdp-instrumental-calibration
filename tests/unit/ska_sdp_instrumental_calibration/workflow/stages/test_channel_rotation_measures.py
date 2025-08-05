@@ -13,6 +13,11 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
     side_effect=lambda x: x,
 )
 @patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".parse_reference_antenna"
+)
+@patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures.run_solver"
 )
@@ -33,6 +38,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     apply_gaintable_mock,
     model_rotations_mock,
     run_solver_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
     upstream_output = UpstreamOutput()
@@ -56,6 +62,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
+    parse_ref_ant_mock.side_effect = [3, 3]
 
     upstream_output["gaintable"] = initial_table_mock
     predict_vis_mock.return_value = new_model_vis_mock
@@ -89,6 +96,13 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         _output_dir_="/output/path",
     )
 
+    parse_ref_ant_mock.assert_has_calls(
+        [
+            call(2, initial_table_mock),
+            call(1, initial_table_mock),
+        ]
+    )
+
     model_rotations_mock.assert_called_once_with(
         initial_table_mock,
         peak_threshold=0.5,
@@ -116,7 +130,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         modelvis=new_model_vis_mock,
         solver="solver",
         niter=1,
-        refant=2,
+        refant=3,
         phase_only=False,
         tol=1e-06,
         crosspol=False,
@@ -134,6 +148,11 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     ".channel_rotation_measures"
     ".dask.delayed",
     side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".parse_reference_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
@@ -156,6 +175,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     apply_gaintable_mock,
     model_rotations_mock,
     run_solver_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
     upstream_output = UpstreamOutput()
@@ -183,6 +203,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
+    parse_ref_ant_mock.side_effect = [3, 3]
 
     apply_gaintable_mock.return_value = beam_model_vis
     solved_gaintable_mock = Mock(name="run solver gaintable")
@@ -191,7 +212,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     run_solver_config = {
         "solver": "solver",
         "niter": 1,
-        "refant": 2,
+        "refant": "ANT-3",
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
@@ -247,7 +268,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         modelvis=beam_model_vis,
         solver="solver",
         niter=1,
-        refant=2,
+        refant=3,
         phase_only=False,
         tol=1e-06,
         crosspol=False,
@@ -264,6 +285,11 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     ".channel_rotation_measures"
     ".dask.delayed",
     side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".parse_reference_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
@@ -283,6 +309,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     predict_vis_mock,
     model_rotations_mock,
     run_solver_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
 
@@ -308,6 +335,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
+    parse_ref_ant_mock.side_effect = [3, 3]
 
     predict_vis_mock.return_value = new_model_vis_mock
     run_solver_mock.return_value = solved_gaintable_mock
@@ -368,7 +396,7 @@ def test_should_generate_channel_rm_using_provided_fchunk(
         modelvis=new_model_vis_mock,
         solver="solver",
         niter=1,
-        refant=2,
+        refant=3,
         phase_only=False,
         tol=1e-06,
         crosspol=False,
@@ -385,6 +413,11 @@ def test_should_generate_channel_rm_using_provided_fchunk(
     ".channel_rotation_measures"
     ".dask.delayed",
     side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".parse_reference_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
@@ -428,6 +461,7 @@ def test_should_plot_with_proper_suffix(
     plot_gaintable_mock,
     plot_bandpass_stages_mock,
     plot_rm_station_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
 
@@ -446,6 +480,7 @@ def test_should_plot_with_proper_suffix(
 
     chunked_table_mock = Mock(name="chunked gaintable")
     initial_table_mock.chunk.return_value = chunked_table_mock
+    parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
 
@@ -472,7 +507,7 @@ def test_should_plot_with_proper_suffix(
     }
     plot_rm_config = {
         "plot_rm": True,
-        "station": 1,
+        "station": 2,
     }
     generate_channel_rm_stage.stage_definition(
         upstream_output,
@@ -578,6 +613,11 @@ def test_should_plot_with_proper_suffix(
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
     ".channel_rotation_measures"
+    ".parse_reference_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
     ".export_gaintable_to_h5parm"
 )
 @patch(
@@ -599,6 +639,7 @@ def test_should_export_gaintable_with_proper_suffix(
     model_rotations_mock,
     run_solver_mock,
     export_gaintable_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
     upstream_output = UpstreamOutput()
@@ -624,6 +665,7 @@ def test_should_export_gaintable_with_proper_suffix(
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
+    parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
@@ -695,6 +737,11 @@ def test_should_export_gaintable_with_proper_suffix(
     side_effect=lambda x: x,
 )
 @patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".parse_reference_antenna"
+)
+@patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
     "channel_rotation_measures.run_solver"
 )
@@ -715,6 +762,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     apply_gaintable_mock,
     model_rotations_mock,
     run_solver_mock,
+    parse_ref_ant_mock,
     delayed_mock,
 ):
     upstream_output = UpstreamOutput()
@@ -738,6 +786,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
+    parse_ref_ant_mock.side_effect = [2, 2]
 
     upstream_output["gaintable"] = initial_table_mock
     predict_vis_mock.return_value = new_model_vis_mock
