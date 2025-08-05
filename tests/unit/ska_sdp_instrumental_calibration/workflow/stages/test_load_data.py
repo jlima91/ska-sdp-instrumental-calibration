@@ -55,7 +55,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         "ANOTHER_DATA",
         2,
         4,
-        {"input": "/path/to/vis.ms"},
+        {"input": "/path/to/vis.ms/"},
     )
 
     os_makedirs_mock.assert_called_once_with(
@@ -139,7 +139,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         "ANOTHER_DATA",
         10,
         5,
-        {"input": "/path/to/vis.ms"},
+        {"input": "/path/to/subdir/../vis.ms/"},
     )
 
     os_makedirs_mock.assert_called_once_with(

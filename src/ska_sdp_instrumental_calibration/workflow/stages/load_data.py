@@ -133,6 +133,8 @@ def load_data_stage(
     """
     input_ms = _cli_args_["input"]
 
+    input_ms = os.path.realpath(input_ms)
+
     # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {
         dim: -1
