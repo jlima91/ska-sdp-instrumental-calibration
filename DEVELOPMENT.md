@@ -172,7 +172,7 @@ Following steps are simplified, and specific for this repository:
 
     - `src/ska_sdp_instrumental_calibration/__init__.py`
 
-2. Add a new `H2` heading in [CHANGELOG.rst](CHANGELOG.rst), and add release notes under that heading. The heading should be the new version number.
+2. Add a new `H2` heading in [Changelog](CHANGELOG.html), and add release notes under that heading. The heading should be the new version number.
 
 3. Using the new version, create a new issue on the [Release Management](https://jira.skatelescope.org/projects/REL/summary) Jira Project with a summary of your release, and set it to "IN PROGRESS".
 
