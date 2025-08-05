@@ -18,31 +18,9 @@ from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
 from ska_sdp_instrumental_calibration.processing_tasks.predict_model.beams import (  # noqa: E501
     create_beams,
 )
+from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
 logger = logging.getLogger()
-
-
-def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
-    """
-    Rechunk a DataArray along dimensions specified in `chunks` dict.
-
-    Parameters
-    ----------
-    dataarray : xarray.DataArray
-        Input DataArray (can be Dask-backed or not).
-    chunks: dict
-        A dictionary mapping dimension names to chunk sizes.
-
-    Returns
-    -------
-    xarray.DataArray
-        Rechunked DataArray if applicable.
-    """
-    relevant_chunks = {
-        dim: chunks[dim] for dim in dataarray.dims if dim in chunks
-    }
-
-    return dataarray.chunk(relevant_chunks) if relevant_chunks else dataarray
 
 
 def convert_comp_to_skycomponent(

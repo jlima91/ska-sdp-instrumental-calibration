@@ -84,9 +84,12 @@ def oskar_ms(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def generate_ms(generate_vis):
+def generate_ms(tmp_path, generate_vis):
     """Create and later delete test MSv2."""
     vis, _ = generate_vis
-    export_visibility_to_ms(ms_name, [vis])
-    yield ms_name
-    shutil.rmtree(ms_name)
+    ms_path = f"{tmp_path}/{ms_name}"
+    export_visibility_to_ms(ms_path, [vis])
+
+    yield ms_path
+
+    shutil.rmtree(ms_path)

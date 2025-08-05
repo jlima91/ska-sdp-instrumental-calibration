@@ -25,9 +25,7 @@ def test_should_predict_visibilities(
 ):
 
     upstream_output = UpstreamOutput()
-    vis = Mock(name="Visibilities")
-    vis.assign.return_value = [1, 2, 3]
-    upstream_output["vis"] = vis
+    upstream_output["vis"] = Mock(name="Visibilities")
     cli_args = {"input": "path/to/input/ms"}
     get_phasecentre_mock.return_value = (0.0, 0.0)
     generate_lsm_mock.return_value = ["source1", "source2"]
@@ -43,7 +41,6 @@ def test_should_predict_visibilities(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -59,14 +56,8 @@ def test_should_predict_visibilities(
         alpha0=-0.78,
     )
     predict_vis_mock.assert_called_once_with(
-        upstream_output.vis.vis,
-        upstream_output.vis.uvw,
-        upstream_output.vis.datetime,
-        upstream_output.vis.configuration,
-        upstream_output.vis.antenna1,
-        upstream_output.vis.antenna2,
+        upstream_output.vis,
         ["source1", "source2"],
-        upstream_output.vis.phasecentre,
         beam_type="everybeam",
         eb_ms="path/to/input/ms",
         eb_coeffs="/path/to/coeffs",
@@ -92,9 +83,7 @@ def test_should_predict_visibilities_using_csv_lsm(
 ):
 
     upstream_output = UpstreamOutput()
-    vis = Mock(name="Visibilities")
-    vis.assign.return_value = [1, 2, 3]
-    upstream_output["vis"] = vis
+    upstream_output["vis"] = Mock(name="Visibilities")
     cli_args = {"input": "path/to/input/ms"}
     get_phasecentre_mock.return_value = (0.0, 0.0)
     generate_lsm_from_csv_mock.return_value = ["source1", "source2"]
@@ -110,7 +99,6 @@ def test_should_predict_visibilities_using_csv_lsm(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -125,14 +113,8 @@ def test_should_predict_visibilities_using_csv_lsm(
         flux_limit=1.0,
     )
     predict_vis_mock.assert_called_once_with(
-        upstream_output.vis.vis,
-        upstream_output.vis.uvw,
-        upstream_output.vis.datetime,
-        upstream_output.vis.configuration,
-        upstream_output.vis.antenna1,
-        upstream_output.vis.antenna2,
+        upstream_output.vis,
         ["source1", "source2"],
-        upstream_output.vis.phasecentre,
         beam_type="everybeam",
         eb_ms="test.ms",
         eb_coeffs="/path/to/coeffs",
@@ -158,9 +140,7 @@ def test_should_update_call_count(
 ):
 
     upstream_output = UpstreamOutput()
-    vis = Mock(name="Visibilities")
-    vis.assign.return_value = [1, 2, 3]
-    upstream_output["vis"] = vis
+    upstream_output["vis"] = Mock(name="Visibilities")
     cli_args = {"input": "path/to/input/ms"}
     get_phasecentre_mock.return_value = (0.0, 0.0)
     generate_lsm_from_csv_mock.return_value = ["source1", "source2"]
@@ -176,7 +156,6 @@ def test_should_update_call_count(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     upstream_output = predict_vis_stage.stage_definition(
@@ -203,9 +182,7 @@ def test_should_throw_exception_if_lsm_is_none(
 ):
 
     upstream_output = UpstreamOutput()
-    vis = Mock(name="Visibilities")
-    vis.assign.return_value = [1, 2, 3]
-    upstream_output["vis"] = vis
+    upstream_output["vis"] = Mock(name="Visibilities")
     cli_args = {"input": "path/to/input/ms"}
     get_phasecentre_mock.return_value = (0.0, 0.0)
     predict_vis_mock.return_value = [1, 2, 3]
@@ -220,7 +197,6 @@ def test_should_throw_exception_if_lsm_is_none(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     with pytest.raises(RequiredArgumentMissingException):
@@ -258,7 +234,6 @@ def test_should_normalise_at_beam_centre(
 ):
     vis = Mock(name="Visibilities")
     upstream_output = UpstreamOutput()
-    vis = Mock(name="Visibilities")
 
     upstream_output["vis"] = vis
     cli_args = {"input": "path/to/input/ms"}
@@ -266,7 +241,6 @@ def test_should_normalise_at_beam_centre(
     get_phasecentre_mock.return_value = (0.0, 0.0)
     generate_lsm_mock.return_value = ["source1", "source2"]
     model_vis = Mock(name="Model Visibilities")
-    vis.assign.return_value = model_vis
     predict_vis_mock.return_value = model_vis
     mock_beams = Mock(name="Beams")
     prediction_beams_mock.return_value = mock_beams
@@ -285,7 +259,6 @@ def test_should_normalise_at_beam_centre(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(

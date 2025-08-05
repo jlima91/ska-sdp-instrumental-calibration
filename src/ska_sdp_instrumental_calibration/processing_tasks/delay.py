@@ -8,15 +8,17 @@ def calculate_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
     """
     Applies the delay to the given gaintable
 
-    Parameters:
-    -----------
-        gaintable: xr.Dataset
-            Gaintable
-        oversample: int
-            Oversample rate required for the delay
-    Returns:
-    --------
-        delay: xr.DataSet
+    Parameters
+    ----------
+    gaintable: xr.Dataset
+        Gaintable
+    oversample: int
+        Oversample rate required for the delay
+
+    Returns
+    -------
+    xr.DataSet
+        delay
     """
 
     nstations = len(gaintable.antenna)
@@ -62,16 +64,17 @@ def apply_delay(gaintable: xr.Dataset, delay: xr.Dataset) -> xr.Dataset:
     """
     Applies the delay to the given gaintable
 
-    Parameters:
-    -----------
-        gaintable: xr.Dataset
-            Gaintable
-        oversample: int
-            Oversample rate required for the delay
-    Returns:
-    --------
-        gaintable: xr.Dataset
-            Gaintable with updated gains
+    Parameters
+    ----------
+    gaintable: xr.Dataset
+        Gaintable
+    oversample: int
+        Oversample rate required for the delay
+
+    Returns
+    -------
+    xr.Dataset
+        Gaintable with updated gains
     """
     new_gain_data = gaintable.gain.data.copy()
 
@@ -105,20 +108,21 @@ def update_delay(gaintable, _offset, delay, pol):
     """
     Updates the delay to the gains
 
-    Parameters:
-    -----------
-        gaintable: xr.Dataset
-            Gaintable
-        _offset: np.array
-            Calculated offset per station
-        delay: np.array
-            Calculated delays per station
-        pol: int
-            Polarisations of the gains
-    Returns:
-    --------
-        np.array
-            Updated delay and offset.
+    Parameters
+    ----------
+    gaintable: xr.Dataset
+        Gaintable
+    _offset: np.array
+        Calculated offset per station
+    delay: np.array
+        Calculated delays per station
+    pol: int
+        Polarisations of the gains
+
+    Returns
+    -------
+    np.array
+        Updated delay and offset.
     """
     freq = gaintable.frequency.data.reshape(1, -1)
     gains = gaintable.gain.data[0, :, :, pol, pol]
@@ -158,19 +162,19 @@ def coarse_delay(gains, oversample):
     """
     Calculates the coarse delay
 
-    Parameters:
-    -----------
-        frequency: xarray
-            Frequency of the gains
-        gains: xarray
-            Gains from previous calibration step
-        oversample: int
-            Oversample rate
-    Returns:
-    ---------
-        np.array
-            Array of coarse delays for all stations
+    Parameters
+    ----------
+    frequency: xarray
+        Frequency of the gains
+    gains: xarray
+        Gains from previous calibration step
+    oversample: int
+        Oversample rate
 
+    Returns
+    -------
+    np.array
+        Array of coarse delays for all stations
     """
     nstations = len(gains.antenna)
     nchan = len(gains.frequency)
@@ -197,19 +201,20 @@ def calculate_gain_rot(gain, delay, offset, freq):
     """
     Calculates gain rotation
 
-    Parameters:
-    -----------
-        gain: xarray
-            Gains
-        delay: np.array
-            Delays
-        offset: np.array
-            Offset
-        freq: xarray
-            Frequency
-    Returns:
-    ---------
-        np.array
-            Array of calculated gain rotation
+    Parameters
+    ----------
+    gain: xarray
+        Gains
+    delay: np.array
+        Delays
+    offset: np.array
+        Offset
+    freq: xarray
+        Frequency
+
+    Returns
+    -------
+    np.array
+        Array of calculated gain rotation
     """
     return gain * np.exp(-2j * np.pi * (offset + (delay.T * freq.T))).T

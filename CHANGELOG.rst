@@ -6,7 +6,21 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Main
 ****
 
-(Latest changes on main)
+Breaking
+--------
+
+* The configuration schema (YAML) has changed for many stages. Please refer to the :doc:`stage_config` page.
+* For distributed run using dask workers, the workers must have a resource called ``process``. Please refer to the "dask distribution" section in :doc:`README<README>` to understand the usage.
+
+Added
+-----
+
+* Support providing antenna names (along with indices) for config parameters which refer to a antenna, like ``refant`` or ``station``
+
+Improvements
+------------
+
+* The pipeline will first convert the input MSv2 into a zarr file. The zarr file is chunked across frequency and time dimensions. Using zarr as input has reduced the overall memory usage of the pipeline. The zarr files will be cached in a user provided directory, based on the name of MSv2, field id and data description id.
 
 0.3.4
 *****

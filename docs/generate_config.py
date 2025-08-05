@@ -1,8 +1,11 @@
 from functools import reduce
 import os
 import sys
+from typing import Type
 
 import pandas as pd
+
+from collections.abc import Iterable
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(f"{module_dir}/../src")
@@ -30,6 +33,13 @@ def process_config_param(prefix, config_param):
 
     return [{"param": prefix, **config_param.__dict__}]
 
+
+def convert_type_to_string(tp: Type | Iterable[Type]):
+    if isinstance(tp, Iterable):
+        return [t.__name__ for t in tp]
+    return tp.__name__
+
+
 def generate_config_dfs_per_stage(pipeline_definition):
 
     dataframes = {}
@@ -47,7 +57,7 @@ def generate_config_dfs_per_stage(pipeline_definition):
         df = df.rename(columns={"_ConfigParam__value": "default"})
         df = df.rename(columns={"allowed_values": "allowed values"})
         df.columns = df.columns.str.capitalize()
-        df["Type"] = df["Type"].apply(lambda x: x.__name__)
+        df["Type"] = df["Type"].apply(convert_type_to_string)
         df["Allowed values"] = df["Allowed values"].apply(
             lambda value: "" if value is None else [NONE_FILL if x is None else x for x in value]
         )

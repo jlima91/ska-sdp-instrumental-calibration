@@ -134,7 +134,7 @@ def predict_from_components(
     beam_type: str = "everybeam",
     eb_coeffs: Optional[str] = None,
     eb_ms: Optional[str] = None,
-    station_rm: Optional[npt.NDArray[float]] = None,
+    station_rm: Optional[npt.NDArray[np.float64]] = None,
 ) -> xr.Dataset:
     """Predict model visibilities from a SkyComponent List.
 

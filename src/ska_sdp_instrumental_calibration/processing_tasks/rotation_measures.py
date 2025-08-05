@@ -16,17 +16,22 @@ logger = setup_logger("processing_tasks.post_processing")
 
 
 class ModelRotationData:
-    def __init__(self, gaintable, refant):
-        """
-        Create Model Rotation Data
+    """
+    Create Model Rotation Data
 
-        Parameters
-        ----------
-            gaintable: Gaintable dataset
-                Gaintable.
-            refant: int
-                Reference antenna.
-        """
+    Parameters
+    ----------
+    gaintable: Gaintable dataset
+        Gaintable.
+    refant: int
+        Reference antenna.
+    oversample: int, default: 5
+        Oversampling value used in the rotation
+        calculatiosn. Note that setting this value to some higher
+        integer may result in high memory usage.
+    """
+
+    def __init__(self, gaintable, refant, oversample=5):
         if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
             raise ValueError("gaintable must contain Jones matrices")
 
@@ -35,28 +40,34 @@ class ModelRotationData:
         self.nstations = len(gaintable.antenna)
         self.nfreq = len(gaintable.frequency)
         self.lambda_sq = (
-            const.c.value / gaintable.frequency  # pylint: disable=no-member
-        ) ** 2
+            (
+                const.c.value  # pylint: disable=no-member
+                / gaintable.frequency.data
+            )
+            ** 2
+        ).astype(np.float32)
 
-        oversample = 99
         self.rm_res = (
             1 / oversample / (da.max(self.lambda_sq) - da.min(self.lambda_sq))
         )
         self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
         self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
-        self.rm_vals = da.arange(-self.rm_max, self.rm_max, self.rm_res)
+        self.rm_vals = da.arange(
+            -self.rm_max, self.rm_max, self.rm_res, dtype=np.float32
+        )
         self.phasor = da.exp(
             da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
         )
         self.rm_spec = None
 
-        self.rm_est = da.zeros(self.nstations)
-        self.rm_peak = da.zeros(self.nstations)
-        self.const_rot = da.zeros(self.nstations)
+        self.rm_est = da.zeros(self.nstations, dtype=np.float32)
+        self.rm_peak = da.zeros(self.nstations, dtype=np.float32)
+        self.const_rot = da.zeros(self.nstations, dtype=np.float32)
         self.J = da.einsum(
             "fpx,sfqx->sfpq",
             gaintable.gain[0, refant].conj(),
             gaintable.gain[0, :],
+            dtype=np.complex64,
         )
 
     def get_plot_params_for_station(self, stn=None):
@@ -108,6 +119,7 @@ def model_rotations(
     peak_threshold: float = 0.5,
     refine_fit: bool = True,
     refant: int = 0,
+    oversample: int = 5,
 ):
     """
     Performs Model Rotations
@@ -120,14 +132,19 @@ def model_rotations(
             Peak threshold.
         refine_fit: bool
             Refine the fit.
-        refant: int
+        refant: int, default: 0
             Reference antenna.
+        oversample: int, default: 5
+            Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.
+
     Returns
     -------
         rotations: ModelRotation obj.
     """
 
-    rotations = ModelRotationData(gaintable, refant)
+    rotations = ModelRotationData(gaintable, refant, oversample)
 
     norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
     mask = da.from_delayed(

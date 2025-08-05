@@ -12,6 +12,7 @@ __all__ = [
     "plot_rm_station",
     "plot_bandpass_stages",
     "parse_reference_antenna",
+    "with_chunks",
 ]
 
 # pylint: disable=no-member
@@ -979,3 +980,26 @@ def parse_reference_antenna(refant, gaintable):
             raise ValueError("Reference antenna index is not valid")
         else:
             return refant
+
+
+def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
+    """
+    Rechunk a DataArray along dimensions specified in `chunks` dict.
+
+    Parameters
+    ----------
+    dataarray : xarray.DataArray
+        Input DataArray (can be Dask-backed or not).
+    chunks: dict
+        A dictionary mapping dimension names to chunk sizes.
+
+    Returns
+    -------
+    xarray.DataArray
+        Rechunked DataArray if applicable.
+    """
+    relevant_chunks = {
+        dim: chunks[dim] for dim in dataarray.dims if dim in chunks
+    }
+
+    return dataarray.chunk(relevant_chunks) if relevant_chunks else dataarray

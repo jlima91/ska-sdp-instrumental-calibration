@@ -37,7 +37,9 @@ def model_rotations(
     refine_fit: bool = True,
     refant: int = 0,
     plot_sample: bool = False,
+    plot_station: int = None,
     plot_path_prefix: str = "./",
+    oversample: int = 5,
 ) -> npt.NDArray[float]:
     """Fit a rotation measure for each station Jones matrix.
 
@@ -69,16 +71,20 @@ def model_rotations(
 
     # Set constants
     nstations = len(gaintable.antenna)
+
+    # By default set station to plot as last station
+    plot_station = (nstations - 1) if plot_station is None else plot_station
+
     lambda_sq = (
-        const.c.value / gaintable.frequency.data  # pylint: disable=no-member
-    ) ** 2
+        (const.c.value / gaintable.frequency.data)  # pylint: disable=no-member
+        ** 2
+    ).astype(np.float32)
 
     # Set RM spectrum parameters
-    oversample = 99
     rm_res = 1 / oversample / (np.max(lambda_sq) - np.min(lambda_sq))
     rm_max = 1 / (lambda_sq[-2] - lambda_sq[-1])
     rm_max = np.ceil(rm_max / rm_res) * rm_res
-    rm_vals = np.arange(-rm_max, rm_max, rm_res)
+    rm_vals = np.arange(-rm_max, rm_max, rm_res, dtype=np.float32)
     phasor = np.exp(np.outer(-1j * rm_vals, lambda_sq))
 
     rm_est = np.zeros(nstations)
@@ -165,7 +171,7 @@ def model_rotations(
             rm_est[stn] = rm_peek
             const_rot[stn] = 0
 
-        if plot_sample and stn == nstations - 1:
+        if plot_sample and stn == plot_station:
 
             plt.figure(figsize=(14, 12))
 
@@ -227,6 +233,9 @@ def model_rotations(
             ax.set_xlabel("Frequency (MHz)")
             ax.grid()
 
-            plt.savefig(f"{plot_path_prefix}/rm-station.png")
+            station_names = gaintable.configuration.names.data
+            stn_name = station_names[stn]
+
+            plt.savefig(f"{plot_path_prefix}rm-station-{stn_name}.png")
 
     return rm_est

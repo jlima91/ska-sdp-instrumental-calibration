@@ -46,6 +46,38 @@ For prediction of model visibilities, here are the pre-requisites:
    directory is also needed to generate beam models. The directory path supplied to
    `predict_from_components` is used to set environment variable `EVERYBEAM_DATADIR`.
 
+## Foreword: Dask distribution
+
+> This section is inspired from the [batch-preprocessing pipeline](https://developer.skao.int/projects/ska-sdp-batch-preprocess/en/latest/pipelines.html#foreword-dask-distribution)
+
+> This is only applicable with you run INST pipeline with a dask cluster (LocalCluster or SlurmCluster)
+
+The INST pipeline in the `load_data` stage, converts the MSv2 into a Zarr file, and stores it in the `cache_directory` path.
+
+During the testing, we have realised that its better to limit the number of parallel tasks that run during the conversion from MSv2 to Zarr,
+so that each task can get enought memory.
+
+The only reliable solution is to use [worker resources](https://distributed.dask.org/en/latest/resources.html#worker-resources).
+
+The instrumental calibration assumes that all workers define a resource called `process`; each worker may hold 1 or more `process` resources.
+Each task of the conversion is defined to use 1 `process` resource.
+Thus each worker will only run `process` number of tasks at any time (parallel/concurrent using its threadpool.)
+
+To define the reources when starting dask worker using the cli command:
+
+```bash
+dask worker <SCHEDULER_ADDRESS> <OPTIONS> --resources "process=1"
+```
+
+Or in a LocalCluster:
+
+```python
+cluster = LocalCluster(resources={'process': 1})
+```
+
+> ⚠️ Warning:
+> If the process resource is not defined on any worker, the pipeline (or rather, the Dask scheduler) will hang indefinitely.
+
 ## Installing the pipeline
 
 ### In python environments
@@ -69,7 +101,7 @@ Run the following command to install the latest stable release (0.3.4) of the pi
 ```bash
 INST_VERSION=0.3.4
 
-# if using uv, use `uv pip install ...` 
+# if using uv, use `uv pip install ...`
 pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]==$INST_VERSION"
 ```
 
@@ -80,7 +112,7 @@ Run the following command to install the latest pipeline from the `main` branch 
 ```bash
 INST_BRANCH=main
 
-# if using uv, use `uv pip install ...` 
+# if using uv, use `uv pip install ...`
 pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
 ```
 
@@ -122,7 +154,7 @@ docker run [-v local:container] <image-name> ...<cli_options>...
 
 Once you install the pipeline, you should be able to access the pipeline cli with `ska-sdp-instrumental-calibration` command.
 
-Running `ska-sdp-instrumental-calibration --help` should show following output: 
+Running `ska-sdp-instrumental-calibration --help` should show following output:
 
 ```bash
 usage: ska-sdp-instrumental-calibration [-h] {run,install-config,experimental} ...
@@ -240,4 +272,6 @@ The stage configurations have the following precedence - (1) `--set` (2) Configu
 
 While using the `--set` cli-option, please be mindful of the suffix appended to the stage name. Example: `ska-sdp-instrumental-calibration experimental ... --set parameters.delay_calibration_1.plot_config.plot_table true`
 
-Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section. 
+Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section.
+
+
