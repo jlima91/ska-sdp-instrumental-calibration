@@ -108,7 +108,12 @@ def generate_lsm_from_csv(
     cosdec0 = np.cos(dec0)
     sindec0 = np.sin(dec0)
 
-    lsm_df = pd.read_csv(csvfile, sep=r"\s*,\s*", comment="#", engine="python")
+    lsm_df = pd.read_csv(
+        csvfile, sep=r"\s*,\s*", skiprows=[0], engine="python"
+    )
+    lsm_df = lsm_df.rename(
+        columns={col: col.strip("#").strip(" ") for col in lsm_df.columns}
+    )
     lsm_df["comp_name"] = "comp" + lsm_df.index.astype("str")
 
     lsm_df = lsm_df[lsm_df["I (Jy)"] >= flux_limit]
