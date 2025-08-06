@@ -56,6 +56,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         2,
         4,
         {"input": "/path/to/vis.ms/"},
+        "/path/to/output/dir",
     )
 
     os_makedirs_mock.assert_called_once_with(
@@ -134,25 +135,26 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         upstream_output,
         frequency_per_chunk,
         times_per_ms_chunk,
-        "/cache/dir/path",
-        True,
+        None,
+        False,
         "ANOTHER_DATA",
         10,
         5,
         {"input": "/path/to/subdir/../vis.ms/"},
+        "/path/to/output/dir",
     )
 
     os_makedirs_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid10_ddid5", mode=0o755, exist_ok=True
+        "/path/to/output/dir/vis.ms_fid10_ddid5", mode=0o755, exist_ok=True
     )
 
     check_cache_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid10_ddid5"
+        "/path/to/output/dir/vis.ms_fid10_ddid5"
     )
 
     write_ms_mock.assert_called_once_with(
         "/path/to/vis.ms",
-        "/cache/dir/path/vis.ms_fid10_ddid5",
+        "/path/to/output/dir/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,
@@ -160,14 +162,14 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "time": times_per_ms_chunk,
             "frequency": frequency_per_chunk,
         },
-        ack=True,
+        ack=False,
         datacolumn="ANOTHER_DATA",
         field_id=10,
         data_desc_id=5,
     )
 
     read_data_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid10_ddid5",
+        "/path/to/output/dir/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,

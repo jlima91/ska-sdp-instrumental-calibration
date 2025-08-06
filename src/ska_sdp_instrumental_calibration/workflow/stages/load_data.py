@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
         cache_directory=ConfigParam(
             str,
             None,
-            nullable=False,
+            nullable=True,
             description="""Cache directory containing previously stored
             visibility datasets as zarr files. The directory should contain
             a subdirectory with same name as the input ms file name, which
@@ -85,6 +85,7 @@ def load_data_stage(
     field_id,
     data_desc_id,
     _cli_args_,
+    _output_dir_,
 ):
     """
     This stage loads the visibility data from either (in order of preference):
@@ -124,7 +125,9 @@ def load_data_stage(
     data_desc_id: int
         Data Description ID of the data in measurement set
     _cli_args_: dict
-        CLI Arguments.
+        Piper builtin. Contains all CLI Arguments.
+    _output_dir_: str
+        Piper builtin. Stores the output directory path.
 
     Returns
     -------
@@ -162,7 +165,10 @@ def load_data_stage(
     upstream_output["chunks"] = vis_chunks
 
     if cache_directory is None:
-        raise ValueError("Cache directory must be provided.")
+        logger.info(
+            "Setting cache_directory to output directory: %s", _output_dir_
+        )
+        cache_directory = _output_dir_
 
     vis_cache_directory = os.path.join(
         cache_directory,
