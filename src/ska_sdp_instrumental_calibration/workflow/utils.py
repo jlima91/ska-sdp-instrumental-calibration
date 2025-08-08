@@ -15,9 +15,10 @@ __all__ = [
     "with_chunks",
 ]
 
-# pylint: disable=no-member
 import warnings
 from collections import namedtuple
+from functools import wraps
+from traceback import print_exc
 from typing import Literal, Optional
 
 import dask.array as da
@@ -64,10 +65,29 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 
 matplotlib.use("Agg")
 
-
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-logger = setup_logger("workflow.utils")
+logger = setup_logger(__name__)
+
+
+def safe(func):
+    """
+    Wrapper to catch all exceptions and print traceback to stderr,
+    instead of crashing the application.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as ex:
+            logger.error(
+                "Caught exception in function %s: %s", func.__name__, str(ex)
+            )
+            print_exc()
+
+    return wrapper
 
 
 def create_demo_ms(
@@ -490,6 +510,7 @@ def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
 
 
 @dask.delayed
+@safe
 def plot_gaintable(
     gaintable,
     path_prefix,
@@ -516,7 +537,6 @@ def plot_gaintable(
         drop_cross_pols: bool
             Do not plot cross polarizations
     """
-
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
@@ -672,6 +692,7 @@ def subplot_gaintable(
 
 
 @dask.delayed
+@safe
 def plot_station_delays(delaytable, path_prefix, show_station_label=False):
     """
     Plot the station delays against the station configuration
@@ -717,6 +738,7 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
 
 
 @dask.delayed
+@safe
 def plot_bandpass_stages(
     gaintable, initialtable, rm_est, refant, plot_path_prefix
 ):
@@ -800,6 +822,7 @@ def plot_bandpass_stages(
 
 
 @dask.delayed
+@safe
 def plot_rm_station(
     gaintable,
     rm_vals,
