@@ -614,8 +614,6 @@ def _load_data_vars(
         da.arange(vis.time.size), coords={"time": vis.time}
     ).pipe(with_chunks, vis.chunksizes)
 
-    num_baselines_in_ms = num_rows_in_ms // time_index_xdr.size
-
     nantennas = vis.configuration.id.size
 
     # Visibility always has baselines with autocorrelations,
@@ -637,6 +635,13 @@ def _load_data_vars(
     ms_baseline_indices = pandas.MultiIndex.from_arrays(
         np.triu_indices(nantennas, k=diag_offset)[indices_order],
         names=("antenna1", "antenna2"),
+    )
+
+    num_baselines_in_ms = num_rows_in_ms // time_index_xdr.size
+
+    assert num_baselines_in_ms == len(ms_baseline_indices), (
+        "Number of baselines in measurement set do not match with "
+        "number of baselines from index"
     )
 
     baseline_indices_pair = np.array(
