@@ -27,30 +27,30 @@ Parameters
     :width: 100%
     :widths: 15, 10, 10, 45, 10, 10
 
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | Param              | Type   | Default   | Description                                                                     | Nullable   | Allowed values                           |
-    +====================+========+===========+=================================================================================+============+==========================================+
-    | fchunk             | int    | 32        | Number of frequency channels per chunk in the             written zarr file.    | False      |                                          |
-    |                    |        |           | This is also the size of frequency chunk             used across the pipeline.  |            |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | times_per_ms_chunk | int    | 5         | Number of time slots to include in each chunk             while reading from    | False      |                                          |
-    |                    |        |           | measurement set.                                                                |            |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | cache_directory    | str    | ``null``  | Cache directory containing previously stored             visibility datasets as | False      |                                          |
-    |                    |        |           | zarr files. The directory should contain             a subdirectory with same   |            |                                          |
-    |                    |        |           | name as the input ms file name, which             internally contains the zarr  |            |                                          |
-    |                    |        |           | and pickle files.             If None, the input ms will be converted to zarr   |            |                                          |
-    |                    |        |           | file,             and this zarr file will be stored in a new 'cache'            |            |                                          |
-    |                    |        |           | subdirectory under the provided output directory.                               |            |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | ack                | bool   | False     | Ask casacore to acknowledge each table operation                                | False      |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | datacolumn         | str    | DATA      | MS data column to read visibility data from.                                    | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | field_id           | int    | 0         | Field ID of the data in measurement set                                         | False      |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
-    | data_desc_id       | int    | 0         | Data Description ID of the data in measurement set                              | False      |                                          |
-    +--------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | Param               | Type   | Default   | Description                                                                     | Nullable   | Allowed values                           |
+    +=====================+========+===========+=================================================================================+============+==========================================+
+    | nchannels_per_chunk | int    | 32        | Number of frequency channels per chunk in the             written zarr file.    | False      |                                          |
+    |                     |        |           | This is also the size of frequency chunk             used across the pipeline.  |            |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ntimes_per_ms_chunk | int    | 5         | Number of time slots to include in each chunk             while reading from    | False      |                                          |
+    |                     |        |           | measurement set.                                                                |            |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | cache_directory     | str    | ``null``  | Cache directory containing previously stored             visibility datasets as | True       |                                          |
+    |                     |        |           | zarr files. The directory should contain             a subdirectory with same   |            |                                          |
+    |                     |        |           | name as the input ms file name, which             internally contains the zarr  |            |                                          |
+    |                     |        |           | and pickle files.             If None, the input ms will be converted to zarr   |            |                                          |
+    |                     |        |           | file,             and this zarr file will be stored in a new 'cache'            |            |                                          |
+    |                     |        |           | subdirectory under the provided output directory.                               |            |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ack                 | bool   | False     | Ask casacore to acknowledge each table operation                                | False      |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | datacolumn          | str    | DATA      | MS data column to read visibility data from.                                    | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | field_id            | int    | 0         | Field ID of the data in measurement set                                         | False      |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
+    | data_desc_id        | int    | 0         | Data Description ID of the data in measurement set                              | False      |                                          |
+    +---------------------+--------+-----------+---------------------------------------------------------------------------------+------------+------------------------------------------+
 
 
 predict_vis
@@ -143,14 +143,6 @@ Parameters
     |                                   |                |                   | "mean", "median".                 To perform no normalization, set this to      |            |                                                                                            |
     |                                   |                |                   | ``null``.                                                                       |            |                                                                                            |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
-    | run_solver_config.jones_type      | str            | T                 | Type of calibration matrix T or G or B.                 The frequency axis of   | False      | ['T', 'G', 'B']                                                                            |
-    |                                   |                |                   | the output GainTable                 depends on the value provided:             |            |                                                                                            |
-    |                                   |                |                   | "B": the output frequency axis is the same as                 that of the input |            |                                                                                            |
-    |                                   |                |                   | Visibility.                 "T" or "G": the solution is assumed to be           |            |                                                                                            |
-    |                                   |                |                   | frequency-independent, and the frequency axis of the                 output     |            |                                                                                            |
-    |                                   |                |                   | contains a single value: the average frequency                 of the input     |            |                                                                                            |
-    |                                   |                |                   | Visibility's channels.                                                          |            |                                                                                            |
-    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | run_solver_config.timeslice       | float          | ``null``          | Defines time scale over which each gain solution                 is valid. This | True       |                                                                                            |
     |                                   |                |                   | is used to define time axis of the GainTable.                 This parameter is |            |                                                                                            |
     |                                   |                |                   | interpreted as follows,                  float: this is a custom time interval  |            |                                                                                            |
@@ -232,14 +224,6 @@ Parameters
     |                                   |                |                   | "gain_substitution".                 Possible types of normalization are:        |            |                                                                                            |
     |                                   |                |                   | "mean", "median".                 To perform no normalization, set this to       |            |                                                                                            |
     |                                   |                |                   | ``null``.                                                                        |            |                                                                                            |
-    +-----------------------------------+----------------+-------------------+----------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
-    | run_solver_config.jones_type      | str            | T                 | Type of calibration matrix T or G or B.                 The frequency axis of    | False      | ['T', 'G', 'B']                                                                            |
-    |                                   |                |                   | the output GainTable                 depends on the value provided:              |            |                                                                                            |
-    |                                   |                |                   | "B": the output frequency axis is the same as                 that of the input  |            |                                                                                            |
-    |                                   |                |                   | Visibility.                 "T" or "G": the solution is assumed to be            |            |                                                                                            |
-    |                                   |                |                   | frequency-independent, and the frequency axis of the                 output      |            |                                                                                            |
-    |                                   |                |                   | contains a single value: the average frequency                 of the input      |            |                                                                                            |
-    |                                   |                |                   | Visibility's channels.                                                           |            |                                                                                            |
     +-----------------------------------+----------------+-------------------+----------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | run_solver_config.timeslice       | float          | ``null``          | Defines time scale over which each gain solution                 is valid. This  | True       |                                                                                            |
     |                                   |                |                   | is used to define time axis of the GainTable.                 This parameter is  |            |                                                                                            |
