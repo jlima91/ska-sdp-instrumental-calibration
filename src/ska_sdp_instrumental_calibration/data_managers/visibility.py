@@ -2,7 +2,7 @@ import logging
 import os
 import pickle
 from copy import deepcopy
-from typing import List
+from typing import List, Optional
 
 import dask
 import dask.array as da
@@ -354,6 +354,8 @@ def _load_vis_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
+    polarisation_order: Optional[np.ndarray] = None,
     datacolumn: str = "DATA",
     field_id: int = 0,
     data_desc_id: int = 0,
@@ -361,7 +363,7 @@ def _load_vis_xdr(
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    vis_non_corr_shape = (
+    vis_data_shape = (
         vis_chunk.shape[0],
         num_baselines_in_ms,
         *vis_chunk.shape[2:],
@@ -375,7 +377,17 @@ def _load_vis_xdr(
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(vis_non_corr_shape)
+    )[0].reshape(vis_data_shape)
+
+    if crosscorr_mask_over_baseline is not None:
+        vis_data[:, crosscorr_mask_over_baseline, ...] = np.conj(
+            vis_data[:, crosscorr_mask_over_baseline, ...]
+        )
+
+        if polarisation_order is not None:
+            vis_data[:, crosscorr_mask_over_baseline, ...] = vis_data[
+                :, crosscorr_mask_over_baseline, ...
+            ][..., polarisation_order]
 
     actual_vis_data = np.zeros_like(vis_chunk)
     actual_vis_data[:, baseline_indices_pair[:, 0], ...] = vis_data[
@@ -393,13 +405,15 @@ def _load_flags_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
+    polarisation_order: Optional[np.ndarray] = None,
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    flag_non_corr_shape = (
+    flag_data_shape = (
         flags_chunk.shape[0],
         num_baselines_in_ms,
         *flags_chunk.shape[2:],
@@ -413,7 +427,15 @@ def _load_flags_xdr(
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(flag_non_corr_shape)
+    )[0].reshape(flag_data_shape)
+
+    if (
+        crosscorr_mask_over_baseline is not None
+        and polarisation_order is not None
+    ):
+        flag_data[:, crosscorr_mask_over_baseline, ...] = flag_data[
+            :, crosscorr_mask_over_baseline, ...
+        ][..., polarisation_order]
 
     actual_flags_data = np.zeros_like(flags_chunk)
     actual_flags_data[:, baseline_indices_pair[:, 0], ...] = flag_data[
@@ -431,13 +453,15 @@ def _load_weight_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
+    polarisation_order: Optional[np.ndarray] = None,
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    weight_non_corr_shape = (
+    weight_data_shape = (
         weight_chunk.shape[0],
         num_baselines_in_ms,
         weight_chunk.shape[-1],
@@ -451,7 +475,15 @@ def _load_weight_xdr(
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(weight_non_corr_shape)
+    )[0].reshape(weight_data_shape)
+
+    if (
+        crosscorr_mask_over_baseline is not None
+        and polarisation_order is not None
+    ):
+        weight_data[:, crosscorr_mask_over_baseline, ...] = weight_data[
+            :, crosscorr_mask_over_baseline, ...
+        ][..., polarisation_order]
 
     actual_weight_data = np.zeros_like(weight_chunk)
     actual_weight_data[:, baseline_indices_pair[:, 0], ...] = weight_data[
@@ -469,13 +501,14 @@ def _load_uvw_xdr(
     time_index_xdr: xr.DataArray,
     baseline_indices_pair: np.ndarray,
     num_baselines_in_ms: int,
+    crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    uvw_non_corr_shape = (uvw_chunk.shape[0], num_baselines_in_ms, 3)
+    uvw_data_shape = (uvw_chunk.shape[0], num_baselines_in_ms, 3)
 
     uvw_data = get_col_from_ms(
         ms_name,
@@ -485,10 +518,13 @@ def _load_uvw_xdr(
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(uvw_non_corr_shape)
+    )[0].reshape(uvw_data_shape)
 
     # This sign switch was done in the original converter in data models
     uvw_data = -1 * uvw_data
+
+    if crosscorr_mask_over_baseline is not None:
+        uvw_data[:, crosscorr_mask_over_baseline, :] *= -1
 
     actual_uvw_data = np.zeros_like(uvw_chunk)
     actual_uvw_data[:, baseline_indices_pair[:, 0], ...] = uvw_data[
@@ -511,23 +547,15 @@ def _load_data_vars(
     Pre-requisites:
       * vis dimensions:
           time, baselineid, frequency, polarisation
-          Measurement set "data" dimensions:
-          rows (time , baselineid), frequency, polarisation
+        Measurement set "data" dimensions:
+          rows (time * baselineid), frequency, polarisation
 
-      * Measurement set may or may not contain self-correlated values,
-        but the visibility always expects self-correlated values.
-        Thus necessary conversions are made here. In case self-corrs
-        are absent in MS, self-correlations in the Visibility dataset
+      * Measurement set may or may not contain auto-correlated values,
+        but the visibility always expects auto-correlated values.
+        Thus necessary conversions are made here. In case auto-corrs
+        are absent in MS, auto-correlations in the Visibility dataset
         are set to zero.
-
-      * In a baseline, ANTENNA1 index is always less than or equal
-        to ANTENNA2 index.
     """
-    time_index_xdr = xr.DataArray(
-        da.arange(vis.time.size), coords={"time": vis.time}
-    ).pipe(with_chunks, vis.chunksizes)
-    ntime = time_index_xdr.size
-
     with table(ms_name, readonly=True, ack=False) as tab:
         with tab.query(
             f"FIELD_ID=={field_id} AND DATA_DESC_ID=={data_desc_id}", style=""
@@ -539,50 +567,102 @@ def _load_data_vars(
                     f"and DATA_DESC_ID={data_desc_id}"
                 )
 
+            ms_contains_autocorrelations = False
             if (
                 taql(
-                    "select from $1 where ANTENNA1 > ANTENNA2 limit 1",
+                    "select ANTENNA1 from $1 where "
+                    "ANTENNA1 == ANTENNA2 limit 1",
                     tables=[ms],
                 ).nrows()
                 > 0
             ):
-                raise ValueError(
-                    "Measurement set ANTENNA1 values are greater than "
-                    "ANTENNA2. This is not supported."
+                ms_contains_autocorrelations = True
+            logger.info(
+                "Does measurement set contain autocorrelations? %s",
+                ms_contains_autocorrelations,
+            )
+
+            ms_is_baseline_order_reversed = False
+            if (
+                taql(
+                    "select ANTENNA1 from $1 where "
+                    "ANTENNA1 > ANTENNA2 limit 1",
+                    tables=[ms],
+                ).nrows()
+                > 0
+            ):
+                ms_is_baseline_order_reversed = True
+            logger.info(
+                "In the measurement set, is the baseline antenna "
+                "order reversed (i.e. is antenna1 > antenna2)? %s",
+                ms_is_baseline_order_reversed,
+            )
+
+            if ms_is_baseline_order_reversed and (
+                taql(
+                    "select ANTENNA1 from $1 where "
+                    "ANTENNA1 < ANTENNA2 limit 1",
+                    tables=[ms],
+                ).nrows()
+                > 0
+            ):
+                raise RuntimeError(
+                    "Order of antennas in baseline pairs is not consistent."
                 )
 
-    num_baselines_in_ms = num_rows_in_ms // ntime
+    time_index_xdr = xr.DataArray(
+        da.arange(vis.time.size), coords={"time": vis.time}
+    ).pipe(with_chunks, vis.chunksizes)
+
+    num_baselines_in_ms = num_rows_in_ms // time_index_xdr.size
 
     nantennas = vis.configuration.id.size
-    baselines_self_corr = pandas.MultiIndex.from_arrays(
+
+    # Visibility always has baselines with autocorrelations,
+    # and order antenna1 <= antenna2
+    vis_baseline_indices = pandas.MultiIndex.from_arrays(
         np.triu_indices(nantennas, k=0), names=("antenna1", "antenna2")
     )
-    baselines_no_self_corr = pandas.MultiIndex.from_arrays(
-        np.triu_indices(nantennas, k=1), names=("antenna1", "antenna2")
+
+    if ms_is_baseline_order_reversed:
+        indices_order = slice(None, None, -1)
+    else:
+        indices_order = slice(None, None, None)
+
+    if ms_contains_autocorrelations:
+        diag_offset = 0
+    else:
+        diag_offset = 1
+
+    ms_baseline_indices = pandas.MultiIndex.from_arrays(
+        np.triu_indices(nantennas, k=diag_offset)[indices_order],
+        names=("antenna1", "antenna2"),
     )
 
-    # MS contains self-correlated visibilities
-    if (nantennas * (nantennas + 1) // 2) == num_baselines_in_ms:
-        baseline_indices_pair = np.array(
-            [[i, i] for i in range(len(baselines_self_corr))]
-        )
+    baseline_indices_pair = np.array(
+        [
+            [vis_baseline_indices.get_loc(indices[indices_order]), row]
+            for row, indices in enumerate(ms_baseline_indices)
+        ]
+    )
 
-    # MS contains only non self-correlated visibilities
-    elif (nantennas * (nantennas - 1) // 2) == num_baselines_in_ms:
-        baseline_indices_pair = np.array(
-            [
-                [baselines_self_corr.get_loc((ant1, ant2)), no_self_corr_row]
-                for no_self_corr_row, (ant1, ant2) in enumerate(
-                    baselines_no_self_corr
-                )
-            ]
-        )
+    crosscorr_baseline_mask = None
+    polarisation_order = None
+    if ms_is_baseline_order_reversed:
+        crosscorr_baseline_mask = ms_baseline_indices.get_level_values(
+            "antenna1"
+        ) != ms_baseline_indices.get_level_values("antenna2")
 
-    else:
-        raise ValueError(
-            "Can not infer whether MS contains self-corr baselines or not."
-            f"from rows: {num_rows_in_ms} and time: {ntime}"
-        )
+        if vis._polarisation_frame in ["linear", "circular"]:
+            polarisation_order = [0, 2, 1, 3]
+        elif vis._polarisation_frame == "linearFITS":
+            polarisation_order = [0, 1, 3, 2]
+        else:
+            raise RuntimeError(
+                "Unsupported polarisation frame '%s' "
+                "when antenna order in baselines is reversed",
+                vis._polarisation_frame,
+            )
 
     # vis
     vis_data_xdr = xr.map_blocks(
@@ -593,6 +673,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            crosscorr_baseline_mask,
+            polarisation_order,
             datacolumn,
             field_id,
             data_desc_id,
@@ -609,6 +691,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            crosscorr_baseline_mask,
+            polarisation_order,
             field_id,
             data_desc_id,
         ],
@@ -624,6 +708,8 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            crosscorr_baseline_mask,
+            polarisation_order,
             field_id,
             data_desc_id,
         ],
@@ -639,6 +725,7 @@ def _load_data_vars(
             time_index_xdr,
             baseline_indices_pair,
             num_baselines_in_ms,
+            crosscorr_baseline_mask,
             field_id,
             data_desc_id,
         ],
@@ -664,11 +751,8 @@ def load_ms_as_dataset_with_time_chunks(
     data_desc_id: int = 0,
 ) -> xr.Dataset:
     """
-    Distributed load of a MSv2 Measurement Set into a Visibility dataset,
-    across time chunks.
-
-    Assumptions:
-        Measurement set contains only one field id and one data description id.
+    Distributed load of a MSv2 Measurement Set data (for given field id and
+    data description id) into a Visibility dataset, across time chunks.
     """
     # Get observation metadata
     vis_template = simplify_baselines_dim(
