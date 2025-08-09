@@ -352,7 +352,7 @@ def _load_vis_xdr(
     vis_chunk: xr.DataArray,
     ms_name: str,
     time_index_xdr: xr.DataArray,
-    baseline_indices_pair: np.ndarray,
+    vis_baseline_indices_to_update: np.ndarray,
     num_baselines_in_ms: int,
     crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     polarisation_order: Optional[np.ndarray] = None,
@@ -390,9 +390,7 @@ def _load_vis_xdr(
             ][..., polarisation_order]
 
     actual_vis_data = np.zeros_like(vis_chunk)
-    actual_vis_data[:, baseline_indices_pair[:, 0], ...] = vis_data[
-        :, baseline_indices_pair[:, 1], ...
-    ]
+    actual_vis_data[:, vis_baseline_indices_to_update, ...] = vis_data
 
     del vis_data
 
@@ -403,7 +401,7 @@ def _load_flags_xdr(
     flags_chunk: xr.DataArray,
     ms_name: str,
     time_index_xdr: xr.DataArray,
-    baseline_indices_pair: np.ndarray,
+    vis_baseline_indices_to_update: np.ndarray,
     num_baselines_in_ms: int,
     crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     polarisation_order: Optional[np.ndarray] = None,
@@ -438,9 +436,7 @@ def _load_flags_xdr(
         ][..., polarisation_order]
 
     actual_flags_data = np.zeros_like(flags_chunk)
-    actual_flags_data[:, baseline_indices_pair[:, 0], ...] = flag_data[
-        :, baseline_indices_pair[:, 1], ...
-    ]
+    actual_flags_data[:, vis_baseline_indices_to_update, ...] = flag_data
 
     del flag_data
 
@@ -451,7 +447,7 @@ def _load_weight_xdr(
     weight_chunk: xr.DataArray,
     ms_name: str,
     time_index_xdr: xr.DataArray,
-    baseline_indices_pair: np.ndarray,
+    vis_baseline_indices_to_update: np.ndarray,
     num_baselines_in_ms: int,
     crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     polarisation_order: Optional[np.ndarray] = None,
@@ -486,8 +482,8 @@ def _load_weight_xdr(
         ][..., polarisation_order]
 
     actual_weight_data = np.zeros_like(weight_chunk)
-    actual_weight_data[:, baseline_indices_pair[:, 0], ...] = weight_data[
-        :, baseline_indices_pair[:, 1], np.newaxis, ...
+    actual_weight_data[:, vis_baseline_indices_to_update, ...] = weight_data[
+        :, :, np.newaxis, ...
     ]
 
     del weight_data
@@ -499,7 +495,7 @@ def _load_uvw_xdr(
     uvw_chunk: xr.DataArray,
     ms_name: str,
     time_index_xdr: xr.DataArray,
-    baseline_indices_pair: np.ndarray,
+    vis_baseline_indices_to_update: np.ndarray,
     num_baselines_in_ms: int,
     crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     field_id: int = 0,
@@ -527,9 +523,7 @@ def _load_uvw_xdr(
         uvw_data[:, crosscorr_mask_over_baseline, :] *= -1
 
     actual_uvw_data = np.zeros_like(uvw_chunk)
-    actual_uvw_data[:, baseline_indices_pair[:, 0], ...] = uvw_data[
-        :, baseline_indices_pair[:, 1], ...
-    ]
+    actual_uvw_data[:, vis_baseline_indices_to_update, ...] = uvw_data
 
     del uvw_data
 
@@ -623,9 +617,9 @@ def _load_data_vars(
     )
 
     if ms_is_baseline_order_reversed:
-        indices_order = slice(None, None, -1)
+        ms_baseline_indices_order = slice(None, None, -1)
     else:
-        indices_order = slice(None, None, None)
+        ms_baseline_indices_order = slice(None, None, None)
 
     if ms_contains_autocorrelations:
         diag_offset = 0
@@ -633,21 +627,23 @@ def _load_data_vars(
         diag_offset = 1
 
     ms_baseline_indices = pandas.MultiIndex.from_arrays(
-        np.triu_indices(nantennas, k=diag_offset)[indices_order],
+        np.triu_indices(nantennas, k=diag_offset)[ms_baseline_indices_order],
         names=("antenna1", "antenna2"),
     )
 
     num_baselines_in_ms = num_rows_in_ms // time_index_xdr.size
 
     assert num_baselines_in_ms == len(ms_baseline_indices), (
-        "Number of baselines in measurement set do not match with "
-        "number of baselines from index"
+        "Number of baselines in measurement set (%s) do not match with "
+        "number of baselines from indices (%s)",
+        num_baselines_in_ms,
+        len(ms_baseline_indices),
     )
 
-    baseline_indices_pair = np.array(
+    vis_baseline_indices_to_update = np.array(
         [
-            [vis_baseline_indices.get_loc(indices[indices_order]), row]
-            for row, indices in enumerate(ms_baseline_indices)
+            vis_baseline_indices.get_loc(indices[ms_baseline_indices_order])
+            for indices in ms_baseline_indices
         ]
     )
 
@@ -676,7 +672,7 @@ def _load_data_vars(
         args=[
             ms_name,
             time_index_xdr,
-            baseline_indices_pair,
+            vis_baseline_indices_to_update,
             num_baselines_in_ms,
             crosscorr_baseline_mask,
             polarisation_order,
@@ -694,7 +690,7 @@ def _load_data_vars(
         args=[
             ms_name,
             time_index_xdr,
-            baseline_indices_pair,
+            vis_baseline_indices_to_update,
             num_baselines_in_ms,
             crosscorr_baseline_mask,
             polarisation_order,
@@ -711,7 +707,7 @@ def _load_data_vars(
         args=[
             ms_name,
             time_index_xdr,
-            baseline_indices_pair,
+            vis_baseline_indices_to_update,
             num_baselines_in_ms,
             crosscorr_baseline_mask,
             polarisation_order,
@@ -728,7 +724,7 @@ def _load_data_vars(
         args=[
             ms_name,
             time_index_xdr,
-            baseline_indices_pair,
+            vis_baseline_indices_to_update,
             num_baselines_in_ms,
             crosscorr_baseline_mask,
             field_id,
