@@ -40,9 +40,7 @@ def test_should_predict_visibilities(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -63,7 +61,6 @@ def test_should_predict_visibilities(
         beam_type="everybeam",
         eb_ms="path/to/input/ms",
         eb_coeffs="/path/to/coeffs",
-        reset_vis=False,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -101,9 +98,7 @@ def test_should_predict_visibilities_using_csv_lsm(
         "lsm_csv_path": "/path/to/lsm.csv",
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(
@@ -123,7 +118,6 @@ def test_should_predict_visibilities_using_csv_lsm(
         beam_type="everybeam",
         eb_ms="test.ms",
         eb_coeffs="/path/to/coeffs",
-        reset_vis=False,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -161,9 +155,7 @@ def test_should_update_call_count(
         "lsm_csv_path": "/path/to/lsm.csv",
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     upstream_output = predict_vis_stage.stage_definition(
@@ -204,9 +196,7 @@ def test_should_throw_exception_if_lsm_is_none(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     with pytest.raises(RequiredArgumentMissingException):
@@ -244,6 +234,7 @@ def test_should_normalise_at_beam_centre(
 ):
     vis = Mock(name="Visibilities")
     upstream_output = UpstreamOutput()
+
     upstream_output["vis"] = vis
     cli_args = {"input": "path/to/input/ms"}
 
@@ -267,9 +258,7 @@ def test_should_normalise_at_beam_centre(
         "lsm_csv_path": None,
         "fov": 10.0,
         "flux_limit": 1.0,
-        "export_model_vis": False,
         "alpha0": -0.78,
-        "reset_vis": False,
     }
 
     result = predict_vis_stage.stage_definition(

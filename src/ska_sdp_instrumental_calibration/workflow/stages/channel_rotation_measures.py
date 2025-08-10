@@ -17,7 +17,12 @@ from ...data_managers.dask_wrappers import (
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
-from ..utils import plot_bandpass_stages, plot_gaintable, plot_rm_station
+from ..utils import (
+    parse_reference_antenna,
+    plot_bandpass_stages,
+    plot_gaintable,
+    plot_rm_station,
+)
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
 logger = logging.getLogger()
@@ -26,11 +31,12 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "generate_channel_rm",
     configuration=Configuration(
-        fchunk=ConfigParam(
+        oversample=ConfigParam(
             int,
-            -1,
-            description="""Number of frequency channels per chunk.
-            If set to -1, use fchunk value from load_data""",
+            5,
+            description="""Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.""",
         ),
         peak_threshold=ConfigParam(
             float,
@@ -60,9 +66,9 @@ logger = logging.getLogger()
                 per station""",
             ),
             station=ConfigParam(
-                int,
+                (int, str),
                 0,
-                description="""Station number to be plotted""",
+                description="""Station number/name to be plotted""",
                 nullable=True,
             ),
         ),
@@ -80,7 +86,7 @@ logger = logging.getLogger()
 )
 def generate_channel_rm_stage(
     upstream_output,
-    fchunk,
+    oversample,
     peak_threshold,
     refine_fit,
     visibility_key,
@@ -97,9 +103,10 @@ def generate_channel_rm_stage(
     ----------
         upstream_output: dict
             Output from the upstream stage
-        fchunk: int
-            Number of frequency channels per chunk.
-            If it is '-1' fchunk of load_data will be used.
+        oversample: int
+            Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.
         peak_threshold: float
             Height of peak in the RM spectrum required
             for a rotation detection.
@@ -134,8 +141,11 @@ def generate_channel_rm_stage(
 
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
-    if fchunk != -1:
-        initialtable = upstream_output.gaintable.chunk({"frequency": fchunk})
+
+    refant = run_solver_config["refant"]
+    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
+    station = plot_rm_config["station"]
+    plot_rm_config["station"] = parse_reference_antenna(station, initialtable)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("channel_rm"):
@@ -150,7 +160,9 @@ def generate_channel_rm_stage(
         peak_threshold=peak_threshold,
         refine_fit=refine_fit,
         refant=run_solver_config["refant"],
+        oversample=oversample,
     )
+
     modelvis = predict_vis(
         vis,
         upstream_output["lsm"],
@@ -159,6 +171,7 @@ def generate_channel_rm_stage(
         eb_coeffs=upstream_output["eb_coeffs"],
         station_rm=rotations.rm_est,
     )
+
     if upstream_output["beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
             modelvis, upstream_output["beams"], inverse=True

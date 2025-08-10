@@ -1,12 +1,44 @@
 Changelog
 #########
 
-This project adheres to `Semantic Versioning <http://semver.org/>`_.
+0.4.0
+*****
 
-Main
-****
+Breaking
+--------
 
-(Latest changes on main)
+* The configuration schema (YAML) has changed for many stages. Some notable changes:
+
+  *  ``load_data`` stage now has parameters corresponding to the conversion from MSv2 to Zarr, like ``nchannels_per_chunk``, ``ntimes_per_ms_chunk``, ``cache_directory``.
+  * Ineffective parameters like ``reset_vis``, ``jones_type``, ``export_model_vis``, ``flagging`` are removed.
+  * ``fchunk`` parameter is removed, as we expect the entire pipeline to work with consistent chunksizes for all dimensions, from start till finish.
+
+  Please refer to the :doc:`stage_config` page.
+
+* For distributed run using dask workers, the workers must have a resource called ``process``. Please refer to the "dask distribution" section in :doc:`README<README>` to understand the usage.
+
+Added
+-----
+
+* Support providing antenna names (along with indices) for config parameters which refer to a antenna, like ``refant`` or ``station``
+
+Improvements
+------------
+
+Reducing memory footprint by using zarr as input
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* The pipeline will first convert the input MSv2 into a zarr file, which represents the ``Visibility`` data model.
+* The zarr file will be chunked across frequency and time dimensions based on the parameters to ``load_data`` stage.
+* Xarray operations like ``map_blocks`` work well with zarr format, minimising data which is loaded at a time to memory.
+* The intermediate zarr files will be cached based on the name of MSv2, field id and data description id; and stored in user provided ``cache_directory``. This will ensure that cached zarr files are re-used between multiple runs on the same input MSv2.
+
+0.3.4
+*****
+
+Fixed
+-----
+* Fixed issue with dask.array.float32 targeted at spack builds.
 
 0.3.3
 *****

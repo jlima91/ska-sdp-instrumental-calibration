@@ -1,29 +1,35 @@
 """Module for logger."""
 
-# copied from ska-sdp-distributed-self-cal-prototype for consistent logging
-
 import logging
 
+from ska_ser_logging import configure_logging
 
-def setup_logger(name: str) -> logging.Logger:
-    """Set up logger.
 
-    Args:
-        name: Namespace for the logger.
+def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
+    """
+    Setup a new logger with given name.
 
-    Returns:
-        logger: Logger object.
+    If there are no handlers set, this will call
+    ``configure_logging`` function from ``ska_ser_logging``
+    to set the SKA standardized logging format at the root level,
+    and also the handlers.
+
+    Parameters
+    ----------
+    name: str
+        Namespace for the logger.
+    level: int
+        Integer representing standard logging levels
+
+    Returns
+    -------
+    Logger
+        Logger object.
     """
     logger = logging.getLogger(name)
 
     if not logger.hasHandlers():
-        logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+        configure_logging(level=level)
+        logger = logging.getLogger(name)
 
     return logger

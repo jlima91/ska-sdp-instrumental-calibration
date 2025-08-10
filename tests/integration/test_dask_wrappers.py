@@ -1,30 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
+# flake8: noqa: F401
 """Test ska-sdp-instrumental-calibration wrappers around map_blocks calls."""
 
-# flake8 does not seem to like the generate_vis pytest fixture
-# flake8: noqa: F401
-
-import shutil
-
 import numpy as np
-import pytest
 import xarray as xr
-from distributed.utils_test import (
-    cleanup,
-    client,
-    cluster_fixture,
-    loop,
-    loop_in_thread,
-)
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_datamodels.visibility.vis_io_ms import (
-    create_visibility_from_ms,
-    export_visibility_to_ms,
-)
+from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
@@ -43,25 +25,15 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
 
-ms_name = "test.ms"
 
-
-@pytest.fixture(autouse=True)
-def generate_ms(generate_vis):
-    """Create and later delete test MSv2."""
-    vis, _ = generate_vis
-    export_visibility_to_ms(ms_name, [vis])
-    yield
-    shutil.rmtree(ms_name)
-
-
-def test_load_ms(client):
+def test_load_ms(generate_ms):
+    ms_path = generate_ms
     # Read in the Visibility dataset directly
-    vis = create_visibility_from_ms(ms_name)[0]
+    vis = create_visibility_from_ms(ms_path)[0]
 
     # Read in the Visibility dataset in chunks
     fchunk = len(vis.frequency) // 2
-    chunkedvis = client.submit(load_ms, ms_name, fchunk).result()
+    chunkedvis = load_ms(ms_path, fchunk)
     assert chunkedvis.chunks["frequency"][0] == fchunk
 
     # Check result
@@ -73,9 +45,10 @@ def test_load_ms(client):
     assert np.all(chunkedvis.flags.data == vis.flags.data)
 
 
-def test_predict_vis(client):
+def test_predict_vis(generate_ms):
+    ms_path = generate_ms
     # Read in the Visibility dataset directly and predict a model
-    vis = create_visibility_from_ms(ms_name)[0]
+    vis = create_visibility_from_ms(ms_path)[0]
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
     lsm = [
         Component(
@@ -106,13 +79,12 @@ def test_predict_vis(client):
 
     # Read in the Visibility dataset in chunks and predict a model
     fchunk = len(vis.frequency) // 2
-    chunkedvis = client.submit(load_ms, ms_name, fchunk).result()
-    chunkedmdl = client.submit(
-        predict_vis,
+    chunkedvis = load_ms(ms_path, fchunk)
+    chunkedmdl = predict_vis(
         chunkedvis,
         lsm,
         beam_type="not_everybeam",
-    ).result()
+    )
     assert chunkedvis.chunks["frequency"][0] == fchunk
     assert chunkedmdl.chunks["frequency"][0] == fchunk
 
@@ -125,9 +97,10 @@ def test_predict_vis(client):
     assert np.allclose(chunkedmdl.flags.data, modelvis.flags.data)
 
 
-def test_apply_gaintable(client):
+def test_apply_gaintable(generate_ms):
+    ms_path = generate_ms
     # Read in the Vis dataset directly and "correct" it with random gains
-    vis = create_visibility_from_ms(ms_name)[0]
+    vis = create_visibility_from_ms(ms_path)[0]
     solution_interval = vis.time.data.max() - vis.time.data.min()
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="B", timeslice=solution_interval
@@ -141,10 +114,10 @@ def test_apply_gaintable(client):
     # Read in the Vis dataset in chunks and "correct" it with random gains
     fchunk = len(vis.frequency) // 2
     chunkedgt = gaintable.chunk({"frequency": fchunk})
-    chunkedvis = client.submit(load_ms, ms_name, fchunk).result()
-    chunkedvis = client.submit(
-        apply_gaintable_to_dataset, chunkedvis, chunkedgt, inverse=True
-    ).result()
+    chunkedvis = load_ms(ms_path, fchunk)
+    chunkedvis = apply_gaintable_to_dataset(
+        chunkedvis, chunkedgt, inverse=True
+    )
     assert chunkedvis.chunks["frequency"][0] == fchunk
 
     # Check result
@@ -156,9 +129,10 @@ def test_apply_gaintable(client):
     assert np.all(chunkedvis.flags.data == vis.flags.data)
 
 
-def test_run_solver(client):
+def test_run_solver(generate_ms):
+    ms_path = generate_ms
     # Read in the Vis dataset directly and generate gains
-    vis = create_visibility_from_ms(ms_name)[0]
+    vis = create_visibility_from_ms(ms_path)[0]
     solution_interval = vis.time.data.max() - vis.time.data.min()
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="B", timeslice=solution_interval
@@ -170,21 +144,19 @@ def test_run_solver(client):
 
     # Read in the Vis dataset in chunks and make a copy for the model
     fchunk = len(vis.frequency) // 2
-    chunkedvis = client.submit(load_ms, ms_name, fchunk).result()
+    chunkedvis = load_ms(ms_path, fchunk)
     chunkedmdl = chunkedvis.copy(deep=True)
     # Chunk the gains
     chunkedgt = gaintable.chunk({"frequency": fchunk})
     # Corrupt the vis with the gains
-    chunkedvis = client.submit(
-        apply_gaintable_to_dataset, chunkedvis, chunkedgt, inverse=False
-    ).result()
+    chunkedvis = apply_gaintable_to_dataset(
+        chunkedvis, chunkedgt, inverse=False
+    )
     assert chunkedvis.chunks["frequency"][0] == fchunk
     assert chunkedmdl.chunks["frequency"][0] == fchunk
     assert chunkedgt.chunks["frequency"][0] == fchunk
 
-    solvedgt = client.submit(
-        run_solver, vis=chunkedvis, modelvis=chunkedmdl
-    ).result()
+    solvedgt = run_solver(vis=chunkedvis, modelvis=chunkedmdl)
 
     solvedgt.load()
 

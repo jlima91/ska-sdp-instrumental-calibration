@@ -1,35 +1,36 @@
-[project]
-name = "ska-sdp-instrumental-calibration"
-version = "0.3.3"
-description = "SKA Instrumental Calibration Pipeline"
-authors = [
-    { name = "Daniel Mitchell", email = "daniel.mitchell@csiro.au" },
-    { name = "Stephen Ord", email = "stephen.ord@csiro.au" },
-]
-
 [tool.poetry]
+include = ["MANIFEST.skao.int"]
 name = "ska-sdp-instrumental-calibration"
-version = "0.3.3"
-description = "SKA Instrumental Calibration Pipeline"
-authors = ["Daniel Mitchell <daniel.mitchell@csiro.au>", "Stephen Ord <stephen.ord@csiro.au>"]
+version = "0.4.0"
+description = "SKA SDP Instrumental Calibration Pipeline"
+authors = [
+    "Daniel Mitchell <daniel.mitchell@csiro.au>",
+    "Stephen Ord <stephen.ord@csiro.au>",
+    "Team DHRUVA <team-dhruva@ska>"
+    ]
 license = "BSD-3-Clause"
 packages = [
     { include = "ska_sdp_instrumental_calibration", from = "src" }
 ]
+documentation = "https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/"
+repository = "https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git"
 
 [[tool.poetry.source]]
-name = 'skao'
-url = 'https://artefact.skao.int/repository/pypi-internal/simple'
+name = "PyPI"
+priority = "primary"
 
 [[tool.poetry.source]]
-name = "PyPI-public"
-url = 'https://pypi.org/simple'
+name = "skao"
+url = "https://artefact.skao.int/repository/pypi-internal/simple"
+priority = "supplemental"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 astropy = "^6.1"
 distributed = "^2024.11.2"
 xarray = "^2024.7"
+# Remove this when xarray is upgraded to 2025*. That should work with zarr 3.*
+zarr = "^2.18"
 everybeam = "^0.7.1"
 numpy = "^1.26.4"
 matplotlib = "^3.9.1"
@@ -37,7 +38,7 @@ python-casacore = "^3.7.1"
 ska-sdp-datamodels = "^1.0.0"
 ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^1.0.1"
-ska-sdp-exec-piper = "^1.0.2"
+ska-sdp-exec-piper = "^1.0.3"
 # This is a temporary fix. See issue: https://github.com/fastapi/typer/discussions/1215
 click = "8.1.*"
 ska-sdp-dataproduct-metadata = "^1.0.0.post1"

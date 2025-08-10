@@ -77,15 +77,6 @@ logger = logging.getLogger()
             description="""Nominal alpha value to use when fitted data
             are unspecified. Default is -0.78.""",
         ),
-        reset_vis=ConfigParam(
-            bool,
-            False,
-            description="""Whether or not to set visibilities to zero before
-            accumulating components. Default is False.""",
-        ),
-        export_model_vis=ConfigParam(
-            bool, False, "Export predicted model visibilities"
-        ),
     ),
 )
 def predict_vis_stage(
@@ -99,8 +90,6 @@ def predict_vis_stage(
     fov,
     flux_limit,
     alpha0,
-    reset_vis,
-    export_model_vis,
     _cli_args_,
 ):
     """
@@ -108,46 +97,42 @@ def predict_vis_stage(
 
     Parameters
     ----------
-        upstream_output : dict
-            Output from the upstream stage.
-        beam_type : str
-            Type of beam model to use (default: 'everybeam').
-        normalise_at_beam_centre: bool
-            If true, before running calibration, multiply vis and model vis by
-            the inverse of the beam response in the beam pointing direction
-        eb_ms : str
-            If beam_type is "everybeam" but input ms does
-            not have all of the metadata required by everybeam, this parameter
-            is used to specify a separate dataset to use when setting up
-            the beam models.
-        eb_coeffs : str
-            Path to everybeam coefficients directory.
-            Required when beam_type is 'everybeam'.
-        gleamfile : str
-            Path to the GLEAM catalog file.
-        lsm_csv_path : str
-            Specifies the location of CSV file containing the
-            sky model. The CSV file should be in OSKAR CSV format.
-        fov : float
-            Field of view diameter in degrees for source selection
-            (default: 10.0).
-        flux_limit : float
-            Minimum flux density in Jy for source selection
-            (default: 1.0).
-        export_model_vis : bool
-            Whether to export model visibilities (default: False).
-        alpha0: float
-            Nominal alpha value to use when fitted
-            data are unspecified. Default is -0.78.
-        reset_vis: bool
-            Whether or not to set visibilities to zero before
-            accumulating components. Default is False.
-        _cli_args_ : dict
-            Command line arguments.
+    upstream_output: dict
+        Output from the upstream stage.
+    beam_type: str
+        Type of beam model to use (default: 'everybeam').
+    normalise_at_beam_centre: bool
+        If true, before running calibration, multiply vis and model vis by
+        the inverse of the beam response in the beam pointing direction
+    eb_ms: str
+        If beam_type is "everybeam" but input ms does
+        not have all of the metadata required by everybeam, this parameter
+        is used to specify a separate dataset to use when setting up
+        the beam models.
+    eb_coeffs: str
+        Path to everybeam coefficients directory.
+        Required when beam_type is 'everybeam'.
+    gleamfile: str
+        Path to the GLEAM catalog file.
+    lsm_csv_path: str
+        Specifies the location of CSV file containing the
+        sky model. The CSV file should be in OSKAR CSV format.
+    fov: float
+        Field of view diameter in degrees for source selection
+        (default: 10.0).
+    flux_limit: float
+        Minimum flux density in Jy for source selection
+        (default: 1.0).
+    alpha0: float
+        Nominal alpha value to use when fitted
+        data are unspecified. Default is -0.78.
+    _cli_args_: dict
+        Command line arguments.
+
     Returns
     -------
-        dict
-            Updated upstream_output containing with modelvis.
+    dict
+        Updated upstream_output containing with modelvis.
     """
 
     vis = upstream_output.vis
@@ -198,8 +183,8 @@ def predict_vis_stage(
         beam_type=beam_type,
         eb_ms=eb_ms,
         eb_coeffs=eb_coeffs,
-        reset_vis=reset_vis,
     )
+
     if normalise_at_beam_centre:
         beams = prediction_central_beams(
             vis,
@@ -211,10 +196,6 @@ def predict_vis_stage(
         modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
         upstream_output["beams"] = beams
         upstream_output["vis"] = vis
-
-    if export_model_vis:
-        # [TODO] : export the model visibilities to file.
-        pass
 
     upstream_output["modelvis"] = modelvis
     upstream_output.increment_call_count("predict_vis")

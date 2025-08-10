@@ -10,7 +10,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.utils import plot_gaintable
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    parse_reference_antenna,
+    plot_gaintable,
+)
 
 from ...data_managers.dask_wrappers import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
@@ -38,9 +41,6 @@ logger = logging.getLogger()
                 nullable=False,
             ),
         ),
-        flagging=ConfigParam(
-            bool, False, description="Run RFI flagging", nullable=False
-        ),
         visibility_key=ConfigParam(
             str,
             "vis",
@@ -59,7 +59,6 @@ def bandpass_calibration_stage(
     upstream_output,
     run_solver_config,
     plot_config,
-    flagging,
     visibility_key,
     export_gaintable,
     _output_dir_,
@@ -76,8 +75,6 @@ def bandpass_calibration_stage(
         plot_config: dict
             Configuration required for plotting.
             eg: {{plot_table: False, fixed_axis: False}}
-        flagging: bool
-            Run Flagging for time
         visibility_key: str
             Visibility data to be used for calibration.
         export_gaintable: bool
@@ -98,6 +95,9 @@ def bandpass_calibration_stage(
 
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
+
+    refant = run_solver_config["refant"]
+    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

@@ -189,10 +189,10 @@ def _predict(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
-    station_rm: Optional[npt.NDArray[float]] = None,
+    station_rm: Optional[xr.DataArray | npt.NDArray[np.float64]] = None,
     reset_vis: bool = False,
 ) -> xr.Dataset:
-    """Call predict_from_components.
+    """Call predict_from_components inside map_blocks.
 
     :param vis: Visibility dataset containing observed data to be modelled.
     :param lsm: List of LSM components. This is an intermediate format between
@@ -212,6 +212,12 @@ def _predict(
         )
         # Switch to standard variable names and coords for the SDP call
         vischunk = restore_baselines_dim(vischunk)
+
+        # Dask array wrapped in xarray.Datarray
+        if type(station_rm) == xr.DataArray:
+            # should be numpy array after map_blocks
+            station_rm = station_rm.data
+
         # Call predict
         predict_from_components(
             vischunk,
@@ -244,8 +250,7 @@ def predict_vis(
     beam_type: Optional[str] = "everybeam",
     eb_ms: Optional[str] = None,
     eb_coeffs: Optional[str] = None,
-    station_rm: Optional[npt.NDArray[float]] = None,
-    reset_vis: bool = False,
+    station_rm: Optional[npt.NDArray[np.float64] | da.Array] = None,
 ) -> xr.Dataset:
     """Distributed Visibility predict.
 
@@ -257,20 +262,23 @@ def predict_vis(
     :param eb_ms: Pathname of Everybeam mock Measurement Set.
     :param eb_coeffs: Path to Everybeam coeffs directory.
     :param station_rm: Station rotation measure values. Default is None.
-    :param reset_vis: Whether or not to set visibilities to zero before
-            accumulating components. Default is False.
     :return: Predicted Visibility dataset
     """
     # Create an empty model Visibility dataset
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
 
+    # Can't directly pass dask arrays as map_blocks only loads xr.DataArrays
     if type(station_rm) == da.Array:
-        station_rm = station_rm.compute()
+        # "id" is a coordinate from Configuration dataset
+        station_rm = xr.DataArray(
+            station_rm, coords={"id": np.arange(len(station_rm))}
+        )
 
     # Call map_blocks function and return result
     return modelvis.map_blocks(
         _predict,
-        args=[lsm, beam_type, eb_ms, eb_coeffs, station_rm, reset_vis],
+        args=[lsm, beam_type, eb_ms, eb_coeffs, station_rm, False],
+        template=modelvis,
     )
 
 

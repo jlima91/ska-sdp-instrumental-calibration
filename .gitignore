@@ -11,7 +11,7 @@ __pycache__
 Pipfile.lock
 
 htmlcov
-.coverage
+.coverage*
 coverage.xml
 .pytest_cache
 *,cover
@@ -19,6 +19,7 @@ coverage.xml
 docs/_build
 docs/src/_build
 docs/apidocs
+docs/src/api
 
 # ide
 .idea

@@ -67,27 +67,27 @@ def smooth_gain_solution_stage(
     """
     Smooth the gain solution.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     upstream_output: dict
-            Output from the upstream stage
+        Output from the upstream stage
     window_size: int
-            Size of the window for running window smoothing
+        Size of the window for running window smoothing
     mode: str
-            Mode of smoothing. [mean or median]
+        Mode of smoothing. [mean or median]
     plot_config: dict
         Configuration required for plotting.
         {plot_table: False, plot_path_prefix: "smoothed-gain",
-          plot_title: "Smooth gain"}
+        plot_title: "Smooth gain"}
     export_gaintable: bool
         Export intermediate gain solutions
-
     _output_dir_ : str
-            Directory path where the output file will be written
+        Directory path where the output file will be written
+
     Returns
     -------
-        dict
-            Updated upstream_output with gaintable
+    dict
+        Updated upstream_output with gaintable
     """
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("smooth"):

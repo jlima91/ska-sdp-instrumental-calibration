@@ -1,13 +1,56 @@
 import numpy as np
+import pytest
+import xarray as xr
 from mock import MagicMock, Mock, call, patch
 from numpy import array, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     ecef_to_lla,
+    parse_reference_antenna,
     plot_all_stations,
     plot_gaintable,
+    safe,
     subplot_gaintable,
+    with_chunks,
 )
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.logger")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.print_exc")
+def test_should_execute_wrapped_function_safely(
+    print_exception_mock, logger_mock
+):
+    def add(a, b=100, c=10):
+        return a + b + c
+
+    wrapped_function = safe(add)
+
+    result = wrapped_function(20, c=30)
+
+    logger_mock.error.assert_not_called()
+    print_exception_mock.assert_not_called()
+
+    assert result == 150
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.logger")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.print_exc")
+def test_should_catch_exceptions_of_wrapped_function(
+    print_exception_mock, logger_mock
+):
+    def unsafe_function(a, b=4):
+        raise Exception(f"Got a: {a} and b: {b}")
+
+    wrapped_function = safe(unsafe_function)
+
+    wrapped_function(10)
+
+    logger_mock.error.assert_called_once_with(
+        "Caught exception in function %s: %s",
+        "unsafe_function",
+        "Got a: 10 and b: 4",
+    )
+    print_exception_mock.assert_called_once_with()
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.subplot_gaintable")
@@ -546,3 +589,48 @@ def test_should_convert_earth_centric_coordinates_to_geodetic():
     np.testing.assert_allclose(lat, np.array([-26.753052, -26.753052]))
     np.testing.assert_allclose(lng, np.array([116.787894, 243.212106]))
     np.testing.assert_allclose(alt, np.array([6374502.632896, 6374502.632896]))
+
+
+def test_should_parse_reference_antenna():
+    refant = "LOWBD2_344"
+    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
+    dims = "id"
+    coords = {"id": np.arange(4)}
+    gaintable_mock = MagicMock(name="gaintable")
+    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
+    gaintable_mock.configuration.names = ant_names
+    output = parse_reference_antenna(refant, gaintable_mock)
+
+    assert output == 0
+
+
+def test_should_raise_error_when_ref_ant_is_invalid():
+    refant = "ANTENNA-1"
+    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
+    dims = "id"
+    coords = {"id": np.arange(4)}
+    gaintable_mock = MagicMock(name="gaintable")
+    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
+    gaintable_mock.configuration.names = ant_names
+    with pytest.raises(ValueError) as error:
+        parse_reference_antenna(refant, gaintable_mock)
+    assert str(error.value) == "Reference antenna name is not valid"
+
+
+def test_should_raise_error_when_antenna_index_is_invalid():
+    refant = 10
+    gaintable_mock = MagicMock(name="gaintable")
+    gaintable_mock.antenna.size = 5
+    with pytest.raises(ValueError) as error:
+        parse_reference_antenna(refant, gaintable_mock)
+    assert str(error.value) == "Reference antenna index is not valid"
+
+
+def test_should_chunk_xarray_object_with_valid_chunks():
+    data = xr.DataArray(np.arange(12).reshape(4, 3), dims=["a", "b"])
+
+    chunks = {"a": 2, "c": 4}
+
+    new_data = with_chunks(data, chunks)
+
+    assert dict(new_data.chunksizes) == {"a": (2, 2), "b": (3,)}

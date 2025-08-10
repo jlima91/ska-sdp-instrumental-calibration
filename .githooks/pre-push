@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -e
+
+# Function to prompt the user with a yes/no question
+ask_yes_no() {
+    local prompt="$1"
+    local response
+    while true; do
+        read -erp "$prompt [y/n]: " response
+        case "$response" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
+}
+
+# Variables
+GITLAB_ENDPOINT="https://gitlab.com/api/v4"
+PROJECT_ID="62495323" # Replace with your GitLab project ID
+
+# Extract the current branch being pushed
+read local_ref ignored_inputs
+# Get the name of the branch being pushed
+branch=$(git rev-parse --symbolic --abbrev-ref "$local_ref")
+
+# Fetch the latest pipeline for the specified branch
+echo -e "\nPulling pipeline info...\n"
+pipeline_info=$(curl -s "${GITLAB_ENDPOINT}/projects/${PROJECT_ID}/pipelines/latest?ref=${branch}")
+
+# Extract the pipeline ID and status
+pipeline_id=$(echo $pipeline_info | jq -r '.id')
+pipeline_status=$(echo $pipeline_info | jq -r '.status')
+pipeline_url=$(echo $pipeline_info | jq -r '.web_url')
+
+PROCEED_TO_PUSH=1
+# Check pipeline status
+if [[ $pipeline_id != "null" ]]; then
+    echo "Pipeline ID: $pipeline_id"
+    echo -e "Status: $pipeline_status \n"
+    if [[ "$pipeline_status" != "success" ]]; then
+        echo "The pipeline status is not 'success'."
+        echo -e "Check the latest pipeline here: '${pipeline_url}' \n"
+        PROCEED_TO_PUSH=0
+    fi
+else
+    echo -e "No pipeline found for branch ${branch}.\nThis might be due to this is a new branch.\n"
+    PROCEED_TO_PUSH=0
+fi
+
+exec < /dev/tty
+[[ $PROCEED_TO_PUSH -eq 0 ]] && ask_yes_no "Do you still want to proceed with the push?" && PROCEED_TO_PUSH=1 && echo ""
+exec <&-
+
+if [[ $PROCEED_TO_PUSH -eq 1 ]]; then
+    echo "Procedding with the push"
+else
+    echo "Push aborted"
+    exit 1
+fi

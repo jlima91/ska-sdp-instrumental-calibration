@@ -16,17 +16,22 @@ logger = setup_logger("processing_tasks.post_processing")
 
 
 class ModelRotationData:
-    def __init__(self, gaintable, refant):
-        """
-        Create Model Rotation Data
+    """
+    Create Model Rotation Data
 
-        Parameters
-        ----------
-            gaintable: Gaintable dataset
-                Gaintable.
-            refant: int
-                Reference antenna.
-        """
+    Parameters
+    ----------
+    gaintable: Gaintable dataset
+        Gaintable.
+    refant: int
+        Reference antenna.
+    oversample: int, default: 5
+        Oversampling value used in the rotation
+        calculatiosn. Note that setting this value to some higher
+        integer may result in high memory usage.
+    """
+
+    def __init__(self, gaintable, refant, oversample=5):
         if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
             raise ValueError("gaintable must contain Jones matrices")
 
@@ -35,28 +40,34 @@ class ModelRotationData:
         self.nstations = len(gaintable.antenna)
         self.nfreq = len(gaintable.frequency)
         self.lambda_sq = (
-            const.c.value / gaintable.frequency  # pylint: disable=no-member
-        ) ** 2
+            (
+                const.c.value  # pylint: disable=no-member
+                / gaintable.frequency.data
+            )
+            ** 2
+        ).astype(np.float32)
 
-        oversample = 99
         self.rm_res = (
             1 / oversample / (da.max(self.lambda_sq) - da.min(self.lambda_sq))
         )
         self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
         self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
-        self.rm_vals = da.arange(-self.rm_max, self.rm_max, self.rm_res)
+        self.rm_vals = da.arange(
+            -self.rm_max, self.rm_max, self.rm_res, dtype=np.float32
+        )
         self.phasor = da.exp(
             da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
         )
         self.rm_spec = None
 
-        self.rm_est = da.zeros(self.nstations)
-        self.rm_peak = da.zeros(self.nstations)
-        self.const_rot = da.zeros(self.nstations)
+        self.rm_est = da.zeros(self.nstations, dtype=np.float32)
+        self.rm_peak = da.zeros(self.nstations, dtype=np.float32)
+        self.const_rot = da.zeros(self.nstations, dtype=np.float32)
         self.J = da.einsum(
             "fpx,sfqx->sfpq",
             gaintable.gain[0, refant].conj(),
             gaintable.gain[0, :],
+            dtype=np.complex64,
         )
 
     def get_plot_params_for_station(self, stn=None):
@@ -108,6 +119,7 @@ def model_rotations(
     peak_threshold: float = 0.5,
     refine_fit: bool = True,
     refant: int = 0,
+    oversample: int = 5,
 ):
     """
     Performs Model Rotations
@@ -120,14 +132,19 @@ def model_rotations(
             Peak threshold.
         refine_fit: bool
             Refine the fit.
-        refant: int
+        refant: int, default: 0
             Reference antenna.
+        oversample: int, default: 5
+            Oversampling value used in the rotation
+            calculatiosn. Note that setting this value to some higher
+            integer may result in high memory usage.
+
     Returns
     -------
         rotations: ModelRotation obj.
     """
 
-    rotations = ModelRotationData(gaintable, refant)
+    rotations = ModelRotationData(gaintable, refant, oversample)
 
     norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
     mask = da.from_delayed(
@@ -147,17 +164,16 @@ def model_rotations(
         rotations.J.dtype,
     )
 
-    co_sum = rotations.J[:, :, 0, 0] + rotations.J[:, :, 1, 1]
-    cross_diff = 1j * (rotations.J[:, :, 0, 1] - rotations.J[:, :, 1, 0])
-    phi_raw = 0.5 * (
-        np.unwrap(np.angle(co_sum + cross_diff))
-        - np.unwrap(np.angle(co_sum - cross_diff))
+    phi_raw = da.from_delayed(
+        calculate_phi_raw(rotations.J),
+        (rotations.nstations, rotations.nfreq),
+        np.float32,
     )
 
     rotations.rm_spec = da.from_delayed(
         get_rm_spec(phi_raw, rotations.phasor, mask, rotations.nstations),
         (rotations.nstations, rotations.phasor.shape[0]),
-        da.float32,
+        np.float32,
     )
 
     rotations.rm_est = da.where(
@@ -178,12 +194,22 @@ def model_rotations(
                 rotations.nstations,
             ),
             (2, rotations.nstations),
-            da.float32,
+            np.float32,
         )
         rotations.rm_est = fit_rm[0]
         rotations.rm_const = fit_rm[1]
 
     return rotations
+
+
+@dask.delayed
+def calculate_phi_raw(jones):
+    co_sum = jones[:, :, 0, 0] + jones[:, :, 1, 1]
+    cross_diff = 1j * (jones[:, :, 0, 1] - jones[:, :, 1, 0])
+    return 0.5 * (
+        np.unwrap(np.angle(co_sum + cross_diff))
+        - np.unwrap(np.angle(co_sum - cross_diff))
+    )
 
 
 @dask.delayed

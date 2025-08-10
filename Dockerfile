@@ -1,12 +1,18 @@
-ARG PYTHON_VERSION=3.10
+FROM artefact.skao.int/ska-build-python:0.3.1 AS build
 
-FROM python:${PYTHON_VERSION}
-ARG POETRY_VERSION=1.8.2
-RUN pip install poetry==${POETRY_VERSION}
+WORKDIR /build
+
+COPY . ./
+
+ENV POETRY_VIRTUALENVS_CREATE=false
+
+RUN poetry install --no-root --only main \
+    && pip install --no-compile --no-cache-dir --no-dependencies .
+
+FROM artefact.skao.int/ska-python:0.2.3
 
 WORKDIR /app
-COPY ./ ./
-RUN poetry config virtualenvs.in-project true \
-    && poetry install --only main --no-root \
-    && . .venv/bin/activate \
-    && pip install --no-deps .
+
+COPY --from=build /usr/local/ /usr/local/
+
+ENTRYPOINT ["ska-sdp-instrumental-calibration"]
