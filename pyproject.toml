@@ -1,7 +1,7 @@
 [tool.poetry]
 include = ["MANIFEST.skao.int"]
 name = "ska-sdp-instrumental-calibration"
-version = "0.3.4"
+version = "0.4.0"
 description = "SKA SDP Instrumental Calibration Pipeline"
 authors = [
     "Daniel Mitchell <daniel.mitchell@csiro.au>",
