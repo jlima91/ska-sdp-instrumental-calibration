@@ -53,8 +53,13 @@ class ModelRotationData:
         self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
         self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
         self.rm_vals = da.arange(
-            -self.rm_max, self.rm_max, self.rm_res, dtype=np.float32
+            -self.rm_max,
+            self.rm_max,
+            self.rm_res,
+            dtype=np.float32,
+            chunks="auto",
         )
+        self.lambda_sq = da.from_array(self.lambda_sq, chunks="auto")
         self.phasor = da.exp(
             da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
         )
@@ -170,10 +175,8 @@ def model_rotations(
         np.float32,
     )
 
-    rotations.rm_spec = da.from_delayed(
-        get_rm_spec(phi_raw, rotations.phasor, mask, rotations.nstations),
-        (rotations.nstations, rotations.phasor.shape[0]),
-        np.float32,
+    rotations.rm_spec = get_rm_spec(
+        phi_raw, rotations.phasor, mask, rotations.nstations
     )
 
     rotations.rm_est = da.where(
@@ -266,7 +269,6 @@ def get_stn_masks(weight, refant):
     )
 
 
-@dask.delayed
 def get_rm_spec(phi_raw, phasor, mask, nstations):
     """
     Gets RM spec
@@ -285,16 +287,15 @@ def get_rm_spec(phi_raw, phasor, mask, nstations):
     -------
         Array of RM spec.
     """
-    return np.array(
+    return np.stack(
         [
             (
-                1
-                / sum(mask[stn])
-                * np.einsum(
+                np.einsum(
                     "rf,f->r",
                     phasor[:, mask[stn]],
                     np.exp(1j * phi_raw[stn, mask[stn]]),
                 )
+                / np.sum(mask[stn])
             )
             for stn in range(nstations)
         ]
