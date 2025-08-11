@@ -60,9 +60,6 @@ class ModelRotationData:
             chunks="auto",
         )
         self.lambda_sq = da.from_array(self.lambda_sq, chunks="auto")
-        self.phasor = da.exp(
-            da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
-        )
         self.rm_spec = None
 
         self.rm_est = da.zeros(self.nstations, dtype=np.float32)
@@ -176,7 +173,11 @@ def model_rotations(
     )
 
     rotations.rm_spec = get_rm_spec(
-        phi_raw, rotations.phasor, mask, rotations.nstations
+        phi_raw,
+        rotations.rm_vals,
+        rotations.lambda_sq,
+        mask,
+        rotations.nstations,
     )
 
     rotations.rm_est = da.where(
@@ -269,7 +270,7 @@ def get_stn_masks(weight, refant):
     )
 
 
-def get_rm_spec(phi_raw, phasor, mask, nstations):
+def get_rm_spec(phi_raw, rm_vals, lambda_sq, mask, nstations):
     """
     Gets RM spec
 
@@ -292,7 +293,13 @@ def get_rm_spec(phi_raw, phasor, mask, nstations):
             (
                 np.einsum(
                     "rf,f->r",
-                    phasor[:, mask[stn]],
+                    (
+                        da.exp(
+                            da.einsum(
+                                "i,j->ij", -1j * rm_vals, lambda_sq[mask[stn]]
+                            )
+                        )
+                    ),
                     np.exp(1j * phi_raw[stn, mask[stn]]),
                 )
                 / np.sum(mask[stn])
