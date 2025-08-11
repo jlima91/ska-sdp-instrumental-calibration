@@ -15,6 +15,15 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 logger = setup_logger("processing_tasks.post_processing")
 
 
+@dask.delayed
+def delayed_einsum(*args, **kwargs):
+    """
+    Sometimes einsum just blows up tasks
+    This will force compute on a single worker
+    """
+    return np.einsum(*args, **kwargs)
+
+
 class ModelRotationData:
     """
     Create Model Rotation Data
@@ -57,19 +66,24 @@ class ModelRotationData:
             self.rm_max,
             self.rm_res,
             dtype=np.float32,
-            chunks="auto",
+            chunks=2**11,
         )
-        self.lambda_sq = da.from_array(self.lambda_sq, chunks="auto")
+        self.lambda_sq = da.from_array(self.lambda_sq)
         self.rm_spec = None
 
         self.rm_est = da.zeros(self.nstations, dtype=np.float32)
         self.rm_peak = da.zeros(self.nstations, dtype=np.float32)
         self.const_rot = da.zeros(self.nstations, dtype=np.float32)
-        self.J = da.einsum(
-            "fpx,sfqx->sfpq",
-            gaintable.gain[0, refant].conj(),
-            gaintable.gain[0, :],
-            dtype=np.complex64,
+        self.J = da.from_delayed(
+            delayed_einsum(
+                "fpx,sfqx->sfpq",
+                gaintable.gain[0, refant].conj(),
+                gaintable.gain[0, :],
+                dtype=np.complex64,
+            ),
+            (gaintable.gain.shape[1:]),
+            np.complex64,
+            name="rm_J",
         )
 
     def get_plot_params_for_station(self, stn=None):
@@ -145,7 +159,6 @@ def model_rotations(
     -------
         rotations: ModelRotation obj.
     """
-
     rotations = ModelRotationData(gaintable, refant, oversample)
 
     norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
@@ -172,6 +185,9 @@ def model_rotations(
         np.float32,
     )
 
+    phi_raw = phi_raw.rechunk((1, -1))
+    mask = mask.rechunk((1, -1))
+
     rotations.rm_spec = get_rm_spec(
         phi_raw,
         rotations.rm_vals,
@@ -190,18 +206,17 @@ def model_rotations(
 
     if refine_fit:
         exp_stack = da.hstack((da.cos(phi_raw), da.sin(phi_raw)))
-        fit_rm = da.from_delayed(
-            fit_curve(
-                rotations.lambda_sq,
-                exp_stack,
-                rotations.rm_peak,
-                rotations.nstations,
-            ),
-            (2, rotations.nstations),
-            np.float32,
+        fit_rm = fit_curve(
+            rotations.lambda_sq,
+            exp_stack,
+            rotations.rm_peak,
+            rotations.nstations,
         )
+
         rotations.rm_est = fit_rm[0]
         rotations.rm_const = fit_rm[1]
+
+    rotations.rm_est = rotations.rm_est.rechunk(-1)
 
     return rotations
 
@@ -288,28 +303,27 @@ def get_rm_spec(phi_raw, rm_vals, lambda_sq, mask, nstations):
     -------
         Array of RM spec.
     """
-    return np.stack(
+    return da.stack(
         [
             (
-                np.einsum(
+                da.einsum(
                     "rf,f->r",
                     (
                         da.exp(
                             da.einsum(
-                                "i,j->ij", -1j * rm_vals, lambda_sq[mask[stn]]
-                            )
+                                "r,f->rf", -1j * rm_vals, lambda_sq[mask[stn]]
+                            ),
                         )
                     ),
-                    np.exp(1j * phi_raw[stn, mask[stn]]),
+                    da.exp(1j * phi_raw[stn, mask[stn]]),
                 )
-                / np.sum(mask[stn])
+                / da.sum(mask[stn])
             )
             for stn in range(nstations)
-        ]
+        ],
     )
 
 
-@dask.delayed
 def fit_curve(lambda_sq, exp_stack, rm_est, nstations):
     """
     Fits the curve
@@ -324,23 +338,42 @@ def fit_curve(lambda_sq, exp_stack, rm_est, nstations):
             rm estimate
         nstations: int
             Number of stations
+
     Returns
     -------
         Array after fitting the curve.
     """
-    return np.array(
-        [
-            (popt[0], popt[1])
-            for popt, _ in [
-                curve_fit(
-                    lambda wl2, rm, phi0: np.hstack(
-                        (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
-                    ),
-                    lambda_sq,
-                    exp_stack[stn],
-                    p0=[rm_est[stn], 0],
-                )
-                for stn in range(nstations)
-            ]
-        ]
-    ).T
+    result = [
+        da.from_delayed(
+            get_optimised_parameters(
+                lambda_sq,
+                exp_stack[stn],
+                rm_est[stn],
+            ),
+            (2,),
+            np.float32,
+        )
+        for stn in range(nstations)
+    ]
+
+    return da.stack(result).T
+
+
+@dask.delayed
+def get_optimised_parameters(lambda_sq, exp_stack, rm_est):
+    """
+    Calculates optimal parameters
+
+    Returns
+    -------
+    np.ndarray
+        1D array of size 2.
+    """
+    return curve_fit(
+        lambda wl2, rm, phi0: np.hstack(
+            (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
+        ),
+        lambda_sq,
+        exp_stack,
+        [rm_est, 0],
+    )[0]
