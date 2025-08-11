@@ -221,9 +221,6 @@ def test_model_rotations_function(
     mock_mask_dask_array = MagicMock(
         spec=da.Array, name="mock_mask_dask_array"
     )
-    mock_rm_spec_dask_array = MagicMock(
-        spec=da.Array, name="mock_rm_spec_dask_array"
-    )
     mock_fit_rm_dask_array = MagicMock(
         spec=da.Array, name="mock_fit_rm_dask_array"
     )
@@ -234,7 +231,6 @@ def test_model_rotations_function(
         mock_mask_dask_array,
         mock_rotations_instance.J,
         mock_phi_raw,
-        mock_rm_spec_dask_array,
         mock_fit_rm_dask_array,
     ]
 
@@ -297,7 +293,7 @@ def test_model_rotations_function(
     )
 
     mock_dask_abs.assert_called_with(
-        mock_rm_spec_dask_array
+        mock_get_rm_spec.return_value
     )  # pylint: disable=no-member
     mock_dask_max.assert_called_once_with(mock_dask_abs.return_value, axis=1)
     mock_dask_argmax.assert_called_once_with(
@@ -324,13 +320,9 @@ def test_should_generate_rm_spec():
 
     mask = np.array([[True, True, False], [False, True, True]])
 
-    expected = np.array(
-        [[1.5, 4.5], [2.5, 5.5]], dtype=float
-    )  # pylint: disable=no-member
+    expected = np.array([[1.5, 4.5], [2.5, 5.5]], dtype=float)
 
-    out = get_rm_spec(  # pylint: disable=no-member
-        phi_raw, phasor, mask, nstations=2
-    ).compute()  # pylint: disable=no-member
+    out = get_rm_spec(phi_raw, phasor, mask, nstations=2)
     np.testing.assert_allclose(out, expected)
 
 
