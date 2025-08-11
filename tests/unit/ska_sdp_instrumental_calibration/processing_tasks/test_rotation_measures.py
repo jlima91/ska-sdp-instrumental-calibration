@@ -75,7 +75,6 @@ def test_model_rotation_data_initialization():
     assert rot_data.rm_res > 0
     assert rot_data.rm_max > 0
     assert len(rot_data.rm_vals) > 0
-    assert rot_data.phasor.shape == (len(rot_data.rm_vals), nfreq)
 
     assert rot_data.J.shape == (nstations, nfreq, 2, 2)
     assert rot_data.rm_est.shape == (nstations,)
@@ -198,9 +197,6 @@ def test_model_rotations_function(
     mock_rotations_instance.rm_vals = MagicMock(
         spec=da.Array, name="mock_rm_vals"
     )
-    mock_rotations_instance.phasor = MagicMock(
-        spec=da.Array, name="mock_phasor"
-    )
     mock_rotations_instance.lambda_sq = MagicMock(
         spec=da.Array, name="mock_lambda_sq"
     )
@@ -314,16 +310,36 @@ def test_model_rotations_function(
 
 
 def test_should_generate_rm_spec():
-    phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=float)
+    rm_vals = np.arange(5, dtype=np.float32)
+    lambda_sq = np.arange(3, dtype=np.float32)
 
-    phi_raw = np.zeros((2, 3))
+    phi_raw = np.zeros((2, 3), dtype=np.float32)
 
-    mask = np.array([[True, True, False], [False, True, True]])
+    mask = np.array([[True, True, False], [False, True, True]], dtype=bool)
 
-    expected = np.array([[1.5, 4.5], [2.5, 5.5]], dtype=float)
+    expected = np.array(
+        [
+            [
+                1.0 + 0.0j,
+                0.770151 - 0.420735j,
+                0.291927 - 0.454649j,
+                0.005004 - 0.07056j,
+                0.173178 + 0.378401j,
+            ],
+            [
+                1.0 + 0.0j,
+                0.062078 - 0.875384j,
+                -0.534895 - 0.076247j,
+                -0.014911 + 0.069148j,
+                -0.399572 - 0.116278j,
+            ],
+        ],
+        dtype=np.complex64,
+    )
 
-    out = get_rm_spec(phi_raw, phasor, mask, nstations=2)
-    np.testing.assert_allclose(out, expected)
+    out = get_rm_spec(phi_raw, rm_vals, lambda_sq, mask, nstations=2)
+    np.testing.assert_allclose(np.real(out), np.real(expected), rtol=1e-4)
+    np.testing.assert_allclose(np.imag(out), np.imag(expected), rtol=1e-4)
 
 
 def test_should_calculate_phi_raw():
