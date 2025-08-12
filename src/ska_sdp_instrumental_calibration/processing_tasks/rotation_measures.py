@@ -66,7 +66,6 @@ class ModelRotationData:
             self.rm_max,
             self.rm_res,
             dtype=np.float32,
-            chunks=2**11,
         )
         self.lambda_sq = da.from_array(self.lambda_sq)
         self.rm_spec = None
@@ -185,20 +184,27 @@ def model_rotations(
         np.float32,
     )
 
+    # Some opinionated rechunking
+    rotations.rm_vals = rotations.rm_vals.rechunk(2**11)
+    rotations.lambda_sq = rotations.lambda_sq.rechunk(-1)
     phi_raw = phi_raw.rechunk((1, -1))
     mask = mask.rechunk((1, -1))
 
-    rotations.rm_spec = get_rm_spec(
-        phi_raw,
-        rotations.rm_vals,
-        rotations.lambda_sq,
-        mask,
-        rotations.nstations,
+    phasor = da.exp(
+        np.outer(-1j * rotations.rm_vals, rotations.lambda_sq),
     )
 
+    rotations.rm_spec = get_rm_spec(
+        phi_raw,
+        mask,
+        phasor,
+    )
+
+    abs_rm_spec = da.abs(rotations.rm_spec)
+
     rotations.rm_est = da.where(
-        da.max(da.abs(rotations.rm_spec), axis=1) > peak_threshold,
-        rotations.rm_vals[da.argmax(da.abs(rotations.rm_spec), axis=1)],
+        da.max(abs_rm_spec, axis=1) > peak_threshold,
+        rotations.rm_vals[da.argmax(abs_rm_spec, axis=1)],
         0,
     )
 
@@ -216,6 +222,7 @@ def model_rotations(
         rotations.rm_est = fit_rm[0]
         rotations.rm_const = fit_rm[1]
 
+    # Some opinionated rechunking
     rotations.rm_est = rotations.rm_est.rechunk(-1)
 
     return rotations
@@ -285,42 +292,39 @@ def get_stn_masks(weight, refant):
     )
 
 
-def get_rm_spec(phi_raw, rm_vals, lambda_sq, mask, nstations):
+def get_rm_spec(phi_raw, mask, phasor):
     """
-    Gets RM spec
+    Gets RM spec.
+    Data can be chunked in ``nstations`` and ``resolution`` dimensions.
 
     Parameters
     ----------
         phi_raw: np.array
-            Phi raw value
-        phasor: np.array
-            Phasor
+            Phi raw value. Shape: ``(nstations, nchannels)``
         mask: np.array
-            Mask
-        nstations: int
-            Number of stations.
+            Mask. Shape: ``(nstations, nchannels)``
+        phasor: np.array
+            Phasor. Shape: ``(resolution, nchannels)``
+
     Returns
     -------
-        Array of RM spec.
+    np.ndarray
+        Array of RM spec. Shape: ``(nstations, resolution)``
+        Will have same number of chunks as they are in input arrays.
     """
     return da.stack(
         [
             (
                 da.einsum(
                     "rf,f->r",
-                    (
-                        da.exp(
-                            da.einsum(
-                                "r,f->rf", -1j * rm_vals, lambda_sq[mask[stn]]
-                            ),
-                        )
-                    ),
+                    phasor[:, mask[stn]],
                     da.exp(1j * phi_raw[stn, mask[stn]]),
+                    dtype=np.complex64,
                 )
-                / da.sum(mask[stn])
+                / da.sum(mask[stn], dtype=np.float32)
             )
-            for stn in range(nstations)
-        ],
+            for stn in range(mask.shape[0])
+        ]
     )
 
 
