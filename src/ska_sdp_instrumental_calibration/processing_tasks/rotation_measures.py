@@ -14,6 +14,11 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("processing_tasks.post_processing")
 
+# Some opinionated chunksizes
+RESOLUTION_CHUNK_SIZE = 2**11
+FREQ_CHUNK_SIZE = -1
+STATION_CHUNK_SIZE = 1
+
 
 @dask.delayed
 def delayed_einsum(*args, **kwargs):
@@ -48,7 +53,8 @@ class ModelRotationData:
         self.refant = refant
         self.nstations = len(gaintable.antenna)
         self.nfreq = len(gaintable.frequency)
-        self.lambda_sq = (
+
+        lambda_sq_npa = (
             (
                 const.c.value  # pylint: disable=no-member
                 / gaintable.frequency.data
@@ -57,17 +63,19 @@ class ModelRotationData:
         ).astype(np.float32)
 
         self.rm_res = (
-            1 / oversample / (da.max(self.lambda_sq) - da.min(self.lambda_sq))
+            1 / oversample / (np.max(lambda_sq_npa) - np.min(lambda_sq_npa))
         )
-        self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
-        self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
+        self.rm_max = 1 / (lambda_sq_npa[-2] - lambda_sq_npa[-1])
+        self.rm_max = np.ceil(self.rm_max / self.rm_res) * self.rm_res
+
         self.rm_vals = da.arange(
             -self.rm_max,
             self.rm_max,
             self.rm_res,
             dtype=np.float32,
+            chunks=(RESOLUTION_CHUNK_SIZE),
         )
-        self.lambda_sq = da.from_array(self.lambda_sq)
+        self.lambda_sq = da.from_array(lambda_sq_npa, chunks=(FREQ_CHUNK_SIZE))
         self.rm_spec = None
 
         self.rm_est = da.zeros(self.nstations, dtype=np.float32)
@@ -185,10 +193,8 @@ def model_rotations(
     )
 
     # Some opinionated rechunking
-    rotations.rm_vals = rotations.rm_vals.rechunk(2**11)
-    rotations.lambda_sq = rotations.lambda_sq.rechunk(-1)
-    phi_raw = phi_raw.rechunk((1, -1))
-    mask = mask.rechunk((1, -1))
+    phi_raw = phi_raw.rechunk((STATION_CHUNK_SIZE, FREQ_CHUNK_SIZE))
+    mask = mask.rechunk((STATION_CHUNK_SIZE, FREQ_CHUNK_SIZE))
 
     phasor = da.exp(
         np.outer(-1j * rotations.rm_vals, rotations.lambda_sq),
@@ -222,7 +228,7 @@ def model_rotations(
         rotations.rm_est = fit_rm[0]
         rotations.rm_const = fit_rm[1]
 
-    # Some opinionated rechunking
+    # Output expects all station values to be together
     rotations.rm_est = rotations.rm_est.rechunk(-1)
 
     return rotations
