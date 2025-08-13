@@ -191,7 +191,7 @@ def predict_vis_stage(
             beam_type=beam_type,
             eb_ms=eb_ms,
             eb_coeffs=eb_coeffs,
-        )
+        ).persist()
         vis = apply_gaintable_to_dataset(vis, beams, inverse=True)
         modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
         upstream_output["beams"] = beams

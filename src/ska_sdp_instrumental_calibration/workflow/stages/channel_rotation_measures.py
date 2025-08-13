@@ -181,7 +181,7 @@ def generate_channel_rm_stage(
         vis=vis,
         modelvis=modelvis,
         **run_solver_config,
-    )
+    ).persist()
 
     if plot_rm_config["plot_rm"]:
         upstream_output.add_compute_tasks(

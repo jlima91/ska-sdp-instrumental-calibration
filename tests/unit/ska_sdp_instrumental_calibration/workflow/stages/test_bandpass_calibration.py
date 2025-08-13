@@ -38,6 +38,7 @@ def test_should_perform_bandpass_calibration(
     plot_config = {"plot_table": False, "fixed_axis": False}
 
     gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.persist.return_value = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
     actual_output = bandpass_calibration_stage.stage_definition(
@@ -102,6 +103,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     }
     plot_config = {"plot_table": True, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.persist.return_value = gaintable_mock
     upstream_output["gaintable"] = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
@@ -181,6 +183,7 @@ def test_should_export_gaintable_with_proper_suffix(
     }
     plot_config = {"plot_table": False, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.persist.return_value = gaintable_mock
     upstream_output["gaintable"] = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
@@ -252,6 +255,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     plot_config = {"plot_table": False, "fixed_axis": False}
 
     gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.persist.return_value = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
     actual_output = bandpass_calibration_stage.stage_definition(

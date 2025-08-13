@@ -108,7 +108,7 @@ def bandpass_calibration_stage(
         modelvis=modelvis,
         gaintable=initialtable,
         **run_solver_config,
-    )
+    ).persist()
 
     if plot_config["plot_table"]:
         path_prefix = os.path.join(
