@@ -617,7 +617,7 @@ def subplot_gaintable(
     fixed_axis=False,
 ):
     """
-    Plots the Amp vs frequency and Phase vs frequency plots
+    Plots the Amp vs time and Phase vs time plots
     of selected stations.
 
     Parameters
@@ -637,16 +637,10 @@ def subplot_gaintable(
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
     """
-    frequency = gaintable.frequency / 1e6
-    channel = np.arange(len(frequency))
+    time = gaintable.time / 60.0
+    # time_steps = np.arange(len(time))
     label = gaintable.pol.values
     station_names = stations.values
-
-    def channel_to_freq(channel):
-        return np.interp(channel, np.arange(len(frequency)), frequency)
-
-    def freq_to_channel(freq):
-        return np.interp(freq, frequency, np.arange(len(frequency)))
 
     fig = plt.figure(layout="constrained", figsize=(18, 18))
     subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
@@ -655,34 +649,33 @@ def subplot_gaintable(
     for idx, subfig in enumerate(subfigs):
         if idx >= stations.size:
             break
-        gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
+
+        gain = gaintable.gain.isel(antenna=stations.id[idx])
         amplitude = np.abs(gain)
         phase = np.angle(gain, deg=True)
+
         phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
         primary_axes = amp_ax or primary_axes
-        phase_ax.secondary_xaxis(
-            "top",
-            functions=(channel_to_freq, freq_to_channel),
-        ).set_xlabel("Frequency [MHz]")
 
         amp_ax.set_ylabel("Amplitude")
-        amp_ax.set_xlabel("Channel")
+        amp_ax.set_xlabel("Time (minutes)")
         if fixed_axis:
             amp_ax.set_ylim([0, 1])
 
         for pol_idx, amp_pol in enumerate(amplitude.T):
-            amp_ax.scatter(channel, amp_pol, label=label[pol_idx])
+            amp_ax.scatter(time, amp_pol, label=label[pol_idx])
 
         phase_ax.set_ylabel("Phase (degree)")
         phase_ax.set_ylim([-180, 180])
 
         for pol_idx, phase_pols in enumerate(phase.T):
-            phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
+            phase_ax.scatter(time, phase_pols, label=label[pol_idx])
+
         subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
 
     handles, labels = primary_axes.get_legend_handles_labels()
     path = (
-        f"{path_prefix}-amp-phase_freq-"
+        f"{path_prefix}-amp-phase_time-"
         f"{station_names[0]}-{station_names[-1]}.png"
     )
     fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")

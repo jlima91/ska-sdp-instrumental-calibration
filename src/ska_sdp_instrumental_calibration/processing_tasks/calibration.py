@@ -131,6 +131,8 @@ def solve_bandpass(
 
     # Todo: Set vis flags from a user-defined list of known bad antennas?
 
+    logger.info(f"JONES type: {jones_type}")
+
     gain_table = solve_gaintable(
         vis=vis,
         modelvis=modelvis,

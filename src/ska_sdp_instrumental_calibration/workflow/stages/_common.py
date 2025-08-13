@@ -78,6 +78,21 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
         allowed_values=[None, "mean", "median"],
         nullable=True,
     ),
+    jones_type=ConfigParam(
+        str,
+        "T",
+        description="""Type of calibration matrix T or G or B.
+                The frequency axis of the output GainTable
+                depends on the value provided:
+                "B": the output frequency axis is the same as
+                that of the input Visibility.
+                "T" or "G": the solution is assumed to be
+                frequency-independent, and the frequency axis of the
+                output contains a single value: the average frequency
+                of the input Visibility's channels.""",
+        allowed_values=["T", "G", "B"],
+        nullable=False,
+    ),
     timeslice=ConfigParam(
         float,
         None,
@@ -131,6 +146,16 @@ RUN_SOLVER_DOCSTRING = """
                     options are None, "mean", "median".
                     None means no normalization.
                     Only available with gain_substitution.
+                jones_type: str
+                    Type of calibration matrix T or G or B
+                    The frequency axis of the output GainTable
+                    depends on the value provided:
+                    "B": the output frequency axis is the same as
+                    that of the input Visibility.
+                    "T" or "G": the solution is assumed to be
+                    frequency-independent, and the frequency axis of the
+                    output contains a single value: the average frequency
+                    of the input Visibility's channels.
                 timeslice: float
                     Defines the time scale over which each gain solution is
                     valid. This is used to define time axis of the GainTable.

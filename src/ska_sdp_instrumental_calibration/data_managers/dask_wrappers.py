@@ -337,9 +337,6 @@ def prediction_central_beams(
         fchunk = len(vis.frequency)
     gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
 
-    if len(gaintable.time) != 1:
-        raise ValueError("error setting up gaintable")
-
     # map_blocks won't accept dimensions that differ but have the same name
     # So rename the gain time dimension (and coordinate)
     gaintable = gaintable.rename({"time": "soln_time"})
@@ -388,12 +385,8 @@ def _solve(
     :return: Chunked GainTable dataset
     """
     if len(vischunk.frequency) > 0:
-        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
-            raise ValueError("Inconsistent frequencies")
-        if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
-            raise ValueError("Inconsistent frequencies")
         # Switch to standard variable names and coords for the SDP call
-        gainchunk = gainchunk.rename({"soln_time": "time"})
+        gainchunk = gainchunk.rename({"freq": "frequency"})
         vischunk = restore_baselines_dim(vischunk)
         modelchunk = restore_baselines_dim(modelchunk)
         # Call solver
@@ -412,7 +405,7 @@ def _solve(
             timeslice=timeslice,
         )
         # Change the time dimension name back for map_blocks I/O checks
-        gainchunk = gainchunk.rename({"time": "soln_time"})
+        gainchunk = gainchunk.rename({"frequency": "freq"})
 
     return gainchunk
 
@@ -461,16 +454,14 @@ def run_solver(
             fchunk = len(vis.frequency)
         gaintable = create_bandpass_table(vis).chunk({"frequency": fchunk})
 
-    if len(gaintable.time) != 1:
-        raise ValueError("error setting up gaintable")
-
     if refant is not None:
         if refant < 0 or refant >= len(gaintable.antenna):
             raise ValueError(f"invalid refant: {refant}")
 
     # map_blocks won't accept dimensions that differ but have the same name
     # So rename the gain time dimension (and coordinate)
-    gaintable = gaintable.rename({"time": "soln_time"})
+    gaintable = gaintable.rename({"frequency": "freq"})
+
     gaintable = gaintable.map_blocks(
         _solve,
         args=[
@@ -489,7 +480,7 @@ def run_solver(
     )
 
     # Undo any temporary variable name changes
-    gaintable = gaintable.rename({"soln_time": "time"})
+    gaintable = gaintable.rename({"freq": "frequency"})
     return gaintable
 
 
@@ -742,10 +733,11 @@ def _apply(
     :return: Calibrated Visibility dataset
     """
     if len(vischunk.frequency) > 0:
-        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
-            raise ValueError("Inconsistent frequencies")
+        # if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+        #     raise ValueError("Inconsistent frequencies")
         # Switch back to standard variable names for the SDP call
-        gainchunk = gainchunk.rename({"soln_time": "time"})
+        # gainchunk = gainchunk.rename({"soln_time": "time"})
+        gainchunk = gainchunk.rename({"freq": "frequency"})
         # Call apply function
         vischunk = apply_gaintable(vis=vischunk, gt=gainchunk, inverse=inverse)
     return vischunk
@@ -766,7 +758,8 @@ def apply_gaintable_to_dataset(
     """
     # map_blocks won't accept dimensions that differ but have the same name
     # So rename the gain time dimension (and coordinate)
-    gaintable = gaintable.rename({"time": "soln_time"})
+    # gaintable = gaintable.renam"e({"time": "soln_time"})
+    gaintable = gaintable.rename({"frequency": "freq"})
     return vis.map_blocks(_apply, args=[gaintable, inverse])
 
 

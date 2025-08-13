@@ -25,7 +25,7 @@ from ska_sdp_instrumental_calibration.workflow.stages.load_data import (
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".create_bandpass_table"
+    ".create_gaintable_from_visibility"
 )
 def test_should_load_data_from_existing_cached_zarr_file(
     create_bandpass_mock,
@@ -37,12 +37,12 @@ def test_should_load_data_from_existing_cached_zarr_file(
     check_cache_mock.return_value = True
 
     gaintable = xr.DataArray(
-        np.arange(12).reshape(1, 4, 3), dims=["time", "frequency", "antenna"]
+        np.arange(12).reshape(4, 1, 3), dims=["time", "frequency", "antenna"]
     )
     create_bandpass_mock.return_value = gaintable
 
-    frequency_per_chunk = 2
-    times_per_ms_chunk = 3
+    frequency_per_chunk = 1
+    times_per_ms_chunk = 2
 
     upstream_output = UpstreamOutput()
 
@@ -75,22 +75,21 @@ def test_should_load_data_from_existing_cached_zarr_file(
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": -1,
-            "frequency": frequency_per_chunk,
+            "time": times_per_ms_chunk,
+            "frequency": -1,
         },
     )
 
-    create_bandpass_mock.assert_called_once_with(read_data_mock.return_value)
+    create_bandpass_mock.assert_called_once_with(
+        read_data_mock.return_value, jones_type="G", timeslice=None
+    )
 
     assert new_up_output["vis"] == read_data_mock.return_value
     assert new_up_output["beams"] is None
 
     assert dict(new_up_output["gaintable"].chunksizes) == {
-        "time": (1,),
-        "frequency": (
-            2,
-            2,
-        ),
+        "time": (2, 2),
+        "frequency": (1,),
         "antenna": (3,),
     }
 
@@ -112,7 +111,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".create_bandpass_table"
+    ".create_gaintable_from_visibility"
 )
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     create_bandpass_mock,
@@ -174,7 +173,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": -1,
-            "frequency": frequency_per_chunk,
+            "time": times_per_ms_chunk,
+            "frequency": -1,
         },
     )
