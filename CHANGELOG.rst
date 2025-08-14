@@ -1,6 +1,14 @@
 Changelog
 #########
 
+0.4.1
+******
+
+Patch
+-----
+
+* Fixed bug with incorrect beams computation
+
 0.4.0
 *****
 
