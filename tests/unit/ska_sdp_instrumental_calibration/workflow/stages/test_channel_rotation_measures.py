@@ -55,7 +55,6 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     new_model_vis_mock = Mock(name="new model vis")
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
-    solved_gaintable_mock.persist.return_value = solved_gaintable_mock
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
@@ -188,6 +187,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
     new_model_vis_mock = Mock(name="new model vis")
     beam_model_vis = Mock(name="beam applied model vis")
+    beam_model_vis.persist.return_value = beam_model_vis
 
     predict_vis_mock.return_value = new_model_vis_mock
 
@@ -198,8 +198,8 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     parse_ref_ant_mock.side_effect = [3, 3]
 
     apply_gaintable_mock.return_value = beam_model_vis
+
     solved_gaintable_mock = Mock(name="run solver gaintable")
-    solved_gaintable_mock.persist.return_value = solved_gaintable_mock
     run_solver_mock.return_value = solved_gaintable_mock
 
     run_solver_config = {
@@ -350,7 +350,6 @@ def test_should_plot_with_proper_suffix(
     model_rotations_mock.return_value = model_rotations_obj_mock
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
-    solved_gaintable_mock.persist.return_value = solved_gaintable_mock
     run_solver_mock.return_value = solved_gaintable_mock
 
     run_solver_config = {
@@ -526,7 +525,6 @@ def test_should_export_gaintable_with_proper_suffix(
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
-    solved_gaintable_mock.persist.return_value = solved_gaintable_mock
     run_solver_mock.return_value = solved_gaintable_mock
 
     run_solver_config = {
@@ -637,7 +635,6 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     new_model_vis_mock = Mock(name="new model vis")
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
-    solved_gaintable_mock.persist.return_value = solved_gaintable_mock
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")

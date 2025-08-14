@@ -196,7 +196,7 @@ def load_data_stage(
                 data_desc_id=data_desc_id,
             )
 
-    vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
+    vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks).persist()
 
     gaintable = create_bandpass_table(vis)
     upstream_output["vis"] = vis
