@@ -243,6 +243,7 @@ def test_should_normalise_at_beam_centre(
     model_vis = Mock(name="Model Visibilities")
     predict_vis_mock.return_value = model_vis
     mock_beams = Mock(name="Beams")
+    mock_beams.persist.return_value = mock_beams
     prediction_beams_mock.return_value = mock_beams
 
     normalised_vis = Mock(name="Normalised Visibilities")

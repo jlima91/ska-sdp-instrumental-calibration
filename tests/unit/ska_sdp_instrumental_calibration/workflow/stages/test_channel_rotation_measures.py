@@ -197,6 +197,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     parse_ref_ant_mock.side_effect = [3, 3]
 
     apply_gaintable_mock.return_value = beam_model_vis
+
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
