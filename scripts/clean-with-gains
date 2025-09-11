@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#SBATCH --no-requeue
+#SBATCH --job-name=clean-with-gains
+#SBATCH --output=slurm-%j-%x.out
+
+check-module-load() {
+   module list 2>&1 | grep -wq "ska-sdp-spack"
+   if [[ $? -ne 0 ]]; then
+     echo "Meta modules not loaded. Exiting"
+     exit 1
+   fi
+}
+
+help()
+{
+   # Display Help
+   echo "Apply gaintable to measurement set using DP3, and generate fits image using wsclean"
+   echo
+   echo "Usage: clean-with-gains [-h] -i <input-ms> -g <gaintable.h5parm> [wsclean-params]"
+   echo "options:"
+   echo "h     Print this help and exit."
+   echo
+}
+
+create-fits() {
+  module load --silent wsclean
+  export OPENBLAS_NUM_THREADS=1
+  wsclean $@
+
+  module unload --silent wsclean
+}
+
+applycal() {
+  module load --silent dp3
+
+  # Parse arguments
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --parmdb)
+        parmdb="$2"
+        shift # Shift past the argument name
+        ;;
+      --msin)
+        msin="$2"
+        shift # Shift past the argument name
+        ;;
+      --msout)
+        msout="$2"
+        shift # Shift past the argument name
+        ;;
+      *)
+        echo "Unknown option: $1"
+        return 1
+        ;;
+    esac
+    shift # Shift past the argument value or unknown option
+  done
+
+  echo "Removing previously created ${msout}"
+  rm -rf $msout
+  set -o xtrace
+  DP3 steps="[applycal]" msin=${msin}\
+	  applycal.type=applycal applycal.parmdb=${parmdb}\
+	  applycal.missingantennabehavior=flag applycal.updateweights=True\
+	  applycal.steps="[phase, amplitude]" applycal.phase.correction=phase000\
+	  applycal.amplitude.correction=amplitude000 msout=${msout}
+  set +o xtrace
+  module unload --silent dp3
+
+}
+
+check-module-load
+
+set -e
+
+MSOUT="corrected.ms"
+
+while getopts ":hg:i:" option; do
+   case $option in
+     h) help
+	exit;;
+     g) PARMDB=$OPTARG;;
+     i) MSIN=$OPTARG;;
+     \?) # Invalid option
+        break;;
+
+   esac
+done
+shift $((OPTIND-1))
+WSCLEAN_ARGS=$@
+: ${PARMDB:?is not set. Use -g <gaintbale.h5parm>}
+: ${MSIN:?is not set. Use -i <input-ms.ms>}
+: ${WSCLEAN_ARGS:?is not set. Please provide wsclean args}
+echo ""
+echo "**************** ApplyCal ***************"
+applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
+
+echo ""
+echo "**************** wsclean ***************"
+create-fits ${WSCLEAN_ARGS} $MSOUT
