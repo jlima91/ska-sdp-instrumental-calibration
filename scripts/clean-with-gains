@@ -95,9 +95,13 @@ check-module-load
 set -e
 
 echo ""
+echo "**************** wsclean without apply ***************"
+create-fits ${WSCLEAN_ARGS} -name "original" $MSIN
+
+echo ""
 echo "**************** ApplyCal ***************"
 applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
 
 echo ""
-echo "**************** wsclean ***************"
-create-fits ${WSCLEAN_ARGS} $MSOUT
+echo "**************** wsclean with apply ***************"
+create-fits ${WSCLEAN_ARGS} -name "corrected"  $MSOUT
