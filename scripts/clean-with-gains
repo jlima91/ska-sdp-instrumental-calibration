@@ -72,10 +72,6 @@ applycal() {
 
 }
 
-check-module-load
-
-set -e
-
 MSOUT="corrected.ms"
 
 while getopts ":hg:i:" option; do
@@ -94,6 +90,10 @@ WSCLEAN_ARGS=$@
 : ${PARMDB:?is not set. Use -g <gaintbale.h5parm>}
 : ${MSIN:?is not set. Use -i <input-ms.ms>}
 : ${WSCLEAN_ARGS:?is not set. Please provide wsclean args}
+
+check-module-load
+set -e
+
 echo ""
 echo "**************** ApplyCal ***************"
 applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
