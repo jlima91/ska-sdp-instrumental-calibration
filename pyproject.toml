@@ -85,3 +85,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.workflow.pipelines.instrumental_calibration:ska_sdp_instrumental_calibration"
+clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
