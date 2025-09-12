@@ -6,11 +6,18 @@
 #SBATCH --job-name=clean-with-gains
 #SBATCH --output=slurm-%j-%x.out
 
+export AWS_ENV=false
+export DP3_CMD=${DP3_CMD:-"DP3"}
+export WSCLEAN_CMD=${WSCLEAN_CMD:-"wsclean"}
+
+
 check-module-load() {
-   module list 2>&1 | grep -wq "ska-sdp-spack"
-   if [[ $? -ne 0 ]]; then
-     echo "Meta modules not loaded. Exiting"
-     exit 1
+   if [ "${AWS_ENV}" = true ]; then
+     module list 2>&1 | grep -wq "ska-sdp-spack"
+     if [[ $? -ne 0 ]]; then
+       echo "Meta modules not loaded. Exiting"
+       exit 1
+     fi
    fi
 }
 
@@ -19,22 +26,38 @@ help()
    # Display Help
    echo "Apply gaintable to measurement set using DP3, and generate fits image using wsclean"
    echo
-   echo "Usage: clean-with-gains [-h] -i <input-ms> -g <gaintable.h5parm> [wsclean-params]"
+   echo "Usage: clean-with-gains [-h][-a] -i <input-ms> -g <gaintable.h5parm> <WSCLEAN-PARAMS>"
    echo "options:"
    echo "h     Print this help and exit."
+   echo "a     Set flag to run the script in AWS-HPC."
+   echo
+   echo "If -a flag is set, the script handles the module loads, and ensures DP3 and wsclean are in the execution path."
+   echo "The user is required to load the metamodule on AWS-HPC"
+   echo "If -a flag is not provided, the script assumes DP3 and wsclean to be in path and are defaulted to 'DP3' and 'wsclean'"
+   echo "To use alternative DP3 command, set DP3_CMD=/alternate/path/to/DP3."
+   echo "To use alternative wsclean command, set WSCLEAN_CMD=/alternate/path/to/wsclean."   
    echo
 }
 
 create-fits() {
-  module load --silent wsclean
+  if [ "${AWS_ENV}" = true ]; then
+      module load --silent wsclean
+  fi
+  
   export OPENBLAS_NUM_THREADS=1
-  wsclean $@
+  set -o xtrace
+  ${WSCLEAN_CMD} $@
+  set +o xtrace
 
-  module unload --silent wsclean
+  if [ "${AWS_ENV}" = true ]; then
+      module unload --silent wsclean
+  fi
 }
 
 applycal() {
-  module load --silent dp3
+  if [ "${AWS_ENV}" = true ]; then
+      module load --silent dp3
+  fi
 
   # Parse arguments
   while [[ "$#" -gt 0 ]]; do
@@ -62,24 +85,28 @@ applycal() {
   echo "Removing previously created ${msout}"
   rm -rf $msout
   set -o xtrace
-  DP3 steps="[applycal]" msin=${msin}\
+  ${DP3_CMD} steps="[applycal]" msin=${msin}\
 	  applycal.type=applycal applycal.parmdb=${parmdb}\
 	  applycal.missingantennabehavior=flag applycal.updateweights=True\
 	  applycal.steps="[phase, amplitude]" applycal.phase.correction=phase000\
 	  applycal.amplitude.correction=amplitude000 msout=${msout}
   set +o xtrace
-  module unload --silent dp3
+
+  if [ "${AWS_ENV}" = true ]; then
+      module unload --silent dp3
+  fi
 
 }
 
 MSOUT="corrected.ms"
 
-while getopts ":hg:i:" option; do
+while getopts ":hag:i:" option; do
    case $option in
      h) help
 	exit;;
      g) PARMDB=$OPTARG;;
      i) MSIN=$OPTARG;;
+     a) AWS_ENV=true;;
      \?) # Invalid option
         break;;
 
