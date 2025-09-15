@@ -1,0 +1,77 @@
+global_parameters:
+  experimental:
+    pipeline:
+    - load_data:
+        nchannels_per_chunk: 32
+        ntimes_per_ms_chunk: 5
+        cache_directory: null
+        ack: false
+        datacolumn: DATA
+        field_id: 0
+        data_desc_id: 0
+    - predict_vis:
+        beam_type: everybeam
+        normalise_at_beam_centre: true
+        eb_ms: null
+        eb_coeffs: null
+        lsm_csv_path: null
+        fov: 10.0
+        flux_limit: 1.0
+        alpha0: -0.78
+    - bandpass_calibration:
+        run_solver_config:
+          solver: jones_substitution
+          refant: 0
+          niter: 50
+          phase_only: false
+          tol: 0.0001
+          crosspol: false
+          normalise_gains: null
+          timeslice: null
+        plot_config:
+          plot_table: true
+          fixed_axis: false
+        export_gaintable: true
+    - generate_channel_rm:
+        oversample: 3
+        peak_threshold: 0.5
+        refine_fit: true
+        plot_rm_config:
+          plot_rm: true
+          station: 0
+        plot_table: true
+        run_solver_config:
+          solver: jones_substitution
+          refant: 0
+          niter: 50
+          phase_only: false
+          tol: 0.0001
+          crosspol: false
+          normalise_gains: null
+          timeslice: null
+        export_gaintable: true
+    - bandpass_calibration:
+        run_solver_config:
+          solver: normal_equations
+          refant: 0
+          niter: 50
+          phase_only: false
+          tol: 0.0001
+          crosspol: false
+          normalise_gains: null
+          timeslice: null
+        plot_config:
+          plot_table: true
+          fixed_axis: false
+        export_gaintable: true
+    - delay_calibration:
+        oversample: 16
+        plot_config:
+          plot_table: true
+          fixed_axis: false
+          anotate_stations: false
+        export_gaintable: true
+    - export_gain_table:
+        file_name: inst.gaintable
+        export_format: h5parm
+
