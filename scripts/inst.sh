@@ -86,4 +86,7 @@ time batchlet run $BATCHLET_CONFIG
 # Smoke test which removes monitor output if pipeline failed
 # TODO: Can be moved inside batchlet
 PIPELINE_EXIT_CODE=$?
-[[ $PIPELINE_EXIT_CODE -ne 0 ]] && echo -e "\ninst.sh: Removing monitoring plots because the pipelie failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && rm -rf $MONITOR_OUTPUT_DIR
+[[ $PIPELINE_EXIT_CODE -ne 0 ]] && \
+echo -e "\ninst.sh: Removing monitoring plots because the pipelie failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && \
+rm -rf $MONITOR_OUTPUT_DIR && \
+exit $PIPELINE_EXIT_CODE
