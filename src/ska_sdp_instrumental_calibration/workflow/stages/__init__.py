@@ -6,6 +6,7 @@ from .export_visibilities import export_visibilities_stage
 from .load_data import load_data_stage
 from .model_visibilities import predict_vis_stage
 from .smooth_gain_solution import smooth_gain_solution_stage
+from .target_load_data import target_load_data_stage
 
 __all__ = [
     "bandpass_calibration_stage",
@@ -16,4 +17,5 @@ __all__ = [
     "delay_calibration_stage",
     "smooth_gain_solution_stage",
     "export_visibilities_stage",
+    "target_load_data_stage",
 ]
