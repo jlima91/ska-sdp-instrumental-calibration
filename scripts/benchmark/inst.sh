@@ -12,17 +12,19 @@ set -e
 : ${INPUT_PATH:?is not set.}
 : ${OUTPUT_PATH:?is not set.}
 : ${REPORT_PATH:?is not set.}
+: ${CODE_PATH:?is not set.}
 : ${META_MODULE:?is not set.}
 
 # Set INST pipeline's inputs
 PRE_PROCESSED_CALIBRATOR=$INPUT_PATH/pre_processed_calibrator_68s.ms
-INST_CONFIG=$INPUT_PATH/inst.yml
 CALIBRATOR_SKY_MODEL=$INPUT_PATH/sky_model.csv
+INST_CONFIG=$CODE_PATH/scripts/benchmark/inst.yml
 
 # Load relevent modules
 module load $META_MODULE
 INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-instrumental-calibration"
 module load $INST_MODULES
+export PATH LD_LIBRARY_PATH
 
 # Some extra variables
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
