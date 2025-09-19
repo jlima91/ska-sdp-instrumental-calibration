@@ -24,7 +24,6 @@ INST_CONFIG=$CODE_PATH/scripts/benchmark/inst.yml
 module load $META_MODULE
 INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-instrumental-calibration"
 module load $INST_MODULES
-export PATH LD_LIBRARY_PATH
 
 # Some extra variables
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"

@@ -52,7 +52,7 @@ aws s3 cp --recursive $INPUT_S3 $INPUT_PATH
 
 # Run pipeline
 cd $LOG_PATH
-sbatch --wait -p $PARTITION --nodes=$NODE_COUNT --export=MODULEPATH,META_MODULE,INPUT_PATH,OUTPUT_PATH,REPORT_PATH,CODE_PATH $CODE_PATH/$BENCH_FOLDER/inst.sh
+sbatch --wait -p $PARTITION --nodes=$NODE_COUNT $CODE_PATH/$BENCH_FOLDER/inst.sh
 
 # Remove inputs
 rm -rf $INPUT_PATH
