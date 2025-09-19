@@ -2,6 +2,7 @@
 BENCH_NAME=inst
 # Repository to use
 REPOSITORY=https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git
+BRANCH=main
 # Script to run. Should include most of the non-platform-specific parameters
 SCRIPT=scripts/inst.sh
 # Input, from S3
@@ -31,7 +32,15 @@ mkdir -p $REPORT_PATH
 mkdir -p $LOG_PATH
 
 cd $BENCH_PATH
-git checkout $REPOSITORY $CODE_PATH
+
+# Do sparse-checkout for the specific script
+cd $CODE_PATH
+git init -b $BRANCH
+git remote add origin $REPOSITORY
+git sparse-checkout init
+git sparse-checkout set $SCRIPT
+git pull --set-upstream origin $BRANCH
+cd -
 
 # Copy input data from S3
 aws configure set default.s3.max_concurrent_requests 100
