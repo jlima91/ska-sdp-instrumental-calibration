@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
- 
+
 #SBATCH --nodes=1
 #SBATCH --exclusive
 #SBATCH --no-requeue
@@ -9,33 +9,29 @@
 set -e
 
 # User set environment variables
-: ${SKA_SDP_MODULE_PATH:?is not set.} # /shared/fsx1/shared/metamodules
-: ${SKA_SDP_MODULE_NAME:?is not set.} # ska-sdp-spack/2025.08.3
+: ${INPUT_PATH:?is not set.}
+: ${OUTPUT_PATH:?is not set.}
+: ${REPORT_PATH:?is not set.}
+: ${META_MODULE:?is not set.}
 
 # Set INST pipeline's inputs
-PRE_PROCESSED_CALIBRATOR=/shared/fsx1/dhruva/sp_5859_inst/pre_processed_calibrator_68s.ms
-INST_CONFIG=/shared/fsx1/dhruva/sp_5859_inst/inst.yml
-CALIBRATOR_SKY_MODEL=/shared/fsx1/dhruva/sp_5859_inst/sky_model.csv
+PRE_PROCESSED_CALIBRATOR=$INPUT_PATH/pre_processed_calibrator_68s.ms
+INST_CONFIG=$INPUT_PATH/inst.yml
+CALIBRATOR_SKY_MODEL=$INPUT_PATH/sky_model.csv
 
 # Load relevent modules
-export MODULEPATH="$SKA_SDP_MODULE_PATH":${MODULEPATH}
-module load $SKA_SDP_MODULE_NAME
-
+module load $META_MODULE
 INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-instrumental-calibration"
 module load $INST_MODULES
 
-# Set output directory to user defined one OR to current working directory
-OUTPUT_DIR=${OUTPUT_DIR:-$(builtin pwd)}
-
 # Some extra variables
-BATCHLET_CONFIG="${OUTPUT_DIR}/inst_batchlet_config.json"
+BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
 INST_SUB_COMMAND="experimental"
-INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_DIR}
-MONITOR_OUTPUT_DIR="${OUTPUT_DIR}/monitor_slurm_${SLURM_JOB_ID}"
+INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
 EVERYBEAM_DATADIR=$(module show everybeam | grep CMAKE_PREFIX_PATH | sed 's=.*CMAKE_PREFIX_PATH \(.*\)/\.=\1/share/everybeam=')
 
 # Create output directories
-mkdir -p $OUTPUT_DIR $MONITOR_OUTPUT_DIR
+mkdir -p $OUTPUT_PATH $REPORT_PATH
 
 # Generate and store batchlet's config
 cat <<EOF > $BATCHLET_CONFIG
@@ -46,7 +42,7 @@ cat <<EOF > $BATCHLET_CONFIG
     "--config",
     "$INST_CONFIG",
     "--output",
-    "$OUTPUT_DIR",
+    "$OUTPUT_PATH",
     "--set",
     "parameters.predict_vis.lsm_csv_path",
     "$CALIBRATOR_SKY_MODEL",
@@ -65,14 +61,14 @@ cat <<EOF > $BATCHLET_CONFIG
     "threads_per_worker": 4,
     "memory_per_worker": "48GB",
     "resources_per_worker": "process=1",
-    "worker_scratch_directory": "$OUTPUT_DIR",
+    "worker_scratch_directory": "$OUTPUT_PATH",
     "use_entry_node": true,
     "dask_cli_option": "--dask-scheduler"
   },
   "monitor": {
     "resources": {
       "level": 0,
-      "save_dir": "$MONITOR_OUTPUT_DIR"
+      "save_dir": "$REPORT_PATH"
     }
   }
 }
@@ -87,6 +83,6 @@ time batchlet run $BATCHLET_CONFIG
 # TODO: Can be moved inside batchlet
 PIPELINE_EXIT_CODE=$?
 [[ $PIPELINE_EXIT_CODE -ne 0 ]] && \
-echo -e "\ninst.sh: Removing monitoring plots because the pipelie failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && \
-rm -rf $MONITOR_OUTPUT_DIR && \
+echo -e "\ninst.sh: Removing monitoring plots because the pipeline failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && \
+rm -rf $REPORT_PATH && \
 exit $PIPELINE_EXIT_CODE
