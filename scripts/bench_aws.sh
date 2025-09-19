@@ -1,3 +1,7 @@
+#!/usr/bin/env bash
+
+set -e
+
 # ** Top-level parameters (to be supplied by team)
 BENCH_NAME=inst
 # Repository to use
