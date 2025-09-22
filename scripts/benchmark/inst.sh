@@ -9,16 +9,12 @@
 set -e
 
 # User set environment variables
-: ${INPUT_PATH:?is not set.}
 : ${OUTPUT_PATH:?is not set.}
 : ${REPORT_PATH:?is not set.}
 : ${CODE_PATH:?is not set.}
 : ${META_MODULE:?is not set.}
-
-# Set INST pipeline's inputs
-PRE_PROCESSED_CALIBRATOR=$INPUT_PATH/pre_processed_calibrator_68s.ms
-CALIBRATOR_SKY_MODEL=$INPUT_PATH/sky_model.csv
-INST_CONFIG=$CODE_PATH/scripts/benchmark/inst.yml
+: ${PRE_PROCESSED_CALIBRATOR:?is not set.}
+: ${CALIBRATOR_SKY_MODEL:?is not set.}
 
 # Load relevent modules
 module load $META_MODULE
@@ -26,6 +22,7 @@ INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-i
 module load $INST_MODULES
 
 # Some extra variables
+INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
 INST_SUB_COMMAND="experimental"
 INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
