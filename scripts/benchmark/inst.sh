@@ -19,7 +19,7 @@ set -e
 # Assumes that there's only one *.ms file in the INPUT_PATH
 PRE_PROCESSED_CALIBRATOR=`find "$INPUT_PATH/" -maxdepth 1 -type d -name "*.ms" -print -quit`
 # Assumes that there's only one *.csv file in the INPUT_PATH
-CALIBRATOR_SKY_MODEL=`find "$INPUT_PATH/" -maxdepth 1 -type d -name "*.csv" -print -quit`
+CALIBRATOR_SKY_MODEL=`find "$INPUT_PATH/" -maxdepth 1 -type f -name "*.csv" -print -quit`
 
 # Load relevent modules
 module load $META_MODULE
