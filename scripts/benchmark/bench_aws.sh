@@ -60,8 +60,8 @@ fi
 ln -s $INPUT_CACHE_PATH/$INPUT_S3_PATH $INPUT_PATH
 
 # inst.sh specific variables
-export PRE_PROCESSED_CALIBRATOR=$INPUT_PATH/pre-processed-calibrator-68s-rigid-rotation.ms
-export CALIBRATOR_SKY_MODEL=$INPUT_PATH/sky_model.csv
+PRE_PROCESSED_CALIBRATOR=${INPUT_PATH}/pre-processed-calibrator-68s-rigid-rotation.ms
+CALIBRATOR_SKY_MODEL=${INPUT_PATH}/sky_model.csv
 
 # Check out repository
 git clone $REPOSITORY $CODE_PATH
@@ -69,7 +69,8 @@ git clone $REPOSITORY $CODE_PATH
 # Run pipeline. We set HOME to BENCH_PATH, a couple of Python libraries use it as cache.
 env -i MODULEPATH=$MODULEPATH META_MODULE=$META_MODULE INPUT_PATH=$INPUT_PATH \
        OUTPUT_PATH=$OUTPUT_PATH REPORT_PATH=$REPORT_PATH CODE_PATH=$CODE_PATH \
-       HOME=$BENCH_PATH \
+       HOME=$BENCH_PATH PRE_PROCESSED_CALIBRATOR=$PRE_PROCESSED_CALIBRATOR \
+       CALIBRATOR_SKY_MODEL=$CALIBRATOR_SKY_MODEL \
   /bin/bash -c ". /etc/profile && sbatch --wait -p $PARTITION --nodes=$NODE_COUNT $CODE_PATH/$SCRIPT"
 
 # Upload results to S3
