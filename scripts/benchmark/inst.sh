@@ -9,12 +9,17 @@
 set -e
 
 # User set environment variables
+: ${INPUT_PATH:?is not set.}
+: ${WORK_PATH:?is not set.}
 : ${OUTPUT_PATH:?is not set.}
 : ${REPORT_PATH:?is not set.}
 : ${CODE_PATH:?is not set.}
 : ${META_MODULE:?is not set.}
-: ${PRE_PROCESSED_CALIBRATOR:?is not set.}
-: ${CALIBRATOR_SKY_MODEL:?is not set.}
+
+# Assumes that there's only one *.ms file in the INPUT_PATH
+PRE_PROCESSED_CALIBRATOR=`find "$INPUT_PATH" -maxdepth 1 -type d -name "*.ms" -print -quit`
+# Assumes that there's only one *.csv file in the INPUT_PATH
+CALIBRATOR_SKY_MODEL=`find "$INPUT_PATH" -maxdepth 1 -type d -name "*.csv" -print -quit`
 
 # Load relevent modules
 module load $META_MODULE
@@ -49,7 +54,7 @@ cat <<EOF > $BATCHLET_CONFIG
     "$EVERYBEAM_DATADIR",
     "--set",
     "parameters.load_data.cache_directory",
-    "$INST_CACHE_DIR",
+    "$WORK_PATH",
     "--input",
     "$PRE_PROCESSED_CALIBRATOR",
     "--no-unique-output-subdir",
@@ -59,7 +64,7 @@ cat <<EOF > $BATCHLET_CONFIG
     "threads_per_worker": 4,
     "memory_per_worker": "48GB",
     "resources_per_worker": "process=1",
-    "worker_scratch_directory": "$OUTPUT_PATH",
+    "worker_scratch_directory": "$WORK_PATH",
     "use_entry_node": true,
     "dask_cli_option": "--dask-scheduler"
   },
@@ -84,3 +89,6 @@ PIPELINE_EXIT_CODE=$?
 echo -e "\ninst.sh: Removing monitoring plots because the pipeline failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && \
 rm -rf $REPORT_PATH && \
 exit $PIPELINE_EXIT_CODE
+
+# Copy dask report to report path
+cp $OUTPUT_PATH/dask_report.html $REPORT_PATH
