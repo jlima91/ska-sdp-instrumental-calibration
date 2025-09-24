@@ -1,12 +1,7 @@
 import logging
-from typing import Literal
 
-import dask.array as da
-import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import xarray as xr
-from dask import delayed
 from scipy.ndimage import generic_filter
 
 logger = logging.getLogger()
@@ -15,17 +10,46 @@ logger = logging.getLogger()
 class FitCurve:
     @staticmethod
     def smooth(vals, weights, order, _):
+        """
+        Applies smoothing filter to gains.
+        Parameters
+        ----------
+            vals: Array
+                Gains
+            weights: Array
+                Weights of gains
+            order: int
+                Order of the function.
+        Returns
+        -------
+            Fit of gains after applying smooth.
+        """
         vals_smooth = np.copy(vals)
         np.putmask(vals_smooth, weights == 0, np.nan)
         return generic_filter(
             vals_smooth, np.nanmedian, size=order, mode="constant", cval=np.nan
         )
-        
+
     @staticmethod
     def poly(vals, weights, order, freq_coord):
+        """
+        Fits polynominal to gains.
+
+        Parameters
+        ----------
+            vals: Array
+                Gains
+            weights: Array
+                Weights of gains
+            order: int
+                Order of the function.
+        Returns
+        -------
+            Fit of gains after applying poly fit.
+        """
         coeff = np.polyfit(freq_coord, vals, order, w=np.sqrt(weights))
         poly = np.poly1d(coeff)
-        return  poly(freq_coord)
+        return poly(freq_coord)
 
 
 class GainFlagger:
@@ -48,10 +72,42 @@ class GainFlagger:
         fix_rms_noise: float,
         frequencies: list[float],
     ):
-        self.fit_curve =  {
-            "smooth": FitCurve.smooth,
-            "poly": FitCurve.poly
-        }[mode]
+        """
+        Generates gain flagger for given soltype and fitting parameters.
+
+        Parameters
+        ----------
+            soltype: str
+                Solution type to flag. Can be "phase", "amplitude"
+                or "both".
+            mode: str, optional
+                Detrending/fitting algorithm: "smooth", "poly".
+                By default smooth.
+            order : int
+                Order of the function fitted during detrending.
+                If mode=smooth these are the window of the running
+                median (0=all axis).
+            max_rms: float, optional
+                Rms to clip outliers, by default 5.
+            fix_rms: float, optional
+                Instead of calculating rms use this value, by default 0.
+            max_ncycles: int, optional
+                Max number of independent flagging cycles, by default 5.
+            max_rms_noise: float, optional
+                Do a running rms and then flag those regions that have a rms
+                higher than max_rms_noise*rms_of_rmses.
+            window_noise: int, optional
+                Window size for the running rms, by default 11.
+            fix_rms_noise: float, optional
+                Instead of calculating rms of the rmses use this value
+                (it will not be multiplied by the max_rms_noise).
+                By default 0.
+            frequencies: List
+                List of frequencies.
+        """
+        self.fit_curve = {"smooth": FitCurve.smooth, "poly": FitCurve.poly}[
+            mode
+        ]
 
         self.sol_type_funcs = self.SOL_TYPE_FUNCS[soltype]
         self.order = order
@@ -80,13 +136,21 @@ class GainFlagger:
         if self.window_noise % 2 != 1:
             raise Exception("Window size must be odd.")
 
-        detrend_pad = np.pad(vals_detrend, self.window_noise / 2, mode="reflect")
+        detrend_pad = np.pad(
+            vals_detrend, self.window_noise / 2, mode="reflect"
+        )
         shape = detrend_pad.shape[:-1] + (
             detrend_pad.shape[-1] - self.window_noise + 1,
             self.window_noise,
         )
-        strides = detrend_pad.strides + (detrend_pad.strides[-1],)
-
+        strides = (
+            detrend_pad.strides
+            + (  # pylint: disable=unsubscriptable-object
+                detrend_pad.strides[
+                    -1
+                ],  # pylint: disable=unsubscriptable-object
+            )
+        )
         rmses = np.sqrt(
             np.var(
                 np.lib.stride_tricks.as_strided(
@@ -107,15 +171,35 @@ class GainFlagger:
         return weights, rms
 
     def flag_dimension(self, gains, weights, antenna, receptor1, receptor2):
-        soltype = {
-            "absolute": "amplitude",
-            "angle": "phase"
-        }
+        """
+        Applies flagging to chunk of gaintable with detrending/fitting
+        algorithm for the given gain and weight chunk.
+
+        Parameters
+        ----------
+            gains: xr.DataArray
+                Gain solutions.
+            weights: xr.DataArray
+                Weight of gains.
+            antenna: list
+                Antenna names
+            receptor1: list
+                Receptor1 name
+            receptor2: list
+                Receptor2 name
+
+        Returns
+        -------
+            weights: xr.DataArray
+                Updated weights.
+        """
+
+        soltype = {"absolute": "amplitude", "angle": "phase"}
         weights = np.array(weights, copy=True)
         for sol_type_func in self.sol_type_funcs:
-            rms = 0.
+            rms = 0.0
             sol_type_data = sol_type_func(gains)
-            for i in range(self.max_ncycles):
+            for _ in range(self.max_ncycles):
                 if all(weights == 0):
                     break
 
@@ -127,14 +211,16 @@ class GainFlagger:
                     weights, rms = self.__rms_flag_weights(deterend, weights)
 
                 if self.max_rms_noise > 0 or self.fix_rms_noise > 0:
-                    weights, rms = self.__rms_noise_flag_weights(deterend, weights)
+                    weights, rms = self.__rms_noise_flag_weights(
+                        deterend, weights
+                    )
 
             logger.info(
-                    f"Gain flagging: Antenna {antenna} "
-                    f"receptors [{receptor1},{receptor2}]- "
-                    f"rms: {rms:.5f}, "
-                    f"for {soltype[sol_type_func.__name__]}."
-                )
+                f"Gain flagging: Antenna {antenna} "
+                f"receptors [{receptor1},{receptor2}]- "
+                f"rms: {rms:.5f}, "
+                f"for {soltype[sol_type_func.__name__]}."
+            )
         return weights
 
 
@@ -152,6 +238,46 @@ def flag_on_gains(
     skip_cross_pol: bool,
     apply_flag: bool,
 ) -> xr.Dataset:
+    """
+    Solves for gain flagging on gaintable for every receptor combination.
+    Optionally applies the weights to the gains.
+
+    Parameters
+    ----------
+        gaintable: Gaintable
+            Gaintable from previous solution.
+        soltype: str
+            Solution type to flag. Can be "phase", "amplitude" or "both".
+        mode: str, optional
+            Detrending/fitting algorithm: "smooth", "poly", by default smooth.
+        order : int
+            Order of the function fitted during detrending.
+            If mode=smooth these are the window of the running
+            median (0=all axis).
+        skip_cross_pol: bool
+            Cross polarizations is skipped when flagging.
+        max_rms: float, optional
+            Rms to clip outliers, by default 5.
+        fix_rms: float, optional
+            Instead of calculating rms use this value, by default 0.
+        max_ncycles: int, optional
+            Max number of independent flagging cycles, by default 5.
+        max_rms_noise: float, optional
+            Do a running rms and then flag those regions that have a rms
+            higher than max_rms_noise*rms_of_rmses.
+        window_noise: int, optional
+            Window size for the running rms, by default 11.
+        fix_rms_noise: float, optional
+            Instead of calculating rms of the rmses use this value
+            (it will not be multiplied by the max_rms_noise), by default 0.
+        apply_flag: bool
+            Weights are applied to the gains.
+
+    Returns
+    -------
+        gaintable: Gaintable
+            Updated gaintable with weights.
+    """
 
     original_chunk = gaintable.chunks
     gaintable = gaintable.chunk({"frequency": -1})
@@ -187,7 +313,10 @@ def flag_on_gains(
             output_core_dims=[["frequency"]],
             vectorize=True,
             dask="parallelized",
-            kwargs=dict(receptor1=gaintable.receptor1[receptor1].data, receptor2=gaintable.receptor2[receptor2].data),
+            kwargs=dict(
+                receptor1=gaintable.receptor1[receptor1].data,
+                receptor2=gaintable.receptor2[receptor2].data,
+            ),
             output_dtypes=[gaintable.weight.dtype],
         )
 
@@ -200,8 +329,12 @@ def flag_on_gains(
     flagged_weights_data = np.repeat(
         all_flagged_weights.data[:, :, np.newaxis], nreceptor1, axis=2
     )
-    flagged_weights_data = np.repeat(flagged_weights_data[:, :, :, np.newaxis], nreceptor2, axis=3)
-    flagged_weights_data = flagged_weights_data.reshape(-1, *flagged_weights_data.shape)
+    flagged_weights_data = np.repeat(
+        flagged_weights_data[:, :, :, np.newaxis], nreceptor2, axis=3
+    )
+    flagged_weights_data = flagged_weights_data.reshape(
+        -1, *flagged_weights_data.shape
+    )
 
     new_weights = gaintable.weight.copy()
     new_weights.data = flagged_weights_data
@@ -213,7 +346,7 @@ def flag_on_gains(
                 "gain": new_gain,
                 "weight": new_weights,
             }
-    ).chunk(original_chunk)
+        ).chunk(original_chunk)
 
     return gaintable.assign(
         {
