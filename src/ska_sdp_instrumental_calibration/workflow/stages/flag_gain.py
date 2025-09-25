@@ -17,7 +17,11 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
         soltype=ConfigParam(
             str,
             "both",
-            description="Solution type",
+            description=(
+                "Solution type. There is a potential edge case"
+                " where cyclic phases my get flagged as outliers. "
+                "eg -180 and 180"
+            ),
             allowed_values=["phase", "amplitude", "both"],
         ),
         mode=ConfigParam(
@@ -105,6 +109,8 @@ def flag_gain_stage(
                 Output from the upstream stage.
         soltype: str
             Solution type to flag. Can be "phase", "amplitude" or "both".
+            There is a potential edge case
+            where cyclic phases my get flagged as outliers. eg -180 and 180
         mode: str, optional
             Detrending/fitting algorithm: "smooth", "poly".
             By default smooth.
