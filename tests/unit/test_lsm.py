@@ -280,7 +280,7 @@ def test_convert_model_to_skycomponents(deconvolve_gaussian_mock):
         actual_component.frequency, np.array([400, 800])
     )
     np.testing.assert_allclose(
-        actual_component.flux, np.array([[8, 0, 0, 8], [32, 0, 0, 32]])
+        actual_component.flux, np.array([[16, 0, 0, 16], [64, 0, 0, 64]])
     )
 
 

@@ -2,6 +2,9 @@ import logging
 import os
 
 import dask
+from ska_sdp_datamodels.calibration.calibration_create import (
+    create_gaintable_from_visibility,
+)
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
@@ -10,31 +13,28 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     read_dataset_from_zarr,
     write_ms_to_zarr,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_bandpass_table,
-    with_chunks,
-)
+from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
 logger = logging.getLogger(__name__)
 
 
 @ConfigurableStage(
-    "load_data",
+    "target_load_data",
     configuration=Configuration(
         nchannels_per_chunk=ConfigParam(
             int,
             32,
             nullable=False,
             description="""Number of frequency channels per chunk in the
-            written zarr file. This is also the size of frequency chunk
-            used across the pipeline.""",
+            written zarr file.""",
         ),
         ntimes_per_ms_chunk=ConfigParam(
             int,
             5,
             nullable=False,
             description="""Number of time slots to include in each chunk
-            while reading from measurement set.""",
+            while reading from measurement set and writing in zarr file.
+            This is also the size of time chunk used across the pipeline.""",
         ),
         cache_directory=ConfigParam(
             str,
@@ -42,8 +42,8 @@ logger = logging.getLogger(__name__)
             nullable=True,
             description="""Cache directory containing previously stored
             visibility datasets as zarr files. The directory should contain
-            a subdirectory with same name as the input ms file name, which
-            internally contains the zarr and pickle files.
+            a subdirectory with same name as the input target ms file name,
+            which internally contains the zarr and pickle files.
             If None, the input ms will be converted to zarr file,
             and this zarr file will be stored in a new 'cache'
             subdirectory under the provided output directory.""",
@@ -75,7 +75,7 @@ logger = logging.getLogger(__name__)
         ),
     ),
 )
-def load_data_stage(
+def target_load_data_stage(
     upstream_output,
     nchannels_per_chunk,
     ntimes_per_ms_chunk,
@@ -88,13 +88,14 @@ def load_data_stage(
     _output_dir_,
 ):
     """
-    This stage loads the visibility data from either (in order of preference):
+    This stage loads the target visibility data from either (in order of
+    preference):
 
     1. An existing dataset stored as a zarr file inside the 'cache_directory'.
     2. From input MSv2 measurement set. Here it will create an intemediate
-       zarr file with chunks along frequency and use it as input to the
-       pipeline. This zarr dataset will be stored in 'cache_directory' for
-       later use.
+       zarr file with chunks along frequency and time, then use it as input
+       to the pipeline. This zarr dataset will be stored in 'cache_directory'
+       for later use.
 
     Parameters
     ----------
@@ -102,16 +103,16 @@ def load_data_stage(
         Output from the upstream stage
     nchannels_per_chunk: int
         Number of frequency channels per chunk in the
-        written zarr file. This value is used across the pipeline,
-        i.e. for zarr file and for the visibility dataset.
+        written zarr file.
     ntimes_per_ms_chunk: int
         Number of time dimension to include in each chunk
-        while reading from measurement set. This also sets
-        the number of times per chunk for zarr file.
+        while reading from measurement set and writing in zarr file.
+        This value is used across the pipeline,
+        i.e. for zarr file and for the visibility dataset.
     cache_directory: str
         Cache directory containing previously stored
         visibility datasets as zarr files. The directory should contain
-        a subdirectory with same name as the input ms file name, which
+        a subdirectory with same name as the input target ms file name, which
         internally contains the zarr and pickle files.
         If None, the input ms will be converted to zarr file,
         and this zarr file will be stored in a new 'cache'
@@ -132,9 +133,8 @@ def load_data_stage(
     Returns
     -------
     dict
-        Updated upstream_output with the loaded visibility data
+        Updated upstream_output with the loaded target visibility data
     """
-    upstream_output.add_checkpoint_key("gaintable")
     input_ms = _cli_args_["input"]
 
     input_ms = os.path.realpath(input_ms)
@@ -156,12 +156,12 @@ def load_data_stage(
         "frequency": nchannels_per_chunk,
     }
 
-    # Pipeline only works on frequency chunks
+    # Pipeline only works on time chunks
     # Its expected that later stages follow same chunking pattern
     vis_chunks = {
         **non_chunked_dims,
-        "time": -1,
-        "frequency": nchannels_per_chunk,
+        "time": ntimes_per_ms_chunk,
+        "frequency": -1,
     }
     upstream_output["chunks"] = vis_chunks
 
@@ -199,9 +199,10 @@ def load_data_stage(
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
 
-    gaintable = create_bandpass_table(vis)
+    gaintable = create_gaintable_from_visibility(
+        vis, timeslice=None, jones_type="G"
+    )
     upstream_output["vis"] = vis
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
-
     return upstream_output

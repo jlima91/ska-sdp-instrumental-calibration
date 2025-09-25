@@ -33,7 +33,7 @@ def convert_comp_to_skycomponent(
     Convert the LocalSkyModel to a list of SkyComponent.
 
     All sources are unpolarised and specified in the linear polarisation frame
-    using XX = YY = Stokes I/2.
+    using XX = YY = Stokes I.
 
     Function :func:`~deconvolve_gaussian` is used to deconvolve the MWA
     synthesised beam from catalogue shape parameters of each component.
@@ -75,7 +75,9 @@ def convert_comp_to_skycomponent(
         )
     pol_frame = PolarisationFrame("linear")
 
-    xx_yy_flux_xdr = (comp.flux / 2) * np.power(
+    # Convention as disscussed in "2025-09-23 Low G3 SDP Sync"
+    # meeting on 23 Sept 2025 08:00 - 09:00 UTC.
+    xx_yy_flux_xdr = (comp.flux) * np.power(
         (frequency_xdr / comp.ref_freq), comp.alpha
     )
 

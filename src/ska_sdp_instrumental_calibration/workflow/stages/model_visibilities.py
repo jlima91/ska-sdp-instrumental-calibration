@@ -134,7 +134,7 @@ def predict_vis_stage(
     dict
         Updated upstream_output containing with modelvis.
     """
-
+    upstream_output.add_checkpoint_key("modelvis")
     vis = upstream_output.vis
 
     logger.info("Generating LSM for predict with:")
