@@ -29,7 +29,6 @@ module load $INST_MODULES
 # Some extra variables
 INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
-INST_SUB_COMMAND="experimental"
 INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
 EVERYBEAM_DATADIR=$(module show everybeam | grep CMAKE_PREFIX_PATH | sed 's=.*CMAKE_PREFIX_PATH \(.*\)/\.=\1/share/everybeam=')
 
@@ -41,7 +40,7 @@ cat <<EOF > $BATCHLET_CONFIG
 {
   "command": [
     "ska-sdp-instrumental-calibration",
-    "$INST_SUB_COMMAND",
+    "experimental",
     "--config",
     "$INST_CONFIG",
     "--output",
