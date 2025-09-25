@@ -1,18 +1,38 @@
 #!/usr/bin/env python3
+
 """
 Write H5parm file from OSKAR gain table.
-
-Authored by:
-- Maciej Serylak
-- Fred Dulwich
 """
 
 import argparse
+import os
+from pathlib import Path
 from typing import Iterable
 
 from astropy.time import Time
 import h5py
 import numpy
+
+
+def list_stations_in_telescope_model(path):
+    """
+    Lists station names from a OSKAR telescope model path
+
+    Args:
+        path (str): The path to the telescope model directory
+
+    Returns:
+        list: A list of station names
+    """
+    directories = []
+    for entry in sorted(Path(path).iterdir()):
+        if (
+            entry.is_dir()
+            and Path(entry, "feed_angle.txt").exists()
+            and Path(entry, "layout.txt").exists()
+        ):
+            directories.append(entry.name)
+    return directories
 
 
 def main():
@@ -24,6 +44,12 @@ def main():
     )
     parser.add_argument(
         "--oskar-gains", type=str, required=True, help="Path to gain_model.h5"
+    )
+    parser.add_argument(
+        "--telescope-model",
+        type=str,
+        required=True,
+        help="Path to telescope model file",
     )
     parser.add_argument(
         "--start-time", type=str, required=True, help="Start time (ISO string)"
@@ -60,9 +86,8 @@ def main():
     pols = ["XX", "YY"]
 
     # Create the antenna axis.
-    ants = []
-    for i in range(num_ant):
-        ants.append(f"s{i:04}")
+    ants = list_stations_in_telescope_model(args.telescope_model)
+    ants = [f"s{i:04} ({ant_name})" for i, ant_name in enumerate(ants)]
 
     # Create the time axis.
     start_time = Time(args.start_time, scale="utc")
