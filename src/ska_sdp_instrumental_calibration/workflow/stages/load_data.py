@@ -134,6 +134,7 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded visibility data
     """
+    upstream_output.add_checkpoint_key("gaintable")
     input_ms = _cli_args_["input"]
 
     input_ms = os.path.realpath(input_ms)
@@ -202,4 +203,5 @@ def load_data_stage(
     upstream_output["vis"] = vis
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
+
     return upstream_output

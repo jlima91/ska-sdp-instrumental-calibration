@@ -89,7 +89,7 @@ def bandpass_calibration_stage(
     """
 
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
-
+    upstream_output.add_checkpoint_key("gaintable")
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
 

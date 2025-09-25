@@ -74,6 +74,7 @@ def delay_calibration_stage(
         dict
             Updated upstream_output with gaintable
     """
+    upstream_output.add_checkpoint_key("gaintable")
 
     gaintable = upstream_output["gaintable"]
 

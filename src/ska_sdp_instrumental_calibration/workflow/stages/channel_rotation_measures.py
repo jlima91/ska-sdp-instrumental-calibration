@@ -135,6 +135,8 @@ def generate_channel_rm_stage(
         dict
             Updated upstream_output with gaintable
     """
+    upstream_output.add_checkpoint_key("modelvis")
+    upstream_output.add_checkpoint_key("gaintable")
 
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")

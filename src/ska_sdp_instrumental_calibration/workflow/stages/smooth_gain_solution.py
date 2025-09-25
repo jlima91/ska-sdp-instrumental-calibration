@@ -89,6 +89,8 @@ def smooth_gain_solution_stage(
     dict
         Updated upstream_output with gaintable
     """
+    upstream_output.add_checkpoint_key("gaintable")
+
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("smooth"):
         call_counter_suffix = f"_{call_count}"

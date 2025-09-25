@@ -1,12 +1,17 @@
-from functools import reduce
+import logging
 
+import dask
+from distributed import get_client, wait
 from ska_sdp_piper.piper.scheduler import PiperScheduler
+
+logger = logging.getLogger()
 
 
 class UpstreamOutput:
     def __init__(self):
         self.__stage_outputs = {}
-        self.__compute_tasks = []
+        self.stage_compute_tasks = []
+        self.checkpoint_keys = []
         self.__call_count = {}
 
     def __setitem__(self, key, value):
@@ -35,10 +40,13 @@ class UpstreamOutput:
 
     @property
     def compute_tasks(self):
-        return self.__compute_tasks
+        return self.stage_compute_tasks
 
     def add_compute_tasks(self, *args):
-        self.__compute_tasks.extend(args)
+        self.stage_compute_tasks.extend(args)
+
+    def add_checkpoint_key(self, *args):
+        self.checkpoint_keys.extend(args)
 
 
 class DefaultScheduler(PiperScheduler):
@@ -63,9 +71,43 @@ class DefaultScheduler(PiperScheduler):
           stages: list(stages.Stage)
             List of stages to schedule
         """
-        self._stage_outputs = reduce(
-            lambda output, stage: stage(output), stages, self._stage_outputs
-        )
+        is_client_present = False
+
+        try:
+            get_client()
+            is_client_present = True
+        except Exception:
+            pass
+
+        output = self._stage_outputs
+        for stage in stages:
+            logger.info(
+                f"Starting {stage.name}",
+                extra={"tags": f"sdpPhase:{stage.name.upper()},state:START"},
+            )
+
+            output = stage(output)
+
+            for key in output.checkpoint_keys:
+                (output[key],) = dask.persist(output[key], optimize_graph=True)
+
+            if is_client_present:
+                for key in output.checkpoint_keys:
+                    wait(output[key])
+
+            output.checkpoint_keys = []
+
+            dask.compute(*output.compute_tasks, optimize_graph=True)
+            output.stage_compute_tasks = []
+
+            logger.info(
+                f"Finished {stage.name}",
+                extra={
+                    "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
+                },
+            )
+
+        self._stage_outputs = output
 
     def append(self, task):
         """
