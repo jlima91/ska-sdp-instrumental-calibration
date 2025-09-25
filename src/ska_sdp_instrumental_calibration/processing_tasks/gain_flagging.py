@@ -105,9 +105,7 @@ class GainFlagger:
             frequencies: List
                 List of frequencies.
         """
-        self.fit_curve = {"smooth": FitCurve.smooth, "poly": FitCurve.poly}[
-            mode
-        ]
+        self.fit_curve = getattr(FitCurve, mode)
 
         self.sol_type_funcs = self.SOL_TYPE_FUNCS[soltype]
         self.order = order
@@ -137,7 +135,7 @@ class GainFlagger:
             raise Exception("Window size must be odd.")
 
         detrend_pad = np.pad(
-            vals_detrend, self.window_noise / 2, mode="reflect"
+            vals_detrend, self.window_noise // 2, mode="reflect"
         )
         shape = detrend_pad.shape[:-1] + (
             detrend_pad.shape[-1] - self.window_noise + 1,
