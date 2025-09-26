@@ -45,36 +45,32 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
             True,
             description="Cross polarizations is skipped when flagging",
         ),
-        max_rms=ConfigParam(
-            float,
-            5.0,
-            description="Rms to clip outliers",
-        ),
-        fix_rms=ConfigParam(
-            float,
-            0.0,
-            description="Instead of calculating rms use this value",
-        ),
         max_ncycles=ConfigParam(
             int,
             5,
             description="Max number of independent flagging cycles",
         ),
-        max_rms_noise=ConfigParam(
+        n_sigma=ConfigParam(
             float,
-            0.0,
-            description="""Do a running rms and then flag those regions
-                    that have a rms higher than max_rms_noise*rms_of_rmses""",
+            10.0,
+            description="""Flag values greated than n_simga * sigma_hat.
+            Where sigma_hat is 1.4826 * MeanAbsoluteDeviation.""",
         ),
-        window_noise=ConfigParam(
+        n_sigma_rolling=ConfigParam(
+            float,
+            10.0,
+            description="""Do a running rms and then flag those regions
+            that have a rms higher than n_sigma_rolling*MAD(rmses).""",
+        ),
+        window_size=ConfigParam(
             int,
             11,
             description="Window size for running rms",
         ),
-        fix_rms_noise=ConfigParam(
-            float,
-            0.0,
-            description="Instead of calculating rms of rmses use this value",
+        normalize_gains=ConfigParam(
+            bool,
+            True,
+            description="Normailize the amplitude and phase before flagging.",
         ),
         export_gaintable=ConfigParam(
             bool,
@@ -91,12 +87,11 @@ def flag_gain_stage(
     order,
     skip_cross_pol,
     export_gaintable,
-    max_rms,
-    fix_rms,
     max_ncycles,
-    max_rms_noise,
-    window_noise,
-    fix_rms_noise,
+    n_sigma,
+    n_sigma_rolling,
+    window_size,
+    normalize_gains,
     apply_flag,
     _output_dir_,
 ):
@@ -122,20 +117,20 @@ def flag_gain_stage(
             Cross polarizations is skipped when flagging.
         export_gaintable: bool
             Export intermediate gain solution.
-        max_rms: float, optional
-            Rms to clip outliers, by default 5.
-        fix_rms: float, optional
-            Instead of calculating rms use this value, by default 0.
         max_ncycles: int, optional
             Max number of independent flagging cycles, by default 5.
-        max_rms_noise: float, optional
+        n_sigma: float, optional
+            Flag values greated than n_simga * sigma_hat.
+            Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
+            Defaulted to 10
+        n_sigma_rolling: float, optional
             Do a running rms and then flag those regions that have a rms
-            higher than max_rms_noise*rms_of_rmses.
-        window_noise: int, optional
+            higher than n_sigma_rolling*MAD(rmses).
+            Defaulted to 5
+        window_size: int, optional
             Window size for the running rms, by default 11.
-        fix_rms_noise: float, optional
-            Instead of calculating rms of the rmses use this value
-            (it will not be multiplied by the max_rms_noise), by default 0.
+        normalize_gains: bool
+            Normailize the amplitude and phase before flagging.
         apply_flag: bool
             Weights are applied to the gains.
 
@@ -156,12 +151,11 @@ def flag_gain_stage(
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains,
         skip_cross_pol,
         apply_flag,
     )

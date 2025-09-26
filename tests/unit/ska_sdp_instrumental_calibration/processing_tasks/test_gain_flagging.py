@@ -15,12 +15,10 @@ def test_should_flag_gains_for_amplitude():
     soltype = "amplitude"
     mode = "smooth"
     order = 3
-    max_rms = 5.0
-    fix_rms = 0.0
+    n_sigma = 5.0
     max_ncycles = 1
-    max_rms_noise = 0.0
-    window_noise = 3
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 0.0
+    window_size = 3
     frequencies = np.arange(0, 1, 0.1)
     gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
     gains[5] = 0 + 100j
@@ -30,13 +28,12 @@ def test_should_flag_gains_for_amplitude():
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
         frequencies,
+        normalize_gains=False,
     )
     updated_weights = flagger_obj.flag_dimension(
         gains, weights, "a1", "X", "Y"
@@ -62,12 +59,10 @@ def test_should_flag_gains_for_phase_with_polyfit():
     soltype = "phase"
     mode = "poly"
     order = 1
-    max_rms = 5.0
-    fix_rms = 0.0
+    n_sigma = 5.0
     max_ncycles = 1
-    max_rms_noise = 0.0
-    window_noise = 3
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 0.0
+    window_size = 3
     frequencies = np.arange(0, 1, 0.1)
     gains = np.arange(1, 2, 0.1) + 1j * 0.01j
     gains[5] = 0 + 100j
@@ -77,13 +72,12 @@ def test_should_flag_gains_for_phase_with_polyfit():
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
         frequencies,
+        normalize_gains=False,
     )
     updated_weights = flagger_obj.flag_dimension(
         gains, weights, "a1", "X", "Y"
@@ -109,12 +103,10 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
     soltype = "both"
     mode = "poly"
     order = 2
-    max_rms = 4.0
-    fix_rms = 0.0
+    n_sigma = 0.0
     max_ncycles = 1
-    max_rms_noise = 15.0
-    window_noise = 1
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 5.0
+    window_size = 3
     frequencies = np.arange(0, 1, 0.1)
     gains = np.zeros(10) + 0j
     gains[5] = -200
@@ -125,13 +117,12 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
         frequencies,
+        normalize_gains=True,
     )
     updated_weights = flagger_obj.flag_dimension(
         gains, weights, "a1", "X", "Y"
@@ -144,7 +135,7 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         1.0,
         0.0,
         0.0,
-        1.0,
+        0.0,
         1.0,
         1.0,
         1.0,
@@ -157,12 +148,10 @@ def test_should_throw_exception_if_window_size_is_even():
     soltype = "amplitude"
     mode = "smooth"
     order = 1
-    max_rms = 0.0
-    fix_rms = 0.0
+    n_sigma = 0.0
     max_ncycles = 1
-    max_rms_noise = 15.0
-    window_noise = 2
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 15.0
+    window_size = 2
     frequencies = np.arange(0, 1, 0.1)
     gains = np.zeros(10) + 0j
     gains[5] = -200
@@ -173,13 +162,12 @@ def test_should_throw_exception_if_window_size_is_even():
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
         frequencies,
+        normalize_gains=False,
     )
 
     with pytest.raises(Exception):
@@ -204,12 +192,10 @@ def test_should_perform_gain_flagging(
     soltype = "amplitude"
     mode = "smooth"
     order = 1
-    max_rms = 0.0
-    fix_rms = 0.0
+    n_sigma = 0.0
     max_ncycles = 1
-    max_rms_noise = 15.0
-    window_noise = 2
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 15.0
+    window_size = 2
 
     nstations = 2
     nfreq = 5
@@ -265,12 +251,11 @@ def test_should_perform_gain_flagging(
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains=False,
         skip_cross_pol=True,
         apply_flag=True,
     )
@@ -349,12 +334,10 @@ def test_should_perform_gain_flagging_without_apply(
     soltype = "amplitude"
     mode = "smooth"
     order = 1
-    max_rms = 0.0
-    fix_rms = 0.0
+    n_sigma = 0.0
     max_ncycles = 1
-    max_rms_noise = 15.0
-    window_noise = 2
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 15.0
+    window_size = 2
 
     nstations = 2
     nfreq = 5
@@ -404,12 +387,11 @@ def test_should_perform_gain_flagging_without_apply(
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains=False,
         skip_cross_pol=False,
         apply_flag=False,
     )

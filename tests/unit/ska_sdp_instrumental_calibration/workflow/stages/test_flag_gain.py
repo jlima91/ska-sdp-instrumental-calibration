@@ -17,12 +17,11 @@ def test_should_perform_flagging_on_gains(
     soltype = "amplitude"
     mode = "smooth"
     order = 3
-    max_rms = 5.0
-    fix_rms = 0.0
+    n_sigma = 5.0
     max_ncycles = 1
-    max_rms_noise = 0.0
-    window_noise = 3
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 0.0
+    window_size = 3
+    normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = False
@@ -37,12 +36,11 @@ def test_should_perform_flagging_on_gains(
         order,
         skip_cross_pol,
         export_gaintable,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains,
         apply_flag,
         _output_dir_="/output/path",
     )
@@ -52,12 +50,11 @@ def test_should_perform_flagging_on_gains(
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains,
         skip_cross_pol,
         apply_flag,
     )
@@ -87,12 +84,11 @@ def test_should_export_gaintable_with_proper_suffix(
     soltype = "amplitude"
     mode = "smooth"
     order = 3
-    max_rms = 5.0
-    fix_rms = 0.0
+    n_sigma = 5.0
     max_ncycles = 1
-    max_rms_noise = 0.0
-    window_noise = 3
-    fix_rms_noise = 0.0
+    n_sigma_rolling = 0.0
+    window_size = 3
+    normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = True
@@ -107,12 +103,11 @@ def test_should_export_gaintable_with_proper_suffix(
         order,
         skip_cross_pol,
         export_gaintable,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains,
         apply_flag,
         _output_dir_="/output/path",
     )
@@ -124,12 +119,11 @@ def test_should_export_gaintable_with_proper_suffix(
         order,
         skip_cross_pol,
         export_gaintable,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        normalize_gains,
         apply_flag,
         _output_dir_="/output/path",
     )

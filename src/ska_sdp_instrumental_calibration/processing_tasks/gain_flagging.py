@@ -64,13 +64,12 @@ class GainFlagger:
         soltype: str,
         mode: str,
         order: int,
-        max_rms: float,
-        fix_rms: float,
         max_ncycles: int,
-        max_rms_noise: float,
-        window_noise: int,
-        fix_rms_noise: float,
+        n_sigma: float,
+        n_sigma_rolling: float,
+        window_size: int,
         frequencies: list[float],
+        normalize_gains: bool,
     ):
         """
         Generates gain flagger for given soltype and fitting parameters.
@@ -80,66 +79,61 @@ class GainFlagger:
             soltype: str
                 Solution type to flag. Can be "phase", "amplitude"
                 or "both".
-            mode: str, optional
+            mode: str
                 Detrending/fitting algorithm: "smooth", "poly".
                 By default smooth.
             order : int
                 Order of the function fitted during detrending.
                 If mode=smooth these are the window of the running
                 median (0=all axis).
-            max_rms: float, optional
-                Rms to clip outliers, by default 5.
-            fix_rms: float, optional
-                Instead of calculating rms use this value, by default 0.
-            max_ncycles: int, optional
+            max_ncycles: int
                 Max number of independent flagging cycles, by default 5.
-            max_rms_noise: float, optional
+            n_sigma: float, optional
+                Flag values greated than n_simga * sigma_hat.
+                Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
+            n_sigma_rolling: float
                 Do a running rms and then flag those regions that have a rms
-                higher than max_rms_noise*rms_of_rmses.
-            window_noise: int, optional
+                higher than n_sigma_rolling*MAD(rmses).
+            window_size: int, optional
                 Window size for the running rms, by default 11.
-            fix_rms_noise: float, optional
-                Instead of calculating rms of the rmses use this value
-                (it will not be multiplied by the max_rms_noise).
-                By default 0.
             frequencies: List
                 List of frequencies.
+            normalize_gains: bool
+                Normailize the amplitude and phase before flagging.
         """
         self.fit_curve = getattr(FitCurve, mode)
 
         self.sol_type_funcs = self.SOL_TYPE_FUNCS[soltype]
         self.order = order
-        self.max_rms = max_rms
-        self.fix_rms = fix_rms
+        self.n_sigma = n_sigma
+        self.n_sigma_rolling = n_sigma_rolling
         self.max_ncycles = max_ncycles
-        self.max_rms_noise = max_rms_noise
-        self.window_noise = window_noise
-        self.fix_rms_noise = fix_rms_noise
+        self.window_size = window_size
         self.frequencies = frequencies
+        self.normalize_gains = normalize_gains
 
     def __rms_flag_weights(self, vals_detrend, weights):
-        rms = 1.4826 * np.nanmedian(np.abs(vals_detrend[(weights != 0)]))
-        if np.isnan(rms):
-            weights[:] = 0
-        elif self.fix_rms > 0:
-            flags = abs(vals_detrend) > self.fix_rms
-            weights[flags] = 0
-        else:
-            flags = abs(vals_detrend) > self.max_rms * rms
-            weights[flags] = 0
+        sigma_hat = 1.4826 * np.nanmedian(np.abs(vals_detrend[(weights != 0)]))
 
-        return weights, rms
+        if np.isnan(sigma_hat):
+            weights[:] = 0
+
+        flags = abs(vals_detrend) > self.n_sigma * sigma_hat
+
+        weights[flags] = 0
+
+        return weights, sigma_hat
 
     def __rms_noise_flag_weights(self, vals_detrend, weights):
-        if self.window_noise % 2 != 1:
+        if self.window_size % 2 != 1:
             raise Exception("Window size must be odd.")
 
         detrend_pad = np.pad(
-            vals_detrend, self.window_noise // 2, mode="reflect"
+            vals_detrend, self.window_size // 2, mode="reflect"
         )
         shape = detrend_pad.shape[:-1] + (
-            detrend_pad.shape[-1] - self.window_noise + 1,
-            self.window_noise,
+            detrend_pad.shape[-1] - self.window_size + 1,
+            self.window_size,
         )
         strides = (
             detrend_pad.strides
@@ -158,15 +152,20 @@ class GainFlagger:
             )
         )
 
-        rms = 1.4826 * np.nanmedian(abs(rmses))
+        sigma_hat = 1.4826 * np.nanmedian(abs(rmses))
 
-        if self.fix_rms_noise > 0:
-            flags = rmses > self.fix_rms_noise
-        else:
-            flags = rmses > (self.max_rms_noise * rms)
+        flags = rmses > (self.n_sigma_rolling * sigma_hat)
 
         weights[flags] = 0
-        return weights, rms
+        return weights, sigma_hat
+
+    def __normalize_data(self, data):
+        not_nan = np.isnan(data) == False  # noqa: disable=E712
+        data[not_nan] = (data[not_nan] - np.min(data[not_nan])) / np.ptp(
+            data[not_nan]
+        )
+
+        return data
 
     def flag_dimension(self, gains, weights, antenna, receptor1, receptor2):
         """
@@ -197,6 +196,10 @@ class GainFlagger:
         for sol_type_func in self.sol_type_funcs:
             rms = 0.0
             sol_type_data = sol_type_func(gains)
+
+            if self.normalize_gains:
+                sol_type_data = self.__normalize_data(sol_type_data)
+
             for _ in range(self.max_ncycles):
                 if all(weights == 0):
                     break
@@ -205,10 +208,10 @@ class GainFlagger:
                     sol_type_data, weights, self.order, self.frequencies
                 )
 
-                if self.max_rms > 0 or self.fix_rms > 0:
+                if self.n_sigma > 0:
                     weights, rms = self.__rms_flag_weights(deterend, weights)
 
-                if self.max_rms_noise > 0 or self.fix_rms_noise > 0:
+                if self.n_sigma_rolling > 0:
                     weights, rms = self.__rms_noise_flag_weights(
                         deterend, weights
                     )
@@ -216,7 +219,7 @@ class GainFlagger:
             logger.info(
                 f"Gain flagging: Antenna {antenna} "
                 f"receptors [{receptor1},{receptor2}]- "
-                f"rms: {rms:.5f}, "
+                f"MAD: {rms:.5f}, "
                 f"for {soltype[sol_type_func.__name__]}."
             )
         return weights
@@ -227,12 +230,11 @@ def flag_on_gains(
     soltype: str,
     mode: str,
     order: int,
-    max_rms: float,
-    fix_rms: float,
     max_ncycles: int,
-    max_rms_noise: float,
-    window_noise: int,
-    fix_rms_noise: float,
+    n_sigma: float,
+    n_sigma_rolling: float,
+    window_size: int,
+    normalize_gains: bool,
     skip_cross_pol: bool,
     apply_flag: bool,
 ) -> xr.Dataset:
@@ -246,28 +248,26 @@ def flag_on_gains(
             Gaintable from previous solution.
         soltype: str
             Solution type to flag. Can be "phase", "amplitude" or "both".
-        mode: str, optional
+        mode: str
             Detrending/fitting algorithm: "smooth", "poly", by default smooth.
         order : int
             Order of the function fitted during detrending.
             If mode=smooth these are the window of the running
             median (0=all axis).
+        max_ncycles: int
+            Max number of independent flagging cycles, by default 5.
+        n_sigma: float
+            Flag values greated than n_simga * sigma_hat.
+            Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
+        n_sigma_rolling: float, optional
+            Do a running rms and then flag those regions that have a rms
+            higher than n_sigma_rolling*MAD(rmses).
+        window_size: int
+            Window size for the running rms, by default 11.
+        normalize_gains: bool
+            Normailize the amplitude and phase before flagging.
         skip_cross_pol: bool
             Cross polarizations is skipped when flagging.
-        max_rms: float, optional
-            Rms to clip outliers, by default 5.
-        fix_rms: float, optional
-            Instead of calculating rms use this value, by default 0.
-        max_ncycles: int, optional
-            Max number of independent flagging cycles, by default 5.
-        max_rms_noise: float, optional
-            Do a running rms and then flag those regions that have a rms
-            higher than max_rms_noise*rms_of_rmses.
-        window_noise: int, optional
-            Window size for the running rms, by default 11.
-        fix_rms_noise: float, optional
-            Instead of calculating rms of the rmses use this value
-            (it will not be multiplied by the max_rms_noise), by default 0.
         apply_flag: bool
             Weights are applied to the gains.
 
@@ -286,13 +286,12 @@ def flag_on_gains(
         soltype,
         mode,
         order,
-        max_rms,
-        fix_rms,
         max_ncycles,
-        max_rms_noise,
-        window_noise,
-        fix_rms_noise,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
         frequencies,
+        normalize_gains,
     )
     nreceptor1 = len(gaintable.receptor1)
     nreceptor2 = len(gaintable.receptor2)
