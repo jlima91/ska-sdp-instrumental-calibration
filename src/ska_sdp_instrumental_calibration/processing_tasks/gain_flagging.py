@@ -338,7 +338,7 @@ def flag_on_gains(
     new_weights.data = flagged_weights_data
 
     if apply_flag:
-        new_gain = xr.where(new_weights, 0.0, gaintable["gain"])
+        new_gain = xr.where(new_weights == 0, 0.0, gaintable["gain"])
         return gaintable.assign(
             {
                 "gain": new_gain,

@@ -242,7 +242,7 @@ def test_should_perform_gain_flagging(
     )
     gaintable_mock.gain = xr.DataArray(gain_data, coords=coords, dims=dims)
     gaintable_mock.weights = weights
-    gaintable_mock.weight.copy.return_value = weights
+    gaintable_mock.weight.copy.return_value = xr.DataArray(np.ones((1,2,5,2,2)))
 
     apply_ufunc_return_values = [
         xr.DataArray(
@@ -273,14 +273,6 @@ def test_should_perform_gain_flagging(
         apply_flag=True,
     )
 
-    where_mock.assert_called_once_with(weights, 0.0, gaintable_mock["gain"])
-
-    assert apply_ufunc_mock.call_count == 2
-
-    gaintable.assign.assert_called_once_with(
-        {"gain": "NEW_GAIN", "weight": weights}
-    )
-
     expected_weights = np.array(
         [
             [
@@ -302,7 +294,40 @@ def test_should_perform_gain_flagging(
         ]
     )
 
-    assert np.all(weights.data == expected_weights)
+    expected_where_arg = np.array(
+        [
+            [
+                [
+                    [[False, False], [False, False]],
+                    [[True, True], [True, True]],
+                    [[False, False], [False, False]],
+                    [[True, True], [True, True]],
+                    [[False, False], [False, False]],
+                ],
+                [
+                    [[False, False], [False, False]],
+                    [[True, True], [True, True]],
+                    [[False, False], [False, False]],
+                    [[True, True], [True, True]],
+                    [[False, False], [False, False]],
+                ],
+            ]
+        ]
+    )
+
+    where_mock.assert_called_once()
+    where_call_args = where_mock.call_args.args
+    assert np.all(where_call_args[0] == expected_where_arg)
+    assert where_call_args[1:] == (0.0, gaintable_mock["gain"])
+
+    assert apply_ufunc_mock.call_count == 2
+
+    gaintable.assign.assert_called_once()
+
+    asign_call_args = gaintable.assign.call_args.args
+    assert asign_call_args[0]["gain"] == "NEW_GAIN"
+    assert np.all(asign_call_args[0]["weight"].data == expected_weights)
+
     gaintable.chunk.assert_has_calls(
         [mock.call({"frequency": -1}), mock.call(gaintable.chunks)]
     )
