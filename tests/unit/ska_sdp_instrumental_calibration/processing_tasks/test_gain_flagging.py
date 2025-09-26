@@ -242,7 +242,9 @@ def test_should_perform_gain_flagging(
     )
     gaintable_mock.gain = xr.DataArray(gain_data, coords=coords, dims=dims)
     gaintable_mock.weights = weights
-    gaintable_mock.weight.copy.return_value = xr.DataArray(np.ones((1,2,5,2,2)))
+    gaintable_mock.weight.copy.return_value = xr.DataArray(
+        np.ones((1, 2, 5, 2, 2))
+    )
 
     apply_ufunc_return_values = [
         xr.DataArray(
