@@ -88,11 +88,8 @@ def main():
     else:
         raise FileNotFoundError(f"Telescope model not found: {tel_model}")
 
-    # Copy fields.yaml
-    if Path("fields.yaml").exists():
-        (output_dir / "fields.yaml").write_text(Path("fields.yaml").read_text())
-    else:
-        raise Exception("fields.yaml not found in current working directory")
+    # Copy simulation config file as "sim.yaml"
+    (output_dir / "sim.yaml").write_text(Path(args.config).read_text())
 
     # Symlink gleam file
     if gleam_file:

@@ -11,7 +11,7 @@ Authored by:
 This script requires the GLEAM sky model to be available in the current
 working directory as a FITS catalogue called "GLEAM_EGC.fits".
 
-Also required in the current directory is a YAML file called "fields.yaml",
+Also required in the current directory is a YAML file called "sim.yaml",
 which must contain the field and target information, for example:
 
 ---
@@ -256,7 +256,7 @@ def main():
     print("\n".join(f"    {k}={v}" for k, v in vars(args).items()))
 
     # Load the known fields and targets.
-    with open("fields.yaml") as stream:
+    with open("sim.yaml") as stream:
         fields = yaml.safe_load(stream)["fields"]
 
     # Check field and target names are known.

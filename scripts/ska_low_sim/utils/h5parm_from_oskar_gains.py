@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-
 """
-Write H5parm file from OSKAR gain table.
+Convert OSKAR gaintable h5 file, into DP3/LOFAR supported h5parm file
 """
 
 import argparse
@@ -12,6 +11,14 @@ from typing import Iterable
 from astropy.time import Time
 import h5py
 import numpy
+import yaml
+
+from datetime import datetime, timedelta
+
+
+def load_config(yaml_file):
+    with open(yaml_file, "r") as f:
+        return yaml.safe_load(f)
 
 
 def list_stations_in_telescope_model(path):
@@ -42,34 +49,39 @@ def main():
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    parser.add_argument("config", type=str, help="Path to YAML config file")
     parser.add_argument(
-        "--oskar-gains", type=str, required=True, help="Path to gain_model.h5"
-    )
-    parser.add_argument(
-        "--telescope-model",
+        "oskar_gaintable",
         type=str,
-        required=True,
-        help="Path to telescope model file",
+        help="Path to oskar gaintable h5 file.",
     )
     parser.add_argument(
-        "--start-time", type=str, required=True, help="Start time (ISO string)"
+        "out_h5parm",
+        nargs="?",
+        type=str,
+        default=None,
+        help="(Optional) Path of output H5parm file",
     )
-    parser.add_argument(
-        "--dump-time-sec", type=float, default=0.84934656, help="Dump time (s)"
-    )
-    parser.add_argument(
-        "--h5parm", type=str, required=True, help="Path of output H5parm file"
-    )
+
     args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    telescope_model = Path(cfg["tel_model"])
+    start_time = cfg["fields"]["EoR2"]["Cal1"]["transit_time"]
+    dump_time_sec = cfg["sampling_time_sec"]
+
+    oskar_gaintable = args.oskar_gaintable
+
+    out_h5parm = args.out_h5parm or f"{os.path.splitext(oskar_gaintable)[0]}.h5parm"
+    os.makedirs(os.path.dirname(out_h5parm), exist_ok=True)
 
     # Read the OSKAR gain table, including the frequency axis.
     # Gains are complex, with dimensions (time, channel, antenna).
-    with h5py.File(args.oskar_gains, "r") as h5file:
+    with h5py.File(oskar_gaintable, "r") as h5file:
         gain_x = h5file["gain_xpol"][:]
         gain_y = h5file["gain_ypol"][:]
         freqs = h5file["freq (Hz)"][:]
         num_time = gain_x.shape[0]
-        num_ant = gain_x.shape[2]
 
     # Stack along a new first axis (pol),
     # resulting in shape (pols, time, channel, antenna).
@@ -86,23 +98,23 @@ def main():
     pols = ["XX", "YY"]
 
     # Create the antenna axis.
-    ants = list_stations_in_telescope_model(args.telescope_model)
+    ants = list_stations_in_telescope_model(telescope_model)
     ants = [f"s{i:04} ({ant_name})" for i, ant_name in enumerate(ants)]
 
     # Create the time axis.
-    start_time = Time(args.start_time, scale="utc")
+    start_time = Time(start_time, scale="utc")
     t_0 = start_time.mjd * 86400.0  # Convert to MJD(UTC) seconds.
-    d_t = args.dump_time_sec
+    d_t = dump_time_sec
     times = numpy.linspace(0, num_time * d_t, num_time, endpoint=False)
     times += t_0 + d_t / 2.0
 
     # Write to H5parm.
     make_h5parm_soltab(
-        args.h5parm, "amplitude000", "amplitude", pols, ants, times, freqs, amp
+        out_h5parm, "amplitude000", "amplitude", pols, ants, times, freqs, amp
     )
-    make_h5parm_soltab(
-        args.h5parm, "phase000", "phase", pols, ants, times, freqs, phase
-    )
+    make_h5parm_soltab(out_h5parm, "phase000", "phase", pols, ants, times, freqs, phase)
+
+    print(f"H5parm file written to {out_h5parm}")
 
 
 def ndarray_of_null_terminated_bytes(names: Iterable[str]) -> numpy.ndarray:

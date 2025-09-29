@@ -14,9 +14,17 @@ correlated_channel_bandwidth_hz: 21.70138888888889e3    # Channel width (Hz)
 observing_time_mins: 10                              # Observation duration (minutes)
 sampling_time_sec: 3.3973862400000003                   # Dump/integration time (seconds)
 
-# ===============================
+fields:
+  EoR2:
+    Cal1:
+      ra_deg: 197.914612
+      dec_deg: -22.277973
+      scan_id_start: 300
+      transit_time: "2000-01-03 22:33:30.000"
+
+# ================================
 # Options for generate_gaintable.py
-# ===============================
+# ================================
 output_gaintable: "./gaintables/custom_gaintable.h5"
 
 spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz" # Bandpass spline data file

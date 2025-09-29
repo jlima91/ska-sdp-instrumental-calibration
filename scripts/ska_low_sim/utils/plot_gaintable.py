@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-Generate diagnostic plots of gain tables stored in HDF5 (H5parm-like) format.
+Generate diagnostic plots of OSKAR gaintables stored in h5 file format.
 Plots are saved as PNG files in a new subfolder.
 
 Authored by:
 - Team Dhruva
 
 Usage:
-    python plot_gains.py gain_model_scan_0.h5
-    python plot_gains.py clean_gains.h5 corrupted_gains.h5
+    python plot_gains.py gain_model_scan_0.h5 ./output
 """
 
 import argparse
@@ -31,7 +30,6 @@ def load_gains(filename):
 
 
 def save_plot(fig, outdir, name):
-    os.makedirs(outdir, exist_ok=True)
     fig.savefig(os.path.join(outdir, name), dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -162,21 +160,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("input", type=str, help="Path to input H5parm file")
+    parser.add_argument(
+        "oskar_gaintable", type=str, help="Path to OSKAR supported H5 file"
+    )
     parser.add_argument(
         "outdir",
         nargs="?",
-        default="",
+        type=str,
+        default=None,
         help="Output directory for plots (default: <input_basename>_plots)",
     )
 
     args = parser.parse_args()
-    outdir = args.outdir or f"{os.path.basename(args.input)}_plots"
+    outdir = args.outdir or f"{os.path.basename(args.oskar_gaintable)}_plots"
+    os.makedirs(outdir, exist_ok=True)
 
-    freqs, gx1, gy1 = load_gains(sys.argv[1])
+    freqs, gx1, gy1 = load_gains(args.oskar_gaintable)
     sampling_time = 1.0  # seconds; adjust if known
 
     plot_amp_vs_freq(freqs, gx1, outdir, pol="X")
     plot_phase_vs_freq(freqs, gx1, outdir, pol="X")
     plot_waterfall(freqs, gx1, outdir, pol="X", sampling_time=sampling_time)
+
     print(f"Plots saved in folder: {outdir}")
