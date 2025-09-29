@@ -17,23 +17,16 @@ The following effects can be simulated:
 - RFI (radio-frequency interference), injected as a large amplitude
   perturbation within a specified frequency band.
 
-User can modify the parameters at the start of the script to change
-number of stations, observation frequency and time.
+The script needs a YAML config file as input, which contains the necessary
+parameters.
 
 The generated gain solutions are written to an H5parm file with datasets:
 - "freq (Hz)"   : frequency axis in Hz
 - "gain_xpol"   : complex gain solutions for X polarization
 - "gain_ypol"   : complex gain solutions for Y polarization
 
-Typical usage examples:
-    # Generate gain tables with all effects enabled
-    python generate_gaintable.py --output results/gains.h5
-
-    # Disable RFI, keep other effects
-    python generate_gaintable.py --no-rfi -o results/no_rfi_gains.h5
-
-    # Only apply station offsets
-    python generate_gaintable.py --station-offset --no-time-variant --no-rfi
+Usage:
+python generate_gaintable.py sim.yaml
 """
 
 import random
@@ -789,9 +782,7 @@ def calculate_gains(cfg):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate gain tables using YAML config."
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=str, help="Path to YAML config file")
 
     args = parser.parse_args()

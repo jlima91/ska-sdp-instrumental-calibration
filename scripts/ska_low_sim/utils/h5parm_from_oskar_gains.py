@@ -45,7 +45,6 @@ def list_stations_in_telescope_model(path):
 def main():
     # Get command line arguments.
     parser = argparse.ArgumentParser(
-        prog="h5parm_from_oskar_gains",
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

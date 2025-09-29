@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Python version of run_sim.sh
 Runs OSKAR simulations with parameters from a YAML config file.
 """
+
 import shutil
 
 import argparse
@@ -28,9 +28,7 @@ def run_command(cmd, logfile, **kwargs):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run OSKAR simulation using YAML config"
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=str, help="Path to YAML config file")
     args = parser.parse_args()
 
@@ -69,15 +67,20 @@ def main():
     if create_dirty_image:
         # Resolve wsclean / DP3 commands (use env vars if set)
         wsclean_cmd = os.environ.get("WSCLEAN_CMD", "wsclean")
-        dp3_cmd = os.environ.get("DP3_CMD", "DP3")
         # Early check: wsclean must exist
         if not shutil.which(wsclean_cmd):
             raise Exception(
-                f"wsclean command not found (looked for '{wsclean_cmd}'). Exiting."
+                f"wsclean command not found (looked for '{wsclean_cmd}'). "
+                "Either add wsclean to PATH, or set WSCLEAN_CMD environment variable pointing to the executable."
             )
+
+        dp3_cmd = os.environ.get("DP3_CMD", "DP3")
         # Early check: DP3 must exist
         if not shutil.which(dp3_cmd):
-            raise Exception(f"DP3 command not found (looked for '{dp3_cmd}'). Exiting.")
+            raise Exception(
+                f"DP3 command not found (looked for '{dp3_cmd}'). "
+                "Either add DP3 to PATH, or set DP3_CMD environment variable pointing to the executable."
+            )
 
     workdir = Path.cwd()
     timestamp = datetime.now().strftime("%d%m%y_%H%M%S")

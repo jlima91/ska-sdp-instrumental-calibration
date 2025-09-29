@@ -27,7 +27,7 @@ fields:
 # ==================================
 
 generate_gaintable:
-  output_gaintable: "./gaintables/custom_gaintable.h5"
+  output_gaintable: &gen_gaintable "./gaintables/custom_gaintable.h5"
 
   spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz" # Bandpass spline data file
   station_offset: true              # Apply per-station amplitude/phase offsets
@@ -38,7 +38,7 @@ generate_gaintable:
   rfi_end_freq_hz: 159.8090277778474e6           # Hz
 
   plot: true                        # Generate diagnostic plots
-  plot_output_dir: "./gaintable_generation_plots"
+  plot_output_dir: "./gaintables/generation_plots/"
 
 # ===============================
 # Options for run_sim.py
@@ -52,11 +52,11 @@ run_sim:
   field_radius_deg: 10.0            # Radius of field of view (degrees)
 
   # Corruptions to be applied. All are optional. Comment to disable.
-  # gaintable: "./gaintables/custom_gaintable.h5" # Gaintable HDF5
+  # gaintable: *gen_gaintable           # Gaintable containing bandpass corruptions
   # cable_delay: "./cable_delays/cable_length_error_40s.txt" # Cable delay error file
   # tec_screen: "./tec/calibrator_iono_tec.fits" # Ionospheric TEC screen FITS
 
-  # Imaging. Optional. Comment to disable.
+  # Imaging parameters using wsclean. Optional. Comment to disable.
   create_dirty_image: true          # Whether to run wsclean imaging
   image_size: 1024                  # Image size (pixels)
   pixel_size: "2arcsec"             # Pixel size (angular units)
