@@ -14,72 +14,12 @@ from ...processing_tasks.lsm import (
     generate_lsm_from_gleamegc,
 )
 from ..utils import get_phasecentre
+from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "predict_vis",
-    configuration=Configuration(
-        beam_type=ConfigParam(
-            str,
-            "everybeam",
-            description="Type of beam model to use. Default is 'everybeam'",
-        ),
-        normalise_at_beam_centre=ConfigParam(
-            bool,
-            False,
-            description="""If true, before running calibration, multiply vis
-            and model vis by the inverse of the beam response in the
-            beam pointing direction.""",
-        ),
-        eb_ms=ConfigParam(
-            str,
-            None,
-            description="""If beam_type is "everybeam" but input ms does
-            not have all of the metadata required by everybeam, this parameter
-            is used to specify a separate dataset to use when setting up
-            the beam models.""",
-        ),
-        eb_coeffs=ConfigParam(
-            str,
-            None,
-            description="""Everybeam coeffs datadir containing beam
-            coefficients. Required if bbeam_type is 'everybeam'.""",
-        ),
-        gleamfile=ConfigParam(
-            str,
-            None,
-            description="""Specifies the location of gleam catalogue
-            file gleamegc.dat""",
-        ),
-        lsm_csv_path=ConfigParam(
-            str,
-            None,
-            description="""Specifies the location of CSV file containing the
-            sky model. The CSV file should be in OSKAR CSV format.""",
-        ),
-        fov=ConfigParam(
-            float,
-            10.0,
-            description="""Specifies the width of the cone used when
-            searching for compoents, in units of degrees. Default: 10.""",
-        ),
-        flux_limit=ConfigParam(
-            float,
-            1.0,
-            description="""Specifies the flux density limit used when
-            searching for compoents, in units of Jy. Defaults to 1""",
-        ),
-        alpha0=ConfigParam(
-            float,
-            -0.78,
-            description="""Nominal alpha value to use when fitted data
-            are unspecified. Default is -0.78.""",
-        ),
-    ),
-)
-def predict_vis_stage(
+def predict_visibilities(
     upstream_output,
     beam_type,
     normalise_at_beam_centre,
@@ -201,3 +141,18 @@ def predict_vis_stage(
     upstream_output.increment_call_count("predict_vis")
 
     return upstream_output
+
+
+predict_vis_stage = ConfigurableStage(
+    "predict_vis",
+    configuration=Configuration(
+        **PREDICT_VISIBILITIES_COMMON_CONFIG,
+        normalise_at_beam_centre=ConfigParam(
+            bool,
+            False,
+            description="""If true, before running calibration, multiply vis
+            and model vis by the inverse of the beam response in the
+            beam pointing direction.""",
+        ),
+    ),
+)(predict_visibilities)
