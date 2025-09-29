@@ -3,30 +3,30 @@ import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.workflow.stages import (
-    target_load_data_stage,
-)
+from ska_sdp_instrumental_calibration.workflow.stages import target_calibration
+
+load_data_stage = target_calibration.load_data_stage
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".os.makedirs"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.os.makedirs"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".check_if_cache_files_exist"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.check_if_cache_files_exist"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".write_ms_to_zarr"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.write_ms_to_zarr"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".read_dataset_from_zarr"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.read_dataset_from_zarr"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".create_gaintable_from_visibility"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.create_gaintable_from_visibility"
 )
 def test_should_load_data_from_existing_cached_zarr_file(
     create_gaintable_mock,
@@ -47,7 +47,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
 
     upstream_output = UpstreamOutput()
 
-    new_up_output = target_load_data_stage.stage_definition(
+    new_up_output = load_data_stage.stage_definition(
         upstream_output,
         frequency_per_chunk,
         times_per_ms_chunk,
@@ -96,24 +96,24 @@ def test_should_load_data_from_existing_cached_zarr_file(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".os.makedirs"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.os.makedirs"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".check_if_cache_files_exist"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.check_if_cache_files_exist"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".write_ms_to_zarr"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.write_ms_to_zarr"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".read_dataset_from_zarr"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.read_dataset_from_zarr"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_load_data"
-    ".create_gaintable_from_visibility"
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.create_gaintable_from_visibility"
 )
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     create_gaintable_mock,
@@ -132,7 +132,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
 
     upstream_output = UpstreamOutput()
 
-    target_load_data_stage.stage_definition(
+    load_data_stage.stage_definition(
         upstream_output,
         frequency_per_chunk,
         times_per_ms_chunk,

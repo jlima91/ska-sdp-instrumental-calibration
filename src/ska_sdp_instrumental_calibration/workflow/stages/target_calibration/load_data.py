@@ -75,7 +75,7 @@ logger = logging.getLogger(__name__)
         ),
     ),
 )
-def target_load_data_stage(
+def load_data_stage(
     upstream_output,
     nchannels_per_chunk,
     ntimes_per_ms_chunk,
