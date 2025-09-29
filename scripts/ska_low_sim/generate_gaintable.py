@@ -38,6 +38,8 @@ Typical usage examples:
 
 import random
 
+import yaml
+
 # Setting seed to a fixed value in order to achieve repeatability of results.
 random.seed(100)
 
@@ -51,85 +53,10 @@ import numpy as np
 from scipy.interpolate import BSpline
 
 
-########################### Common user modifiable parameters #################################
-
-n_stations = 40  # Define number of AA2 stations.
-
-simulation_start_frequency = 123e6 * 1e-6  # Start frequency for the simulation in MHz.
-simulation_end_frequency = 153e6 * 1e-6  #  End frequency for the simulation in MHz.
-correlated_channel_bandwidth = 21.70138888888889e3 * 1e-6  # Channel bandwidth in MHz
-
-observing_time_cal = 10 * 60  # Duration of calibrator scan in seconds
-sampling_time = 3.3973862400000003  # Integration time in seconds
-
-# In case RFI is enabled from cli
-rfi_start_freq = 154.25347222228538  # MHz
-rfi_end_freq = 159.8090277778474  # MHz
-
-###########################################################################################
-############################## DO NOT MODIFY BELOW THIS LINE ##############################
-###########################################################################################
-
-################################# Setup sim params ########################################
-
-n_pols = 2  # Define number of polarisations. Here X and Y.
-
-# Load receptors response
-spline_data = np.load(
-    os.path.join(os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz")
-)
-
-# # Calculate number of fine channels in AA1 correlator mode.
-# clock = 800  # ADC sampling clock in MHz.
-# samples_in_ADC = 1024  # Number of samples used in ADC.
-
-# # Number of fine (226 Hz) channels used in secondary PFB.
-# number_of_fine_channels = 4096
-
-# oversampling_ratio = 32 / 27  # Frequency oversampling ratio.
-
-# # Number of fine channels averaged to obtain 5.4 kHz channels.
-# number_of_averaged_fine_channels = 24
-
-# # Number of 226 Hz (fine) spectra averaged (across time)
-# # e.g. 64 for 0.283s or 192 for 0.849s.
-# number_of_averaged_time_samples = 192
-
-# correlated_channel_bandwidth = (
-#     ((clock / samples_in_ADC) / number_of_fine_channels) * oversampling_ratio
-# ) * number_of_averaged_fine_channels
-
-AA2_bandwidth = simulation_end_frequency - simulation_start_frequency
-
-number_of_correlated_channels = int(AA2_bandwidth / correlated_channel_bandwidth)
-
-# End frequency for the simulation in MHz.
-
-# Create fine frequency table used for simulation.
-simulation_frequency_table = np.arange(
-    simulation_start_frequency, simulation_end_frequency, correlated_channel_bandwidth
-)
-
-# # Correlator integration time (dump time) in seconds
-# sampling_time = (
-#     (1 / ((clock / samples_in_ADC) * oversampling_ratio))
-#     * number_of_fine_channels
-#     * number_of_averaged_time_samples
-# ) / 1e6
-
-# Calculate number of time samples in calibration scan/observation.
-number_of_cal_time_samples = int(observing_time_cal // sampling_time)
-
-# Calculate table of observation times for target and calibrator.
-start_time = 0.0
-# observation_end_time = number_of_target_obs_samples * sampling_time
-calibration_end_time = number_of_cal_time_samples * sampling_time
-# observation_time = np.arange(start_time, observation_end_time, sampling_time)
-calibration_time = np.arange(start_time, calibration_end_time, sampling_time)
-
-assert number_of_cal_time_samples == len(calibration_time)
-
-################################# Utils ############################################
+def load_config(yaml_file):
+    with open(yaml_file, "r") as f:
+        cfg = yaml.safe_load(f)
+    return cfg
 
 
 def create_gaussian_noise(size, mu, sigma):
@@ -216,7 +143,9 @@ def find_closest(array, value):
 ############################## Bandpass Amp ##############################################
 
 
-def bandpass_amplitude(plot=False):
+def bandpass_amplitude(
+    simulation_frequency_table, spline_data, plot=False, plot_output_dir="."
+):
     """
     Calculate phase values for bandpass
 
@@ -270,7 +199,7 @@ def bandpass_amplitude(plot=False):
         plt.title("Bandpass amplitude — X polarisation")
         plt.legend()
         plt.grid()
-        plt.savefig("bspline_bandpass_amp_X.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/bspline_bandpass_amp_X.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -293,7 +222,7 @@ def bandpass_amplitude(plot=False):
         plt.title("Bandpass amplitude — Y polarisation")
         plt.legend()
         plt.grid()
-        plt.savefig("bspline_bandpass_amp_Y.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/bspline_bandpass_amp_Y.png", dpi=150)
         plt.close()
 
     return station_bandpass_amplitude_X, station_bandpass_amplitude_Y
@@ -302,7 +231,14 @@ def bandpass_amplitude(plot=False):
 ############################## Bandpass Phase ##############################################
 
 
-def bandpass_phase(plot=False):
+def bandpass_phase(
+    simulation_start_frequency,
+    simulation_end_frequency,
+    simulation_frequency_table,
+    spline_data,
+    plot=False,
+    plot_output_dir=".",
+):
     """
     calculate phase values for bandpass
 
@@ -374,7 +310,7 @@ def bandpass_phase(plot=False):
         plt.title("Bandpass phase — X polarisation")
         plt.legend()
         plt.grid()
-        plt.savefig("bazier_bandpass_phase_X.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/bazier_bandpass_phase_X.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -390,7 +326,7 @@ def bandpass_phase(plot=False):
         plt.title("Bandpass phase — Y polarisation")
         plt.legend()
         plt.grid()
-        plt.savefig("bazier_bandpass_phase_Y.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/bazier_bandpass_phase_Y.png", dpi=150)
         plt.close()
 
     return station_bandpass_phase_X, station_bandpass_phase_Y
@@ -399,7 +335,7 @@ def bandpass_phase(plot=False):
 ############################## Gaussian noise per station (both amp and phase) ##############################################
 
 
-def bandpass_offset_per_station(plot=False):
+def bandpass_offset_per_station(n_stations, plot=False, plot_output_dir="."):
     """
 
     Returns
@@ -423,7 +359,7 @@ def bandpass_offset_per_station(plot=False):
         plt.ylabel("Amplitude offset")
         plt.title("Amplitude offset per station")
         plt.grid(axis="y")
-        plt.savefig("amplitude_offset_stations.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/amplitude_offset_stations.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -432,31 +368,22 @@ def bandpass_offset_per_station(plot=False):
         plt.ylabel("Phase offset (degrees)")
         plt.title("Phase offset per station")
         plt.grid(axis="y")
-        plt.savefig("phase_offset_stations.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/phase_offset_stations.png", dpi=150)
         plt.close()
 
-    # # Write generated values to the files.
-    # np.savetxt(
-    #     "SKA_Low_AA2_40S_SP5175_bandpass_phase_offset_per_station.dat", phase_offset_per_station
-    # )
-    # np.savetxt(
-    #     "SKA_Low_AA2_40S_SP5175_bandpass_phase_amplitude_values.dat", amplitude_offset_per_station
-    # )
-
-    # Load values from the files.
-    # phase_offset_per_station = np.loadtxt(
-    #     "SKA_Low_AA2_40S_SP5175_bandpass_phase_offset_per_station.dat"
-    # )
-    # amplitude_offset_per_station = np.loadtxt(
-    #     "SKA_Low_AA2_40S_SP5175_bandpass_phase_amplitude_values.dat"
-    # )
     return amplitude_offset_per_station, phase_offset_per_station
 
 
 ############################## Time dependent effects (both amp and phase) ##############################
 
 
-def time_variant_effects(plot=False):
+def time_variant_effects(
+    calibration_time,
+    n_stations,
+    number_of_cal_time_samples,
+    plot=False,
+    plot_output_dir=".",
+):
     """
     Calculates time variatnt effects added to the bandpass
 
@@ -520,7 +447,7 @@ def time_variant_effects(plot=False):
         plt.title("Amplitude variation vs time (first 3 stations)")
         plt.legend()
         plt.grid()
-        plt.savefig("amplitude_time_series.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/amplitude_time_series.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -535,7 +462,7 @@ def time_variant_effects(plot=False):
         plt.title("Phase variation vs time (first 3 stations)")
         plt.legend()
         plt.grid()
-        plt.savefig("phase_time_series.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/phase_time_series.png", dpi=150)
         plt.close()
 
         # ---- 2. Plot heatmaps for all stations ----
@@ -551,7 +478,7 @@ def time_variant_effects(plot=False):
         plt.xlabel("Time (seconds)")
         plt.ylabel("Station index")
         plt.title("Amplitude time variation profile (all stations)")
-        plt.savefig("amplitude_variation_heatmap.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/amplitude_variation_heatmap.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 6))
@@ -566,7 +493,7 @@ def time_variant_effects(plot=False):
         plt.xlabel("Time (seconds)")
         plt.ylabel("Station index")
         plt.title("Phase time variation profile (all stations)")
-        plt.savefig("phase_variation_heatmap.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/phase_variation_heatmap.png", dpi=150)
         plt.close()
 
     return amplitude_time_variation_profile, phase_time_variation_profile
@@ -575,7 +502,17 @@ def time_variant_effects(plot=False):
 ############################## Additional RFI ##############################
 
 
-def calculate_rfi(plot):
+def calculate_rfi(
+    simulation_frequency_table,
+    rfi_start_freq,
+    rfi_end_freq,
+    number_of_cal_time_samples,
+    sampling_time,
+    n_stations,
+    n_pols,
+    plot=False,
+    plot_output_dir=".",
+):
     """
     Generate RFI to inject into the gain table.
 
@@ -629,7 +566,7 @@ def calculate_rfi(plot):
             f"RFI amplitude (time={t_idx}, station={st_idx}, pol={'X' if pol_idx==0 else 'Y'})"
         )
         plt.grid()
-        plt.savefig("rfi_amp_spectrum.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/rfi_amp_spectrum.png", dpi=150)
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -638,7 +575,7 @@ def calculate_rfi(plot):
         plt.ylabel("Phase (degrees)")
         plt.title(f"RFI phase (time={t_idx}, station={st_idx}, pol={pol_idx})")
         plt.grid()
-        plt.savefig("rfi_phase_spectrum.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/rfi_phase_spectrum.png", dpi=150)
         plt.close()
 
         # --- 2. Time series at one frequency, one station/pol ---
@@ -654,7 +591,7 @@ def calculate_rfi(plot):
             f"RFI amplitude vs time (freq_idx={freqs[f_idx]:.1f} MHz, station={st_idx}, pol={pol_idx})"
         )
         plt.grid()
-        plt.savefig("rfi_amp_time_series.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/rfi_amp_time_series.png", dpi=150)
         plt.close()
 
         # --- 3. Heatmap (freq × time) for one station/pol ---
@@ -671,7 +608,7 @@ def calculate_rfi(plot):
         plt.xlabel("Time (s)")
         plt.ylabel("Frequency (MHz)")
         plt.title(f"RFI amplitude heatmap (station={st_idx}, pol={pol_idx})")
-        plt.savefig("rfi_amp_heatmap.png", dpi=150)
+        plt.savefig(f"{plot_output_dir}/rfi_amp_heatmap.png", dpi=150)
         plt.close()
 
         print(
@@ -684,9 +621,53 @@ def calculate_rfi(plot):
 ############################## Generate gaintables combining all effects ##############################
 
 
-def calculate_gains(station_offset=True, time_variant=True, rfi=False, plot=False):
-    # Generate gain tables for both polarisations. Non-looped version. Can take up to 10 minutes.
+def calculate_gains(cfg):
     start_time = time.perf_counter()
+
+    # --------------- Unpack config  -------------------
+    n_stations = cfg["n_stations"]
+    simulation_start_frequency = float(cfg["simulation_start_frequency_hz"]) * 1e-6
+    simulation_end_frequency = float(cfg["simulation_end_frequency_hz"]) * 1e-6
+    correlated_channel_bandwidth = float(cfg["correlated_channel_bandwidth_hz"]) * 1e-6
+    observing_time_cal = float(cfg["observing_time_cal_min"]) * 60
+    sampling_time = cfg["sampling_time_sec"]
+    spline_data_path = cfg["spline_data_path"]
+
+    station_offset = cfg.get("station_offset", True)
+    time_variant = cfg.get("time_variant", True)
+
+    rfi = cfg.get("rfi", False)
+    rfi_start_freq = float(cfg["rfi_start_freq_hz"]) * 1e-6
+    rfi_end_freq = float(cfg["rfi_end_freq_hz"]) * 1e-6
+
+    plot = cfg.get("plot", False)
+    plot_output_dir = cfg.get("plot_output_dir", "./gaintable_generation_plots")
+    if plot:
+        os.makedirs(plot_output_dir, exist_ok=True)
+
+    # --- setup (same as before, but local variables instead of globals) ---
+
+    n_pols = 2
+    spline_data = np.load(spline_data_path)
+
+    AA2_bandwidth = simulation_end_frequency - simulation_start_frequency
+
+    number_of_correlated_channels = int(AA2_bandwidth / correlated_channel_bandwidth)
+    number_of_cal_time_samples = int(observing_time_cal // sampling_time)
+
+    # TODO: Verify what is the correct way to call arange
+    simulation_frequency_table = np.arange(
+        simulation_start_frequency,
+        simulation_end_frequency,
+        correlated_channel_bandwidth,
+    )
+    # TODO: Verify what is the correct way to call arange
+    calibration_time = np.arange(
+        0, number_of_cal_time_samples * sampling_time, sampling_time
+    )
+
+    # ----------------------------------------------------------------------------
+
     gain_xpol = np.zeros(
         (
             len(simulation_frequency_table),
@@ -705,13 +686,29 @@ def calculate_gains(station_offset=True, time_variant=True, rfi=False, plot=Fals
     )
 
     station_bandpass_amplitude_X, station_bandpass_amplitude_Y = bandpass_amplitude(
-        plot
+        simulation_frequency_table=simulation_frequency_table,
+        spline_data=spline_data,
+        plot=plot,
+        plot_output_dir=plot_output_dir,
     )
-    station_bandpass_phase_X, station_bandpass_phase_Y = bandpass_phase(plot)
+    station_bandpass_phase_X, station_bandpass_phase_Y = bandpass_phase(
+        simulation_start_frequency=simulation_start_frequency,
+        simulation_end_frequency=simulation_end_frequency,
+        simulation_frequency_table=simulation_frequency_table,
+        spline_data=spline_data,
+        plot=plot,
+        plot_output_dir=plot_output_dir,
+    )
 
     if time_variant:
         amplitude_time_variation_profile, phase_time_variation_profile = (
-            time_variant_effects(plot)
+            time_variant_effects(
+                calibration_time=calibration_time,
+                n_stations=n_stations,
+                number_of_cal_time_samples=number_of_cal_time_samples,
+                plot=plot,
+                plot_output_dir=plot_output_dir,
+            )
         )
     else:
         amplitude_time_variation_profile = np.ones(
@@ -723,7 +720,9 @@ def calculate_gains(station_offset=True, time_variant=True, rfi=False, plot=Fals
 
     if station_offset:
         amplitude_offset_per_station, phase_offset_per_station = (
-            bandpass_offset_per_station(plot)
+            bandpass_offset_per_station(
+                n_stations=n_stations, plot=plot, plot_output_dir=plot_output_dir
+            )
         )
     else:
         amplitude_offset_per_station = phase_offset_per_station = np.zeros(n_stations)
@@ -760,7 +759,17 @@ def calculate_gains(station_offset=True, time_variant=True, rfi=False, plot=Fals
     gain_ypol = np.swapaxes(gain_ypol, 0, 1)
 
     if rfi:
-        RFI_complex, freq_slice = calculate_rfi(plot)
+        RFI_complex, freq_slice = calculate_rfi(
+            simulation_frequency_table=simulation_frequency_table,
+            rfi_start_freq=rfi_start_freq,
+            rfi_end_freq=rfi_end_freq,
+            number_of_cal_time_samples=number_of_cal_time_samples,
+            sampling_time=sampling_time,
+            n_stations=n_stations,
+            n_pols=n_pols,
+            plot=plot,
+            plot_output_dir=plot_output_dir,
+        )
         # Inject RFI into gain tables.
         gain_xpol[:, freq_slice, :] = RFI_complex[:, :, :, 0]
         gain_ypol[:, freq_slice, :] = RFI_complex[:, :, :, 1]
@@ -768,49 +777,17 @@ def calculate_gains(station_offset=True, time_variant=True, rfi=False, plot=Fals
     end_time = time.perf_counter()
     print("Total processing time: " + str(int(np.ceil(end_time - start_time))) + " s.")
 
-    if plot:
-        pass
-
-    # Save gain table to NumPy file.
-    # np.savez("SKA_Low_AA2_40S_SP5175_gain_table.npz", gain_xpol=gain_xpol, gain_ypol=gain_ypol)
-    # Load gain_table from the files.
-    # gain_table = np.load("SKA_Low_AA1_SP4964_gain_table.npz")
-    # gain_xpol = gain_table["gain_xpol"]
-    # gain_ypol = gain_table["gain_ypol"]
-
-    return gain_xpol, gain_ypol
+    return gain_xpol, gain_ypol, simulation_frequency_table
 
 
 ############################## Write to h5parm ##############################
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Generate gain tables using YAML config."
     )
-    parser.add_argument(
-        "--station-offset",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Toggle per-station amplitude/phase offsets (default: enabled)",
-    )
-    parser.add_argument(
-        "--time-variant",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Toggle time-variant amplitude/phase effects (default: enabled)",
-    )
-    parser.add_argument(
-        "--rfi",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Toggle RFI injection (default: disabled)",
-    )
-    parser.add_argument(
-        "--plot",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Toggle diagnostic plots (default: disabled)",
-    )
+    parser.add_argument("config", type=str, help="Path to YAML config file")
     parser.add_argument(
         "-o",
         "--output",
@@ -821,34 +798,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    gain_xpol, gain_ypol = calculate_gains(
-        station_offset=args.station_offset,
-        time_variant=args.time_variant,
-        rfi=args.rfi,
-        plot=args.plot,
-    )
+    cfg = load_config(args.config)
 
-    # Ensure output directory exists
+    gain_xpol, gain_ypol, sim_freqs = calculate_gains(cfg)
+
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
-    # Write to HDF5 file
-    with h5py.File(args.output, "w") as gain_file:
-        gain_file.create_dataset(
-            "freq (Hz)",
-            (len(simulation_frequency_table),),
-            dtype="float",
-            data=simulation_frequency_table * 1e6,
-        )
-        gain_file.create_dataset(
-            "gain_xpol",
-            (number_of_cal_time_samples, len(simulation_frequency_table), n_stations),
-            dtype="complex",
-            data=gain_xpol,
-        )
-        gain_file.create_dataset(
-            "gain_ypol",
-            (number_of_cal_time_samples, len(simulation_frequency_table), n_stations),
-            dtype="complex",
-            data=gain_ypol,
-        )
+    with h5py.File(args.output, "w") as f:
+        f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
+        f.create_dataset("gain_xpol", data=gain_xpol)
+        f.create_dataset("gain_ypol", data=gain_ypol)
+
     print(f"Wrote gains to {args.output}")
+
+
+if __name__ == "__main__":
+    main()

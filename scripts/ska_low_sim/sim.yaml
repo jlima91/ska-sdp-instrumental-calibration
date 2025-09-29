@@ -1,0 +1,18 @@
+n_stations: 40
+simulation_start_frequency_hz: 123.0e6   # Hz
+simulation_end_frequency_hz: 153.0e6     # Hz
+correlated_channel_bandwidth_hz: 21.70138888888889e3  # Hz
+observing_time_cal_min: 10             # minutes
+sampling_time_sec: 3.3973862400000003           # seconds
+spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz"
+
+station_offset: true
+
+time_variant: true
+
+rfi: false
+rfi_start_freq_hz: 154.25347222228538e6        # Hz
+rfi_end_freq_hz: 159.8090277778474e6           # Hz
+
+plot: true
+plot_output_dir: "./gaintable_generation_plots"
