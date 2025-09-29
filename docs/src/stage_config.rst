@@ -8,9 +8,13 @@ Refer to the `API page for stages <package/guide.html#stages>`_
 
 Each stage has parameters, which are defined in the YAML config file passed to the pipeline.
 
+Instrumental Calibration Stages
+*******************************
+
+This section describes the stages used in the Instrumental Calibration pipeline.
 
 load_data
-*********
+=========
 
     This stage loads the visibility data from either (in order of preference):
 
@@ -21,7 +25,7 @@ load_data
        later use.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -54,12 +58,12 @@ Parameters
 
 
 predict_vis
-***********
+===========
 
     Predict model visibilities using a local sky model.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -69,9 +73,6 @@ Parameters
     | Param                    | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
     +==========================+========+===========+==================================================================================+============+==================+
     | beam_type                | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
-    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
-    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
     |                          |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
@@ -94,15 +95,18 @@ Parameters
     | alpha0                   | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified. Default | True       |                  |
     |                          |        |           | is -0.78.                                                                        |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
 bandpass_calibration
-********************
+====================
 
     Performs Bandpass Calibration
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -162,12 +166,12 @@ Parameters
 
 
 flag_gain
-*********
+=========
 
     Performs flagging on gains and updates the weight.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -176,7 +180,8 @@ Parameters
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
     | Param            | Type   | Default   | Description                                                                      | Nullable   | Allowed values                 |
     +==================+========+===========+==================================================================================+============+================================+
-    | soltype          | str    | both      | Solution type                                                                    | True       | ['phase', 'amplitude', 'both'] |
+    | soltype          | str    | both      | Solution type. There is a potential edge case where cyclic phases my get flagged | True       | ['phase', 'amplitude', 'both'] |
+    |                  |        |           | as outliers. eg -180 and 180                                                     |            |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
     | mode             | str    | smooth    | Detrending/fitting algorithm: smooth / poly                                      | True       | ['smooth', 'poly']             |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
@@ -186,30 +191,29 @@ Parameters
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
     | skip_cross_pol   | bool   | True      | Cross polarizations is skipped when flagging                                     | True       |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
-    | max_rms          | float  | 5.0       | Rms to clip outliers                                                             | True       |                                |
-    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
-    | fix_rms          | float  | 0.0       | Instead of calculating rms use this value                                        | True       |                                |
-    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
     | max_ncycles      | int    | 5         | Max number of independent flagging cycles                                        | True       |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
-    | max_rms_noise    | float  | 0.0       | Do a running rms and then flag those regions                     that have a rms | True       |                                |
-    |                  |        |           | higher than max_rms_noise*rms_of_rmses                                           |            |                                |
+    | n_sigma          | float  | 10.0      | Flag values greated than n_simga * sigma_hat.             Where sigma_hat is     | True       |                                |
+    |                  |        |           | 1.4826 * MeanAbsoluteDeviation.                                                  |            |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
-    | window_noise     | int    | 11        | Window size for running rms                                                      | True       |                                |
+    | n_sigma_rolling  | float  | 10.0      | Do a running rms and then flag those regions             that have a rms higher  | True       |                                |
+    |                  |        |           | than n_sigma_rolling*MAD(rmses).                                                 |            |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
-    | fix_rms_noise    | float  | 0.0       | Instead of calculating rms of rmses use this value                               | True       |                                |
+    | window_size      | int    | 11        | Window size for running rms                                                      | True       |                                |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
+    | normalize_gains  | bool   | True      | Normailize the amplitude and phase before flagging.                              | True       |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
     | export_gaintable | bool   | False     | Export intermediate gain solutions.                                              | False      |                                |
     +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+--------------------------------+
 
 
 generate_channel_rm
-*******************
+===================
 
     Generates channel rotation measures
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -280,12 +284,12 @@ Parameters
 
 
 delay_calibration
-*****************
+=================
 
     Performs delay calibration
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -307,12 +311,12 @@ Parameters
 
 
 smooth_gain_solution
-********************
+====================
 
     Smooth the gain solution.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -336,12 +340,12 @@ Parameters
 
 
 export_visibilities
-*******************
+===================
 
     Apply gaintable and export visibilities.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -357,12 +361,12 @@ Parameters
 
 
 export_gain_table
-*****************
+=================
 
     Export gain table solutions to a file.
 
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -377,5 +381,123 @@ Parameters
     +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
     | export_metadata | bool   | False     | Export metadata into YAML file         | True       |                    |
     +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+
+
+
+
+Target Calibration Stages
+*************************
+
+This section describes the stages used in the Target Calibration pipeline.
+
+target_load_data
+================
+
+    This stage loads the target visibility data from either (in order of
+    preference):
+
+    1. An existing dataset stored as a zarr file inside the 'cache_directory'.
+    2. From input MSv2 measurement set. Here it will create an intemediate
+       zarr file with chunks along frequency and time, then use it as input
+       to the pipeline. This zarr dataset will be stored in 'cache_directory'
+       for later use.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | Param               | Type   | Default   | Description                                                                      | Nullable   | Allowed values                           |
+    +=====================+========+===========+==================================================================================+============+==========================================+
+    | nchannels_per_chunk | int    | 32        | Number of frequency channels per chunk in the             written zarr file.     | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ntimes_per_ms_chunk | int    | 5         | Number of time slots to include in each chunk             while reading from     | False      |                                          |
+    |                     |        |           | measurement set and writing in zarr file.             This is also the size of   |            |                                          |
+    |                     |        |           | time chunk used across the pipeline.                                             |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | cache_directory     | str    | ``null``  | Cache directory containing previously stored             visibility datasets as  | True       |                                          |
+    |                     |        |           | zarr files. The directory should contain             a subdirectory with same    |            |                                          |
+    |                     |        |           | name as the input target ms file name,             which internally contains the |            |                                          |
+    |                     |        |           | zarr and pickle files.             If None, the input ms will be converted to    |            |                                          |
+    |                     |        |           | zarr file,             and this zarr file will be stored in a new 'cache'        |            |                                          |
+    |                     |        |           | subdirectory under the provided output directory.                                |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ack                 | bool   | False     | Ask casacore to acknowledge each table operation                                 | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | datacolumn          | str    | DATA      | MS data column to read visibility data from.                                     | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | field_id            | int    | 0         | Field ID of the data in measurement set                                          | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | data_desc_id        | int    | 0         | Data Description ID of the data in measurement set                               | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+
+
+predict_vis
+===========
+
+    Predict model visibilities using a local sky model.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | Param        | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
+    +==============+========+===========+==================================================================================+============+==================+
+    | beam_type    | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_ms        | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
+    |              |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
+    |              |        |           | separate dataset to use when setting up             the beam models.             |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_coeffs    | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True       |                  |
+    |              |        |           | bbeam_type is 'everybeam'.                                                       |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | gleamfile    | str    | ``null``  | Specifies the location of gleam catalogue             file gleamegc.dat          | True       |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | lsm_csv_path | str    | ``null``  | Specifies the location of CSV file containing the             sky model. The CSV | True       |                  |
+    |              |        |           | file should be in OSKAR CSV format.                                              |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | fov          | float  | 10.0      | Specifies the width of the cone used when             searching for compoents,   | True       |                  |
+    |              |        |           | in units of degrees. Default: 10.                                                |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | flux_limit   | float  | 1.0       | Specifies the flux density limit used when             searching for compoents,  | True       |                  |
+    |              |        |           | in units of Jy. Defaults to 1                                                    |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | alpha0       | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified. Default | True       |                  |
+    |              |        |           | is -0.78.                                                                        |            |                  |
+    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+
+
+export_gain_table
+=================
+
+    Export gain table solutions to a file.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | Param           | Type   | Default   | Description                            | Nullable   | Allowed values     |
+    +=================+========+===========+========================================+============+====================+
+    | file_name       | str    | gaintable | Gain table file name without extension | True       |                    |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | export_format   | str    | h5parm    | Export file format                     | True       | ['h5parm', 'hdf5'] |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | export_metadata | bool   | False     | Export metadata into YAML file         | True       |                    |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+
+
+
 
 

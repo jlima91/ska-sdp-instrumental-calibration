@@ -11,7 +11,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(f"{module_dir}/../src")
 
 from ska_sdp_piper.piper.configurations.nested_config import NestedConfigParam
-from ska_sdp_instrumental_calibration.workflow.pipelines import instrumental_calibration
+from ska_sdp_instrumental_calibration.workflow.pipelines import instrumental_calibration, target_calibration
 
 NONE_FILL = "``null``"
 
@@ -19,6 +19,7 @@ NONE_FILL = "``null``"
 # Creating dictionary of dataframes
 # Each dataframe contains Configuration info
 ############################################
+
 
 def process_config_param(prefix, config_param):
     if config_param._type is NestedConfigParam:
@@ -67,7 +68,9 @@ def generate_config_dfs_per_stage(pipeline_definition):
 
     return dataframes
 
-stage_name_to_pddf = generate_config_dfs_per_stage(instrumental_calibration.ska_sdp_instrumental_calibration)
+
+calibrator_df = generate_config_dfs_per_stage(instrumental_calibration.ska_sdp_instrumental_calibration)
+target_calibration_df = generate_config_dfs_per_stage(target_calibration.ska_sdp_instrumental_target_calibration)
 
 #######################
 # Generate the RST file
@@ -82,11 +85,25 @@ The descriptions of each stage are copied from the docstrings of stages.
 Refer to the `API page for stages <package/guide.html#stages>`_
 
 Each stage has parameters, which are defined in the YAML config file passed to the pipeline.
+
+Instrumental Calibration Stages
+*******************************
+
+This section describes the stages used in the Instrumental Calibration pipeline.
+
+{calibrator_stages}
+
+Target Calibration Stages
+*************************
+
+This section describes the stages used in the Target Calibration pipeline.
+
+{target_stages}
 """
 
 table_config = """
 Parameters
-==========
+----------
 
 ..  table::
     :width: 100%
@@ -96,33 +113,50 @@ Parameters
 indent = "    "
 
 
-def generate_stage_config(pipeline_definition, dataframes, stage_config_path):
-    with open(stage_config_path, "w") as f:
-        # Write the header first
-        output_string = f"{header}\n\n"
-        for stage in pipeline_definition._stages:
-            name = stage.name
-            df = dataframes[name]
-            # Assuming that all stages have "Parameters" section
-            doc = stage.__doc__.split(sep="Parameters")[0].rstrip()
+def generate_stage_config(pipeline_definition, dataframes):
 
-            output_string += f"{name}\n{'*' * len(name)}\n{doc}\n{table_config}\n"
+    # Write the header first
+    output_string = ""
+    for stage in pipeline_definition._stages:
+        name = stage.name
+        df = dataframes[name]
+        # Assuming that all stages have "Parameters" section
+        doc = stage.__doc__.split(sep="Parameters")[0].rstrip()
 
-            # Convert DataFrame to markdown string and write it to file
-            markdown = df.to_markdown(
-                index=False,
-                tablefmt="grid",
-                colalign=["left"] * len(df.columns),
-                maxcolwidths=[None, None, 40, 80],
-            )
-            indented_markdown = "\n".join(
-                indent + line for line in markdown.splitlines()
-            )
+        output_string += f"{name}\n{'=' * len(name)}\n{doc}\n{table_config}\n"
 
-            output_string += f"{indented_markdown}\n\n\n"
+        # Convert DataFrame to markdown string and write it to file
+        markdown = df.to_markdown(
+            index=False,
+            tablefmt="grid",
+            colalign=["left"] * len(df.columns),
+            maxcolwidths=[None, None, 40, 80],
+        )
+        indented_markdown = "\n".join(
+            indent + line for line in markdown.splitlines()
+        )
 
-        f.write(output_string)
+        output_string += f"{indented_markdown}\n\n\n"
+    return output_string
+
 
 out_rst_path = os.path.join(module_dir, "src/stage_config.rst")
 
-generate_stage_config(instrumental_calibration.ska_sdp_instrumental_calibration, stage_name_to_pddf, out_rst_path)
+with open(out_rst_path, "w") as f:
+    # Write the header first
+    output_string = f"{header}\n\n"
+    calibrator_config = generate_stage_config(
+        instrumental_calibration.ska_sdp_instrumental_calibration,
+        calibrator_df
+    )
+
+    target_config = generate_stage_config(
+        target_calibration.ska_sdp_instrumental_target_calibration,
+        target_calibration_df
+    )
+
+    output_string = output_string.format(
+        calibrator_stages=calibrator_config,
+        target_stages=target_config
+    )
+    f.write(output_string)
