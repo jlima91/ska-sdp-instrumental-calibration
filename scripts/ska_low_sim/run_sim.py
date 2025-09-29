@@ -36,23 +36,6 @@ def main():
 
     cfg = load_config(args.config)
 
-    # Required user parameters
-    scenario = cfg["scenario"]
-    oskar_sif = Path(cfg["oskar_sif"])
-    tel_model = Path(cfg["tel_model"])
-
-    # Optional user set parameters
-    gleam_file = cfg.get("gleam_file")
-    field_radius_deg = cfg.get("field_radius_deg", 10.0)
-
-    gaintable = cfg.get("gaintable")
-    cable_delay = cfg.get("cable_delay")
-    tec_screen = cfg.get("tec_screen")
-
-    create_dirty_image = bool(cfg.get("create_dirty_image", False))
-    image_size = cfg.get("image_size", 1024)
-    pixel_size = cfg.get("pixel_size", "2arcsec")
-
     # Common simulation parameters
     start_freq_hz = cfg["simulation_start_frequency_hz"]
     end_freq_hz = cfg["simulation_end_frequency_hz"]
@@ -60,8 +43,27 @@ def main():
     obs_length_mins = cfg["observing_time_mins"]
     dump_time_sec = cfg["sampling_time_sec"]
 
+    # Required user parameters
+    scenario = cfg["scenario"]
+    oskar_sif = Path(cfg["oskar_sif"])
+    tel_model = Path(cfg["tel_model"])
+
+    # Gleam catalogue file and field radius
+    gleam_file = cfg.get("gleam_file")
+    field_radius_deg = cfg.get("field_radius_deg", 10.0)
+
+    # Corruptions
+    gaintable = cfg.get("gaintable")
+    cable_delay = cfg.get("cable_delay")
+    tec_screen = cfg.get("tec_screen")
+
+    # Imaging parameters
+    create_dirty_image = bool(cfg.get("create_dirty_image", False))
+    image_size = cfg.get("image_size", 1024)
+    pixel_size = cfg.get("pixel_size", "2arcsec")
+
     # Extra params
-    run_oskar_extra_params = cfg["run_oskar_extra_params"]
+    run_oskar_extra_params = cfg.get("run_oskar_extra_params")
 
     if create_dirty_image:
         # Resolve wsclean / DP3 commands (use env vars if set)
@@ -149,6 +151,9 @@ def main():
         options += ["--add-gleam", "--field-radius-deg", str(field_radius_deg)]
     else:
         options += ["--no-add-gleam"]
+
+    if run_oskar_extra_params:
+        options += run_oskar_extra_params.split(" ")
 
     # Final command
     cmd = application + options
