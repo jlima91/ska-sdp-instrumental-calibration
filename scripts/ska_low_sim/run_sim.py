@@ -37,33 +37,34 @@ def main():
     cfg = load_config(args.config)
 
     # Common simulation parameters
+    scenario = cfg["scenario"]
+    tel_model = Path(cfg["tel_model"])
     start_freq_hz = cfg["simulation_start_frequency_hz"]
     end_freq_hz = cfg["simulation_end_frequency_hz"]
     channel_width_hz = cfg["correlated_channel_bandwidth_hz"]
     obs_length_mins = cfg["observing_time_mins"]
     dump_time_sec = cfg["sampling_time_sec"]
 
-    # Required user parameters
-    scenario = cfg["scenario"]
-    oskar_sif = Path(cfg["oskar_sif"])
-    tel_model = Path(cfg["tel_model"])
+    # Switch to run_sim related parameters
+    run_sim_cfg = cfg["run_sim"]
+    oskar_sif = Path(run_sim_cfg["oskar_sif"])
 
     # Gleam catalogue file and field radius
-    gleam_file = cfg.get("gleam_file")
-    field_radius_deg = cfg.get("field_radius_deg", 10.0)
+    gleam_file = run_sim_cfg.get("gleam_file")
+    field_radius_deg = run_sim_cfg.get("field_radius_deg", 10.0)
 
     # Corruptions
-    gaintable = cfg.get("gaintable")
-    cable_delay = cfg.get("cable_delay")
-    tec_screen = cfg.get("tec_screen")
+    gaintable = run_sim_cfg.get("gaintable")
+    cable_delay = run_sim_cfg.get("cable_delay")
+    tec_screen = run_sim_cfg.get("tec_screen")
 
     # Imaging parameters
-    create_dirty_image = bool(cfg.get("create_dirty_image", False))
-    image_size = cfg.get("image_size", 1024)
-    pixel_size = cfg.get("pixel_size", "2arcsec")
+    create_dirty_image = bool(run_sim_cfg.get("create_dirty_image", False))
+    image_size = run_sim_cfg.get("image_size", 1024)
+    pixel_size = run_sim_cfg.get("pixel_size", "2arcsec")
 
     # Extra params
-    run_oskar_extra_params = cfg.get("run_oskar_extra_params")
+    run_oskar_extra_params = run_sim_cfg.get("run_oskar_extra_params")
 
     if create_dirty_image:
         # Resolve wsclean / DP3 commands (use env vars if set)

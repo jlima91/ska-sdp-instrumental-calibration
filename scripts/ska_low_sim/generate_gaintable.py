@@ -624,29 +624,37 @@ def calculate_rfi(
 def calculate_gains(cfg):
     start_time = time.perf_counter()
 
-    # --------------- Unpack config  -------------------
+    # -------------- Unpack parameters ---------------- #
+
+    # Common simulation parameters
     n_stations = cfg["n_stations"]
     simulation_start_frequency = float(cfg["simulation_start_frequency_hz"]) * 1e-6
     simulation_end_frequency = float(cfg["simulation_end_frequency_hz"]) * 1e-6
     correlated_channel_bandwidth = float(cfg["correlated_channel_bandwidth_hz"]) * 1e-6
     observing_time_cal = float(cfg["observing_time_mins"]) * 60
     sampling_time = cfg["sampling_time_sec"]
-    spline_data_path = cfg["spline_data_path"]
 
-    station_offset = cfg.get("station_offset", True)
-    time_variant = cfg.get("time_variant", True)
+    # generate_gaintable specific parameters
+    generate_gaintable_cfg = cfg["generate_gaintable"]
+    spline_data_path = generate_gaintable_cfg["spline_data_path"]
+    station_offset = generate_gaintable_cfg.get("station_offset", True)
+    time_variant = generate_gaintable_cfg.get("time_variant", True)
 
-    rfi = cfg.get("rfi", False)
-    rfi_start_freq = float(cfg["rfi_start_freq_hz"]) * 1e-6
-    rfi_end_freq = float(cfg["rfi_end_freq_hz"]) * 1e-6
+    rfi = generate_gaintable_cfg.get("rfi", False)
+    if rfi:
+        rfi_start_freq = float(cfg["rfi_start_freq_hz"]) * 1e-6
+        rfi_end_freq = float(cfg["rfi_end_freq_hz"]) * 1e-6
+    else:
+        rfi_start_freq = rfi_end_freq = None
 
-    plot = cfg.get("plot", False)
-    plot_output_dir = cfg.get("plot_output_dir", "./gaintable_generation_plots")
+    plot = generate_gaintable_cfg.get("plot", False)
+    plot_output_dir = generate_gaintable_cfg.get(
+        "plot_output_dir", "./gaintable_generation_plots"
+    )
     if plot:
         os.makedirs(plot_output_dir, exist_ok=True)
 
-    # --- setup (same as before, but local variables instead of globals) ---
-
+    # ---------------- Setup ---------------------#
     n_pols = 2
     spline_data = np.load(spline_data_path)
 
@@ -666,7 +674,7 @@ def calculate_gains(cfg):
         0, number_of_cal_time_samples * sampling_time, sampling_time
     )
 
-    # ----------------------------------------------------------------------------
+    # ----------------- Start calculating gains ------------ #
 
     gain_xpol = np.zeros(
         (
@@ -780,9 +788,6 @@ def calculate_gains(cfg):
     return gain_xpol, gain_ypol, simulation_frequency_table
 
 
-############################## Write to h5parm ##############################
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Generate gain tables using YAML config."
@@ -793,7 +798,7 @@ def main():
 
     cfg = load_config(args.config)
 
-    output_gaintable_path = cfg["output_gaintable"]
+    output_gaintable_path = cfg["generate_gaintable"]["output_gaintable"]
     os.makedirs(os.path.dirname(output_gaintable_path), exist_ok=True)
 
     gain_xpol, gain_ypol, sim_freqs = calculate_gains(cfg)
