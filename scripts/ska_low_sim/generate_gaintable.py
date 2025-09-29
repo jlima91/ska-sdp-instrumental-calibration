@@ -629,7 +629,7 @@ def calculate_gains(cfg):
     simulation_start_frequency = float(cfg["simulation_start_frequency_hz"]) * 1e-6
     simulation_end_frequency = float(cfg["simulation_end_frequency_hz"]) * 1e-6
     correlated_channel_bandwidth = float(cfg["correlated_channel_bandwidth_hz"]) * 1e-6
-    observing_time_cal = float(cfg["observing_time_cal_min"]) * 60
+    observing_time_cal = float(cfg["observing_time_mins"]) * 60
     sampling_time = cfg["sampling_time_sec"]
     spline_data_path = cfg["spline_data_path"]
 
@@ -788,28 +788,22 @@ def main():
         description="Generate gain tables using YAML config."
     )
     parser.add_argument("config", type=str, help="Path to YAML config file")
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        default="./gain_model_cal.h5",
-        help="Path to output H5parm file",
-    )
 
     args = parser.parse_args()
 
     cfg = load_config(args.config)
 
+    output_gaintable_path = cfg["output_gaintable"]
+    os.makedirs(os.path.dirname(output_gaintable_path), exist_ok=True)
+
     gain_xpol, gain_ypol, sim_freqs = calculate_gains(cfg)
 
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
-
-    with h5py.File(args.output, "w") as f:
+    with h5py.File(output_gaintable_path, "w") as f:
         f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
         f.create_dataset("gain_xpol", data=gain_xpol)
         f.create_dataset("gain_ypol", data=gain_ypol)
 
-    print(f"Wrote gains to {args.output}")
+    print(f"Wrote gains to {output_gaintable_path}")
 
 
 if __name__ == "__main__":

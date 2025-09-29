@@ -1,18 +1,53 @@
-n_stations: 40
-simulation_start_frequency_hz: 123.0e6   # Hz
-simulation_end_frequency_hz: 153.0e6     # Hz
-correlated_channel_bandwidth_hz: 21.70138888888889e3  # Hz
-observing_time_cal_min: 10             # minutes
-sampling_time_sec: 3.3973862400000003           # seconds
-spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz"
+scenario: "low40s-model"          # Scenario name (used for output folder prefix)
 
-station_offset: true
+# ===============================
+# Global simulation parameters
+# ===============================
 
-time_variant: true
+n_stations: 40                                         # Number of stations
+tel_model: "./SKA-Low_AA2_40S_rigid-rotation_model.tm" # Telescope model directory
 
-rfi: false
+simulation_start_frequency_hz: 123.0e6                  # Start frequency (Hz)
+simulation_end_frequency_hz: 153.0e6                    # End frequency (Hz)
+correlated_channel_bandwidth_hz: 21.70138888888889e3    # Channel width (Hz)
+
+observing_time_mins: 10                              # Observation duration (minutes)
+sampling_time_sec: 3.3973862400000003                   # Dump/integration time (seconds)
+
+# ===============================
+# Options for generate_gaintable.py
+# ===============================
+output_gaintable: "./gaintables/custom_gaintable.h5"
+
+spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz" # Bandpass spline data file
+
+station_offset: true              # Apply per-station amplitude/phase offsets
+time_variant: true                # Apply time-dependent effects
+
+rfi: false                        # Inject RFI band
 rfi_start_freq_hz: 154.25347222228538e6        # Hz
 rfi_end_freq_hz: 159.8090277778474e6           # Hz
 
-plot: true
+plot: true                        # Generate diagnostic plots
 plot_output_dir: "./gaintable_generation_plots"
+
+
+# ===============================
+# Options for run_sim.py
+# ===============================
+oskar_sif: "./OSKAR-2.11.1-Python3.sif" # Path to OSKAR Singularity image
+run_oskar_extra_params: "--use-gpus --double-precision" # Extra parameters to pass to run_oskar.py
+
+# GLEAM sky model. Optional. Comment to disable.
+gleam_file: "./sky-models/GLEAM_EGC.fits" # GLEAM catalogue FITS file
+field_radius_deg: 10.0            # Radius of field of view (degrees)
+
+# Corruptions to be applied. All are optional. Comment to disable.
+# gaintable: "./gaintables/custom_gaintable.h5" # Gaintable HDF5
+# cable_delay: "./cable_delays/cable_length_error_40s.txt" # Cable delay error file
+# tec_screen: "./tec/calibrator_iono_tec.fits" # Ionospheric TEC screen FITS
+
+# Imaging. Optional. Comment to disable.
+create_dirty_image: true          # Whether to run wsclean imaging
+image_size: 1024                  # Image size (pixels)
+pixel_size: "2arcsec"             # Pixel size (angular units)
