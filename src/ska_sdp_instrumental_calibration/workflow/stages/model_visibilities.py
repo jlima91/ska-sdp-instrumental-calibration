@@ -1,6 +1,6 @@
 import logging
 
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.dask_wrappers import (
@@ -147,12 +147,5 @@ predict_vis_stage = ConfigurableStage(
     "predict_vis",
     configuration=Configuration(
         **PREDICT_VISIBILITIES_COMMON_CONFIG,
-        normalise_at_beam_centre=ConfigParam(
-            bool,
-            False,
-            description="""If true, before running calibration, multiply vis
-            and model vis by the inverse of the beam response in the
-            beam pointing direction.""",
-        ),
     ),
 )(predict_visibilities)

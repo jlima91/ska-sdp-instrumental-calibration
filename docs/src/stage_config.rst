@@ -74,12 +74,15 @@ Parameters
     +==========================+========+===========+==================================================================================+============+==================+
     | beam_type                | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
     |                          |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
     |                          |        |           | separate dataset to use when setting up             the beam models.             |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | eb_coeffs                | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True       |                  |
-    |                          |        |           | bbeam_type is 'everybeam'.                                                       |            |                  |
+    |                          |        |           | beam_type is 'everybeam'.                                                        |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | gleamfile                | str    | ``null``  | Specifies the location of gleam catalogue             file gleamegc.dat          | True       |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
@@ -94,9 +97,6 @@ Parameters
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | alpha0                   | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified. Default | True       |                  |
     |                          |        |           | is -0.78.                                                                        |            |                  |
-    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
-    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
@@ -447,32 +447,35 @@ Parameters
     :width: 100%
     :widths: 15, 10, 10, 45, 10, 10
 
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | Param        | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
-    +==============+========+===========+==================================================================================+============+==================+
-    | beam_type    | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | eb_ms        | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
-    |              |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
-    |              |        |           | separate dataset to use when setting up             the beam models.             |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | eb_coeffs    | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True       |                  |
-    |              |        |           | bbeam_type is 'everybeam'.                                                       |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | gleamfile    | str    | ``null``  | Specifies the location of gleam catalogue             file gleamegc.dat          | True       |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | lsm_csv_path | str    | ``null``  | Specifies the location of CSV file containing the             sky model. The CSV | True       |                  |
-    |              |        |           | file should be in OSKAR CSV format.                                              |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | fov          | float  | 10.0      | Specifies the width of the cone used when             searching for compoents,   | True       |                  |
-    |              |        |           | in units of degrees. Default: 10.                                                |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | flux_limit   | float  | 1.0       | Specifies the flux density limit used when             searching for compoents,  | True       |                  |
-    |              |        |           | in units of Jy. Defaults to 1                                                    |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | alpha0       | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified. Default | True       |                  |
-    |              |        |           | is -0.78.                                                                        |            |                  |
-    +--------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | Param                    | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
+    +==========================+========+===========+==================================================================================+============+==================+
+    | beam_type                | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
+    |                          |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
+    |                          |        |           | separate dataset to use when setting up             the beam models.             |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_coeffs                | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True       |                  |
+    |                          |        |           | beam_type is 'everybeam'.                                                        |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | gleamfile                | str    | ``null``  | Specifies the location of gleam catalogue             file gleamegc.dat          | True       |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | lsm_csv_path             | str    | ``null``  | Specifies the location of CSV file containing the             sky model. The CSV | True       |                  |
+    |                          |        |           | file should be in OSKAR CSV format.                                              |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | fov                      | float  | 10.0      | Specifies the width of the cone used when             searching for compoents,   | True       |                  |
+    |                          |        |           | in units of degrees. Default: 10.                                                |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | flux_limit               | float  | 1.0       | Specifies the flux density limit used when             searching for compoents,  | True       |                  |
+    |                          |        |           | in units of Jy. Defaults to 1                                                    |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | alpha0                   | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified. Default | True       |                  |
+    |                          |        |           | is -0.78.                                                                        |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
 export_gain_table

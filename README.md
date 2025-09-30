@@ -3,7 +3,7 @@
 [![Documentation Status](https://readthedocs.org/projects/ska-telescope-ska-sdp-instrumental-calibration/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
 
 The **Instrumental Calibration Pipeline (INST)** is a cli application which is used
-to perform calibration operations on the SKA visibility data.
+to perform calibration operations on the SKA visibility data. It mainly provides Instrumental calibration pipeline and Taget calibration pipeline.
 
 This repository contains the functions to generate the
 initial calibration products during standard SKA batch processing. It includes
@@ -150,7 +150,7 @@ Run image with volume mounts to enable read write to storage.
 docker run [-v local:container] <image-name> ...<cli_options>...
 ```
 
-## Using the CLI
+## Using the CLI for Instrumental Calibration pipeline
 
 Once you install the pipeline, you should be able to access the pipeline cli with `ska-sdp-instrumental-calibration` command.
 
@@ -276,3 +276,22 @@ While using the `--set` cli-option, please be mindful of the _suffix appended to
 
 Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section.
 
+
+## Using the CLI for Target Calibration pipeline
+
+You can run target calibration pipeline with `ska-sdp-instrumental-target-calibration` command. 
+Running `ska-sdp-instrumental-target-calibration --help` should show following output:
+
+```bash
+usage: ska-sdp-instrumental-target-calibration [-h] {run,install-config} ...
+
+positional arguments:
+  {run,install-config}
+    run                 Run the pipeline
+    install-config      Installs the default config at --config-install-path
+
+options:
+  -h, --help            show this help message and exit
+```
+
+> Generating YAML config of the pipeline and running the pipeline is same as instrumental calibration pipeline. Target calibration pipeline doesn't provide experimental configuration.

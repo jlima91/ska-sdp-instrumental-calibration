@@ -149,6 +149,13 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         "everybeam",
         description="Type of beam model to use. Default is 'everybeam'",
     ),
+    normalise_at_beam_centre=ConfigParam(
+        bool,
+        False,
+        description="""If true, before running calibration, multiply vis
+            and model vis by the inverse of the beam response in the
+            beam pointing direction.""",
+    ),
     eb_ms=ConfigParam(
         str,
         None,
@@ -161,7 +168,7 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         str,
         None,
         description="""Everybeam coeffs datadir containing beam
-            coefficients. Required if bbeam_type is 'everybeam'.""",
+            coefficients. Required if beam_type is 'everybeam'.""",
     ),
     gleamfile=ConfigParam(
         str,
