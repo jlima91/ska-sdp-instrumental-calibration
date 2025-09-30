@@ -1,10 +1,33 @@
 import logging
 
+import dask
 import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
 
 logger = logging.getLogger()
+
+
+@dask.delayed
+def log_flaging_statistics(weights, initial_weights, antenna_name):
+    current_flagged = (
+        weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
+    ).sum(dim=["time", "frequency"])
+
+    antna_percent_flagged = (
+        current_flagged / weights[:, 0, :, 0, 0].size
+    ) * 100
+
+    min_percent = antna_percent_flagged.min()
+    median_percent = np.median(antna_percent_flagged.data)
+    max_percent = antna_percent_flagged.max()
+
+    logger.info(
+        f"Gain flagging: Statistics "
+        f" min: {min_percent.data:.2f}%,"
+        f" median: {median_percent:.2f}%,"
+        f" max: {max_percent.data:.2f}%."
+    )
 
 
 class FitCurve:
@@ -116,13 +139,11 @@ class GainFlagger:
         sigma_hat = 1.4826 * np.nanmedian(np.abs(vals_detrend[(weights != 0)]))
 
         if np.isnan(sigma_hat):
-            weights[:] = 0
+            flags = np.ones(weights.shape) == 1
 
         flags = abs(vals_detrend) > self.n_sigma * sigma_hat
 
-        weights[flags] = 0
-
-        return weights, sigma_hat
+        return flags, sigma_hat
 
     def __rms_noise_flag_weights(self, vals_detrend, weights):
         if self.window_size % 2 != 1:
@@ -156,18 +177,17 @@ class GainFlagger:
 
         flags = rmses > (self.n_sigma_rolling * sigma_hat)
 
-        weights[flags] = 0
-        return weights, sigma_hat
+        return flags, sigma_hat
 
     def __normalize_data(self, data):
-        not_nan = np.isnan(data) == False  # noqa: disable=E712
+        not_nan = ~np.isnan(data)
         data[not_nan] = (data[not_nan] - np.min(data[not_nan])) / np.ptp(
             data[not_nan]
         )
 
         return data
 
-    def flag_dimension(self, gains, weights, antenna, receptor1, receptor2):
+    def flag_dimension(self, weights, gains, antenna, receptor1, receptor2):
         """
         Applies flagging to chunk of gaintable with detrending/fitting
         algorithm for the given gain and weight chunk.
@@ -192,12 +212,14 @@ class GainFlagger:
         """
 
         soltype = {"absolute": "amplitude", "angle": "phase"}
+
         weights = np.array(weights, copy=True)
+        flagged_weights = np.ones(weights.shape)
         for sol_type_func in self.sol_type_funcs:
             rms = 0.0
             sol_type_data = sol_type_func(gains)
 
-            if self.normalize_gains:
+            if self.normalize_gains and sol_type_func == np.absolute:
                 sol_type_data = self.__normalize_data(sol_type_data)
 
             for _ in range(self.max_ncycles):
@@ -208,21 +230,32 @@ class GainFlagger:
                     sol_type_data, weights, self.order, self.frequencies
                 )
 
-                if self.n_sigma > 0:
-                    weights, rms = self.__rms_flag_weights(deterend, weights)
+                if self.n_sigma is not None and self.n_sigma > 0:
+                    flags, rms = self.__rms_flag_weights(deterend, weights)
+                    weights[flags] = 0
+                    flagged_weights[flags] = 0
 
-                if self.n_sigma_rolling > 0:
-                    weights, rms = self.__rms_noise_flag_weights(
+                if (
+                    self.n_sigma_rolling is not None
+                    and self.n_sigma_rolling > 0
+                ):
+                    flags, rms = self.__rms_noise_flag_weights(
                         deterend, weights
                     )
+                    weights[flags] = 0
+                    flagged_weights[flags] = 0
+
+            percent_flagged = (
+                ((flagged_weights == 0).sum()) / (flagged_weights.size) * 100
+            )
 
             logger.info(
                 f"Gain flagging: Antenna {antenna} "
-                f"receptors [{receptor1},{receptor2}]- "
-                f"MAD: {rms:.5f}, "
+                f"receptors [{receptor1},{receptor2}] with "
+                f"MAD of {rms:.5f} and {percent_flagged:.2f}% gains flagged "
                 f"for {soltype[sol_type_func.__name__]}."
             )
-        return weights
+        return flagged_weights
 
 
 def flag_on_gains(
@@ -301,10 +334,10 @@ def flag_on_gains(
         if receptor1 != receptor2 and skip_cross_pol:
             continue
 
-        receptor_weight = xr.apply_ufunc(
+        receptor_weight_flag = xr.apply_ufunc(
             gain_flagger.flag_dimension,
-            gaintable.gain[0, :, :, receptor1, receptor2],
             gaintable.weight[0, :, :, receptor1, receptor2],
+            gaintable.gain[0, :, :, receptor1, receptor2],
             gaintable.configuration.names.data,
             input_core_dims=[["frequency"], ["frequency"], []],
             output_core_dims=[["frequency"]],
@@ -318,9 +351,9 @@ def flag_on_gains(
         )
 
         all_flagged_weights = (
-            receptor_weight
+            receptor_weight_flag
             if all_flagged_weights is None
-            else all_flagged_weights * receptor_weight
+            else all_flagged_weights * receptor_weight_flag
         )
 
     flagged_weights_data = np.repeat(
@@ -334,7 +367,7 @@ def flag_on_gains(
     )
 
     new_weights = gaintable.weight.copy()
-    new_weights.data = flagged_weights_data
+    new_weights.data = gaintable.weight.data * flagged_weights_data
 
     if apply_flag:
         new_gain = xr.where(new_weights == 0, 0.0, gaintable["gain"])

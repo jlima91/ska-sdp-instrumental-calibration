@@ -36,7 +36,7 @@ def test_should_flag_gains_for_amplitude():
         normalize_gains=False,
     )
     updated_weights = flagger_obj.flag_dimension(
-        gains, weights, "a1", "X", "Y"
+        weights, gains, "a1", "X", "Y"
     )
     expected = [
         1.0,
@@ -80,7 +80,7 @@ def test_should_flag_gains_for_phase_with_polyfit():
         normalize_gains=False,
     )
     updated_weights = flagger_obj.flag_dimension(
-        gains, weights, "a1", "X", "Y"
+        weights, gains, "a1", "X", "Y"
     )
     expected = [
         1.0,
@@ -103,7 +103,7 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
     soltype = "both"
     mode = "poly"
     order = 2
-    n_sigma = 0.0
+    n_sigma = None
     max_ncycles = 1
     n_sigma_rolling = 5.0
     window_size = 3
@@ -125,7 +125,7 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         normalize_gains=True,
     )
     updated_weights = flagger_obj.flag_dimension(
-        gains, weights, "a1", "X", "Y"
+        weights, gains, "a1", "X", "Y"
     )
 
     expected = [
@@ -231,6 +231,7 @@ def test_should_perform_gain_flagging(
     gaintable_mock.weight.copy.return_value = xr.DataArray(
         np.ones((1, 2, 5, 2, 2))
     )
+    gaintable_mock.weight.data = np.ones((1, nstations, nfreq, 2, 2))
 
     apply_ufunc_return_values = [
         xr.DataArray(
@@ -371,6 +372,7 @@ def test_should_perform_gain_flagging_without_apply(
     gaintable_mock.gain = xr.DataArray(gain_data, coords=coords, dims=dims)
     gaintable_mock.weights = weights
     gaintable_mock.weight.copy.return_value = weights
+    gaintable_mock.weight.data = np.ones((1, nstations, nfreq, 2, 2))
 
     apply_ufunc_return_values = [
         xr.DataArray(np.array([[0, 1, 1, 1, 1], [0, 1, 1, 1, 1]])),

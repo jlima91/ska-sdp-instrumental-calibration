@@ -6,6 +6,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.processing_tasks.gain_flagging import (
     flag_on_gains,
+    log_flaging_statistics,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import plot_flag_gain
 
@@ -148,6 +149,7 @@ def flag_gain_stage(
             Updated upstream_output with gaintable
     """
 
+    upstream_output.add_checkpoint_key("gaintable")
     initialtable = upstream_output.gaintable
 
     call_counter_suffix = ""
@@ -166,6 +168,14 @@ def flag_gain_stage(
         normalize_gains,
         skip_cross_pol,
         apply_flag,
+    )
+
+    upstream_output.add_compute_tasks(
+        log_flaging_statistics(
+            gaintable.weight,
+            initialtable.weight,
+            gaintable.configuration.names.data,
+        )
     )
 
     if plot_flag:
