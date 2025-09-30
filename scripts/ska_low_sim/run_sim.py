@@ -122,7 +122,7 @@ def main():
     ]
 
     options = [
-        sys.executable,
+        "python3",
         str(RUN_OSKAR_SCRIPT_PATH),
         "--output-dir",
         str(output_dir),
