@@ -82,12 +82,12 @@ def main():
         freqs = h5file["freq (Hz)"][:]
         num_time = gain_x.shape[0]
 
-    # Stack along a new first axis (pol),
-    # resulting in shape (pols, time, channel, antenna).
-    combined = numpy.stack((gain_x, gain_y), axis=0)
+    # Stack along a new last axis (pol),
+    # resulting in shape (time, channel, antenna, pols).
+    combined = numpy.stack((gain_x, gain_y), axis=-1)
 
-    # Permute the axes to (pol, antenna, time, channel)
-    combined = numpy.transpose(combined, (0, 3, 1, 2))
+    # Permute the axes to (time, antenna, channel, pols)
+    combined = numpy.transpose(combined, (0, 2, 1, 3))
 
     # Convert complex values to amplitude and phase.
     amp = numpy.abs(combined)
@@ -104,6 +104,7 @@ def main():
     start_time = Time(start_time, scale="utc")
     t_0 = start_time.mjd * 86400.0  # Convert to MJD(UTC) seconds.
     d_t = dump_time_sec
+    # TODO: Ensure that this logic is consistent with the logic in generate_gaintable.py
     times = numpy.linspace(0, num_time * d_t, num_time, endpoint=False)
     times += t_0 + d_t / 2.0
 
@@ -128,7 +129,7 @@ def make_h5parm_soltab(
     antenna_names: list[str],
     times: numpy.ndarray,
     freqs: numpy.ndarray,
-    values: numpy.ndarray,  # 4D array (pol, ant, time, freq)
+    values: numpy.ndarray,  # 4D array (time, antenna, channel, pols)
 ):
     with h5py.File(path, mode="a") as file:
         # The name of the solset is arbitrary.
@@ -151,7 +152,7 @@ def make_h5parm_soltab(
 
         # Values.
         # NOTE: "AXES" must be written as a fixed-length string
-        axes = numpy.bytes_("pol,ant,time,freq")
+        axes = numpy.bytes_("time,ant,freq,pol")
         val_dataset = group.create_dataset("val", data=values)
         val_dataset.attrs["AXES"] = axes
 
