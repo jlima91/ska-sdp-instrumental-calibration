@@ -5,7 +5,7 @@ scenario: "low40s-model"          # Scenario name (used for output folder prefix
 # ===============================
 
 n_stations: 40                                         # Number of stations
-tel_model: "./SKA-Low_AA2_40S_rigid-rotation_model.tm" # Telescope model directory
+tel_model: "./telescope-models/SKA-Low_AA2_40S_rigid-rotation_model.tm" # Telescope model directory
 
 simulation_start_frequency_hz: 123.0e6                  # Start frequency (Hz)
 simulation_end_frequency_hz: 153.0e6                    # End frequency (Hz)

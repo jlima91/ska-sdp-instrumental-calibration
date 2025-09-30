@@ -19,7 +19,7 @@ TEC_FILE=scan_0.fits
 wget https://gitlab.com/ska-telescope/sim/oskar/-/jobs/10486879708/artifacts/raw/OSKAR-2.11.1-Python3.sif
 
 # Get telescope model
-aws s3 sync $DATA_PREFIX/$TEL_MODEL_DIR/$TEL_MODEL/ ./$TEL_MODEL/
+aws s3 sync $DATA_PREFIX/$TEL_MODEL_DIR/$TEL_MODEL/ ./$TEL_MODEL_DIR/$TEL_MODEL/
 # Move cable delays out of telmodel
 mkdir cable_delays
 mv ./$TEL_MODEL/cable_length_error.txt ./cable_delays/cable_length_error_40s.txt
