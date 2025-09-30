@@ -7,6 +7,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.processing_tasks.gain_flagging import (
     flag_on_gains,
 )
+from ska_sdp_instrumental_calibration.workflow.utils import plot_flag_gain
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 
@@ -78,6 +79,12 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
             description="Export intermediate gain solutions.",
             nullable=False,
         ),
+        plot_flag=ConfigParam(
+            bool,
+            True,
+            description="Plot the flagged weights",
+            nullable=False,
+        ),
     ),
 )
 def flag_gain_stage(
@@ -93,6 +100,7 @@ def flag_gain_stage(
     window_size,
     normalize_gains,
     apply_flag,
+    plot_flag,
     _output_dir_,
 ):
     """
@@ -159,6 +167,18 @@ def flag_gain_stage(
         skip_cross_pol,
         apply_flag,
     )
+
+    if plot_flag:
+        path_prefix = os.path.join(
+            _output_dir_, f"gain_flagging{call_counter_suffix}"
+        )
+        upstream_output.add_compute_tasks(
+            plot_flag_gain(
+                gaintable,
+                path_prefix,
+                figure_title="Gain Flagging",
+            )
+        )
 
     if export_gaintable:
         gaintable_file_path = os.path.join(

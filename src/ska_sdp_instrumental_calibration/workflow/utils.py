@@ -11,6 +11,7 @@ __all__ = [
     "plot_station_delays",
     "plot_rm_station",
     "plot_bandpass_stages",
+    "plot_flag_gain",
     "parse_reference_antenna",
     "with_chunks",
 ]
@@ -605,6 +606,55 @@ def plot_all_stations(gaintable, path_prefix):
             bbox_inches="tight",
         )
         plt.close(fig)
+
+
+@dask.delayed
+def plot_flag_gain(
+    gaintable,
+    path_prefix,
+    figure_title="",
+):
+    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+
+    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    gaintable = gaintable.assign_coords({"pol": polstrs})
+    stations = gaintable.configuration.names
+
+    n_rows = 4
+    n_cols = 4
+    plots_per_group = n_rows * n_cols
+    plot_groups = np.split(
+        stations,
+        range(plots_per_group, stations.size, plots_per_group),
+    )
+
+    for stations in plot_groups:
+        station_names = stations.values
+        fig = plt.figure(layout="constrained", figsize=(18, 18))
+        subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
+        primary_axes = None
+
+        for idx, subfig in enumerate(subfigs):
+            if idx >= stations.size:
+                break
+            weight = gaintable.weight.isel(time=0, antenna=stations.id[idx], pol=0)
+            weight_ax = subfig.subplots(1, 1, sharex=True)
+            primary_axes = weight_ax
+            weight_ax.set_ylabel("Weights")
+            weight_ax.set_xlabel("Channel")
+            weight_ax.plot(weight)
+            weight_ax.set_yticks([0,1])
+            subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
+
+        handles, labels = primary_axes.get_legend_handles_labels()
+        path = (
+            f"{path_prefix}-weights_freq-"
+            f"{station_names[0]}-{station_names[-1]}.png"
+        )
+        fig.suptitle(f"{figure_title}", fontsize="x-large")
+        fig.legend(handles, labels, loc="outside upper right")
+        fig.savefig(path)
+        plt.close()
 
 
 def subplot_gaintable(
