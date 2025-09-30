@@ -637,14 +637,18 @@ def plot_flag_gain(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            weight = gaintable.weight.isel(time=0, antenna=stations.id[idx], pol=0)
+            weight = gaintable.weight.isel(
+                time=0, antenna=stations.id[idx], pol=0
+            )
             weight_ax = subfig.subplots(1, 1, sharex=True)
             primary_axes = weight_ax
             weight_ax.set_ylabel("Weights")
             weight_ax.set_xlabel("Channel")
             weight_ax.plot(weight)
-            weight_ax.set_yticks([0,1])
-            subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
+            weight_ax.set_yticks([0, 1])
+            subfig.suptitle(
+                f"Station - {station_names[idx]}", fontsize="large"
+            )
 
         handles, labels = primary_axes.get_legend_handles_labels()
         path = (

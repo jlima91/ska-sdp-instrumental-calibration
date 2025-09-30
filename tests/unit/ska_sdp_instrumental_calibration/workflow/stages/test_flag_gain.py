@@ -12,9 +12,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import flag_gain_stage
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".flag_on_gains"
 )
-def test_should_perform_flagging_on_gains(
-    flag_on_gains_mock, plot_flag_mock
-):
+def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
     upstream_output = UpstreamOutput()
     initialtable = "initial_gaintable"
     upstream_output["gaintable"] = initialtable
