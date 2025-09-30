@@ -45,6 +45,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline
 
+SPLINE_DATA_PATH = os.path.join(
+    os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
+)
+
 
 def load_config(yaml_file):
     with open(yaml_file, "r") as f:
@@ -648,10 +652,7 @@ def calculate_gains(cfg):
 
     # ---------------- Setup ---------------------#
     n_pols = 2
-    spline_data_path = os.path.join(
-        os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
-    )
-    spline_data = np.load(spline_data_path)
+    spline_data = np.load(SPLINE_DATA_PATH)
 
     AA2_bandwidth = simulation_end_frequency - simulation_start_frequency
 
