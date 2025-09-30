@@ -629,7 +629,6 @@ def calculate_gains(cfg):
 
     # generate_gaintable specific parameters
     generate_gaintable_cfg = cfg["generate_gaintable"]
-    spline_data_path = generate_gaintable_cfg["spline_data_path"]
     station_offset = generate_gaintable_cfg.get("station_offset", True)
     time_variant = generate_gaintable_cfg.get("time_variant", True)
 
@@ -649,6 +648,9 @@ def calculate_gains(cfg):
 
     # ---------------- Setup ---------------------#
     n_pols = 2
+    spline_data_path = os.path.join(
+        os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
+    )
     spline_data = np.load(spline_data_path)
 
     AA2_bandwidth = simulation_end_frequency - simulation_start_frequency

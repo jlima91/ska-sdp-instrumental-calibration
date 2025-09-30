@@ -29,7 +29,6 @@ fields:
 generate_gaintable:
   output_gaintable: &gen_gaintable "./gaintables/custom_gaintable.h5"
 
-  spline_data_path: "./SKA_Low_AA2_SP5175_spline_data.npz" # Bandpass spline data file
   station_offset: true              # Apply per-station amplitude/phase offsets
   time_variant: true                # Apply time-dependent effects
 
