@@ -36,7 +36,7 @@ def main():
 
     # Common simulation parameters
     scenario = cfg["scenario"]
-    tel_model = Path(cfg["tel_model"])
+    tel_model = Path(cfg["tel_model"]).resolve()
     start_freq_hz = cfg["simulation_start_frequency_hz"]
     end_freq_hz = cfg["simulation_end_frequency_hz"]
     channel_width_hz = cfg["correlated_channel_bandwidth_hz"]
@@ -45,7 +45,7 @@ def main():
 
     # Switch to run_sim related parameters
     run_sim_cfg = cfg["run_sim"]
-    oskar_sif = Path(run_sim_cfg["oskar_sif"])
+    oskar_sif = Path(run_sim_cfg["oskar_sif"]).resolve()
 
     # Gleam catalogue file and field radius
     gleam_file = run_sim_cfg.get("gleam_file")
