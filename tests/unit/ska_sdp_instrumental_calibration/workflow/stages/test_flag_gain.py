@@ -10,9 +10,15 @@ from ska_sdp_instrumental_calibration.workflow.stages import flag_gain_stage
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
+    ".plot_curve_fit"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".flag_on_gains"
 )
-def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
+def test_should_perform_flagging_on_gains(
+    flag_on_gains_mock, plot_curve_mock, plot_flag_mock
+):
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
@@ -27,10 +33,16 @@ def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = False
-    plot_flag = True
+    plot_config = {"curve_fit_plot": False, "gain_flag_plot": False}
 
     gaintable_mock = Mock(name="gaintable")
-    flag_on_gains_mock.return_value = gaintable_mock
+    amp_fit_mock = Mock(name="Amp fit")
+    phase_fit_mock = Mock(name="Phase fit")
+    flag_on_gains_mock.return_value = (
+        gaintable_mock,
+        amp_fit_mock,
+        phase_fit_mock,
+    )
 
     actual = flag_gain_stage.stage_definition(
         upstream_output,
@@ -45,7 +57,7 @@ def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
         window_size,
         normalize_gains,
         apply_flag,
-        plot_flag,
+        plot_config,
         _output_dir_="/output/path",
     )
 
@@ -77,6 +89,10 @@ def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
+    ".plot_curve_fit"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".export_gaintable_to_h5parm"
 )
 @patch(
@@ -84,7 +100,11 @@ def test_should_perform_flagging_on_gains(flag_on_gains_mock, plot_flag_mock):
     ".flag_on_gains"
 )
 def test_should_export_gaintable_with_proper_suffix(
-    flag_on_gains_mock, export_gaintable_mock, plot_flag_mock, delayed_mock
+    flag_on_gains_mock,
+    export_gaintable_mock,
+    plot_flag_mock,
+    plot_curve_mock,
+    delayed_mock,
 ):
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
@@ -100,10 +120,16 @@ def test_should_export_gaintable_with_proper_suffix(
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = True
-    plot_flag = False
+    plot_config = {"curve_fit_plot": False, "gain_flag_plot": False}
 
     gaintable_mock = Mock(name="gaintable")
-    flag_on_gains_mock.return_value = gaintable_mock
+    amp_fit_mock = Mock(name="Amp fit")
+    phase_fit_mock = Mock(name="Phase fit")
+    flag_on_gains_mock.return_value = (
+        gaintable_mock,
+        amp_fit_mock,
+        phase_fit_mock,
+    )
 
     flag_gain_stage.stage_definition(
         upstream_output,
@@ -118,7 +144,7 @@ def test_should_export_gaintable_with_proper_suffix(
         window_size,
         normalize_gains,
         apply_flag,
-        plot_flag,
+        plot_config,
         _output_dir_="/output/path",
     )
 
@@ -135,7 +161,7 @@ def test_should_export_gaintable_with_proper_suffix(
         window_size,
         normalize_gains,
         apply_flag,
-        plot_flag,
+        plot_config,
         _output_dir_="/output/path",
     )
 
@@ -168,6 +194,10 @@ def test_should_export_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
+    ".plot_curve_fit"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".export_gaintable_to_h5parm"
 )
 @patch(
@@ -175,7 +205,11 @@ def test_should_export_gaintable_with_proper_suffix(
     ".flag_on_gains"
 )
 def test_should_plot_flag_on_gain(
-    flag_on_gains_mock, export_gaintable_mock, plot_flag_mock, delayed_mock
+    flag_on_gains_mock,
+    export_gaintable_mock,
+    plot_curve_mock,
+    plot_flag_mock,
+    delayed_mock,
 ):
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
@@ -191,10 +225,16 @@ def test_should_plot_flag_on_gain(
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = True
-    plot_flag = True
+    plot_config = {"curve_fit_plot": True, "gain_flag_plot": True}
 
     gaintable_mock = Mock(name="gaintable")
-    flag_on_gains_mock.return_value = gaintable_mock
+    amp_fit_mock = Mock(name="Amp fit")
+    phase_fit_mock = Mock(name="Phase fit")
+    flag_on_gains_mock.return_value = (
+        gaintable_mock,
+        amp_fit_mock,
+        phase_fit_mock,
+    )
 
     flag_gain_stage.stage_definition(
         upstream_output,
@@ -209,11 +249,20 @@ def test_should_plot_flag_on_gain(
         window_size,
         normalize_gains,
         apply_flag,
-        plot_flag,
+        plot_config,
         _output_dir_="/output/path",
     )
+
     plot_flag_mock.assert_called_once_with(
         gaintable_mock,
         "/output/path/gain_flagging",
         figure_title="Gain Flagging",
+    )
+
+    plot_curve_mock.assert_called_once_with(
+        gaintable_mock,
+        amp_fit_mock,
+        phase_fit_mock,
+        "/output/path/curve_fit_gain",
+        figure_title="Curve fit of Gain Flagging",
     )

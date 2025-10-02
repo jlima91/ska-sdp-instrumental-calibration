@@ -1,14 +1,21 @@
 import os
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import (
+    ConfigParam,
+    Configuration,
+    NestedConfigParam,
+)
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.processing_tasks.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import plot_flag_gain
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    plot_curve_fit,
+    plot_flag_gain,
+)
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 
@@ -80,11 +87,20 @@ from ...data_managers.data_export import export_gaintable_to_h5parm
             description="Export intermediate gain solutions.",
             nullable=False,
         ),
-        plot_flag=ConfigParam(
-            bool,
-            True,
-            description="Plot the flagged weights",
-            nullable=False,
+        plot_config=NestedConfigParam(
+            "Plot options",
+            curve_fit_plot=ConfigParam(
+                bool,
+                True,
+                description="Plot the fitted curve of gain flagging",
+                nullable=False,
+            ),
+            gain_flag_plot=ConfigParam(
+                bool,
+                True,
+                description="Plot the flagged weights",
+                nullable=False,
+            ),
         ),
     ),
 )
@@ -101,7 +117,7 @@ def flag_gain_stage(
     window_size,
     normalize_gains,
     apply_flag,
-    plot_flag,
+    plot_config,
     _output_dir_,
 ):
     """
@@ -142,6 +158,9 @@ def flag_gain_stage(
             Normailize the amplitude and phase before flagging.
         apply_flag: bool
             Weights are applied to the gains.
+        plot_config: dict
+            Plotting options.
+            eg: {curve_fit_plot: True, gain_flag_plot: True}
 
     Returns
     -------
@@ -156,7 +175,7 @@ def flag_gain_stage(
     if call_count := upstream_output.get_call_count("gain_flag"):
         call_counter_suffix = f"_{call_count}"
 
-    gaintable = flag_on_gains(
+    gaintable, amp_fit, phase_fits = flag_on_gains(
         initialtable,
         soltype,
         mode,
@@ -178,7 +197,7 @@ def flag_gain_stage(
         )
     )
 
-    if plot_flag:
+    if plot_config["gain_flag_plot"]:
         path_prefix = os.path.join(
             _output_dir_, f"gain_flagging{call_counter_suffix}"
         )
@@ -187,6 +206,20 @@ def flag_gain_stage(
                 gaintable,
                 path_prefix,
                 figure_title="Gain Flagging",
+            )
+        )
+
+    if plot_config["curve_fit_plot"]:
+        path_prefix = os.path.join(
+            _output_dir_, f"curve_fit_gain{call_counter_suffix}"
+        )
+        upstream_output.add_compute_tasks(
+            plot_curve_fit(
+                gaintable,
+                amp_fit,
+                phase_fits,
+                path_prefix,
+                figure_title="Curve fit of Gain Flagging",
             )
         )
 

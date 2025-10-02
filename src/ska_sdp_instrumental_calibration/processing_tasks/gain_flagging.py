@@ -209,12 +209,19 @@ class GainFlagger:
         -------
             weights: xr.DataArray
                 Updated weights.
+            amp_fits: xr.DataArray
+                Amplitude fit
+            phase_fits: xr.DataArray
+                Phase fit
         """
 
         soltype = {"absolute": "amplitude", "angle": "phase"}
 
         weights = np.array(weights, copy=True)
         flagged_weights = np.ones(weights.shape)
+        amp_fit = np.zeros_like(gains, dtype=float)
+        phase_fit = np.zeros_like(gains, dtype=float)
+
         for sol_type_func in self.sol_type_funcs:
             rms = 0.0
             sol_type_data = sol_type_func(gains)
@@ -225,6 +232,14 @@ class GainFlagger:
             for _ in range(self.max_ncycles):
                 if all(weights == 0):
                     break
+                curve_fit = self.fit_curve(
+                    sol_type_data, weights, self.order, self.frequencies
+                )
+
+                if sol_type_func == np.absolute:
+                    amp_fit = curve_fit
+                elif sol_type_func == np.angle:
+                    phase_fit = curve_fit
 
                 deterend = sol_type_data - self.fit_curve(
                     sol_type_data, weights, self.order, self.frequencies
@@ -255,7 +270,7 @@ class GainFlagger:
                 f"MAD of {rms:.5f} and {percent_flagged:.2f}% gains flagged "
                 f"for {soltype[sol_type_func.__name__]}."
             )
-        return flagged_weights
+        return flagged_weights, amp_fit, phase_fit
 
 
 def flag_on_gains(
@@ -330,24 +345,27 @@ def flag_on_gains(
     nreceptor2 = len(gaintable.receptor2)
     all_flagged_weights = None
 
+    all_amp_fit = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+    all_phase_fit = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+
     for receptor1, receptor2 in np.ndindex(nreceptor1, nreceptor2):
         if receptor1 != receptor2 and skip_cross_pol:
             continue
 
-        receptor_weight_flag = xr.apply_ufunc(
+        receptor_weight_flag, amp_fit, phase_fit = xr.apply_ufunc(
             gain_flagger.flag_dimension,
             gaintable.weight[0, :, :, receptor1, receptor2],
             gaintable.gain[0, :, :, receptor1, receptor2],
             gaintable.configuration.names.data,
             input_core_dims=[["frequency"], ["frequency"], []],
-            output_core_dims=[["frequency"]],
+            output_core_dims=[["frequency"], ["frequency"], ["frequency"]],
             vectorize=True,
             dask="parallelized",
             kwargs=dict(
                 receptor1=gaintable.receptor1[receptor1].data,
                 receptor2=gaintable.receptor2[receptor2].data,
             ),
-            output_dtypes=[gaintable.weight.dtype],
+            output_dtypes=[gaintable.weight.dtype, float, float],
         )
 
         all_flagged_weights = (
@@ -355,6 +373,9 @@ def flag_on_gains(
             if all_flagged_weights is None
             else all_flagged_weights * receptor_weight_flag
         )
+
+        all_amp_fit[0, :, :, receptor1, receptor2] = amp_fit
+        all_phase_fit[0, :, :, receptor1, receptor2] = phase_fit
 
     flagged_weights_data = np.repeat(
         all_flagged_weights.data[:, :, np.newaxis], nreceptor1, axis=2
@@ -371,15 +392,23 @@ def flag_on_gains(
 
     if apply_flag:
         new_gain = xr.where(new_weights == 0, 0.0, gaintable["gain"])
-        return gaintable.assign(
+        return (
+            gaintable.assign(
+                {
+                    "gain": new_gain,
+                    "weight": new_weights,
+                }
+            ).chunk(original_chunk),
+            all_amp_fit,
+            all_phase_fit,
+        )
+
+    return (
+        gaintable.assign(
             {
-                "gain": new_gain,
                 "weight": new_weights,
             }
-        ).chunk(original_chunk)
-
-    return gaintable.assign(
-        {
-            "weight": new_weights,
-        }
-    ).chunk(original_chunk)
+        ).chunk(original_chunk),
+        all_amp_fit,
+        all_phase_fit,
+    )

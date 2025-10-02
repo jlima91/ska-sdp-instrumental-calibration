@@ -12,6 +12,7 @@ __all__ = [
     "plot_rm_station",
     "plot_bandpass_stages",
     "plot_flag_gain",
+    "plot_curve_fit",
     "parse_reference_antenna",
     "with_chunks",
 ]
@@ -743,6 +744,151 @@ def subplot_gaintable(
     fig.legend(handles, labels, loc="outside upper right")
     fig.savefig(path)
     plt.close()
+
+
+@dask.delayed
+def plot_curve_fit(
+    gaintable,
+    amp_fits,
+    phase_fits,
+    path_prefix,
+    figure_title="",
+):
+    """
+    Plot the fitted curve on gains
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        amp_fits: xr.DataArray.
+            Amplitude fits.
+        phase_fits: xr.DataArray.
+            Phase fits.
+        path_prefix: str
+            Path prefix to save the plots.
+        figure_title: str
+            Title of the figure.
+        fixed_axis: bool
+            Limit amplitude axis values to [0,1]
+    """
+    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+    amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
+    phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
+
+    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    gaintable = gaintable.assign_coords({"pol": polstrs})
+    amp_fits = amp_fits.assign_coords({"pol": polstrs})
+    phase_fits = phase_fits.assign_coords({"pol": polstrs})
+    stations = gaintable.configuration.names
+    n_rows = 2
+    n_cols = 2
+    plots_per_group = n_rows * n_cols
+    plot_groups = np.split(
+        stations,
+        range(plots_per_group, stations.size, plots_per_group),
+    )
+
+    for stations in plot_groups:
+        frequency = gaintable.frequency / 1e6
+        channel = np.arange(len(frequency))
+        station_names = stations.values
+        pol_labels = gaintable.pol.values
+
+        def channel_to_freq(channel):
+            return np.interp(channel, np.arange(len(frequency)), frequency)
+
+        def freq_to_channel(freq):
+            return np.interp(freq, frequency, np.arange(len(frequency)))
+
+        cmap = plt.get_cmap("tab10")
+        pol_colors = {pol: cmap(i) for i, pol in enumerate(pol_labels)}
+
+        fig = plt.figure(layout="constrained", figsize=(24, 18))
+        subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
+
+        pol_groups = [
+            ["XX", "YY"],
+            ["XY", "YX"],
+        ]
+
+        all_handles = []
+        all_labels = []
+
+        for idx, subfig in enumerate(subfigs):
+            if idx >= stations.size:
+                break
+            gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
+            a_fit = amp_fits.isel(time=0, antenna=stations.id[idx])
+            p_fit = phase_fits.isel(time=0, antenna=stations.id[idx])
+            amplitude = np.abs(gain)
+            phase = np.angle(gain, deg=True)
+
+            axes = subfig.subplots(2, 2, sharex=True)
+
+            for col_idx, pol_list in enumerate(pol_groups):
+                phase_ax = axes[0, col_idx]
+                amp_ax = axes[1, col_idx]
+
+                if col_idx == 0:
+                    phase_ax.set_ylabel("Phase (deg)")
+                    amp_ax.set_ylabel("Amplitude")
+                    amp_ax.set_xlabel("Channel")
+                else:
+                    phase_ax.set_yticklabels([])
+                    amp_ax.set_yticklabels([])
+                    amp_ax.set_xlabel("")
+
+                phase_ax.secondary_xaxis(
+                    "top",
+                    functions=(channel_to_freq, freq_to_channel),
+                ).set_xlabel("Frequency [MHz]")
+
+                phase_ax.set_ylim([-180, 180])
+
+                for pol in pol_list:
+                    if pol in pol_labels:
+                        pol_idx = list(pol_labels).index(pol)
+                        h1 = phase_ax.scatter(
+                            channel,
+                            phase[:, pol_idx],
+                            color=pol_colors[pol],
+                            label=pol,
+                        )
+                        amp_ax.scatter(
+                            channel,
+                            amplitude[:, pol_idx],
+                            color=pol_colors[pol],
+                            label=pol,
+                        )
+                        phase_ax.plot(
+                            channel,
+                            a_fit[:, pol_idx],
+                            color=pol_colors[pol],
+                            lw=2,
+                        )
+                        amp_ax.plot(
+                            channel,
+                            p_fit[:, pol_idx],
+                            color=pol_colors[pol],
+                            lw=2,
+                        )
+                        if pol not in all_labels:
+                            all_handles.append(h1)
+                            all_labels.append(pol)
+
+            subfig.suptitle(
+                f"Station - {station_names[idx]}", fontsize="large"
+            )
+
+        path = (
+            f"{path_prefix}-curve-amp-phase_freq-"
+            f"{station_names[0]}-{station_names[-1]}.png"
+        )
+        fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
+        fig.legend(all_handles, all_labels, loc="outside upper right")
+        fig.savefig(path)
+        plt.close()
 
 
 @dask.delayed
