@@ -35,7 +35,7 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
     )
 
     apply_gaintable_to_dataset_mock.assert_called_once_with(
-        vis_mock, upstream_output["gaintable"]
+        vis_mock, upstream_output["gaintable"], inverse=True
     )
     export_mock.assert_called_once_with(
         "./corrected_vis.ms", [corrected_vis_mock]

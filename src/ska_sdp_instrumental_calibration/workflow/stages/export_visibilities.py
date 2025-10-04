@@ -58,7 +58,7 @@ def export_visibilities_stage(
         call_counter_suffix = f"_{call_count}"
 
     if apply_gaintable_to_vis:
-        vis = apply_gaintable_to_dataset(vis, gaintable)
+        vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         upstream_output["corrected_vis"] = vis
 
     if data_to_export == "vis" or data_to_export == "all":
