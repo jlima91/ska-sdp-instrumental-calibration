@@ -478,6 +478,67 @@ Parameters
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
+complex_gain_calibration
+========================
+
+    Performs Complex Gain Calibration
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | Param                             | Type           | Default           | Description                                                                     | Nullable   | Allowed values                                                                             |
+    +===================================+================+===================+=================================================================================+============+============================================================================================+
+    | run_solver_config.solver          | str            | gain_substitution | Calibration algorithm to use.                 (default="gain_substitution")     | True       | ['gain_substitution', 'jones_substitution', 'normal_equations', 'normal_equations_presum'] |
+    |                                   |                |                   | Options are:                 "gain_substitution" - original substitution        |            |                                                                                            |
+    |                                   |                |                   | algorithm                 with separate solutions for each polarisation term.   |            |                                                                                            |
+    |                                   |                |                   | "jones_substitution" - solve antenna-based Jones matrices                 as a  |            |                                                                                            |
+    |                                   |                |                   | whole, with independent updates within each iteration.                          |            |                                                                                            |
+    |                                   |                |                   | "normal_equations" - solve normal equations within                 each         |            |                                                                                            |
+    |                                   |                |                   | iteration formed from linearisation with respect to                 antenna-    |            |                                                                                            |
+    |                                   |                |                   | based gain and leakage terms.                 "normal_equations_presum" - same  |            |                                                                                            |
+    |                                   |                |                   | as normal_equations                 option but with an initial accumulation of  |            |                                                                                            |
+    |                                   |                |                   | visibility                 products over time and frequency for each solution   |            |                                                                                            |
+    |                                   |                |                   | interval. This can be much faster for large datasets                 and        |            |                                                                                            |
+    |                                   |                |                   | solution intervals.                                                             |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.refant          | ['int', 'str'] | 0                 | Reference antenna.                 Currently only activated for                 | False      |                                                                                            |
+    |                                   |                |                   | gain_substitution solver                                                        |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.niter           | int            | 50                | Number of solver iterations.                                                    | False      |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.phase_only      | bool           | False             | Solve only for the phases. This can be set                 to ``True`` when     | False      |                                                                                            |
+    |                                   |                |                   | solver is "gain_substitution",                 otherwise it must be ``False``.  |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.tol             | float          | 1e-06             | Iteration stops when the fractional change                 in the gain solution | False      |                                                                                            |
+    |                                   |                |                   | is below this tolerance.                                                        |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.crosspol        | bool           | False             | Do solutions including cross polarisations                 i.e. XY, YX or RL,   | False      |                                                                                            |
+    |                                   |                |                   | LR.                 Only used by "gain_substitution" solver.                    |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.normalise_gains | str            | ``null``          | Normalises the gains.                 Only available when solver is             | True       | ['``null``', 'mean', 'median']                                                             |
+    |                                   |                |                   | "gain_substitution".                 Possible types of normalization are:       |            |                                                                                            |
+    |                                   |                |                   | "mean", "median".                 To perform no normalization, set this to      |            |                                                                                            |
+    |                                   |                |                   | ``null``.                                                                       |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | run_solver_config.timeslice       | float          | ``null``          | Defines time scale over which each gain solution                 is valid. This | True       |                                                                                            |
+    |                                   |                |                   | is used to define time axis of the GainTable.                 This parameter is |            |                                                                                            |
+    |                                   |                |                   | interpreted as follows,                  float: this is a custom time interval  |            |                                                                                            |
+    |                                   |                |                   | in seconds.                 Input timestamps are grouped by intervals of this   |            |                                                                                            |
+    |                                   |                |                   | duration,                 and said groups are separately averaged to produce    |            |                                                                                            |
+    |                                   |                |                   | the output time axis.                  ``None``: match the time resolution of   |            |                                                                                            |
+    |                                   |                |                   | the input, i.e. copy                 the time axis of the input Visibility      |            |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | visibility_key                    | str            | vis               | Visibility data to be used for calibration.                                     | True       | ['vis', 'corrected_vis']                                                                   |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | export_gaintable                  | bool           | False             | Export intermediate gain solutions.                                             | False      |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+
+
 export_gain_table
 =================
 
