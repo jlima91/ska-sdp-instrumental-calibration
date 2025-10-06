@@ -10,6 +10,7 @@ export AWS_ENV=false
 export DP3_CMD=${DP3_CMD:-"DP3"}
 export WSCLEAN_CMD=${WSCLEAN_CMD:-"wsclean"}
 
+export OPENBLAS_NUM_THREADS=1
 
 check-module-load() {
    if [ "${AWS_ENV}" = true ]; then
@@ -35,7 +36,7 @@ help()
    echo "The user is required to load the metamodule on AWS-HPC"
    echo "If -a flag is not provided, the script assumes DP3 and wsclean to be in path and are defaulted to 'DP3' and 'wsclean'"
    echo "To use alternative DP3 command, set DP3_CMD=/alternate/path/to/DP3."
-   echo "To use alternative wsclean command, set WSCLEAN_CMD=/alternate/path/to/wsclean."   
+   echo "To use alternative wsclean command, set WSCLEAN_CMD=/alternate/path/to/wsclean."
    echo
 }
 
@@ -43,8 +44,7 @@ create-fits() {
   if [ "${AWS_ENV}" = true ]; then
       module load --silent wsclean
   fi
-  
-  export OPENBLAS_NUM_THREADS=1
+
   set -o xtrace
   ${WSCLEAN_CMD} $@
   set +o xtrace
@@ -86,10 +86,10 @@ applycal() {
   rm -rf $msout
   set -o xtrace
   ${DP3_CMD} steps="[applycal]" msin=${msin}\
-	  applycal.type=applycal applycal.parmdb=${parmdb}\
-	  applycal.missingantennabehavior=flag applycal.updateweights=True\
-	  applycal.steps="[phase, amplitude]" applycal.phase.correction=phase000\
-	  applycal.amplitude.correction=amplitude000 msout=${msout}
+      applycal.type=applycal applycal.parmdb=${parmdb}\
+      applycal.updateweights=True\
+      applycal.steps="[phase, amplitude]" applycal.phase.correction=phase000\
+      applycal.amplitude.correction=amplitude000 msout=${msout}
   set +o xtrace
 
   if [ "${AWS_ENV}" = true ]; then
@@ -103,7 +103,7 @@ MSOUT="corrected.ms"
 while getopts ":hag:i:" option; do
    case $option in
      h) help
-	exit;;
+        exit;;
      g) PARMDB=$OPTARG;;
      i) MSIN=$OPTARG;;
      a) AWS_ENV=true;;
@@ -123,7 +123,11 @@ set -e
 
 echo ""
 echo "**************** wsclean without apply ***************"
-create-fits ${WSCLEAN_ARGS} -name "original" $MSIN
+
+BEAM_CORRECTED_MS_IN=./beamcor.msin
+$DP3_CMD msin=$MSIN steps="[applybeam]" msout=$BEAM_CORRECTED_MS_IN
+create-fits ${WSCLEAN_ARGS} -niter 0 -apply-primary-beam -name "original" $BEAM_CORRECTED_MS_IN
+rm -rf $BEAM_CORRECTED_MS_IN
 
 echo ""
 echo "**************** ApplyCal ***************"
@@ -131,4 +135,7 @@ applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
 
 echo ""
 echo "**************** wsclean with apply ***************"
-create-fits ${WSCLEAN_ARGS} -name "corrected"  $MSOUT
+BEAM_CORRECTED_MS_OUT=./beamcor.msout
+$DP3_CMD msin=$MSOUT steps="[applybeam]" msout=$BEAM_CORRECTED_MS_OUT
+create-fits ${WSCLEAN_ARGS} -niter 0 -apply-primary-beam -name "corrected" $BEAM_CORRECTED_MS_OUT
+rm -rf $BEAM_CORRECTED_MS_OUT
