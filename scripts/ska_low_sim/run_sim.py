@@ -174,21 +174,23 @@ def main():
     if create_dirty_image:
         sim_ms = next(output_dir.glob("*.ms"))
         beam_corrected_ms = output_dir / f"{sim_ms.name}.beamcor.ms"
-        image_name = output_dir / f"{scenario}-wsclean"
+        image_name = output_dir / "images" / "wsclean"
+
+        image_name.parent.mkdir(parents=True, exist_ok=True)
 
         # Apply beam using DP3
-        subprocess.run(
+        run_command(
             [
                 dp3_cmd,
                 f"msin={sim_ms}",
                 "steps=[applybeam]",
                 f"msout={beam_corrected_ms}",
             ],
-            check=True,
+            logfile,
         )
 
         # Run wsclean
-        subprocess.run(
+        run_command(
             [
                 wsclean_cmd,
                 "-size",
@@ -203,7 +205,7 @@ def main():
                 str(image_name),
                 str(beam_corrected_ms),
             ],
-            check=True,
+            logfile,
         )
 
         # Cleanup
