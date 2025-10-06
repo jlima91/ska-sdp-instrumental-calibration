@@ -25,7 +25,7 @@ mkdir cable_delays
 mv ./$TEL_MODEL_DIR/$TEL_MODEL/cable_length_error.txt ./cable_delays/cable_length_error_40s.txt
 
 # Get gleamfile
-aws s3 sync $DATA_PREFIX/$SKY_MODEL_DIR/$SKY_MODEL ./$SKY_MODEL_DIR/$SKY_MODEL
+aws s3 cp $DATA_PREFIX/$SKY_MODEL_DIR/$SKY_MODEL ./$SKY_MODEL_DIR/$SKY_MODEL
 
 # Get ionospheric screen
 aws s3 sync $DATA_PREFIX/$TEC_DIR/$TEC_FILE ./$TEC_DIR/$TEC_FILE
