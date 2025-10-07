@@ -26,23 +26,31 @@ def test_run_solver_for_target_calibration(generate_ms):
     }
     # Read in the Vis dataset directly and generate gains
     vis = load_ms(ms_path, fchunk=4)
+    model_vis = vis.copy(deep=True)
+
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="G", timeslice=None
     )
-    gaintable.gain.data = gaintable.gain.data * (
-        np.random.normal(1, 0.1, gaintable.gain.shape)
-        + np.random.normal(0, 0.1, gaintable.gain.shape) * 1j
+
+    gaintable.gain.data = gaintable.gain.data * np.exp(
+        0 + np.random.normal(0, 0.1, gaintable.gain.shape) * 1j
     )
 
     vis = apply_gaintable(vis=vis, gt=gaintable, inverse=False)
     chunkedvis = vis.pipe(with_chunks, vis_chunks)
-    chunkedmdl = chunkedvis.copy(deep=True)
+    chunkedmdl = model_vis.pipe(with_chunks, vis_chunks)
+
+    initialtable = create_gaintable_from_visibility(
+        vis, jones_type="G", timeslice=None
+    )
+
+    init_chunkedgt = initialtable.pipe(with_chunks, vis_chunks)
     chunkedgt = gaintable.pipe(with_chunks, vis_chunks)
 
     solvedgt = target_solver.run_solver(
         vis=chunkedvis,
         modelvis=chunkedmdl,
-        gaintable=chunkedgt,
+        gaintable=init_chunkedgt,
         jones_type="G",
         phase_only=True,
         timeslice=None,
