@@ -646,7 +646,6 @@ def plot_flag_gain(
             weight_ax.set_ylabel("Weights")
             weight_ax.set_xlabel("Channel")
             weight_ax.plot(weight)
-            weight_ax.set_yticks([0, 1])
             subfig.suptitle(
                 f"Station - {station_names[idx]}", fontsize="large"
             )
@@ -829,15 +828,9 @@ def plot_curve_fit(
             for col_idx, pol_list in enumerate(pol_groups):
                 phase_ax = axes[0, col_idx]
                 amp_ax = axes[1, col_idx]
-
-                if col_idx == 0:
-                    phase_ax.set_ylabel("Phase (deg)")
-                    amp_ax.set_ylabel("Amplitude")
-                    amp_ax.set_xlabel("Channel")
-                else:
-                    phase_ax.set_yticklabels([])
-                    amp_ax.set_yticklabels([])
-                    amp_ax.set_xlabel("")
+                amp_ax.set_ylabel("Amplitude")
+                phase_ax.set_ylabel("Phase (degree)")
+                amp_ax.set_xlabel("Channel")
 
                 phase_ax.secondary_xaxis(
                     "top",
@@ -854,23 +847,27 @@ def plot_curve_fit(
                             phase[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
+                            s=15,
                         )
                         amp_ax.scatter(
                             channel,
                             amplitude[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
+                            s=15,
                         )
                         phase_ax.plot(
                             channel,
                             a_fit[:, pol_idx],
                             color=pol_colors[pol],
+                            label=pol,
                             lw=2,
                         )
                         amp_ax.plot(
                             channel,
                             p_fit[:, pol_idx],
                             color=pol_colors[pol],
+                            label=pol,
                             lw=2,
                         )
                         if pol not in all_labels:
