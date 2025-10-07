@@ -1,9 +1,12 @@
 import logging
 import os
-from copy import deepcopy
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import (
+    ConfigParam,
+    Configuration,
+    NestedConfigParam,
+)
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
@@ -13,10 +16,6 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibrate import (
     target_solver,
 )
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.workflow.stages._common import (
-    RUN_SOLVER_DOCSTRING,
-    RUN_SOLVER_NESTED_CONFIG,
-)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     parse_reference_antenna,
 )
@@ -27,7 +26,73 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "complex_gain_calibration",
     configuration=Configuration(
-        run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        run_solver_config=NestedConfigParam(
+            "Run Solver parameters",
+            solver=ConfigParam(
+                str,
+                "gain_substitution",
+                description="""Calibration algorithm to use.
+                (default="gain_substitution")
+                Options are:
+                "gain_substitution" - original substitution algorithm
+                with separate solutions for each polarisation term.
+                "jones_substitution" - solve antenna-based Jones matrices
+                as a whole, with independent updates within each iteration.
+                "normal_equations" - solve normal equations within
+                each iteration formed from linearisation with respect to
+                antenna-based gain and leakage terms.
+                "normal_equations_presum" - same as normal_equations
+                option but with an initial accumulation of visibility
+                products over time and frequency for each solution
+                interval. This can be much faster for large datasets
+                and solution intervals.""",
+                allowed_values=[
+                    "gain_substitution",
+                    "jones_substitution",
+                    "normal_equations",
+                    "normal_equations_presum",
+                ],
+            ),
+            refant=ConfigParam(
+                (int, str),
+                0,
+                description="""Reference antenna.
+                Currently only activated for gain_substitution solver""",
+                nullable=False,
+            ),
+            niter=ConfigParam(
+                int,
+                50,
+                description="""Number of solver iterations.""",
+                nullable=False,
+            ),
+            tol=ConfigParam(
+                float,
+                1e-06,
+                description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance.""",
+                nullable=False,
+            ),
+            crosspol=ConfigParam(
+                bool,
+                False,
+                description="""Do solutions including cross polarisations
+                i.e. XY, YX or RL, LR.
+                Only used by "gain_substitution" solver.""",
+                nullable=False,
+            ),
+            normalise_gains=ConfigParam(
+                str,
+                None,
+                description="""Normalises the gains.
+                Only available when solver is "gain_substitution".
+                Possible types of normalization are: "mean", "median".
+                To perform no normalization, set this to ``null``.
+                """,
+                allowed_values=[None, "mean", "median"],
+                nullable=True,
+            ),
+        ),
         visibility_key=ConfigParam(
             str,
             "vis",
@@ -59,7 +124,7 @@ def complex_gain_calibration_stage(
               gaintable, modelvis and visibility data with key
               same as visibility_key
         run_solver_config: dict
-            {run_solver_docstring}
+            Run solver config for target calibration
         visibility_key: str
             Visibility data to be used for calibration.
         export_gaintable: bool
@@ -110,10 +175,3 @@ def complex_gain_calibration_stage(
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("complex_gain")
     return upstream_output
-
-
-complex_gain_calibration_stage.__doc__ = (
-    complex_gain_calibration_stage.__doc__.format(
-        run_solver_docstring=RUN_SOLVER_DOCSTRING
-    )
-)

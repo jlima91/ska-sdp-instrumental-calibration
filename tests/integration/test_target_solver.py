@@ -51,9 +51,6 @@ def test_run_solver_for_target_calibration(generate_ms):
         vis=chunkedvis,
         modelvis=chunkedmdl,
         gaintable=init_chunkedgt,
-        jones_type="G",
-        phase_only=True,
-        timeslice=None,
     )
 
     solvedgt.load()

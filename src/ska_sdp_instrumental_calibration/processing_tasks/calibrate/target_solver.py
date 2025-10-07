@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Optional
 
 import xarray as xr
 from ska_sdp_func_python.calibration.solvers import solve_gaintable
@@ -15,12 +15,9 @@ def _solve_gaintable(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
-    phase_only: bool = True,
     tol: float = 1e-06,
     crosspol: bool = False,
     normalise_gains: str = None,
-    jones_type: Literal["T", "G", "B"] = "G",
-    timeslice: Optional[float] = None,
 ) -> xr.Dataset:
     """Call solve_gaintable.
 
@@ -32,14 +29,10 @@ def _solve_gaintable(
     :param solver: Solver type to use. Default is "gain_substitution".
     :param refant: Reference antenna (defaults to 0).
     :param niter: Number of solver iterations (defaults to 200).
-    :param phase_only: Solve only for the phases.
     :param tol: Iteration stops when the fractional change in the gain solution
         is below this tolerance.
     :param crosspol: Do solutions including cross polarisations.
     :param normalise_gains: Normalises the gains (default="mean").
-    :param jones_type: Type of calibration matrix T or G or B.
-    :param timeslice: Defines the time scale over which each
-        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -53,14 +46,14 @@ def _solve_gaintable(
         vischunk,
         modelchunk,
         gainchunk,
-        phase_only,
+        True,
         niter,
         tol,
         crosspol,
         normalise_gains,
         solver,
-        jones_type,
-        timeslice,
+        "G",
+        None,
         refant,
     )
     # restore the dimension name back for map_blocks I/O checks
@@ -76,12 +69,9 @@ def run_solver(
     solver: str = "gain_substitution",
     refant: int = 0,
     niter: int = 200,
-    phase_only: bool = False,
     tol: float = 1e-06,
     crosspol: bool = False,
     normalise_gains: Optional[str] = None,
-    jones_type: Literal["T", "G", "B"] = "G",
-    timeslice: Optional[float] = None,
 ) -> xr.Dataset:
     """Do the complex gain calibration.
 
@@ -94,15 +84,10 @@ def run_solver(
     :param refant: Reference antenna (defaults to 0). Note that how referencing
         is done depends on the solver.
     :param niter: Number of solver iterations (defaults to 200).
-    :param phase_only: Solve only for the phases.
     :param tol: Iteration stops when the fractional change in the gain solution
         is below this tolerance.
     :param crosspol: Do solutions including cross polarisations.
     :param normalise_gains: Normalises the gains (default="mean").
-    :param jones_type: Type of calibration matrix T or G or B. Default is "G"
-        as run_solver is intended to use for target complex gain calibration.
-    :param timeslice: Defines the time scale over which each
-        gain solution is valid.
 
     :return: Chunked GainTable dataset
     """
@@ -119,12 +104,9 @@ def run_solver(
             solver,
             refant,
             niter,
-            phase_only,
             tol,
             crosspol,
             normalise_gains,
-            jones_type,
-            timeslice,
         ],
         template=gaintable,
     )
