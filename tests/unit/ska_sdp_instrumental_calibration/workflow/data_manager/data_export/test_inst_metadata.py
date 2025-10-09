@@ -131,7 +131,7 @@ def test_should_export_metadata(path_exists_mock, metadata_mock, monkeypatch):
         f"{ObsCore.DataProductType.UNKNOWN}"
     )
 
-    assert data_mock.obscore.access_format == ObsCore.AccessFormat.UNKNOWN
+    assert data_mock.obscore.access_format == ObsCore.AccessFormat.HDF5
     assert data_mock.obscore.facility_name == ObsCore.SKA
     assert data_mock.obscore.instrument_name == ObsCore.SKA_LOW
 

@@ -79,14 +79,14 @@ class INSTMetaData:
         data.config = {**data.config, **config}
         data.obscore.dataproduct_type = ObsCore.DataProductType.UNKNOWN
         data.obscore.calib_level = ObsCore.CalibrationLevel.LEVEL_0
-        data.obscore.obs_collection = (
-            f"{ObsCore.SKA}/"
-            f"{ObsCore.SKA_LOW}/"
-            f"{ObsCore.DataProductType.UNKNOWN}"
-        )
-        data.obscore.access_format = ObsCore.AccessFormat.UNKNOWN
+        data.obscore.access_format = ObsCore.AccessFormat.HDF5
         data.obscore.facility_name = ObsCore.SKA
         data.obscore.instrument_name = ObsCore.SKA_LOW
+        data.obscore.obs_collection = (
+            f"{data.obscore.facility_name}/"
+            f"{data.obscore.instrument_name}/"
+            f"{data.obscore.dataproduct_type}"
+        )
 
         for data_product in self.__data_products:
             self.__metadata.new_file(
