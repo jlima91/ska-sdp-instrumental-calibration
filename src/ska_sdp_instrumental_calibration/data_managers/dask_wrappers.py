@@ -39,6 +39,11 @@ import numpy as np
 import numpy.typing as npt
 import xarray as xr
 from casacore.tables import table
+from astropy.time import Time
+from ska_sdp_instrumental_calibration.processing_tasks.beams import (
+    GenericBeams,
+)
+
 
 # avoid ska_sdp_datamodels/visibility/vis_model.py:201: FutureWarning: the
 # `pandas.MultiIndex` object(s) passed as 'baselines' coordinate(s) or data
@@ -46,7 +51,7 @@ from casacore.tables import table
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
-
+from astropy.coordinates import AltAz
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
@@ -212,6 +217,16 @@ def _predict(
         )
         # Switch to standard variable names and coords for the SDP call
         vischunk = restore_baselines_dim(vischunk)
+        time = np.mean(Time(vischunk.datetime.data))
+        beams = GenericBeams(vis=vischunk, array="Low", ms_path=eb_ms)
+        # Update ITRF coordinates of the beam and normalisation factors
+        beams.update_beam(frequency=vischunk.frequency.data, time=time)
+
+        # for comp in lsm_components:
+        altaz =  beams.beam_direction.transform_to(
+        AltAz(obstime=time, location=beams.array_location)
+        )
+        theta = np.pi / 2 - altaz.alt.radian
 
         # Dask array wrapped in xarray.Datarray
         if type(station_rm) == xr.DataArray:
@@ -240,6 +255,8 @@ def _predict(
                 }
             )
         )
+        # import pdb; pdb.set_trace();
+        vischunk.vis.data += vischunk.vis.data * np.cos(theta) ** 2
 
     return vischunk
 

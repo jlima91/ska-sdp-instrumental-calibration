@@ -4,6 +4,7 @@ import os
 import dask
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
+from pathlib import Path
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
@@ -12,8 +13,13 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
+    pre_calculate_metadata,
     with_chunks,
 )
+from ska_sdp_datamodels.calibration.calibration_create import (
+    create_gaintable_from_visibility,
+)
+from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +79,11 @@ logger = logging.getLogger(__name__)
             nullable=False,
             description="Data Description ID of the data in measurement set",
         ),
+        fave_init=ConfigParam(
+            int,
+            48,
+            description="Frequency averaging",
+        ),
     ),
 )
 def load_data_stage(
@@ -84,6 +95,7 @@ def load_data_stage(
     datacolumn,
     field_id,
     data_desc_id,
+    fave_init,
     _cli_args_,
     _output_dir_,
 ):
@@ -136,7 +148,7 @@ def load_data_stage(
     """
     upstream_output.add_checkpoint_key("gaintable")
     input_ms = _cli_args_["input"]
-
+    
     input_ms = os.path.realpath(input_ms)
 
     # Common dimensions across zarr and loaded visibility dataset
@@ -198,9 +210,18 @@ def load_data_stage(
             )
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
-
-    gaintable = create_bandpass_table(vis)
+    # import pdb; pdb.set_trace()
+    # vis.vis = averaging_frequency(vis, freqstep=fave_init)
+    # gaintable = create_bandpass_table(vis)
+    timeslice = vis.time.data.max() - vis.time.data.min()
+    gaintable = create_gaintable_from_visibility(
+        vis, jones_type="B", timeslice=timeslice
+    )
+    ms_path = Path(input_ms)
+    metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
+    gaintable["interval"].data[0] = timeslice + 1e-5
     upstream_output["vis"] = vis
+    upstream_output["metadata"] = metadata
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
 

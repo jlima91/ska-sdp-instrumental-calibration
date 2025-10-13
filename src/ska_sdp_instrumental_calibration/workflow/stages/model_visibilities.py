@@ -13,7 +13,7 @@ from ...processing_tasks.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
-from ..utils import get_phasecentre
+from ..utils import beam_model, do_centre_correct, get_phasecentre, pre_calculate_metadata
 from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()
@@ -136,8 +136,15 @@ def predict_visibilities(
         modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
         upstream_output["beams"] = beams
         upstream_output["vis"] = vis
+    metadata = upstream_output["metadata"]
+    jones_eb = beam_model(
+        vis=vis,
+        metadata=metadata,
+    )
+    modelvis, vis = do_centre_correct(modelvis, vis, jones_eb, metadata)
 
     upstream_output["modelvis"] = modelvis
+    upstream_output["vis"] = vis
     upstream_output.increment_call_count("predict_vis")
 
     return upstream_output
