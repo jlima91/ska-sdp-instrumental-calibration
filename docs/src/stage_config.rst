@@ -74,7 +74,7 @@ Parameters
     +==========================+========+===========+==================================================================================+============+==================+
     | beam_type                | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    | normalise_at_beam_centre | bool   | True      | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
     |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
@@ -456,7 +456,7 @@ Parameters
     +==========================+========+===========+==================================================================================+============+==================+
     | beam_type                | str    | everybeam | Type of beam model to use. Default is 'everybeam'                                | True       |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
-    | normalise_at_beam_centre | bool   | False     | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    | normalise_at_beam_centre | bool   | True      | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
     |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
