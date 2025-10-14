@@ -4061,14 +4061,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-exec-piper"
-version = "1.0.3"
+version = "1.0.4"
 description = "SKA SDP Piper Execution Framework"
 optional = false
 python-versions = ">=3.10,<4.0"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_exec_piper-1.0.3-py3-none-any.whl", hash = "sha256:ef542733129dd2fb519576ef456ca83936be486cead1c7480416ff8cc5c0b7fa"},
-    {file = "ska_sdp_exec_piper-1.0.3.tar.gz", hash = "sha256:2e2eb897a58aad00e68b0a5a1774a993d1ba483ddeacf5f75478cf13aae3ffb8"},
+    {file = "ska_sdp_exec_piper-1.0.4-py3-none-any.whl", hash = "sha256:5a26e44db688bb1885c2f0c2dc8f8723666fd8c8be24338d588e8d1ea72bea93"},
+    {file = "ska_sdp_exec_piper-1.0.4.tar.gz", hash = "sha256:1d8fc85e0f0009bdb48fd03cc7c4ceb4ec330dc60e5ca1538753957db51e0ab2"},
 ]
 
 [package.dependencies]
@@ -4895,4 +4895,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "60106d14ae9b6f748570ad8a67f1e59d00f8123db6e169247369cd6ae6630dae"
+content-hash = "c04abac0bdb7f03cdb0a30cb06930842bfeaf55b51c7a1bd023691c0ae281e7f"
