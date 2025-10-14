@@ -151,7 +151,7 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
     ),
     normalise_at_beam_centre=ConfigParam(
         bool,
-        False,
+        True,
         description="""If true, before running calibration, multiply vis
             and model vis by the inverse of the beam response in the
             beam pointing direction.""",
