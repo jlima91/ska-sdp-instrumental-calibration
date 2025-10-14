@@ -1,5 +1,4 @@
 import logging
-import os
 from copy import deepcopy
 
 import dask
@@ -18,6 +17,8 @@ from ...data_managers.dask_wrappers import (
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import (
+    get_gaintables_path,
+    get_plots_path,
     parse_reference_antenna,
     plot_bandpass_stages,
     plot_gaintable,
@@ -153,10 +154,6 @@ def generate_channel_rm_stage(
     if call_count := upstream_output.get_call_count("channel_rm"):
         call_counter_suffix = f"_{call_count}"
 
-    path_prefix = os.path.join(
-        _output_dir_, f"channel_rm{call_counter_suffix}"
-    )
-
     rotations = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
@@ -186,6 +183,9 @@ def generate_channel_rm_stage(
     )
 
     if plot_rm_config["plot_rm"]:
+        path_prefix = get_plots_path(
+            _output_dir_, f"channel_rm{call_counter_suffix}"
+        )
         upstream_output.add_compute_tasks(
             plot_bandpass_stages(
                 gaintable,
@@ -204,6 +204,9 @@ def generate_channel_rm_stage(
         )
 
     if plot_table:
+        path_prefix = get_plots_path(
+            _output_dir_, f"channel_rm{call_counter_suffix}"
+        )
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -214,7 +217,7 @@ def generate_channel_rm_stage(
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"channel_rm{call_counter_suffix}.gaintable.h5parm"
         )
 

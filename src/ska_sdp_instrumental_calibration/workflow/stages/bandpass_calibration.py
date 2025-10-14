@@ -1,5 +1,4 @@
 import logging
-import os
 from copy import deepcopy
 
 import dask
@@ -11,6 +10,8 @@ from ska_sdp_piper.piper.configurations import (
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    get_plots_path,
     parse_reference_antenna,
     plot_gaintable,
 )
@@ -111,9 +112,10 @@ def bandpass_calibration_stage(
     )
 
     if plot_config["plot_table"]:
-        path_prefix = os.path.join(
+        path_prefix = get_plots_path(
             _output_dir_, f"bandpass{call_counter_suffix}"
         )
+
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -125,7 +127,7 @@ def bandpass_calibration_stage(
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"bandpass{call_counter_suffix}.gaintable.h5parm"
         )
 

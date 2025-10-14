@@ -281,6 +281,11 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
     ".channel_rotation_measures"
+    ".get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
     ".plot_rm_station"
 )
 @patch(
@@ -320,9 +325,16 @@ def test_should_plot_with_proper_suffix(
     plot_gaintable_mock,
     plot_bandpass_stages_mock,
     plot_rm_station_mock,
+    get_plots_path_mock,
     parse_ref_ant_mock,
     delayed_mock,
 ):
+    get_plots_path_mock.side_effect = [
+        "/output/path/plots/channel_rm",
+        "/output/path/plots/channel_rm",
+        "/output/path/plots/channel_rm_1",
+        "/output/path/plots/channel_rm_1",
+    ]
 
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -389,7 +401,7 @@ def test_should_plot_with_proper_suffix(
         plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
-        export_gaintable=True,
+        export_gaintable=False,
         _output_dir_="/output/path",
     )
 
@@ -412,6 +424,14 @@ def test_should_plot_with_proper_suffix(
         ]
     )
 
+    get_plots_path_mock.assert_has_calls(
+        [
+            call("/output/path", "channel_rm"),
+            call("/output/path", "channel_rm"),
+            call("/output/path", "channel_rm_1"),
+        ]
+    )
+
     plot_bandpass_stages_mock.assert_has_calls(
         [
             call(
@@ -419,14 +439,14 @@ def test_should_plot_with_proper_suffix(
                 initial_table_mock,
                 rm_est_mock,
                 2,
-                plot_path_prefix="/output/path/channel_rm",
+                plot_path_prefix="/output/path/plots/channel_rm",
             ),
             call(
                 solved_gaintable_mock,
                 initial_table_mock,
                 rm_est_mock,
                 2,
-                plot_path_prefix="/output/path/channel_rm_1",
+                plot_path_prefix="/output/path/plots/channel_rm_1",
             ),
         ]
     )
@@ -435,12 +455,12 @@ def test_should_plot_with_proper_suffix(
             call(
                 initial_table_mock,
                 rm_vals="rm_vals",
-                plot_path_prefix="/output/path/channel_rm",
+                plot_path_prefix="/output/path/plots/channel_rm",
             ),
             call(
                 initial_table_mock,
                 rm_vals="rm_vals",
-                plot_path_prefix="/output/path/channel_rm_1",
+                plot_path_prefix="/output/path/plots/channel_rm_1",
             ),
         ]
     )
@@ -449,13 +469,13 @@ def test_should_plot_with_proper_suffix(
         [
             call(
                 solved_gaintable_mock,
-                "/output/path/channel_rm",
+                "/output/path/plots/channel_rm",
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,
             ),
             call(
                 solved_gaintable_mock,
-                "/output/path/channel_rm_1",
+                "/output/path/plots/channel_rm_1",
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,
             ),
@@ -473,6 +493,11 @@ def test_should_plot_with_proper_suffix(
     "ska_sdp_instrumental_calibration.workflow.stages"
     ".channel_rotation_measures"
     ".parse_reference_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
+    ".channel_rotation_measures"
+    ".get_gaintables_path"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
@@ -498,9 +523,14 @@ def test_should_export_gaintable_with_proper_suffix(
     model_rotations_mock,
     run_solver_mock,
     export_gaintable_mock,
+    get_gaintables_path_mock,
     parse_ref_ant_mock,
     delayed_mock,
 ):
+    get_gaintables_path_mock.side_effect = [
+        "/output/path/gaintables/channel_rm.gaintable.h5parm",
+        "/output/path/gaintables/channel_rm_1.gaintable.h5parm",
+    ]
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
@@ -548,7 +578,7 @@ def test_should_export_gaintable_with_proper_suffix(
         refine_fit=False,
         visibility_key="corrected_vis",
         plot_rm_config=plot_rm_config,
-        plot_table=True,
+        plot_table=False,
         run_solver_config=run_solver_config,
         export_gaintable=True,
         _output_dir_="/output/path",
@@ -562,21 +592,28 @@ def test_should_export_gaintable_with_proper_suffix(
         refine_fit=False,
         visibility_key="corrected_vis",
         plot_rm_config=plot_rm_config,
-        plot_table=True,
+        plot_table=False,
         run_solver_config=run_solver_config,
         export_gaintable=True,
         _output_dir_="/output/path",
+    )
+
+    get_gaintables_path_mock.assert_has_calls(
+        [
+            call("/output/path", "channel_rm.gaintable.h5parm"),
+            call("/output/path", "channel_rm_1.gaintable.h5parm"),
+        ]
     )
 
     export_gaintable_mock.assert_has_calls(
         [
             call(
                 solved_gaintable_mock,
-                "/output/path/channel_rm.gaintable.h5parm",
+                "/output/path/gaintables/channel_rm.gaintable.h5parm",
             ),
             call(
                 solved_gaintable_mock,
-                "/output/path/channel_rm_1.gaintable.h5parm",
+                "/output/path/gaintables/channel_rm_1.gaintable.h5parm",
             ),
         ]
     )

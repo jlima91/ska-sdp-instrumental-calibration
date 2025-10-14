@@ -5,7 +5,11 @@ from mock import MagicMock, Mock, call, patch
 from numpy import array, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    create_path_tree,
     ecef_to_lla,
+    get_gaintables_path,
+    get_plots_path,
+    get_visibilities_path,
     parse_reference_antenna,
     plot_all_stations,
     plot_gaintable,
@@ -634,3 +638,38 @@ def test_should_chunk_xarray_object_with_valid_chunks():
     new_data = with_chunks(data, chunks)
 
     assert dict(new_data.chunksizes) == {"a": (2, 2), "b": (3,)}
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.Path")
+def test_should_create_path_tree(path_mock):
+    path_mock.return_value = path_mock
+    create_path_tree("/output/path")
+
+    path_mock.assert_called_once_with("/output/path")
+    path_mock.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.create_path_tree")
+def test_should_get_plots_path(create_path_tree_mock):
+    result = get_plots_path("/output", "prefix")
+    create_path_tree_mock.assert_called_once_with("/output/plots/prefix")
+
+    assert result == "/output/plots/prefix"
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.create_path_tree")
+def test_should_get_gaintables_path(create_path_tree_mock):
+    result = get_gaintables_path("/output", "prefix")
+    create_path_tree_mock.assert_called_once_with("/output/gaintables/prefix")
+
+    assert result == "/output/gaintables/prefix"
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.utils.create_path_tree")
+def test_should_get_visibilities_path(create_path_tree_mock):
+    result = get_visibilities_path("/output", "prefix")
+    create_path_tree_mock.assert_called_once_with(
+        "/output/visibilities/prefix"
+    )
+
+    assert result == "/output/visibilities/prefix"

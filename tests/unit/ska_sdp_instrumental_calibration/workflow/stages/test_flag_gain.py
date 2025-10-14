@@ -85,6 +85,10 @@ def test_should_perform_flagging_on_gains(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
+    ".get_gaintables_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".plot_flag_gain"
 )
 @patch(
@@ -102,10 +106,16 @@ def test_should_perform_flagging_on_gains(
 def test_should_export_gaintable_with_proper_suffix(
     flag_on_gains_mock,
     export_gaintable_mock,
-    plot_flag_mock,
     plot_curve_mock,
+    plot_flag_mock,
+    get_gaintables_path_mock,
     delayed_mock,
 ):
+    get_gaintables_path_mock.side_effect = [
+        "/output/path/gaintables/gain_flag.gaintable.h5parm",
+        "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
+    ]
+
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
@@ -165,15 +175,21 @@ def test_should_export_gaintable_with_proper_suffix(
         _output_dir_="/output/path",
     )
 
+    get_gaintables_path_mock.assert_has_calls(
+        [
+            call("/output/path", "gain_flag.gaintable.h5parm"),
+            call("/output/path", "gain_flag_1.gaintable.h5parm"),
+        ]
+    )
     export_gaintable_mock.assert_has_calls(
         [
             call(
                 gaintable_mock,
-                "/output/path/gain_flag.gaintable.h5parm",
+                "/output/path/gaintables/gain_flag.gaintable.h5parm",
             ),
             call(
                 gaintable_mock,
-                "/output/path/gain_flag_1.gaintable.h5parm",
+                "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
             ),
         ]
     )
@@ -187,6 +203,10 @@ def test_should_export_gaintable_with_proper_suffix(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
     ".dask.delayed",
     side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
+    ".get_plots_path"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.flag_gain"
@@ -209,8 +229,13 @@ def test_should_plot_flag_on_gain(
     export_gaintable_mock,
     plot_curve_mock,
     plot_flag_mock,
+    get_plots_path_mock,
     delayed_mock,
 ):
+    get_plots_path_mock.side_effect = [
+        "/output/path/plots/gain_flagging",
+        "/output/path/plots/curve_fit_gain",
+    ]
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
@@ -224,7 +249,7 @@ def test_should_plot_flag_on_gain(
     normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
-    export_gaintable = True
+    export_gaintable = False
     plot_config = {"curve_fit_plot": True, "gain_flag_plot": True}
 
     gaintable_mock = Mock(name="gaintable")
@@ -253,9 +278,16 @@ def test_should_plot_flag_on_gain(
         _output_dir_="/output/path",
     )
 
+    get_plots_path_mock.assert_has_calls(
+        [
+            call("/output/path", "gain_flagging"),
+            call("/output/path", "curve_fit_gain"),
+        ]
+    )
+
     plot_flag_mock.assert_called_once_with(
         gaintable_mock,
-        "/output/path/gain_flagging",
+        "/output/path/plots/gain_flagging",
         figure_title="Gain Flagging",
     )
 
@@ -263,6 +295,6 @@ def test_should_plot_flag_on_gain(
         gaintable_mock,
         amp_fit_mock,
         phase_fit_mock,
-        "/output/path/curve_fit_gain",
+        "/output/path/plots/curve_fit_gain",
         figure_title="Curve fit of Gain Flagging",
     )
