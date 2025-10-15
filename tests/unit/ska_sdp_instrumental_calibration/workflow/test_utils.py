@@ -74,7 +74,7 @@ def test_should_plot_the_gaintable(subplot_gaintable_mock):
     ).compute()
 
     gaintable_mock.stack.assert_called_with(pol=("receptor1", "receptor2"))
-    gaintable_mock.assign_coords.assert_called_with({"pol": ["XX", "YY"]})
+    gaintable_mock.assign_coords.assert_called_with({"pol": ["J_XX", "J_YY"]})
 
     first_call_actual = subplot_gaintable_mock.call_args_list[0].kwargs
     testing.assert_allclose(first_call_actual["gaintable"], gaintable_mock)
@@ -125,7 +125,9 @@ def test_should_plot_all_station_plot_for_bp_solution(
     gaintable_mock.stack.assert_called_once_with(
         pol=("receptor1", "receptor2")
     )
-    gaintable_mock.assign_coords.assert_called_once_with({"pol": ["XX", "YY"]})
+    gaintable_mock.assign_coords.assert_called_once_with(
+        {"pol": ["J_XX", "J_YY"]}
+    )
     plot_all_staions_mock.assert_called_once_with(gaintable_mock, "/some/path")
 
 
@@ -148,8 +150,10 @@ def test_should_plot_only_parallel_hand_pols(subplot_gaintable_mock):
     gaintable_mock.stack.assert_called_once_with(
         pol=("receptor1", "receptor2")
     )
-    gaintable_mock.assign_coords.assert_called_once_with({"pol": ["XX", "YY"]})
-    gaintable_mock.sel.assert_called_once_with(pol=["XX", "YY"])
+    gaintable_mock.assign_coords.assert_called_once_with(
+        {"pol": ["J_XX", "J_YY"]}
+    )
+    gaintable_mock.sel.assert_called_once_with(pol=["J_XX", "J_YY"])
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.np.linspace")
@@ -202,12 +206,12 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
         ]
     )
 
-    amp_mock.sel.assert_has_calls([call(pol="XX"), call(pol="YY")])
+    amp_mock.sel.assert_has_calls([call(pol="J_XX"), call(pol="J_YY")])
 
     ax_mock.set_title.assert_has_calls(
         [
-            call("All station Amp vs Freq for pol XX"),
-            call("All station Amp vs Freq for pol YY"),
+            call("All station Amp vs Freq for pol J_XX"),
+            call("All station Amp vs Freq for pol J_YY"),
         ]
     )
     ax_mock.set_xlabel.assert_has_calls([call("Freq [HZ]"), call("Freq [HZ]")])
@@ -215,11 +219,11 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
     fig_mock.savefig.assert_has_calls(
         [
             call(
-                "path-prefix-all_station_amp_vs_freq_XX.png",
+                "path-prefix-all_station_amp_vs_freq_J_XX.png",
                 bbox_inches="tight",
             ),
             call(
-                "path-prefix-all_station_amp_vs_freq_YY.png",
+                "path-prefix-all_station_amp_vs_freq_J_YY.png",
                 bbox_inches="tight",
             ),
         ]
@@ -288,7 +292,7 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     stations.size = 4
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
-    gaintable_mock.pol.values = ["XX", "YY"]
+    gaintable_mock.pol.values = ["J_XX", "J_YY"]
     gaintable_mock.gain.isel.return_value = gain_mock
     gaintable_mock.stack.return_value = gaintable_mock
     numpy_mock.abs.return_value = amp_mock
@@ -470,27 +474,27 @@ def test_should_create_subplots(numpy_mock, plt_mock):
 
     amp_axis_mock.scatter.assert_has_calls(
         [
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
         ]
     )
 
     phase_axis_mock.scatter.assert_has_calls(
         [
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
-            call([1, 2], transposed_data[0], label="XX"),
-            call([1, 2], transposed_data[1], label="YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
+            call([1, 2], transposed_data[0], label="J_XX"),
+            call([1, 2], transposed_data[1], label="J_YY"),
         ]
     )
 
@@ -542,7 +546,7 @@ def test_should_plot_when_stations_are_less_than_subplot_capacity(
 
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
-    gaintable_mock.pol.values = ["XX", "YY"]
+    gaintable_mock.pol.values = ["J_XX", "J_YY"]
     gaintable_mock.gain.isel.return_value = gain_mock
     gaintable_mock.stack.return_value = gaintable_mock
     numpy_mock.abs.return_value = amp_mock

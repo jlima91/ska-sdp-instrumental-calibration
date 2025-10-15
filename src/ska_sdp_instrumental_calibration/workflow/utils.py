@@ -543,7 +543,8 @@ def plot_gaintable(
     """
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
-    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    # from SKB-1027. J_XX, J_YY, j_xy and j_yx
+    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.assign_coords({"pol": polstrs})
     stations = gaintable.configuration.names
 
@@ -559,7 +560,7 @@ def plot_gaintable(
     )
 
     if drop_cross_pols:
-        gaintable = gaintable.sel(pol=["XX", "YY"])
+        gaintable = gaintable.sel(pol=["J_XX", "J_YY"])
 
     for group_idx in plot_groups:
         subplot_gaintable(
@@ -591,7 +592,7 @@ def plot_all_stations(gaintable, path_prefix):
     norm = plt.Normalize(vmin=0, vmax=nstations - 1)
     sm = cm.ScalarMappable(norm=norm, cmap=cmap)
 
-    for pol in ["XX", "YY"]:
+    for pol in ["J_XX", "J_YY"]:
         fig, ax = plt.subplots(figsize=(10, 10))
         amp_pol = amplitude.sel(pol=pol)
 
@@ -777,7 +778,9 @@ def plot_curve_fit(
     amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
     phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
 
-    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    # from SKB-1027. J_XX, J_YY, j_xy and j_yx
+    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+
     gaintable = gaintable.assign_coords({"pol": polstrs})
     amp_fits = amp_fits.assign_coords({"pol": polstrs})
     phase_fits = phase_fits.assign_coords({"pol": polstrs})
@@ -809,8 +812,8 @@ def plot_curve_fit(
         subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
 
         pol_groups = [
-            ["XX", "YY"],
-            ["XY", "YX"],
+            ["J_XX", "J_YY"],
+            ["J_XY", "J_YX"],
         ]
 
         all_handles = []
