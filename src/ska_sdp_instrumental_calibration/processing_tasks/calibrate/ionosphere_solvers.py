@@ -287,32 +287,34 @@ class IonosphericSolver:
         """
         A = self.build_cluster_design_matrix(modelvis, param, cid)
 
-        (n_param, _, n_freq, __) = A.shape
+        (n_param, *_) = A.shape
 
         AA = np.zeros((n_param, n_param))
         Ab = np.zeros(n_param)
 
+        A_sliced = A[..., self.pols]
         wgt = self.weight[..., self.pols] * (1 - self.flags[..., self.pols])
         vis_diff = self.vis[..., self.pols] - modelvis[..., self.pols]
 
-        for freq, pol in np.ndindex(n_freq, len(self.pols)):
-            AA += np.real(
-                np.einsum(
-                    "pb,b,qb ->pq",
-                    np.conj(A[..., freq, self.pols[pol]]),
-                    wgt[..., freq, pol],
-                    A[..., freq, pol],
-                )
+        AA = np.real(
+            np.einsum(
+                "pbfo,bfo,qbfo->pq",
+                np.conj(A_sliced),
+                wgt,
+                A_sliced,
+                optimize=True,
             )
+        )
 
-            Ab += np.imag(
-                np.einsum(
-                    "pb,b,b->p",
-                    np.conj(A[..., freq, self.pols[pol]]),
-                    wgt[..., freq, pol],
-                    vis_diff[..., freq, pol],
-                )
+        Ab = np.imag(
+            np.einsum(
+                "pbfo,bfo,bfo->p",
+                np.conj(A_sliced),
+                wgt,
+                vis_diff,
+                optimize=True,
             )
+        )
 
         return AA, Ab
 
