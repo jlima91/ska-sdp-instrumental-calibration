@@ -924,7 +924,7 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
         cbar = fig.colorbar(sc, ax=ax, shrink=0.5, aspect=10)
         cbar.set_label("Absolute Delay (ns)", rotation=270, labelpad=15)
         ax.grid()
-        ax.set_title(f"Polarization: {delaytable.pol.data[idx]}")
+        ax.set_title(delaytable.pol.data[idx])
         if show_station_label:
             for i in range(len(longitude)):
                 ax.annotate(
