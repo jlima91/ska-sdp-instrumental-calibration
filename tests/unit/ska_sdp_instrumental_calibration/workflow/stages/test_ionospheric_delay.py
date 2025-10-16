@@ -5,6 +5,7 @@ from mock import ANY, MagicMock, patch
 from ska_sdp_instrumental_calibration.workflow.stages import (
     ionospheric_delay_stage,
 )
+from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
 
 @pytest.fixture
@@ -12,6 +13,7 @@ def mock_upstream_output():
     mock_output = MagicMock(name="UpstreamOutput")
     mock_output.vis = MagicMock(name="original_vis")
     mock_output.modelvis = MagicMock(name="model_vis")
+    mock_output.chunks = MagicMock(name="chunks")
 
     mock_output.__setitem__ = MagicMock()
 
@@ -32,8 +34,10 @@ def test_solver_runs_and_applies_correction(
 
     mock_gaintable = MagicMock(name="gaintable")
     mock_corrected_vis = MagicMock(name="corrected_vis")
+    chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
     mock_solver_instance = MockIonosphericSolver.return_value
     mock_solver_instance.solve.return_value = mock_gaintable
+    mock_gaintable.pipe.return_value = chunked_mock_gaintable
     mock_apply_gaintable.return_value = mock_corrected_vis
 
     result = ionospheric_delay_stage.stage_definition(
@@ -50,7 +54,7 @@ def test_solver_runs_and_applies_correction(
     MockIonosphericSolver.assert_called_once_with(
         mock_upstream_output.vis,
         mock_upstream_output.modelvis,
-        ANY,  # Check numpy array separately
+        ANY,
         True,
         20,
         1e-6,
@@ -62,8 +66,11 @@ def test_solver_runs_and_applies_correction(
 
     mock_solver_instance.solve.assert_called_once()
 
+    mock_gaintable.pipe.assert_called_once_with(
+        with_chunks, mock_upstream_output.chunks
+    )
     mock_apply_gaintable.assert_called_once_with(
-        mock_upstream_output.vis, mock_gaintable, inverse=True
+        mock_upstream_output.vis, chunked_mock_gaintable, inverse=True
     )
 
     mock_upstream_output.__setitem__.assert_called_once_with(
@@ -111,6 +118,7 @@ def test_gaintable_export_is_triggered(
     mock_solver_instance = MockIonosphericSolver.return_value
     mock_gaintable = MagicMock(name="gaintable_to_export")
     mock_solver_instance.solve.return_value = mock_gaintable
+    mock_gaintable.pipe.return_value = mock_gaintable
 
     ionospheric_delay_stage.stage_definition(
         mock_upstream_output,

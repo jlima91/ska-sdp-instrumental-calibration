@@ -8,7 +8,10 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import get_gaintables_path
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    with_chunks,
+)
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
@@ -122,6 +125,7 @@ def ionospheric_delay_stage(
     upstream_output.add_checkpoint_key("vis")
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
+    vis_chunks = upstream_output.chunks
 
     solver = IonosphericSolver(
         vis,
@@ -134,6 +138,7 @@ def ionospheric_delay_stage(
     )
 
     gaintable = solver.solve()
+    gaintable = gaintable.pipe(with_chunks, vis_chunks)
 
     vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
     upstream_output["vis"] = vis
