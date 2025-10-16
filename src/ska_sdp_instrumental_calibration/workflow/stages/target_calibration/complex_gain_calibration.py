@@ -92,6 +92,21 @@ logger = logging.getLogger()
                 allowed_values=[None, "mean", "median"],
                 nullable=True,
             ),
+            timeslice=ConfigParam(
+                float,
+                None,
+                description="""Defines time scale over which each gain solution
+                is valid. This is used to define time axis of the GainTable.
+                This parameter is interpreted as follows,
+
+                float: this is a custom time interval in seconds.
+                Input timestamps are grouped by intervals of this duration,
+                and said groups are separately averaged to produce
+                the output time axis.
+
+                ``None``: match the time resolution of the input, i.e. copy
+                the time axis of the input Visibility""",
+            ),
         ),
         visibility_key=ConfigParam(
             str,
