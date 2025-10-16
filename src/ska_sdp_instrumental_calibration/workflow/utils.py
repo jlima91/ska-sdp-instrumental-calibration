@@ -811,10 +811,7 @@ def plot_curve_fit(
         fig = plt.figure(layout="constrained", figsize=(24, 18))
         subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
 
-        pol_groups = [
-            ["J_XX", "J_YY"],
-            ["J_XY", "J_YX"],
-        ]
+        pol_groups = np.array(polstrs).reshape(-1, 2)
 
         all_handles = []
         all_labels = []
@@ -852,6 +849,7 @@ def plot_curve_fit(
                             phase[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
+                            alpha=0.5,
                             s=15,
                         )
                         amp_ax.scatter(
@@ -859,18 +857,19 @@ def plot_curve_fit(
                             amplitude[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
+                            alpha=0.5,
                             s=15,
                         )
                         phase_ax.plot(
                             channel,
-                            a_fit[:, pol_idx],
+                            p_fit[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
                             lw=2,
                         )
                         amp_ax.plot(
                             channel,
-                            p_fit[:, pol_idx],
+                            a_fit[:, pol_idx],
                             color=pol_colors[pol],
                             label=pol,
                             lw=2,
