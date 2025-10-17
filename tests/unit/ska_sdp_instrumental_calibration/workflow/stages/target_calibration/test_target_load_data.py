@@ -1,6 +1,4 @@
-import numpy as np
-import xarray as xr
-from mock import MagicMock, patch
+from mock import patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.stages import target_calibration
@@ -24,23 +22,13 @@ load_data_stage = target_calibration.load_data_stage
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
     ".load_data.read_dataset_from_zarr"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".load_data.create_gaintable_from_visibility"
-)
 def test_should_load_data_from_existing_cached_zarr_file(
-    create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
 ):
     check_cache_mock.return_value = True
-
-    gaintable = xr.DataArray(
-        np.arange(18).reshape(6, 1, 3), dims=["time", "frequency", "antenna"]
-    )
-    create_gaintable_mock.return_value = gaintable
 
     frequency_per_chunk = 2
     times_per_ms_chunk = 3
@@ -81,18 +69,8 @@ def test_should_load_data_from_existing_cached_zarr_file(
         },
     )
 
-    create_gaintable_mock.assert_called_once_with(
-        read_data_mock.return_value, timeslice=None, jones_type="G"
-    )
-
     assert new_up_output["vis"] == read_data_mock.return_value
     assert new_up_output["beams"] is None
-
-    assert dict(new_up_output["gaintable"].chunksizes) == {
-        "time": (3, 3),
-        "frequency": (1,),
-        "antenna": (3,),
-    }
 
 
 @patch(
@@ -111,21 +89,13 @@ def test_should_load_data_from_existing_cached_zarr_file(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
     ".load_data.read_dataset_from_zarr"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".load_data.create_gaintable_from_visibility"
-)
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
-    create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
 ):
     check_cache_mock.return_value = False
-
-    gaintable = MagicMock(name="gaintable")
-    create_gaintable_mock.return_value = gaintable
 
     frequency_per_chunk = 16
     times_per_ms_chunk = 8
