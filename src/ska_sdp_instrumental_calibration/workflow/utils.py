@@ -774,6 +774,18 @@ def plot_curve_fit(
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
     """
+
+    def channel_frequency_mapper(frequency, reverse=False):
+
+        if reverse:
+            return lambda freq: np.interp(
+                freq, frequency, np.arange(len(frequency))
+            )
+
+        return lambda channel: np.interp(
+            channel, np.arange(len(frequency)), frequency
+        )
+
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
     amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
     phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
@@ -799,19 +811,17 @@ def plot_curve_fit(
         station_names = stations.values
         pol_labels = gaintable.pol.values
 
-        def channel_to_freq(channel):
-            return np.interp(channel, np.arange(len(frequency)), frequency)
-
-        def freq_to_channel(freq):
-            return np.interp(freq, frequency, np.arange(len(frequency)))
-
         cmap = plt.get_cmap("tab10")
         pol_colors = {pol: cmap(i) for i, pol in enumerate(pol_labels)}
 
         fig = plt.figure(layout="constrained", figsize=(24, 18))
         subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
 
-        pol_groups = np.array(polstrs).reshape(-1, 2)
+        pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
+            -1, 2
+        )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
+        scatter_kwargs = dict(alpha=0.4, s=15)
+        plot_kwargs = dict(lw=2)
 
         all_handles = []
         all_labels = []
@@ -821,62 +831,64 @@ def plot_curve_fit(
                 break
             gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
             a_fit = amp_fits.isel(time=0, antenna=stations.id[idx])
-            p_fit = phase_fits.isel(time=0, antenna=stations.id[idx])
+            p_fit = np.rad2deg(
+                phase_fits.isel(time=0, antenna=stations.id[idx])
+            )
             amplitude = np.abs(gain)
             phase = np.angle(gain, deg=True)
 
             axes = subfig.subplots(2, 2, sharex=True)
 
-            for col_idx, pol_list in enumerate(pol_groups):
-                phase_ax = axes[0, col_idx]
-                amp_ax = axes[1, col_idx]
+            for grp_idx, lbl_idx in np.ndindex(pol_groups.shape):
+                phase_ax = axes[0, grp_idx]
+                amp_ax = axes[1, grp_idx]
                 amp_ax.set_ylabel("Amplitude")
                 phase_ax.set_ylabel("Phase (degree)")
                 amp_ax.set_xlabel("Channel")
 
                 phase_ax.secondary_xaxis(
                     "top",
-                    functions=(channel_to_freq, freq_to_channel),
+                    functions=(
+                        channel_frequency_mapper(frequency),
+                        channel_frequency_mapper(frequency, reverse=True),
+                    ),
                 ).set_xlabel("Frequency [MHz]")
 
                 phase_ax.set_ylim([-180, 180])
-
-                for pol in pol_list:
-                    if pol in pol_labels:
-                        pol_idx = list(pol_labels).index(pol)
-                        h1 = phase_ax.scatter(
-                            channel,
-                            phase[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            alpha=0.5,
-                            s=15,
-                        )
-                        amp_ax.scatter(
-                            channel,
-                            amplitude[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            alpha=0.5,
-                            s=15,
-                        )
-                        phase_ax.plot(
-                            channel,
-                            p_fit[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            lw=2,
-                        )
-                        amp_ax.plot(
-                            channel,
-                            a_fit[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            lw=2,
-                        )
-                        if pol not in all_labels:
-                            all_handles.append(h1)
-                            all_labels.append(pol)
+                pol = pol_groups[grp_idx, lbl_idx]
+                if pol in pol_labels:
+                    pol_idx = list(pol_labels).index(pol)
+                    h1 = phase_ax.scatter(
+                        channel,
+                        phase[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **scatter_kwargs,
+                    )
+                    amp_ax.scatter(
+                        channel,
+                        amplitude[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **scatter_kwargs,
+                    )
+                    phase_ax.plot(
+                        channel,
+                        p_fit[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **plot_kwargs,
+                    )
+                    amp_ax.plot(
+                        channel,
+                        a_fit[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **plot_kwargs,
+                    )
+                    if pol not in all_labels:
+                        all_handles.append(h1)
+                        all_labels.append(pol)
 
             subfig.suptitle(
                 f"Station - {station_names[idx]}", fontsize="large"
