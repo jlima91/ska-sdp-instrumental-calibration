@@ -24,7 +24,7 @@ from ..utils import (
     plot_gaintable,
     plot_rm_station,
 )
-from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
 
@@ -76,7 +76,49 @@ logger = logging.getLogger()
         plot_table=ConfigParam(
             bool, False, description="Plot the generated gain table"
         ),
-        run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        run_solver_config=NestedConfigParam(
+            "Run Solver parameters",
+            **{
+                **(deepcopy(RUN_SOLVER_COMMON)),
+                "solver": ConfigParam(
+                    str,
+                    "jones_substitution",
+                    description="""Calibration algorithm to use.
+                Options are:
+                "gain_substitution" - original substitution algorithm
+                with separate solutions for each polarisation term.
+                "jones_substitution" - solve antenna-based Jones matrices
+                as a whole, with independent updates within each iteration.
+                "normal_equations" - solve normal equations within
+                each iteration formed from linearisation with respect to
+                antenna-based gain and leakage terms.
+                "normal_equations_presum" - same as normal_equations
+                option but with an initial accumulation of visibility
+                products over time and frequency for each solution
+                interval. This can be much faster for large datasets
+                and solution intervals.""",
+                    allowed_values=[
+                        "gain_substitution",
+                        "jones_substitution",
+                        "normal_equations",
+                        "normal_equations_presum",
+                    ],
+                ),
+                "niter": ConfigParam(
+                    int,
+                    50,
+                    description="""Number of solver iterations.""",
+                    nullable=False,
+                ),
+                "tol": ConfigParam(
+                    float,
+                    1e-03,
+                    description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance.""",
+                    nullable=False,
+                ),
+            },
+        ),
         export_gaintable=ConfigParam(
             bool,
             False,

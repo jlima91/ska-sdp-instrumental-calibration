@@ -2,15 +2,13 @@
 Common configuration elements shared between different stages.
 """
 
-from ska_sdp_piper.piper.configurations import ConfigParam, NestedConfigParam
+from ska_sdp_piper.piper.configurations import ConfigParam
 
-RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
-    "Run Solver parameters",
+RUN_SOLVER_COMMON = dict(
     solver=ConfigParam(
         str,
         "gain_substitution",
         description="""Calibration algorithm to use.
-                (default="gain_substitution")
                 Options are:
                 "gain_substitution" - original substitution algorithm
                 with separate solutions for each polarisation term.
@@ -98,8 +96,7 @@ RUN_SOLVER_NESTED_CONFIG = NestedConfigParam(
 RUN_SOLVER_DOCSTRING = """
             Configuration required for solver.
                 solver: str
-                    Calibration algorithm to use (default="gain_substitution")
-                    options are:
+                    Calibration algorithm to use. Options are:
                     "gain_substitution" - original substitution algorithm
                     with separate solutions for each polarisation term.
                     "jones_substitution" - solve antenna-based Jones matrices
@@ -113,21 +110,21 @@ RUN_SOLVER_DOCSTRING = """
                     interval. This can be much faster for large datasets
                     and solution intervals.
                 refant: int
-                    Reference antenna (default 0). Currently only activated for
+                    Reference antenna. Currently only activated for
                     the gain_substitution solver.
                 niter: int
-                    Maximum number of iterations (default=30)
+                    Maximum number of iterations
                 phase_only: bool
-                    Solve only for the phases. default=True when
-                    solver="gain_substitution", otherwise it must be False.
+                    Solve only for the phases when solver="gain_substitution",
+                    otherwise it must be False.
                 tol: float
                     Iteration stops when the fractional change in the
-                    gain solution is below this tolerance (default=1e-6).
+                    gain solution is below this tolerance.
                 crosspol: bool
                     Do solutions including cross polarisations
                     i.e. XY, YX or RL, LR. Only used by the gain_substitution.
                 normalise_gains: str
-                    Normalises the gains (default="mean").
+                    Normalises the gains.
                     options are None, "mean", "median".
                     None means no normalization.
                     Only available with gain_substitution.
@@ -147,7 +144,7 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
     beam_type=ConfigParam(
         str,
         "everybeam",
-        description="Type of beam model to use. Default is 'everybeam'",
+        description="Type of beam model to use.",
     ),
     normalise_at_beam_centre=ConfigParam(
         bool,
@@ -186,18 +183,18 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         float,
         10.0,
         description="""Specifies the width of the cone used when
-            searching for compoents, in units of degrees. Default: 10.""",
+            searching for compoents, in units of degrees.""",
     ),
     flux_limit=ConfigParam(
         float,
         1.0,
         description="""Specifies the flux density limit used when
-            searching for compoents, in units of Jy. Defaults to 1""",
+            searching for compoents, in units of Jy.""",
     ),
     alpha0=ConfigParam(
         float,
         -0.78,
         description="""Nominal alpha value to use when fitted data
-            are unspecified. Default is -0.78.""",
+            are unspecified..""",
     ),
 )
