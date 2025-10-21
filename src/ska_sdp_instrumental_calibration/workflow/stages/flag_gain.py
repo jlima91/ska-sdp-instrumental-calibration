@@ -238,5 +238,7 @@ def flag_gain_stage(
 
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("gain_flag")
+    amp_fit.persist()
+    phase_fits.persist()
 
     return upstream_output
