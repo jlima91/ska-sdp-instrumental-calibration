@@ -296,5 +296,6 @@ def test_should_plot_flag_on_gain(
         amp_fit_mock,
         phase_fit_mock,
         "/output/path/plots/curve_fit_gain",
+        normalize_gains,
         figure_title="Curve fit of Gain Flagging",
     )

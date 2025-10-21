@@ -220,6 +220,7 @@ def flag_gain_stage(
                 amp_fit,
                 phase_fits,
                 path_prefix,
+                normalize_gains,
                 figure_title="Curve fit of Gain Flagging",
             )
         )

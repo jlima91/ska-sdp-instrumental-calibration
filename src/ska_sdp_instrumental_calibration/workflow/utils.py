@@ -15,6 +15,7 @@ __all__ = [
     "plot_curve_fit",
     "parse_reference_antenna",
     "with_chunks",
+    "normalize_data",
 ]
 
 import os
@@ -754,6 +755,7 @@ def plot_curve_fit(
     amp_fits,
     phase_fits,
     path_prefix,
+    normalize_gains=False,
     figure_title="",
 ):
     """
@@ -771,6 +773,8 @@ def plot_curve_fit(
             Path prefix to save the plots.
         figure_title: str
             Title of the figure.
+        normalize_gains: bool
+            Plot for normalized gains.
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
     """
@@ -786,6 +790,7 @@ def plot_curve_fit(
             channel, np.arange(len(frequency)), frequency
         )
 
+    normalize_label = "(normalized)" if normalize_gains else ""
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
     amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
     phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
@@ -805,11 +810,19 @@ def plot_curve_fit(
         range(plots_per_group, stations.size, plots_per_group),
     )
 
+    gain = gaintable.gain.isel(time=0)
+
+    frequency = gaintable.frequency / 1e6
+    channel = np.arange(len(frequency))
+    pol_labels = gaintable.pol.values
+
+    pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
+        -1, 2
+    )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
+    normalize_func = normalize_data if normalize_gains else lambda x: x
+
     for stations in plot_groups:
-        frequency = gaintable.frequency / 1e6
-        channel = np.arange(len(frequency))
         station_names = stations.values
-        pol_labels = gaintable.pol.values
 
         cmap = plt.get_cmap("tab10")
         pol_colors = {pol: cmap(i) for i, pol in enumerate(pol_labels)}
@@ -817,11 +830,17 @@ def plot_curve_fit(
         fig = plt.figure(layout="constrained", figsize=(24, 18))
         subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
 
-        pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
-            -1, 2
-        )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
         scatter_kwargs = dict(alpha=0.4, s=15)
         plot_kwargs = dict(lw=2)
+
+        path = (
+            f"{path_prefix}-curve-amp-phase_freq-"
+            f"{station_names[0]}-{station_names[-1]}.png"
+        )
+
+        fig.suptitle(
+            f"{figure_title} Solutions {normalize_label}", fontsize="x-large"
+        )
 
         all_handles = []
         all_labels = []
@@ -829,13 +848,14 @@ def plot_curve_fit(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
+            # gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
             a_fit = amp_fits.isel(time=0, antenna=stations.id[idx])
             p_fit = np.rad2deg(
                 phase_fits.isel(time=0, antenna=stations.id[idx])
             )
-            amplitude = np.abs(gain)
-            phase = np.angle(gain, deg=True)
+
+            amplitude = np.abs(gain.isel(antenna=stations.id[idx]))
+            phase = np.angle(gain.isel(antenna=stations.id[idx]), deg=True)
 
             axes = subfig.subplots(2, 2, sharex=True)
 
@@ -867,7 +887,7 @@ def plot_curve_fit(
                     )
                     amp_ax.scatter(
                         channel,
-                        amplitude[:, pol_idx],
+                        normalize_func(amplitude[:, pol_idx].values),
                         color=pol_colors[pol],
                         label=pol,
                         **scatter_kwargs,
@@ -894,11 +914,6 @@ def plot_curve_fit(
                 f"Station - {station_names[idx]}", fontsize="large"
             )
 
-        path = (
-            f"{path_prefix}-curve-amp-phase_freq-"
-            f"{station_names[0]}-{station_names[-1]}.png"
-        )
-        fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
         fig.legend(all_handles, all_labels, loc="outside upper right")
         fig.savefig(path)
         plt.close()
@@ -1315,3 +1330,28 @@ def get_visibilities_path(output_dir: str, file_prefix: str) -> str:
     visibilities_path = os.path.join(output_dir, "visibilities", file_prefix)
     create_path_tree(visibilities_path)
     return visibilities_path
+
+
+def normalize_data(data):
+    """
+    Scales array data to the [0, 1] range, ignoring NaN values.
+
+    This function performs min-max normalization on a *copy* of the
+    input array. The minimum non-NaN value is mapped to 0 and the
+    maximum non-NaN value is mapped to 1. NaN values are left unchanged.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        The input array containing numerical data to be normalized.
+        This array is *not* modified in-place.
+
+    Returns
+    -------
+    numpy.ndarray
+        A new array with non-NaN values scaled to the [0, 1] range.
+        If the input array is empty or contains only NaN values,
+        a copy of the original array is returned.
+    """
+
+    return data / np.linalg.norm(data, ord=1)

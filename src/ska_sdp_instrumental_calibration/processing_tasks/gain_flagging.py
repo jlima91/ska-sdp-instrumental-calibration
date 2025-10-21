@@ -5,6 +5,8 @@ import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
 
+from ..workflow.utils import normalize_data
+
 logger = logging.getLogger()
 
 
@@ -179,14 +181,6 @@ class GainFlagger:
 
         return flags, sigma_hat
 
-    def __normalize_data(self, data):
-        not_nan = ~np.isnan(data)
-        data[not_nan] = (data[not_nan] - np.min(data[not_nan])) / np.ptp(
-            data[not_nan]
-        )
-
-        return data
-
     def flag_dimension(self, weights, gains, antenna, receptor1, receptor2):
         """
         Applies flagging to chunk of gaintable with detrending/fitting
@@ -227,7 +221,7 @@ class GainFlagger:
             sol_type_data = sol_type_func(gains)
 
             if self.normalize_gains and sol_type_func == np.absolute:
-                sol_type_data = self.__normalize_data(sol_type_data)
+                sol_type_data = normalize_data(sol_type_data)
 
             for _ in range(self.max_ncycles):
                 if all(weights == 0):
