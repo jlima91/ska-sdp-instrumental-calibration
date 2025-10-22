@@ -18,10 +18,13 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
     export_visibilities_stage,
     flag_gain_stage,
     generate_channel_rm_stage,
+    ionospheric_delay_stage,
     load_data_stage,
     predict_vis_stage,
     smooth_gain_solution_stage,
 )
+
+# from ska_sdp_instrumental_calibration.workflow.stages.delay_calibration import delay_calibration_stage
 
 logger = logging.getLogger()
 
@@ -34,6 +37,7 @@ ska_sdp_instrumental_calibration = Pipeline(
         [
             load_data_stage,
             predict_vis_stage,
+            ionospheric_delay_stage,
             bandpass_calibration_stage,
             flag_gain_stage,
             generate_channel_rm_stage,
