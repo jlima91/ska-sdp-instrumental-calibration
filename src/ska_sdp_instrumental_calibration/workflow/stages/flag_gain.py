@@ -214,11 +214,14 @@ def flag_gain_stage(
             _output_dir_, f"curve_fit_gain{call_counter_suffix}"
         )
 
+        amp_fit_persist = amp_fit.persist()
+        phase_fit_persist = phase_fits.persist()
+
         upstream_output.add_compute_tasks(
             plot_curve_fit(
                 gaintable,
-                amp_fit,
-                phase_fits,
+                amp_fit_persist,
+                phase_fit_persist,
                 path_prefix,
                 normalize_gains,
                 figure_title="Curve fit of Gain Flagging",
@@ -238,7 +241,5 @@ def flag_gain_stage(
 
     upstream_output["gaintable"] = gaintable
     upstream_output.increment_call_count("gain_flag")
-    amp_fit.persist()
-    phase_fits.persist()
 
     return upstream_output
