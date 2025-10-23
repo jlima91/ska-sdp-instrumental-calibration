@@ -114,7 +114,6 @@ def bandpass_calibration_stage(
 
     calvis = apply_gaintable_to_dataset(
             vis, gaintable, inverse=True)
-    import pdb; pdb.set_trace();
     if plot_config["plot_table"]:
         path_prefix = os.path.join(
             _output_dir_, f"bandpass{call_counter_suffix}"

@@ -210,7 +210,6 @@ def load_data_stage(
             )
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
-    # import pdb; pdb.set_trace()
     # vis.vis = averaging_frequency(vis, freqstep=fave_init)
     # gaintable = create_bandpass_table(vis)
     timeslice = vis.time.data.max() - vis.time.data.min()

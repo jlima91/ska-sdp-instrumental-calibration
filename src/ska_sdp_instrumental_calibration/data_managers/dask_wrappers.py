@@ -255,7 +255,6 @@ def _predict(
                 }
             )
         )
-        # import pdb; pdb.set_trace();
         vischunk.vis.data += vischunk.vis.data * np.cos(theta) ** 2
 
     return vischunk
