@@ -10,6 +10,8 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
+    get_plots_path,
+    plot_all_stations_phase,
     with_chunks,
 )
 
@@ -61,6 +63,12 @@ logger = logging.getLogger()
                 "screen model."
             ),
         ),
+        plot_table=ConfigParam(
+            bool,
+            False,
+            description="Plot all station Phase vs Frequency",
+            nullable=False,
+        ),
         export_gaintable=ConfigParam(
             bool,
             False,
@@ -76,6 +84,7 @@ def ionospheric_delay_stage(
     niter,
     tol,
     zernike_limit,
+    plot_table,
     export_gaintable,
     _output_dir_,
 ):
@@ -107,6 +116,8 @@ def ionospheric_delay_stage(
     zernike_limit : int, optional
         The maximum order of Zernike polynomials to use for the phase screen
         model. If None, a default is used by the solver (default: None).
+    plot_table: bool, optional
+        Plot all station Phase vs Frequency (default: False).
     export_gaintable : bool, optional
         If True, the computed gain table is saved to an H5parm file in the
         specified output directory (default: False).
@@ -142,6 +153,13 @@ def ionospheric_delay_stage(
 
     vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
     upstream_output["vis"] = vis
+
+    if plot_table:
+        path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
+
+        upstream_output.add_compute_tasks(
+            plot_all_stations_phase(gaintable, path_prefix)
+        )
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(

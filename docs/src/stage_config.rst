@@ -99,6 +99,46 @@ Parameters
     +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
+ionospheric_delay
+=================
+
+    Calculates and applies ionospheric delay corrections to visibility data.
+
+    This function uses an IonosphericSolver to model phase screens based on
+    the difference between observed visibilities and model visibilities. It
+    derives a gain table representing these phase corrections and applies it
+    to the visibility data. The resulting gain table can be optionally
+    exported to an H5parm file.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | Param            | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
+    +==================+========+===========+==================================================================================+============+==================+
+    | cluster_indexes  | list   | ``null``  | Array of integers assigning each antenna to a cluster. If None, all antennas are | True       |                  |
+    |                  |        |           | treated as a single cluster                                                      |            |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | block_diagonal   | bool   | True      | If True, solve for all clusters simultaneously assuming a block-diagonal system. | False      |                  |
+    |                  |        |           | If False, solve for each cluster sequentially                                    |            |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | niter            | int    | 500       | Number of solver iterations.                                                     | False      |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | tol              | float  | 1e-06     | Iteration stops when the fractional change             in the gain solution is   | False      |                  |
+    |                  |        |           | below this tolerance.                                                            |            |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | zernike_limit    | int    | ``null``  | The maximum order of Zernike polynomials to use for the screen model.            | True       |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | plot_table       | bool   | False     | Plot all station Phase vs Frequency                                              | False      |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | export_gaintable | bool   | False     | Export intermediate gain solutions.                                              | False      |                  |
+    +------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+
+
 bandpass_calibration
 ====================
 
@@ -297,19 +337,17 @@ Parameters
     :width: 100%
     :widths: 15, 10, 10, 45, 10, 10
 
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
-    | Param                        | Type   | Default   | Description                                                  | Nullable   | Allowed values   |
-    +==============================+========+===========+==============================================================+============+==================+
-    | oversample                   | int    | 16        | Oversample rate                                              | True       |                  |
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
-    | plot_config.plot_table       | bool   | False     | Plot the generated gaintable                                 | True       |                  |
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
-    | plot_config.fixed_axis       | bool   | False     | Limit amplitude axis to [0-1]                                | True       |                  |
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
-    | plot_config.anotate_stations | bool   | False     | Show station labels in delay                 vs station plot | True       |                  |
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
-    | export_gaintable             | bool   | False     | Export intermediate gain solutions.                          | False      |                  |
-    +------------------------------+--------+-----------+--------------------------------------------------------------+------------+------------------+
+    +------------------------+--------+-----------+-------------------------------------+------------+------------------+
+    | Param                  | Type   | Default   | Description                         | Nullable   | Allowed values   |
+    +========================+========+===========+=====================================+============+==================+
+    | oversample             | int    | 16        | Oversample rate                     | True       |                  |
+    +------------------------+--------+-----------+-------------------------------------+------------+------------------+
+    | plot_config.plot_table | bool   | False     | Plot the generated gaintable        | True       |                  |
+    +------------------------+--------+-----------+-------------------------------------+------------+------------------+
+    | plot_config.fixed_axis | bool   | False     | Limit amplitude axis to [0-1]       | True       |                  |
+    +------------------------+--------+-----------+-------------------------------------+------------+------------------+
+    | export_gaintable       | bool   | False     | Export intermediate gain solutions. | False      |                  |
+    +------------------------+--------+-----------+-------------------------------------+------------+------------------+
 
 
 smooth_gain_solution

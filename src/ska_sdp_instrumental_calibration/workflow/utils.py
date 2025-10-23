@@ -613,6 +613,59 @@ def plot_all_stations(gaintable, path_prefix):
         plt.close(fig)
 
 
+def plot_all_stations_phase(gaintable, path_prefix, x_axis="frequency"):
+    """
+    Plot phase vs frequency/time plot that incluldes all stations.
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        path_prefix: str
+            Path prefix to save the plots.
+    """
+    phase = np.angle(gaintable.isel(time=0).gain, deg=True)
+    data_x = gaintable[x_axis]
+
+    station_name = gaintable.configuration.names.data
+    colors = cm.get_cmap("hsv", len(station_name))
+    linestyles = ["-", "--", ":", "-."]
+
+    units = {"frequency": "Hz", "time": "S"}
+
+    for pol in ["J_XX", "J_YY"]:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        phase_pol = phase.sel(pol=pol)
+
+        for idx, station_data in enumerate(phase_pol):
+            ax.plot(
+                data_x,
+                station_data,
+                color=colors(idx),
+                linestyle=linestyles[idx % len(linestyles)],
+                label=station_name[idx],
+                linewidth=1.5,
+            )
+
+        ax.set_title(
+            f"All station Phase vs {x_axis.capitalize()} for pol {pol}"
+        )
+        ax.set_xlabel(f"{x_axis.capitalize()} [{units[x_axis]}]")
+        ax.set_ylabel("Phase (degree)")
+
+        fig.legend(
+            title="Stations",
+            bbox_to_anchor=(0.9, 0.889),
+            loc="upper left",
+            ncol=2,
+        )
+        fig.savefig(
+            f"{path_prefix}-all_station_phase_vs_{x_axis}_{pol}.png",
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+
 @dask.delayed
 def plot_flag_gain(
     gaintable,

@@ -48,6 +48,7 @@ def test_solver_runs_and_applies_correction(
         tol=1e-6,
         zernike_limit=None,
         export_gaintable=False,
+        plot_table=False,
         _output_dir_="OUTPUT_DIR",
     )
 
@@ -97,6 +98,15 @@ def test_solver_runs_and_applies_correction(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
+    ".get_plots_path",
+    return_value="/test/dir/plot.png",
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
+    ".plot_all_stations_phase"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
     ".export_gaintable_to_h5parm"
 )
 @patch(
@@ -107,7 +117,9 @@ def test_solver_runs_and_applies_correction(
 def test_gaintable_export_is_triggered(
     mock_dask_delayed,
     mock_export_func,
-    mock_get_path,
+    mock_plot_func,
+    mock_get_plot_path,
+    mock_get_gaintable_path,
     MockIonosphericSolver,
     _,
     mock_upstream_output,
@@ -128,15 +140,24 @@ def test_gaintable_export_is_triggered(
         tol=1e-6,
         zernike_limit=None,
         export_gaintable=True,
+        plot_table=True,
         _output_dir_="/test/dir",
     )
 
-    mock_get_path.assert_called_once_with(
+    mock_get_gaintable_path.assert_called_once_with(
         "/test/dir", "ionospheric_delay.gaintable.h5parm"
+    )
+
+    mock_get_plot_path.assert_called_once_with(
+        "/test/dir", "ionospheric_delay"
     )
 
     mock_export_func.assert_called_once_with(
         mock_gaintable, "/test/dir/output.h5parm"
     )
 
-    mock_upstream_output.add_compute_tasks.assert_called_once()
+    mock_plot_func.assert_called_once_with(
+        mock_gaintable, "/test/dir/plot.png"
+    )
+
+    assert mock_upstream_output.add_compute_tasks.call_count == 2
