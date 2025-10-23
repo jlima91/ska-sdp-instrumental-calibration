@@ -218,10 +218,10 @@ def load_data_stage(
         vis, jones_type="B", timeslice=timeslice
     )
     ms_path = Path(input_ms)
-    metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
+    # metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
     gaintable["interval"].data[0] = timeslice + 1e-5
     upstream_output["vis"] = vis
-    upstream_output["metadata"] = metadata
+    # upstream_output["metadata"] = metadata
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
 

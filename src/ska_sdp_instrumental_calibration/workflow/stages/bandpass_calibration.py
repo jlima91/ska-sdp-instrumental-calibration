@@ -12,10 +12,12 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     parse_reference_antenna,
+    plot_gains,
     plot_gaintable,
+    plot_vis,
 )
 
-from ...data_managers.dask_wrappers import run_solver
+from ...data_managers.dask_wrappers import apply_gaintable_to_dataset, run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
 
@@ -110,18 +112,34 @@ def bandpass_calibration_stage(
         **run_solver_config,
     )
 
+    calvis = apply_gaintable_to_dataset(
+            vis, gaintable, inverse=True)
+    import pdb; pdb.set_trace();
     if plot_config["plot_table"]:
         path_prefix = os.path.join(
             _output_dir_, f"bandpass{call_counter_suffix}"
         )
-        upstream_output.add_compute_tasks(
+        upstream_output.add_compute_tasks([
             plot_gaintable(
                 gaintable,
                 path_prefix,
                 figure_title="Bandpass",
                 fixed_axis=plot_config["fixed_axis"],
                 all_station_plot=True,
-            )
+            ),
+            plot_gains(
+                vis,
+                gaintable,
+                path_prefix,
+            ),
+            plot_vis(
+                vis,
+                gaintable,
+                calvis,
+                modelvis,
+                path_prefix,
+            ),
+            ]
         )
 
     if export_gaintable:
