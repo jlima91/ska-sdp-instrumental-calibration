@@ -102,7 +102,7 @@ class DefaultScheduler(PiperScheduler):
             ]
 
             if is_client_present:
-                wait(persisted_values[: len(output.checkpoint_keys)])
+                wait(persisted_values)
 
             output.checkpoint_keys = []
             output.stage_compute_tasks = []
