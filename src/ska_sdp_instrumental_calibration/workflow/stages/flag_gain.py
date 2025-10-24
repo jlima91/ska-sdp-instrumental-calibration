@@ -189,8 +189,6 @@ def flag_gain_stage(
         apply_flag,
     )
 
-    upstream_output.add_compute_tasks(amp_fit, phase_fits)
-
     upstream_output.add_compute_tasks(
         log_flaging_statistics(
             gaintable.weight,
