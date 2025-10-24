@@ -189,6 +189,8 @@ def flag_gain_stage(
         apply_flag,
     )
 
+    upstream_output.add_compute_tasks(amp_fit, phase_fits)
+
     upstream_output.add_compute_tasks(
         log_flaging_statistics(
             gaintable.weight,
@@ -214,14 +216,11 @@ def flag_gain_stage(
             _output_dir_, f"curve_fit_gain{call_counter_suffix}"
         )
 
-        amp_fit_persist = amp_fit.persist()
-        phase_fit_persist = phase_fits.persist()
-
         upstream_output.add_compute_tasks(
             plot_curve_fit(
                 gaintable,
-                amp_fit_persist,
-                phase_fit_persist,
+                amp_fit,
+                phase_fits,
                 path_prefix,
                 normalize_gains,
                 figure_title="Curve fit of Gain Flagging",

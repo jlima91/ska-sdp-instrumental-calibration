@@ -12,6 +12,7 @@ class UpstreamOutput:
         self.__stage_outputs = {}
         self.stage_compute_tasks = []
         self.checkpoint_keys = []
+        self.compute_outputs = []
         self.__call_count = {}
 
     def __setitem__(self, key, value):
@@ -88,16 +89,22 @@ class DefaultScheduler(PiperScheduler):
 
             output = stage(output)
 
-            for key in output.checkpoint_keys:
-                (output[key],) = dask.persist(output[key], optimize_graph=True)
+            checkpoints = [output[key] for key in output.checkpoint_keys]
+            persisted_values = dask.persist(
+                *(checkpoints + output.compute_tasks), optimize_graph=True
+            )
+
+            for idx, key in enumerate(output.checkpoint_keys):
+                output[key] = persisted_values[idx]
+
+            output.compute_outputs += persisted_values[
+                len(output.checkpoint_keys) :  # noqa:E203
+            ]
 
             if is_client_present:
-                for key in output.checkpoint_keys:
-                    wait(output[key])
+                wait(persisted_values[: len(output.checkpoint_keys)])
 
             output.checkpoint_keys = []
-
-            dask.compute(*output.compute_tasks, optimize_graph=True)
             output.stage_compute_tasks = []
 
             logger.info(

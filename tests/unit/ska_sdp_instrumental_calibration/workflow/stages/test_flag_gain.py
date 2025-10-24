@@ -254,11 +254,7 @@ def test_should_plot_flag_on_gain(
 
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
-    amp_fit_persist_mock = Mock(name="Amp fit persist")
-    amp_fit_mock.persist.return_value = amp_fit_persist_mock
     phase_fit_mock = Mock(name="Phase fit")
-    phase_fit_persist_mock = Mock(name="Phase fit persist")
-    phase_fit_mock.persist.return_value = phase_fit_persist_mock
     flag_on_gains_mock.return_value = (
         gaintable_mock,
         amp_fit_mock,
@@ -297,8 +293,8 @@ def test_should_plot_flag_on_gain(
 
     plot_curve_mock.assert_called_once_with(
         gaintable_mock,
-        amp_fit_persist_mock,
-        phase_fit_persist_mock,
+        amp_fit_mock,
+        phase_fit_mock,
         "/output/path/plots/curve_fit_gain",
         normalize_gains,
         figure_title="Curve fit of Gain Flagging",
