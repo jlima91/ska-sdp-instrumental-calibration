@@ -2,9 +2,6 @@ import logging
 import os
 
 import dask
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
@@ -13,7 +10,6 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     read_dataset_from_zarr,
     write_ms_to_zarr,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -199,10 +195,6 @@ def load_data_stage(
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
 
-    gaintable = create_gaintable_from_visibility(
-        vis, timeslice=None, jones_type="G"
-    )
     upstream_output["vis"] = vis
-    upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
     return upstream_output

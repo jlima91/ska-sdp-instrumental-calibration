@@ -18,6 +18,7 @@ def _solve_gaintable(
     tol: float = 1e-06,
     crosspol: bool = False,
     normalise_gains: str = None,
+    timeslice: float = None,
 ) -> xr.Dataset:
     """Call solve_gaintable.
 
@@ -53,7 +54,7 @@ def _solve_gaintable(
         normalise_gains,
         solver,
         "G",
-        None,
+        timeslice,
         refant,
     )
     # restore the dimension name back for map_blocks I/O checks
@@ -71,25 +72,43 @@ def run_solver(
     niter: int = 200,
     tol: float = 1e-06,
     crosspol: bool = False,
+    timeslice: float = None,
     normalise_gains: Optional[str] = None,
 ) -> xr.Dataset:
-    """Do the complex gain calibration.
+    """
+    A generic function to solve for gaintables, given
+    visibility and model visibility data.
 
-    :param vis: Chunked Visibility dataset containing observed data.
-    :param modelvis: Chunked Visibility dataset containing model data.
-    :param gaintable: Chunked GainTable dataset containing initial
-        solutions.
-    :param solver: Solver type to use. Currently any solver type accepted by
-        solve_gaintable. Default is "gain_substitution".
-    :param refant: Reference antenna (defaults to 0). Note that how referencing
-        is done depends on the solver.
-    :param niter: Number of solver iterations (defaults to 200).
-    :param tol: Iteration stops when the fractional change in the gain solution
-        is below this tolerance.
-    :param crosspol: Do solutions including cross polarisations.
-    :param normalise_gains: Normalises the gains (default="mean").
+    Parameters
+    ----------
+    vis: Visibility
+        Chunked Visibility dataset containing observed data.
+    modelvis: Visibility
+        Chunked Visibility dataset containing model data.
+    gaintable: Gaintable, optional
+        Optional chunked GainTable dataset containing initial solutions.
+    solver: str, default: "gain_substitution"
+        Solver type to use. Currently any solver type accepted by
+        solve_gaintable.
+    refant: int, default: 0
+        Reference antenna. Note that how referencing is done
+        depends on the solver.
+    niter: int, default: 200
+        Number of solver iterations.
+    tol: float, default: 1e-06
+        Iteration stops when the fractional change in the gain solution is
+        below this tolerance.
+    crosspol: bool, default: False
+        Do solutions including cross polarisations.
+    normalise_gains: str, default: "mean"
+        Normalises the gains.
+    timeslice: float, optional
+        Defines the time scale over which each gain solution is valid.
 
-    :return: Chunked GainTable dataset
+    Returns
+    -------
+    GainTable
+        A new gaintabel xarray dataset, or the mutated input gaintable
     """
 
     # map_blocks won't accept dimensions that differ but have the same name
@@ -107,6 +126,7 @@ def run_solver(
             tol,
             crosspol,
             normalise_gains,
+            timeslice,
         ],
         template=gaintable,
     )

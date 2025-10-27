@@ -1,5 +1,3 @@
-import os
-
 import dask
 from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
@@ -7,6 +5,9 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
+)
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_visibilities_path,
 )
 
 
@@ -62,7 +63,7 @@ def export_visibilities_stage(
         upstream_output["corrected_vis"] = vis
 
     if data_to_export == "vis" or data_to_export == "all":
-        path_prefix = os.path.join(
+        path_prefix = get_visibilities_path(
             _output_dir_, f"corrected_vis{call_counter_suffix}.ms"
         )
         upstream_output.add_compute_tasks(
@@ -70,7 +71,7 @@ def export_visibilities_stage(
         )
 
     if data_to_export == "modelvis" or data_to_export == "all":
-        path_prefix = os.path.join(
+        path_prefix = get_visibilities_path(
             _output_dir_, f"corrected_modelvis{call_counter_suffix}.ms"
         )
         upstream_output.add_compute_tasks(

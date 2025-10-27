@@ -1,5 +1,4 @@
 import logging
-import os
 from copy import deepcopy
 
 import dask
@@ -18,12 +17,14 @@ from ...data_managers.dask_wrappers import (
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.rotation_measures import model_rotations
 from ..utils import (
+    get_gaintables_path,
+    get_plots_path,
     parse_reference_antenna,
     plot_bandpass_stages,
     plot_gaintable,
     plot_rm_station,
 )
-from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
 
@@ -75,7 +76,49 @@ logger = logging.getLogger()
         plot_table=ConfigParam(
             bool, False, description="Plot the generated gain table"
         ),
-        run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        run_solver_config=NestedConfigParam(
+            "Run Solver parameters",
+            **{
+                **(deepcopy(RUN_SOLVER_COMMON)),
+                "solver": ConfigParam(
+                    str,
+                    "jones_substitution",
+                    description="""Calibration algorithm to use.
+                Options are:
+                "gain_substitution" - original substitution algorithm
+                with separate solutions for each polarisation term.
+                "jones_substitution" - solve antenna-based Jones matrices
+                as a whole, with independent updates within each iteration.
+                "normal_equations" - solve normal equations within
+                each iteration formed from linearisation with respect to
+                antenna-based gain and leakage terms.
+                "normal_equations_presum" - same as normal_equations
+                option but with an initial accumulation of visibility
+                products over time and frequency for each solution
+                interval. This can be much faster for large datasets
+                and solution intervals.""",
+                    allowed_values=[
+                        "gain_substitution",
+                        "jones_substitution",
+                        "normal_equations",
+                        "normal_equations_presum",
+                    ],
+                ),
+                "niter": ConfigParam(
+                    int,
+                    50,
+                    description="""Number of solver iterations.""",
+                    nullable=False,
+                ),
+                "tol": ConfigParam(
+                    float,
+                    1e-03,
+                    description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance.""",
+                    nullable=False,
+                ),
+            },
+        ),
         export_gaintable=ConfigParam(
             bool,
             False,
@@ -153,10 +196,6 @@ def generate_channel_rm_stage(
     if call_count := upstream_output.get_call_count("channel_rm"):
         call_counter_suffix = f"_{call_count}"
 
-    path_prefix = os.path.join(
-        _output_dir_, f"channel_rm{call_counter_suffix}"
-    )
-
     rotations = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
@@ -186,6 +225,9 @@ def generate_channel_rm_stage(
     )
 
     if plot_rm_config["plot_rm"]:
+        path_prefix = get_plots_path(
+            _output_dir_, f"channel_rm{call_counter_suffix}"
+        )
         upstream_output.add_compute_tasks(
             plot_bandpass_stages(
                 gaintable,
@@ -204,6 +246,9 @@ def generate_channel_rm_stage(
         )
 
     if plot_table:
+        path_prefix = get_plots_path(
+            _output_dir_, f"channel_rm{call_counter_suffix}"
+        )
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -214,7 +259,7 @@ def generate_channel_rm_stage(
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"channel_rm{call_counter_suffix}.gaintable.h5parm"
         )
 

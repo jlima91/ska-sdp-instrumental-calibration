@@ -1,6 +1,18 @@
 Changelog
 #########
 
+0.5.0
+*****
+
+Minor
+-----
+
+* Include script to apply gains and generate fits image using ``wsclean`` and ``dp3``
+* Use XX = YY = 2I convention for predicting visibility from skycomponents
+* Flagging based on the gain values
+* Fix bug with plot labeling.
+* Include pipeline validation notebooks for stage combinations
+
 0.4.1
 ******
 

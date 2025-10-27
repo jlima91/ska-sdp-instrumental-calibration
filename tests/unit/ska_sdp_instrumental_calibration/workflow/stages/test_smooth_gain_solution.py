@@ -68,11 +68,16 @@ def test_should_smooth_the_gain_solution_using_sliding_window_mean(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
+    "smooth_gain_solution.get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages."
     "smooth_gain_solution.plot_gaintable"
 )
 def test_should_plot_the_smoothed_gain_solution(
-    plot_gaintable_mock, sliding_window_smooth_mock
+    plot_gaintable_mock, get_plots_path_mock, sliding_window_smooth_mock
 ):
+    get_plots_path_mock.return_value = "./output/path/plots/some/path"
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
 
@@ -90,9 +95,10 @@ def test_should_plot_the_smoothed_gain_solution(
         upstream_output, 3, "mean", plot_config, False, "./output/path"
     )
 
+    get_plots_path_mock.assert_called_once_with("./output/path", "some/path")
     plot_gaintable_mock.assert_called_once_with(
         gaintable_mock,
-        "./output/path/some/path",
+        "./output/path/plots/some/path",
         figure_title="plot title",
         drop_cross_pols=False,
     )
@@ -104,11 +110,19 @@ def test_should_plot_the_smoothed_gain_solution(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
+    ".smooth_gain_solution.get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
     ".smooth_gain_solution.plot_gaintable"
 )
 def test_should_plot_smoothed_gain_solution_with_suffix(
-    plot_gaintable_mock, sliding_window_smooth_mock
+    plot_gaintable_mock, get_plots_path_mock, sliding_window_smooth_mock
 ):
+    get_plots_path_mock.side_effect = [
+        "./output/path/plots/some/path",
+        "./output/path/plots/some/path_1",
+    ]
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
 
@@ -129,17 +143,24 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
         upstream_output, 3, "mean", plot_config, False, "./output/path"
     )
 
+    get_plots_path_mock.assert_has_calls(
+        [
+            call("./output/path", "some/path"),
+            call("./output/path", "some/path_1"),
+        ]
+    )
+
     plot_gaintable_mock.assert_has_calls(
         [
             call(
                 gaintable_mock,
-                "./output/path/some/path",
+                "./output/path/plots/some/path",
                 figure_title="plot title",
                 drop_cross_pols=False,
             ),
             call(
                 gaintable_mock,
-                "./output/path/some/path_1",
+                "./output/path/plots/some/path_1",
                 figure_title="plot title",
                 drop_cross_pols=False,
             ),
@@ -158,11 +179,22 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
+    ".smooth_gain_solution.get_gaintables_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages"
     ".smooth_gain_solution.export_gaintable_to_h5parm"
 )
 def test_should_export_smoothed_gain_solution_with_suffix(
-    export_gaintable_mock, sliding_window_smooth_mock, dask_delayed_mock
+    export_gaintable_mock,
+    get_gaintables_path_mock,
+    sliding_window_smooth_mock,
+    dask_delayed_mock,
 ):
+    get_gaintables_path_mock.side_effect = [
+        "./output/path/gaintables/smooth_gain.gaintable.h5parm",
+        "./output/path/gaintables/smooth_gain_1.gaintable.h5parm",
+    ]
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
 
@@ -183,15 +215,22 @@ def test_should_export_smoothed_gain_solution_with_suffix(
         upstream_output, 3, "mean", plot_config, True, "./output/path"
     )
 
+    get_gaintables_path_mock.assert_has_calls(
+        [
+            call("./output/path", "smooth_gain.gaintable.h5parm"),
+            call("./output/path", "smooth_gain_1.gaintable.h5parm"),
+        ]
+    )
+
     export_gaintable_mock.assert_has_calls(
         [
             call(
                 gaintable_mock,
-                "./output/path/smooth_gain.gaintable.h5parm",
+                "./output/path/gaintables/smooth_gain.gaintable.h5parm",
             ),
             call(
                 gaintable_mock,
-                "./output/path/smooth_gain_1.gaintable.h5parm",
+                "./output/path/gaintables/smooth_gain_1.gaintable.h5parm",
             ),
         ]
     )

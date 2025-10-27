@@ -1,5 +1,3 @@
-import os
-
 import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
@@ -13,6 +11,8 @@ from ska_sdp_instrumental_calibration.processing_tasks.gain_flagging import (
     log_flaging_statistics,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    get_plots_path,
     plot_curve_fit,
     plot_flag_gain,
 )
@@ -198,7 +198,7 @@ def flag_gain_stage(
     )
 
     if plot_config["gain_flag_plot"]:
-        path_prefix = os.path.join(
+        path_prefix = get_plots_path(
             _output_dir_, f"gain_flagging{call_counter_suffix}"
         )
         upstream_output.add_compute_tasks(
@@ -210,21 +210,23 @@ def flag_gain_stage(
         )
 
     if plot_config["curve_fit_plot"]:
-        path_prefix = os.path.join(
+        path_prefix = get_plots_path(
             _output_dir_, f"curve_fit_gain{call_counter_suffix}"
         )
+
         upstream_output.add_compute_tasks(
             plot_curve_fit(
                 gaintable,
                 amp_fit,
                 phase_fits,
                 path_prefix,
+                normalize_gains,
                 figure_title="Curve fit of Gain Flagging",
             )
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"gain_flag{call_counter_suffix}.gaintable.h5parm"
         )
 

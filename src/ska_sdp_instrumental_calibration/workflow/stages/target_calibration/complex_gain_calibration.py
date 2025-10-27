@@ -2,6 +2,9 @@ import logging
 import os
 
 import dask
+from ska_sdp_datamodels.calibration.calibration_create import (
+    create_gaintable_from_visibility,
+)
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -18,6 +21,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibrate import (
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.utils import (
     parse_reference_antenna,
+    with_chunks,
 )
 
 logger = logging.getLogger()
@@ -92,6 +96,21 @@ logger = logging.getLogger()
                 allowed_values=[None, "mean", "median"],
                 nullable=True,
             ),
+            timeslice=ConfigParam(
+                float,
+                None,
+                description="""Defines time scale over which each gain solution
+                is valid. This is used to define time axis of the GainTable.
+                This parameter is interpreted as follows,
+
+                float: this is a custom time interval in seconds.
+                Input timestamps are grouped by intervals of this duration,
+                and said groups are separately averaged to produce
+                the output time axis.
+
+                ``None``: match the time resolution of the input, i.e. copy
+                the time axis of the input Visibility""",
+            ),
         ),
         visibility_key=ConfigParam(
             str,
@@ -140,10 +159,17 @@ def complex_gain_calibration_stage(
 
     upstream_output.add_checkpoint_key("gaintable")
     modelvis = upstream_output.modelvis
-    initial_gaintable = upstream_output.gaintable
+    vis_chunks = upstream_output.chunks
+
+    timeslice = run_solver_config["timeslice"]
 
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for complex gain calibration.")
+
+    initial_gaintable = create_gaintable_from_visibility(
+        vis, timeslice=timeslice, jones_type="G"
+    )
+    initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_reference_antenna(

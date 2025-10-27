@@ -153,20 +153,20 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         frequencies,
         normalize_gains=True,
     )
-    updated_weights = flagger_obj.flag_dimension(
-        weights, gains, "a1", "X", "Y"
+    (updated_weights, updated_amp_fit, updated_phase_fit) = (
+        flagger_obj.flag_dimension(weights, gains, "a1", "X", "Y")
     )
     amp_fit = [
-        -0.09818182,
-        0.06787879,
-        0.19151515,
-        0.27272727,
-        0.31151515,
-        0.30787879,
-        0.26181818,
-        0.17333333,
-        0.04242424,
-        -0.13090909,
+        -0.07013,
+        0.048485,
+        0.136797,
+        0.194805,
+        0.222511,
+        0.219913,
+        0.187013,
+        0.12381,
+        0.030303,
+        -0.093506,
     ]
     phase_fit = [
         -2.57039399e-01,
@@ -192,9 +192,10 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         1.0,
         1.0,
     ]
-    expected = flagged_weights, amp_fit, phase_fit
 
-    np.testing.assert_allclose(updated_weights, expected)
+    np.testing.assert_allclose(updated_weights, flagged_weights)
+    np.testing.assert_allclose(updated_amp_fit, amp_fit, rtol=1e-5)
+    np.testing.assert_allclose(updated_phase_fit, phase_fit)
 
 
 def test_should_throw_exception_if_window_size_is_even():

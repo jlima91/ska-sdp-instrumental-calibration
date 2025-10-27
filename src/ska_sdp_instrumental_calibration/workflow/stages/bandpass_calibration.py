@@ -1,5 +1,4 @@
 import logging
-import os
 from copy import deepcopy
 
 import dask
@@ -11,15 +10,20 @@ from ska_sdp_piper.piper.configurations import (
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    get_plots_path,
     parse_reference_antenna,
     plot_gains,
     plot_gaintable,
     plot_vis,
 )
 
-from ...data_managers.dask_wrappers import apply_gaintable_to_dataset, run_solver
+from ...data_managers.dask_wrappers import (
+    apply_gaintable_to_dataset,
+    run_solver,
+)
 from ...data_managers.data_export import export_gaintable_to_h5parm
-from ._common import RUN_SOLVER_DOCSTRING, RUN_SOLVER_NESTED_CONFIG
+from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
 
@@ -27,7 +31,41 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "bandpass_calibration",
     configuration=Configuration(
-        run_solver_config=deepcopy(RUN_SOLVER_NESTED_CONFIG),
+        run_solver_config=NestedConfigParam(
+            "Run Solver parameters",
+            **{
+                **(deepcopy(RUN_SOLVER_COMMON)),
+                "solver": ConfigParam(
+                    str,
+                    "gain_substitution",
+                    description="""Calibration algorithm to use. Options are:
+                "gain_substitution" - original substitution algorithm
+                with separate solutions for each polarisation term.
+                "jones_substitution" - solve antenna-based Jones matrices
+                as a whole, with independent updates within each iteration.
+                "normal_equations" - solve normal equations within
+                each iteration formed from linearisation with respect to
+                antenna-based gain and leakage terms.
+                "normal_equations_presum" - same as normal_equations
+                option but with an initial accumulation of visibility
+                products over time and frequency for each solution
+                interval. This can be much faster for large datasets
+                and solution intervals.""",
+                    allowed_values=[
+                        "gain_substitution",
+                        "jones_substitution",
+                        "normal_equations",
+                        "normal_equations_presum",
+                    ],
+                ),
+                "niter": ConfigParam(
+                    int,
+                    200,
+                    description="""Number of solver iterations.""",
+                    nullable=False,
+                ),
+            },
+        ),
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
@@ -112,13 +150,13 @@ def bandpass_calibration_stage(
         **run_solver_config,
     )
 
-    calvis = apply_gaintable_to_dataset(
-            vis, gaintable, inverse=True)
+    calvis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
     if plot_config["plot_table"]:
-        path_prefix = os.path.join(
+        path_prefix = get_plots_path(
             _output_dir_, f"bandpass{call_counter_suffix}"
         )
-        upstream_output.add_compute_tasks([
+
+        upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
                 path_prefix,
@@ -138,11 +176,10 @@ def bandpass_calibration_stage(
                 modelvis,
                 path_prefix,
             ),
-            ]
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"bandpass{call_counter_suffix}.gaintable.h5parm"
         )
 

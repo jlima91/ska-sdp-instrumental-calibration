@@ -1,10 +1,14 @@
 import logging
 import os
+from pathlib import Path
 
 import dask
+from ska_sdp_datamodels.calibration.calibration_create import (
+    create_gaintable_from_visibility,
+)
+from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
-from pathlib import Path
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
@@ -16,10 +20,6 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     pre_calculate_metadata,
     with_chunks,
 )
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
-from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ def load_data_stage(
     """
     upstream_output.add_checkpoint_key("gaintable")
     input_ms = _cli_args_["input"]
-    
+
     input_ms = os.path.realpath(input_ms)
 
     # Common dimensions across zarr and loaded visibility dataset

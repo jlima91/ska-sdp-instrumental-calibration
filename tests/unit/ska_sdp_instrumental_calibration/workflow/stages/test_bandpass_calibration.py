@@ -75,6 +75,10 @@ def test_should_perform_bandpass_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
+    ".get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
     ".plot_gaintable"
 )
 @patch(
@@ -82,8 +86,15 @@ def test_should_perform_bandpass_calibration(
     ".run_solver"
 )
 def test_should_plot_bp_gaintable_with_proper_suffix(
-    run_solver_mock, plot_gaintable_mock, parse_ref_ant_mock
+    run_solver_mock,
+    plot_gaintable_mock,
+    get_plots_path_mock,
+    parse_ref_ant_mock,
 ):
+    get_plots_path_mock.side_effect = [
+        "/output/path/plots/bandpass",
+        "/output/path/plots/bandpass_1",
+    ]
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
@@ -123,18 +134,21 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         _output_dir_="/output/path",
     )
 
+    get_plots_path_mock.assert_has_calls(
+        [call("/output/path", "bandpass"), call("/output/path", "bandpass_1")]
+    )
     plot_gaintable_mock.assert_has_calls(
         [
             call(
                 gaintable_mock,
-                "/output/path/bandpass",
+                "/output/path/plots/bandpass",
                 figure_title="Bandpass",
                 fixed_axis=True,
                 all_station_plot=True,
             ),
             call(
                 gaintable_mock,
-                "/output/path/bandpass_1",
+                "/output/path/plots/bandpass_1",
                 figure_title="Bandpass",
                 fixed_axis=True,
                 all_station_plot=True,
@@ -154,6 +168,10 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
+    ".get_gaintables_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
     ".export_gaintable_to_h5parm"
 )
 @patch(
@@ -161,8 +179,16 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     ".run_solver"
 )
 def test_should_export_gaintable_with_proper_suffix(
-    run_solver_mock, export_gaintable_mock, delayed_mock, parse_ref_ant_mock
+    run_solver_mock,
+    export_gaintable_mock,
+    get_gaintables_path_mock,
+    delayed_mock,
+    parse_ref_ant_mock,
 ):
+    get_gaintables_path_mock.side_effect = [
+        "/output/path/gaintables/bandpass.gaintable.h5parm",
+        "/output/path/gaintables/bandpass_1.gaintable.h5parm",
+    ]
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
@@ -202,15 +228,22 @@ def test_should_export_gaintable_with_proper_suffix(
         _output_dir_="/output/path",
     )
 
+    get_gaintables_path_mock.assert_has_calls(
+        [
+            call("/output/path", "bandpass.gaintable.h5parm"),
+            call("/output/path", "bandpass_1.gaintable.h5parm"),
+        ]
+    )
+
     export_gaintable_mock.assert_has_calls(
         [
             call(
                 gaintable_mock,
-                "/output/path/bandpass.gaintable.h5parm",
+                "/output/path/gaintables/bandpass.gaintable.h5parm",
             ),
             call(
                 gaintable_mock,
-                "/output/path/bandpass_1.gaintable.h5parm",
+                "/output/path/gaintables/bandpass_1.gaintable.h5parm",
             ),
         ]
     )

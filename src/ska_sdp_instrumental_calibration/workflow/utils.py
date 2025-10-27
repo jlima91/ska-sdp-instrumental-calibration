@@ -15,40 +15,35 @@ __all__ = [
     "plot_curve_fit",
     "parse_reference_antenna",
     "with_chunks",
+    "normalize_data",
 ]
 
+import os
 import warnings
 from collections import namedtuple
 from functools import wraps
-from traceback import print_exc
-from typing import Literal, Optional
 from pathlib import Path
-from typing import Any, NamedTuple
-
+from traceback import print_exc
+from typing import Any, Literal, NamedTuple, Optional
 
 import dask.array as da
 import dask.delayed
+import everybeam as eb
 import h5py
 import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import xarray as xr
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import ITRS, AltAz, Angle, EarthLocation, SkyCoord
+from astropy.time import Time
 from casacore.tables import table
 
 # from ska_sdp_func_python.calibration.operations import apply_gaintable
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
-import everybeam as eb
-import numpy as np
-import numpy.typing as npt
-from astropy.coordinates import ITRS, AltAz, Angle, EarthLocation, SkyCoord
-from astropy.time import Time
-from ska_sdp_datamodels.visibility import Visibility
-
-from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_datamodels.configuration.config_create import (
     create_named_configuration,
@@ -57,6 +52,7 @@ from ska_sdp_datamodels.science_data_model import (
     PolarisationFrame,
     ReceptorFrame,
 )
+from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import (
     create_visibility_from_ms,
@@ -552,7 +548,8 @@ def plot_gaintable(
     """
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
-    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    # from SKB-1027. J_XX, J_YY, j_xy and j_yx
+    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.assign_coords({"pol": polstrs})
     stations = gaintable.configuration.names
 
@@ -568,7 +565,7 @@ def plot_gaintable(
     )
 
     if drop_cross_pols:
-        gaintable = gaintable.sel(pol=["XX", "YY"])
+        gaintable = gaintable.sel(pol=["J_XX", "J_YY"])
 
     for group_idx in plot_groups:
         subplot_gaintable(
@@ -600,7 +597,7 @@ def plot_all_stations(gaintable, path_prefix):
     norm = plt.Normalize(vmin=0, vmax=nstations - 1)
     sm = cm.ScalarMappable(norm=norm, cmap=cmap)
 
-    for pol in ["XX", "YY"]:
+    for pol in ["J_XX", "J_YY"]:
         fig, ax = plt.subplots(figsize=(10, 10))
         amp_pol = amplitude.sel(pol=pol)
 
@@ -615,6 +612,59 @@ def plot_all_stations(gaintable, path_prefix):
         colorbar.ax.set_title("Stations", loc="center", fontsize=10)
         fig.savefig(
             f"{path_prefix}-all_station_amp_vs_freq_{pol}.png",
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+
+def plot_all_stations_phase(gaintable, path_prefix, x_axis="frequency"):
+    """
+    Plot phase vs frequency/time plot that incluldes all stations.
+
+    Parameters
+    ----------
+        gaintable: xr.Dataset
+            Gaintable to plot.
+        path_prefix: str
+            Path prefix to save the plots.
+    """
+    phase = np.angle(gaintable.isel(time=0).gain, deg=True)
+    data_x = gaintable[x_axis]
+
+    station_name = gaintable.configuration.names.data
+    colors = cm.get_cmap("hsv", len(station_name))
+    linestyles = ["-", "--", ":", "-."]
+
+    units = {"frequency": "Hz", "time": "S"}
+
+    for pol in ["J_XX", "J_YY"]:
+        fig, ax = plt.subplots(figsize=(10, 10))
+        phase_pol = phase.sel(pol=pol)
+
+        for idx, station_data in enumerate(phase_pol):
+            ax.plot(
+                data_x,
+                station_data,
+                color=colors(idx),
+                linestyle=linestyles[idx % len(linestyles)],
+                label=station_name[idx],
+                linewidth=1.5,
+            )
+
+        ax.set_title(
+            f"All station Phase vs {x_axis.capitalize()} for pol {pol}"
+        )
+        ax.set_xlabel(f"{x_axis.capitalize()} [{units[x_axis]}]")
+        ax.set_ylabel("Phase (degree)")
+
+        fig.legend(
+            title="Stations",
+            bbox_to_anchor=(0.9, 0.889),
+            loc="upper left",
+            ncol=2,
+        )
+        fig.savefig(
+            f"{path_prefix}-all_station_phase_vs_{x_axis}_{pol}.png",
             bbox_inches="tight",
         )
         plt.close(fig)
@@ -762,6 +812,7 @@ def plot_curve_fit(
     amp_fits,
     phase_fits,
     path_prefix,
+    normalize_gains=False,
     figure_title="",
 ):
     """
@@ -779,14 +830,31 @@ def plot_curve_fit(
             Path prefix to save the plots.
         figure_title: str
             Title of the figure.
+        normalize_gains: bool
+            Plot for normalized gains.
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
     """
+
+    def channel_frequency_mapper(frequency, reverse=False):
+
+        if reverse:
+            return lambda freq: np.interp(
+                freq, frequency, np.arange(len(frequency))
+            )
+
+        return lambda channel: np.interp(
+            channel, np.arange(len(frequency)), frequency
+        )
+
+    normalize_label = "(normalized)" if normalize_gains else ""
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
     amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
     phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
 
-    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    # from SKB-1027. J_XX, J_YY, j_xy and j_yx
+    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+
     gaintable = gaintable.assign_coords({"pol": polstrs})
     amp_fits = amp_fits.assign_coords({"pol": polstrs})
     phase_fits = phase_fits.assign_coords({"pol": polstrs})
@@ -799,17 +867,19 @@ def plot_curve_fit(
         range(plots_per_group, stations.size, plots_per_group),
     )
 
+    gain = gaintable.gain.isel(time=0)
+
+    frequency = gaintable.frequency / 1e6
+    channel = np.arange(len(frequency))
+    pol_labels = gaintable.pol.values
+
+    pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
+        -1, 2
+    )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
+    normalize_func = normalize_data if normalize_gains else lambda x: x
+
     for stations in plot_groups:
-        frequency = gaintable.frequency / 1e6
-        channel = np.arange(len(frequency))
         station_names = stations.values
-        pol_labels = gaintable.pol.values
-
-        def channel_to_freq(channel):
-            return np.interp(channel, np.arange(len(frequency)), frequency)
-
-        def freq_to_channel(freq):
-            return np.interp(freq, frequency, np.arange(len(frequency)))
 
         cmap = plt.get_cmap("tab10")
         pol_colors = {pol: cmap(i) for i, pol in enumerate(pol_labels)}
@@ -817,10 +887,17 @@ def plot_curve_fit(
         fig = plt.figure(layout="constrained", figsize=(24, 18))
         subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
 
-        pol_groups = [
-            ["XX", "YY"],
-            ["XY", "YX"],
-        ]
+        scatter_kwargs = dict(alpha=0.4, s=15)
+        plot_kwargs = dict(lw=2)
+
+        path = (
+            f"{path_prefix}-curve-amp-phase_freq-"
+            f"{station_names[0]}-{station_names[-1]}.png"
+        )
+
+        fig.suptitle(
+            f"{figure_title} Solutions {normalize_label}", fontsize="x-large"
+        )
 
         all_handles = []
         all_labels = []
@@ -828,72 +905,72 @@ def plot_curve_fit(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
+            # gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
             a_fit = amp_fits.isel(time=0, antenna=stations.id[idx])
-            p_fit = phase_fits.isel(time=0, antenna=stations.id[idx])
-            amplitude = np.abs(gain)
-            phase = np.angle(gain, deg=True)
+            p_fit = np.rad2deg(
+                phase_fits.isel(time=0, antenna=stations.id[idx])
+            )
+
+            amplitude = np.abs(gain.isel(antenna=stations.id[idx]))
+            phase = np.angle(gain.isel(antenna=stations.id[idx]), deg=True)
 
             axes = subfig.subplots(2, 2, sharex=True)
 
-            for col_idx, pol_list in enumerate(pol_groups):
-                phase_ax = axes[0, col_idx]
-                amp_ax = axes[1, col_idx]
+            for grp_idx, lbl_idx in np.ndindex(pol_groups.shape):
+                phase_ax = axes[0, grp_idx]
+                amp_ax = axes[1, grp_idx]
                 amp_ax.set_ylabel("Amplitude")
                 phase_ax.set_ylabel("Phase (degree)")
                 amp_ax.set_xlabel("Channel")
 
                 phase_ax.secondary_xaxis(
                     "top",
-                    functions=(channel_to_freq, freq_to_channel),
+                    functions=(
+                        channel_frequency_mapper(frequency),
+                        channel_frequency_mapper(frequency, reverse=True),
+                    ),
                 ).set_xlabel("Frequency [MHz]")
 
                 phase_ax.set_ylim([-180, 180])
-
-                for pol in pol_list:
-                    if pol in pol_labels:
-                        pol_idx = list(pol_labels).index(pol)
-                        h1 = phase_ax.scatter(
-                            channel,
-                            phase[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            s=15,
-                        )
-                        amp_ax.scatter(
-                            channel,
-                            amplitude[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            s=15,
-                        )
-                        phase_ax.plot(
-                            channel,
-                            a_fit[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            lw=2,
-                        )
-                        amp_ax.plot(
-                            channel,
-                            p_fit[:, pol_idx],
-                            color=pol_colors[pol],
-                            label=pol,
-                            lw=2,
-                        )
-                        if pol not in all_labels:
-                            all_handles.append(h1)
-                            all_labels.append(pol)
+                pol = pol_groups[grp_idx, lbl_idx]
+                if pol in pol_labels:
+                    pol_idx = list(pol_labels).index(pol)
+                    h1 = phase_ax.scatter(
+                        channel,
+                        phase[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **scatter_kwargs,
+                    )
+                    amp_ax.scatter(
+                        channel,
+                        normalize_func(amplitude[:, pol_idx].values),
+                        color=pol_colors[pol],
+                        label=pol,
+                        **scatter_kwargs,
+                    )
+                    phase_ax.plot(
+                        channel,
+                        p_fit[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **plot_kwargs,
+                    )
+                    amp_ax.plot(
+                        channel,
+                        a_fit[:, pol_idx],
+                        color=pol_colors[pol],
+                        label=pol,
+                        **plot_kwargs,
+                    )
+                    if pol not in all_labels:
+                        all_handles.append(h1)
+                        all_labels.append(pol)
 
             subfig.suptitle(
                 f"Station - {station_names[idx]}", fontsize="large"
             )
 
-        path = (
-            f"{path_prefix}-curve-amp-phase_freq-"
-            f"{station_names[0]}-{station_names[-1]}.png"
-        )
-        fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
         fig.legend(all_handles, all_labels, loc="outside upper right")
         fig.savefig(path)
         plt.close()
@@ -901,7 +978,7 @@ def plot_curve_fit(
 
 @dask.delayed
 @safe
-def plot_station_delays(delaytable, path_prefix, show_station_label=False):
+def plot_station_delays(delaytable, path_prefix):
     """
     Plot the station delays against the station configuration
 
@@ -911,16 +988,15 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
             Delay dataset
         path_prefix: str
             Path prefix to save the plots.
-        show_station_label: bool
-            Anotate plot points with station names
     """
 
     latitude, longitude, _ = ecef_to_lla(*delaytable.configuration.xyz.data.T)
+    fig, ax = plt.subplots(2, 2, figsize=(10, 8))
 
-    fig, subfigs = plt.subplots(figsize=(20, 5), ncols=2)
+    fig, subfigs = plt.subplots(figsize=(20, 10), ncols=2, nrows=2)
     station_name = delaytable.configuration.names.data
     fig.suptitle("Station Delays")
-    for idx, ax in enumerate(subfigs):
+    for idx, ax in enumerate(subfigs[0]):
         calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
         sc = ax.scatter(
             longitude, latitude, c=calibration_delay, cmap="plasma", s=10
@@ -930,16 +1006,17 @@ def plot_station_delays(delaytable, path_prefix, show_station_label=False):
         cbar = fig.colorbar(sc, ax=ax, shrink=0.5, aspect=10)
         cbar.set_label("Absolute Delay (ns)", rotation=270, labelpad=15)
         ax.grid()
-        ax.set_title(f"Polarization: {delaytable.pol.data[idx]}")
-        if show_station_label:
-            for i in range(len(longitude)):
-                ax.annotate(
-                    station_name[i],
-                    (longitude[i], latitude[i]),
-                    textcoords="offset points",
-                    xytext=(5, 5),
-                    ha="center",
-                )
+        ax.set_title(delaytable.pol.data[idx])
+
+    for idx, ax in enumerate(subfigs[1]):
+        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
+        sc = ax.plot(
+            station_name, calibration_delay.reshape(len(station_name))
+        )
+        ax.set_xlabel("Stations")
+        ax.set_ylabel("Absolute Delay (ns)")
+        ax.set_title(delaytable.pol.data[idx])
+        ax.tick_params(axis="x", rotation=90)
 
     plt.savefig(f"{path_prefix}_station_delay.png")
     plt.close()
@@ -1132,6 +1209,7 @@ def plot_rm_station(
 
     fig.savefig(f"{plot_path_prefix}-rm-station-{stn_name}.png")
 
+
 class MetaData(NamedTuple):
     time: Time
     mjds: npt.NDArray[np.floating[Any]]
@@ -1144,6 +1222,7 @@ class MetaData(NamedTuple):
     beam_itrf: npt.NDArray[np.floating[Any]]
     ant1: npt.NDArray[np.integer[Any]]
     ant2: npt.NDArray[np.integer[Any]]
+
 
 def radec_to_xyz(
     ra: Angle, dec: Angle, mjds: npt.NDArray[np.floating[Any]]
@@ -1174,11 +1253,17 @@ def beam_model(
     # ============================================================================ #
     # field centre beam model
 
-    jones_eb = np.zeros((metadata.nstation, len(vis.frequency), 2, 2), "complex")
+    jones_eb = np.zeros(
+        (metadata.nstation, len(vis.frequency), 2, 2), "complex"
+    )
 
     for ch, freq in enumerate(vis.frequency.data):
         Jz = metadata.telescope.station_response(
-            metadata.time.mjd * 86400, 0, freq, metadata.zen_itrf, metadata.zen_itrf
+            metadata.time.mjd * 86400,
+            0,
+            freq,
+            metadata.zen_itrf,
+            metadata.zen_itrf,
         )
         scale = np.sqrt(2) / np.linalg.norm(Jz)
         for stn, _station in enumerate(metadata.stations):
@@ -1193,6 +1278,7 @@ def beam_model(
                 * metadata.cos_term
             )
     return jones_eb
+
 
 def pre_calculate_metadata(
     dataset: Path,
@@ -1213,7 +1299,9 @@ def pre_calculate_metadata(
     time = np.mean(Time(vis.datetime.data))
     mjds = time.mjd * 86400
 
-    altaz = vis.phasecentre.transform_to(AltAz(obstime=time, location=location))
+    altaz = vis.phasecentre.transform_to(
+        AltAz(obstime=time, location=location)
+    )
     # these are used in beam models and should be done separately for each station location
     # for our purposes though, just use a common location
     theta = np.pi / 2 - altaz.alt.radian
@@ -1266,10 +1354,12 @@ def do_centre_correct(vis, modelvis, jones_eb, metadata):
     ).reshape(vis.vis.shape)
     return modelvis, vis
 
+
 def phase(z: np.complexfloating[Any, Any]) -> np.floating[Any]:
     # return np.unwrap(np.angle(z)) * 180 / np.pi
     return np.angle(z) * 180 / np.pi  # type: ignore[no-any-return]
     # phi += 360 * (phi < -90)
+
 
 @dask.delayed
 def plot_gains(
@@ -1290,10 +1380,18 @@ def plot_gains(
     fig.suptitle("gains (EveryBeam-based model)")
     for k in range(stations):
         ax = axs[0, k]
-        ax.plot(x, np.abs(gaintable.gain.data[0, k, :, 0, 0]), "b", label="J00")
-        ax.plot(x, np.abs(gaintable.gain.data[0, k, :, 0, 1]), "c", label="J01")
-        ax.plot(x, np.abs(gaintable.gain.data[0, k, :, 1, 0]), "m", label="J10")
-        ax.plot(x, np.abs(gaintable.gain.data[0, k, :, 1, 1]), "r", label="J11")
+        ax.plot(
+            x, np.abs(gaintable.gain.data[0, k, :, 0, 0]), "b", label="J00"
+        )
+        ax.plot(
+            x, np.abs(gaintable.gain.data[0, k, :, 0, 1]), "c", label="J01"
+        )
+        ax.plot(
+            x, np.abs(gaintable.gain.data[0, k, :, 1, 0]), "m", label="J10"
+        )
+        ax.plot(
+            x, np.abs(gaintable.gain.data[0, k, :, 1, 1]), "r", label="J11"
+        )
         ax.grid()
         ax.set_title(f"|{station_name[k]}|")
 
@@ -1310,6 +1408,7 @@ def plot_gains(
             fig.legend()
 
         fig.savefig(f"{path_prefix}-bbp_gains.png")
+
 
 @dask.delayed
 def plot_vis(
@@ -1337,7 +1436,9 @@ def plot_vis(
 
     # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(vis.vis.data))
 
-    raw_fig, axs = plt.subplots(2, nbl, figsize=(14, 6), sharex=True, sharey=False)
+    raw_fig, axs = plt.subplots(
+        2, nbl, figsize=(14, 6), sharex=True, sharey=False
+    )
     raw_fig.suptitle("Raw data")
     for k in range(nbl):
         # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
@@ -1364,7 +1465,9 @@ def plot_vis(
 
     # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(calvis.vis.data))
 
-    model_fig, axs = plt.subplots(2, nbl, figsize=(14, 6), sharex=True, sharey=False)
+    model_fig, axs = plt.subplots(
+        2, nbl, figsize=(14, 6), sharex=True, sharey=False
+    )
     model_fig.suptitle("Calibrated vis and EveryBeam-based model")
     for k in range(nbl):
         # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
@@ -1423,7 +1526,9 @@ def plot_vis(
 
     # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(corvis.vis.data))
 
-    cal_fig, axs = plt.subplots(2, nbl, figsize=(14, 6), sharex=True, sharey=False)
+    cal_fig, axs = plt.subplots(
+        2, nbl, figsize=(14, 6), sharex=True, sharey=False
+    )
     cal_fig.suptitle("Beam-corrected, calibratred vis")
     for k in range(nbl):
         # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
@@ -1446,6 +1551,7 @@ def plot_vis(
         if k == 0:
             cal_fig.legend()
     cal_fig.savefig(f"{path_prefix}-bbp_cal_fig.png")
+
 
 def ecef_to_lla(x, y, z):
     """Translate Earth-Centred Earth-Fixed (in meters) to
@@ -1548,3 +1654,104 @@ def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
     }
 
     return dataarray.chunk(relevant_chunks) if relevant_chunks else dataarray
+
+
+def create_path_tree(path: str):
+    """
+    Creates parents directory tree for the path.
+
+    Parameters
+    ----------
+    path: str
+        Path for which to create parents directories.
+    """
+    path_prefix = Path(path)
+    path_prefix.parent.mkdir(parents=True, exist_ok=True)
+
+
+def get_plots_path(output_dir: str, file_prefix: str) -> str:
+    """
+    Obtain path to store plots.
+
+    Parameters
+    ----------
+    output_dir: str
+        Directory path where to create plots sub directory.
+    file_prefix: str
+        Plot file prefix.
+
+    Returns
+    -------
+    str
+        Path to store plots with file prefix.
+    """
+    plots_path = os.path.join(output_dir, "plots", file_prefix)
+    create_path_tree(plots_path)
+    return plots_path
+
+
+def get_gaintables_path(output_dir: str, file_prefix: str) -> str:
+    """
+    Obtain path to store gaintables.
+
+    Parameters
+    ----------
+    output_dir: str
+        Directory path where to create gaintables sub directory.
+    file_prefix: str
+        Plot file prefix.
+
+    Returns
+    -------
+    str
+        Path to store gaintables with file prefix.
+    """
+    gaintables_path = os.path.join(output_dir, "gaintables", file_prefix)
+    create_path_tree(gaintables_path)
+    return gaintables_path
+
+
+def get_visibilities_path(output_dir: str, file_prefix: str) -> str:
+    """
+    Obtain path to store visibilities.
+
+    Parameters
+    ----------
+    output_dir: str
+        Directory path where to create visibilities sub directory.
+    file_prefix: str
+        Plot file prefix.
+
+    Returns
+    -------
+    str
+        Path to store visibilities with file prefix.
+    """
+    visibilities_path = os.path.join(output_dir, "visibilities", file_prefix)
+    create_path_tree(visibilities_path)
+    return visibilities_path
+
+
+def normalize_data(data):
+    """
+    Scales array data to the [0, 1] range, ignoring NaN values.
+
+    This function performs min-max normalization on a *copy* of the
+    input array. The minimum non-NaN value is mapped to 0 and the
+    maximum non-NaN value is mapped to 1. NaN values are left unchanged.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        The input array containing numerical data to be normalized.
+        This array is *not* modified in-place.
+
+    Returns
+    -------
+    numpy.ndarray
+        A new array with non-NaN values scaled to the [0, 1] range.
+        If the input array is empty or contains only NaN values,
+        a copy of the original array is returned.
+    """
+
+    return data / np.linalg.norm(data, ord=1)

@@ -1,5 +1,3 @@
-import os
-
 import dask
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
@@ -13,6 +11,8 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     calculate_delay,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    get_plots_path,
     plot_gains,
     plot_gaintable,
     plot_station_delays,
@@ -35,12 +35,6 @@ from ...data_managers.data_export import (
             ),
             fixed_axis=ConfigParam(
                 bool, False, description="Limit amplitude axis to [0-1]"
-            ),
-            anotate_stations=ConfigParam(
-                bool,
-                False,
-                description="""Show station labels in delay
-                vs station plot""",
             ),
         ),
         export_gaintable=ConfigParam(
@@ -88,7 +82,10 @@ def delay_calibration_stage(
     gaintable = apply_delay(gaintable, delaytable)
 
     if plot_config["plot_table"]:
-        path_prefix = os.path.join(_output_dir_, f"delay{call_counter_suffix}")
+        path_prefix = get_plots_path(
+            _output_dir_, f"delay{call_counter_suffix}"
+        )
+
         upstream_output.add_compute_tasks(
             plot_gaintable(
                 gaintable,
@@ -99,28 +96,28 @@ def delay_calibration_stage(
         )
 
         upstream_output.add_compute_tasks(
-            [
-                plot_station_delays(
-                    delaytable,
-                    path_prefix,
-                    show_station_label=plot_config.get(
-                        "anotate_stations", False
-                    ),
-                ),
-                plot_gains(
-                    vis,
-                    gaintable,
-                    path_prefix,
-                ),
-            ]
+            plot_station_delays(
+                delaytable,
+                path_prefix,
+                show_station_label=plot_config.get("anotate_stations", False),
+            ),
+            plot_gains(
+                vis,
+                gaintable,
+                path_prefix,
+            ),
+            plot_station_delays(
+                delaytable,
+                path_prefix,
+            ),
         )
 
     if export_gaintable:
-        gaintable_file_path = os.path.join(
+        gaintable_file_path = get_gaintables_path(
             _output_dir_, f"delay{call_counter_suffix}.gaintable.h5parm"
         )
 
-        delaytable_file_path = os.path.join(
+        delaytable_file_path = get_gaintables_path(
             _output_dir_, f"delay{call_counter_suffix}.clock.h5parm"
         )
 
