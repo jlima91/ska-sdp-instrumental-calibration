@@ -31,7 +31,7 @@ distributed = "^2024.11.2"
 xarray = "^2024.7"
 # Remove this when xarray is upgraded to 2025*. That should work with zarr 3.*
 zarr = "^2.18"
-everybeam = "^0.7.1"
+everybeam = "^0.7.4"
 numpy = "^1.26.4"
 matplotlib = "^3.9.1"
 python-casacore = "^3.7.1"

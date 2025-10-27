@@ -958,19 +958,18 @@ url = "https://gitlab.com/ska-telescope/external/python-etcd3/-/archive/master/p
 
 [[package]]
 name = "everybeam"
-version = "0.7.1"
+version = "0.7.4"
 description = "EveryBeam"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "everybeam-0.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:79072d3c0694947cb34adb9371378aeea5d4298b8f5871ab3290b0f9be1e84a3"},
-    {file = "everybeam-0.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:13aeccbe17613abaa91001e3013a1b6a6e6fe5d6dde0bec8d040b0ba45f298e9"},
-    {file = "everybeam-0.7.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:41c7c2b620f6e70ed89043a0df79bc1bc9074c4d73d5bdca3d1780dcf4abf924"},
-    {file = "everybeam-0.7.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:472b2fba64b558ab1ee68bab74fb46502f437b52b3c81abcd36e1b00a7c84b78"},
-    {file = "everybeam-0.7.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9a64eeb5a1fbeb4355979dae3f70d26470f4a38446e6f4c289231d148585c950"},
-    {file = "everybeam-0.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:95ead18d296bd6f011fb2ee2bde6a5729d223fe90a98fcfdd9890ec2bd401e72"},
-    {file = "everybeam-0.7.1.tar.gz", hash = "sha256:f2adc29f53987dbfd904dd4debdef6c99f4da08d2c6026a557145097a5d36b8a"},
+    {file = "everybeam-0.7.4-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:83c38ae6a9d1b46a47112be7561a129a319083ad5bfb2ccf7ec15d5b9ada43a1"},
+    {file = "everybeam-0.7.4-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:b8c4275bb7d4c4e408478b50fb993306fae144bc9e022398ab600f1702efece1"},
+    {file = "everybeam-0.7.4-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0ada007889156ba49d4ff5574e3b9e901ee225210ccf61d0957b5b1c509b2516"},
+    {file = "everybeam-0.7.4-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:7453c1177a8b634706222018307fd3e526a75cb10067b3b9bcef112a0b99398f"},
+    {file = "everybeam-0.7.4-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:9a272218bbe01932b0b9f65bda1db769b51c653c5d83924092bcfa70546967ff"},
+    {file = "everybeam-0.7.4-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:d04ac6b9cdcf97ccc8ef0c8e5967156d852ab3cf30e2596da66a1464d63ccffb"},
 ]
 
 [package.dependencies]
@@ -3245,6 +3244,7 @@ files = [
     {file = "python_casacore-3.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e5101fc6240b9283d4b7027c92125e6f267d507d77350101451fd7200e0645f"},
     {file = "python_casacore-3.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5734c96278022600fe43d6b7488f045762ffb305bcca6779c8caf6f1a40b0555"},
     {file = "python_casacore-3.7.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2805353e3f12d6c03c20267cfa6539b256c43f382ccb0f84436d99f36bd83520"},
+    {file = "python_casacore-3.7.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9f356b7f0e9a9dfb4a2d9e710586bada676a2f6c5fcf476e1f5fb6a86a01961a"},
     {file = "python_casacore-3.7.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccaccb942b436dcc85795a7ebdcb73356b6dee00355426a303de0326b27adef1"},
     {file = "python_casacore-3.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f88dddebed0a8e0d872b3cd49a5e06b4edfc5f86a054867eb7b36fbf85208721"},
     {file = "python_casacore-3.7.1.tar.gz", hash = "sha256:6c4e060cba73c0ab9d944eb4b6aa97f20c12b761e671587f313bfc59e3a775c3"},
@@ -4895,4 +4895,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "60106d14ae9b6f748570ad8a67f1e59d00f8123db6e169247369cd6ae6630dae"
+content-hash = "36c75f907e4446545046563232f4724dba2b0bed480844a6bd3d98dd632e6e75"

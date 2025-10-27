@@ -1281,7 +1281,7 @@ def plot_gains(
     # gain plots
 
     x = vis.frequency.data / 1e6
-    station_name = gaintable.configuration.names
+    station_name = gaintable.configuration.names.data
     stations = station_name.size
 
     fig, axs = plt.subplots(
