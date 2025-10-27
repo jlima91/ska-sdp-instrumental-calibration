@@ -13,6 +13,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     calculate_delay,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    plot_gains,
     plot_gaintable,
     plot_station_delays,
 )
@@ -75,7 +76,7 @@ def delay_calibration_stage(
             Updated upstream_output with gaintable
     """
     upstream_output.add_checkpoint_key("gaintable")
-
+    vis = upstream_output["vis"]
     gaintable = upstream_output["gaintable"]
 
     call_counter_suffix = ""
@@ -98,11 +99,20 @@ def delay_calibration_stage(
         )
 
         upstream_output.add_compute_tasks(
-            plot_station_delays(
-                delaytable,
-                path_prefix,
-                show_station_label=plot_config.get("anotate_stations", False),
-            )
+            [
+                plot_station_delays(
+                    delaytable,
+                    path_prefix,
+                    show_station_label=plot_config.get(
+                        "anotate_stations", False
+                    ),
+                ),
+                plot_gains(
+                    vis,
+                    gaintable,
+                    path_prefix,
+                ),
+            ]
         )
 
     if export_gaintable:
