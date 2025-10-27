@@ -798,10 +798,6 @@ def write_ms_to_zarr(
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
-    attributes_file, baselines_file, vis_zarr_file = (
-        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
-    )
-
     data: xr.Dataset = load_ms_as_dataset_with_time_chunks(
         input_ms_path,
         zarr_chunks["time"],
@@ -811,23 +807,35 @@ def write_ms_to_zarr(
         data_desc_id=data_desc_id,
     )
 
-    attrs = deepcopy(data.attrs)
+    writer = write_dataset_to_zarr(vis_cache_directory, zarr_chunks, data)
+
+    logger.warning("Triggering eager compute to dump visibilities to zarr.")
+    dask.compute(writer)
+
+
+def write_dataset_to_zarr(
+    vis_cache_directory, zarr_chunks, visibility: xr.Dataset
+):
+    attributes_file, baselines_file, vis_zarr_file = (
+        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+    )
+
+    attrs = deepcopy(visibility.attrs)
     with open(attributes_file, "wb") as file:
         pickle.dump(attrs, file)
 
-    baselines = deepcopy(data.baselines).compute()
+    baselines = deepcopy(visibility.baselines).compute()
     with open(baselines_file, "wb") as file:
         pickle.dump(baselines, file)
 
     writer = (
-        data.drop_attrs()
+        visibility.drop_attrs()
         .drop_vars("baselines")
         .pipe(with_chunks, zarr_chunks)
         .to_zarr(vis_zarr_file, mode="w", compute=False)
     )
 
-    logger.warning("Triggering eager compute to dump visibilities to zarr.")
-    dask.compute(writer)
+    return writer
 
 
 def check_if_cache_files_exist(vis_cache_directory):
