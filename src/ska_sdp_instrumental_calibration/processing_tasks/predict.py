@@ -236,6 +236,7 @@ def predict_from_components(
                     ..., np.newaxis
                 ]
 
+        theta = 0
         # Apply beam distortions and add to combined model visibilities
         if beam_type == "everybeam":
             # Check component direction
@@ -245,6 +246,8 @@ def predict_from_components(
             if altaz.alt.degree < 0:
                 logger.warning("LSM component [%s] below horizon", comp.name)
                 continue
+
+            theta = np.pi / 2 - altaz.alt.radian
             # This ID mapping will not always work when the eb_ms file is
             # different. Should restrict the form of the eb_ms files allowed,
             # or preferably deprecate the eb_ms option.
@@ -267,7 +270,7 @@ def predict_from_components(
                 compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
                 response[compvis.antenna2.data, :, :, :].conj(),
             ).reshape(vis.vis.shape)
-        )
+        ) * np.cos(theta) ** 2
 
     # clean up component data
     del compvis

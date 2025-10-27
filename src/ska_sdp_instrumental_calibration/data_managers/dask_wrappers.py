@@ -217,16 +217,6 @@ def _predict(
         )
         # Switch to standard variable names and coords for the SDP call
         vischunk = restore_baselines_dim(vischunk)
-        time = np.mean(Time(vischunk.datetime.data))
-        beams = GenericBeams(vis=vischunk, array="Low", ms_path=eb_ms)
-        # Update ITRF coordinates of the beam and normalisation factors
-        beams.update_beam(frequency=vischunk.frequency.data, time=time)
-
-        # for comp in lsm_components:
-        altaz = beams.beam_direction.transform_to(
-            AltAz(obstime=time, location=beams.array_location)
-        )
-        theta = np.pi / 2 - altaz.alt.radian
 
         # Dask array wrapped in xarray.Datarray
         if type(station_rm) == xr.DataArray:
@@ -255,7 +245,6 @@ def _predict(
                 }
             )
         )
-        vischunk.vis.data += vischunk.vis.data * np.cos(theta) ** 2
 
     return vischunk
 
