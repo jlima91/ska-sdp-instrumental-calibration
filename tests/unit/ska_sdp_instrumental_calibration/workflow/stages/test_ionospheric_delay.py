@@ -103,7 +103,7 @@ def test_solver_runs_and_applies_correction(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
-    ".plot_all_stations_phase"
+    ".plot_gaintable"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
@@ -157,7 +157,7 @@ def test_gaintable_export_is_triggered(
     )
 
     mock_plot_func.assert_called_once_with(
-        mock_gaintable, "/test/dir/plot.png"
+        mock_gaintable, "/test/dir/plot.png", phase_only=True
     )
 
     assert mock_upstream_output.add_compute_tasks.call_count == 2

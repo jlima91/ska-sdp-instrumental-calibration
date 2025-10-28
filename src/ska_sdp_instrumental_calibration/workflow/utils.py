@@ -95,6 +95,18 @@ def safe(func):
     return wrapper
 
 
+def channel_frequency_mapper(frequency, reverse=False):
+
+    if reverse:
+        return lambda freq: np.interp(
+            freq, frequency, np.arange(len(frequency))
+        )
+
+    return lambda channel: np.interp(
+        channel, np.arange(len(frequency)), frequency
+    )
+
+
 def create_demo_ms(
     ms_name: str = "demo.ms",
     delays: bool = False,
@@ -523,6 +535,7 @@ def plot_gaintable(
     fixed_axis=False,
     all_station_plot=False,
     drop_cross_pols=False,
+    phase_only=False,
 ):
     """
     Plots the gaintable.
@@ -572,6 +585,7 @@ def plot_gaintable(
             n_cols=n_cols,
             figure_title=figure_title,
             fixed_axis=fixed_axis,
+            phase_only=phase_only,
         )
 
 
@@ -608,59 +622,6 @@ def plot_all_stations(gaintable, path_prefix):
         colorbar.ax.set_title("Stations", loc="center", fontsize=10)
         fig.savefig(
             f"{path_prefix}-all_station_amp_vs_freq_{pol}.png",
-            bbox_inches="tight",
-        )
-        plt.close(fig)
-
-
-def plot_all_stations_phase(gaintable, path_prefix, x_axis="frequency"):
-    """
-    Plot phase vs frequency/time plot that incluldes all stations.
-
-    Parameters
-    ----------
-        gaintable: xr.Dataset
-            Gaintable to plot.
-        path_prefix: str
-            Path prefix to save the plots.
-    """
-    phase = np.angle(gaintable.isel(time=0).gain, deg=True)
-    data_x = gaintable[x_axis]
-
-    station_name = gaintable.configuration.names.data
-    colors = cm.get_cmap("hsv", len(station_name))
-    linestyles = ["-", "--", ":", "-."]
-
-    units = {"frequency": "Hz", "time": "S"}
-
-    for pol in ["J_XX", "J_YY"]:
-        fig, ax = plt.subplots(figsize=(10, 10))
-        phase_pol = phase.sel(pol=pol)
-
-        for idx, station_data in enumerate(phase_pol):
-            ax.plot(
-                data_x,
-                station_data,
-                color=colors(idx),
-                linestyle=linestyles[idx % len(linestyles)],
-                label=station_name[idx],
-                linewidth=1.5,
-            )
-
-        ax.set_title(
-            f"All station Phase vs {x_axis.capitalize()} for pol {pol}"
-        )
-        ax.set_xlabel(f"{x_axis.capitalize()} [{units[x_axis]}]")
-        ax.set_ylabel("Phase (degree)")
-
-        fig.legend(
-            title="Stations",
-            bbox_to_anchor=(0.9, 0.889),
-            loc="upper left",
-            ncol=2,
-        )
-        fig.savefig(
-            f"{path_prefix}-all_station_phase_vs_{x_axis}_{pol}.png",
             bbox_inches="tight",
         )
         plt.close(fig)
@@ -726,6 +687,7 @@ def subplot_gaintable(
     n_cols,
     figure_title="",
     fixed_axis=False,
+    phase_only=False,
 ):
     """
     Plots the Amp vs frequency and Phase vs frequency plots
@@ -747,17 +709,13 @@ def subplot_gaintable(
             Title of the figure.
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
+        phase_only: bool
+            Plot phases only. (Default: False)
     """
     frequency = gaintable.frequency / 1e6
     channel = np.arange(len(frequency))
     label = gaintable.pol.values
     station_names = stations.values
-
-    def channel_to_freq(channel):
-        return np.interp(channel, np.arange(len(frequency)), frequency)
-
-    def freq_to_channel(freq):
-        return np.interp(freq, frequency, np.arange(len(frequency)))
 
     fig = plt.figure(layout="constrained", figsize=(18, 18))
     subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
@@ -769,26 +727,36 @@ def subplot_gaintable(
         gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
         amplitude = np.abs(gain)
         phase = np.angle(gain, deg=True)
-        phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
-        primary_axes = amp_ax or primary_axes
+
+        if phase_only:
+            phase_ax = subfig.subplots(1, 1)
+            phase_ax.set_xlabel("Channel")
+            primary_axes = phase_ax or primary_axes
+
+        else:
+            phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
+            primary_axes = amp_ax or primary_axes
+            amp_ax.set_ylabel("Amplitude")
+            amp_ax.set_xlabel("Channel")
+            if fixed_axis:
+                amp_ax.set_ylim([0, 1])
+
+            for pol_idx, amp_pol in enumerate(amplitude.T):
+                amp_ax.scatter(channel, amp_pol, label=label[pol_idx])
+
         phase_ax.secondary_xaxis(
             "top",
-            functions=(channel_to_freq, freq_to_channel),
+            functions=(
+                channel_frequency_mapper(frequency),
+                channel_frequency_mapper(frequency, reverse=True),
+            ),
         ).set_xlabel("Frequency [MHz]")
-
-        amp_ax.set_ylabel("Amplitude")
-        amp_ax.set_xlabel("Channel")
-        if fixed_axis:
-            amp_ax.set_ylim([0, 1])
-
-        for pol_idx, amp_pol in enumerate(amplitude.T):
-            amp_ax.scatter(channel, amp_pol, label=label[pol_idx])
-
         phase_ax.set_ylabel("Phase (degree)")
         phase_ax.set_ylim([-180, 180])
 
         for pol_idx, phase_pols in enumerate(phase.T):
             phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
+
         subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
 
     handles, labels = primary_axes.get_legend_handles_labels()
@@ -831,17 +799,6 @@ def plot_curve_fit(
         fixed_axis: bool
             Limit amplitude axis values to [0,1]
     """
-
-    def channel_frequency_mapper(frequency, reverse=False):
-
-        if reverse:
-            return lambda freq: np.interp(
-                freq, frequency, np.arange(len(frequency))
-            )
-
-        return lambda channel: np.interp(
-            channel, np.arange(len(frequency)), frequency
-        )
 
     normalize_label = "(normalized)" if normalize_gains else ""
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
