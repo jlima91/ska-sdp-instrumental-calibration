@@ -99,7 +99,6 @@ def delay_calibration_stage(
             plot_station_delays(
                 delaytable,
                 path_prefix,
-                show_station_label=plot_config.get("anotate_stations", False),
             ),
             plot_gains(
                 vis,

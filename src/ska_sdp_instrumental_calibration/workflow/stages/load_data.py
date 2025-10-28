@@ -210,17 +210,32 @@ def load_data_stage(
             )
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
+
+    # Remove autocorrelations
+    # mask = (vis.antenna1 != vis.antenna2).compute()
+    # vis = vis.isel(baselineid=mask)
+
+    # Remove shortest baseline
+    # import numpy as np
+    # vis = vis.isel(baselineid=np.arange(1, len(vis.baselines)))
+
+    # Average data. Won't work without restoring baselines
     # vis.vis = averaging_frequency(vis, freqstep=fave_init)
+
+    # Create gaintable
     # gaintable = create_bandpass_table(vis)
     timeslice = vis.time.data.max() - vis.time.data.min()
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="B", timeslice=timeslice
     )
-    ms_path = Path(input_ms)
-    # metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
     gaintable["interval"].data[0] = timeslice + 1e-5
-    upstream_output["vis"] = vis
+
+    # Calculate metadata, needed for mitch's script
+    # ms_path = Path(input_ms)
+    # metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
     # upstream_output["metadata"] = metadata
+
+    upstream_output["vis"] = vis
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["beams"] = None
 
