@@ -11,7 +11,7 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
-    plot_all_stations_phase,
+    plot_gaintable,
     with_chunks,
 )
 
@@ -158,7 +158,7 @@ def ionospheric_delay_stage(
         path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
 
         upstream_output.add_compute_tasks(
-            plot_all_stations_phase(gaintable, path_prefix)
+            plot_gaintable(gaintable, path_prefix, phase_only=True)
         )
 
     if export_gaintable:
