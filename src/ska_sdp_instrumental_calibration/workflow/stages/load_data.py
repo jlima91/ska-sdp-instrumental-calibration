@@ -2,9 +2,6 @@ import logging
 import os
 
 import dask
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
@@ -13,7 +10,10 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     read_dataset_from_zarr,
     write_ms_to_zarr,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    create_bandpass_table,
+    with_chunks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +73,6 @@ logger = logging.getLogger(__name__)
             nullable=False,
             description="Data Description ID of the data in measurement set",
         ),
-        fave_init=ConfigParam(
-            int,
-            48,
-            description="Frequency averaging",
-        ),
     ),
 )
 def load_data_stage(
@@ -89,7 +84,6 @@ def load_data_stage(
     datacolumn,
     field_id,
     data_desc_id,
-    fave_init,
     _cli_args_,
     _output_dir_,
 ):
@@ -205,29 +199,7 @@ def load_data_stage(
 
     vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
 
-    # Remove autocorrelations
-    # mask = (vis.antenna1 != vis.antenna2).compute()
-    # vis = vis.isel(baselineid=mask)
-
-    # Remove shortest baseline
-    # import numpy as np
-    # vis = vis.isel(baselineid=np.arange(1, len(vis.baselines)))
-
-    # Average data. Won't work without restoring baselines
-    # vis.vis = averaging_frequency(vis, freqstep=fave_init)
-
-    # Create gaintable
-    # gaintable = create_bandpass_table(vis)
-    timeslice = vis.time.data.max() - vis.time.data.min()
-    gaintable = create_gaintable_from_visibility(
-        vis, jones_type="B", timeslice=timeslice
-    )
-    gaintable["interval"].data[0] = timeslice + 1e-5
-
-    # Calculate metadata, needed for mitch's script
-    # ms_path = Path(input_ms)
-    # metadata = pre_calculate_metadata(vis=vis, dataset=ms_path)
-    # upstream_output["metadata"] = metadata
+    gaintable = create_bandpass_table(vis)
 
     upstream_output["vis"] = vis
     upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)

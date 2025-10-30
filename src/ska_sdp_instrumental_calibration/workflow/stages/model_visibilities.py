@@ -135,12 +135,6 @@ def predict_visibilities(
         modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
         upstream_output["beams"] = beams
         upstream_output["vis"] = vis
-    # metadata = upstream_output["metadata"]
-    # jones_eb = beam_model(
-    #     vis=vis,
-    #     metadata=metadata,
-    # )
-    # modelvis, vis = do_centre_correct(modelvis, vis, jones_eb, metadata)
 
     upstream_output["modelvis"] = modelvis
     upstream_output["vis"] = vis

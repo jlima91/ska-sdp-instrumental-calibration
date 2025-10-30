@@ -1372,11 +1372,6 @@ def plot_vis(
     mdlvis,
     path_prefix,
 ):
-    # vis plots
-
-    # If not done earlier, remove central beam response
-
-    corvis = calvis
     stations = vis.configuration.names.data
     ant1 = vis.antenna1.data[vis.antenna1.data != vis.antenna2.data]
     ant2 = vis.antenna2.data[vis.antenna1.data != vis.antenna2.data]
@@ -1476,34 +1471,6 @@ def plot_vis(
             model_fig.legend()
 
     model_fig.savefig(f"{path_prefix}-bbp_model_vis.png")
-
-    ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(corvis.vis.data))
-
-    cal_fig, axs = plt.subplots(
-        2, nbl, figsize=(14, 6), sharex=True, sharey=False
-    )
-    cal_fig.suptitle("Beam-corrected, calibratred vis")
-    for k in range(nbl):
-        tag = f"{stations[ant1[k]]} x {stations[ant2[k]]}"
-        ax = axs[0, k]
-        ax.plot(x, np.abs(corvis.vis.data[0, k, :, 0]), "b", label="XX")
-        ax.plot(x, np.abs(corvis.vis.data[0, k, :, 1]), "c", label="XY")
-        ax.plot(x, np.abs(corvis.vis.data[0, k, :, 2]), "m", label="YX")
-        ax.plot(x, np.abs(corvis.vis.data[0, k, :, 3]), "r", label="YY")
-        ax.grid()
-        ax.set_ylim(ylim_abs)
-        ax.set_title(f"|{tag}|")
-        ax = axs[1, k]
-        ax.plot(x, phase(corvis.vis.data[0, k, :, 0]), "b")
-        ax.plot(x, phase(corvis.vis.data[0, k, :, 1]), "c")
-        ax.plot(x, phase(corvis.vis.data[0, k, :, 2]), "m")
-        ax.plot(x, phase(corvis.vis.data[0, k, :, 3]), "r")
-        ax.grid()
-        ax.set_title(f"{tag} phase")
-        ax.set_xlabel("frequency (MHz)")
-        if k == 0:
-            cal_fig.legend()
-    cal_fig.savefig(f"{path_prefix}-bbp_cal_fig.png")
 
 
 def ecef_to_lla(x, y, z):
