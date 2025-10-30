@@ -6,6 +6,7 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import apply_gaintable_to_dataset
 from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     apply_delay,
     calculate_delay,
@@ -16,6 +17,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     plot_gains,
     plot_gaintable,
     plot_station_delays,
+    plot_vis,
 )
 
 from ...data_managers.data_export import (
@@ -72,6 +74,7 @@ def delay_calibration_stage(
     upstream_output.add_checkpoint_key("gaintable")
     vis = upstream_output["vis"]
     gaintable = upstream_output["gaintable"]
+    modelvis = upstream_output["modelvis"]
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("delay"):
@@ -82,6 +85,7 @@ def delay_calibration_stage(
     gaintable = apply_delay(gaintable, delaytable)
 
     if plot_config["plot_table"]:
+        calvis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         path_prefix = get_plots_path(
             _output_dir_, f"delay{call_counter_suffix}"
         )
@@ -107,6 +111,12 @@ def delay_calibration_stage(
             ),
             plot_station_delays(
                 delaytable,
+                path_prefix,
+            ),
+            plot_vis(
+                vis,
+                calvis,
+                modelvis,
                 path_prefix,
             ),
         )

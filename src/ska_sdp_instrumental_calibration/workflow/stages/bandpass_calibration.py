@@ -150,8 +150,8 @@ def bandpass_calibration_stage(
         **run_solver_config,
     )
 
-    calvis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
     if plot_config["plot_table"]:
+        calvis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         path_prefix = get_plots_path(
             _output_dir_, f"bandpass{call_counter_suffix}"
         )
@@ -171,7 +171,6 @@ def bandpass_calibration_stage(
             ),
             plot_vis(
                 vis,
-                gaintable,
                 calvis,
                 modelvis,
                 path_prefix,

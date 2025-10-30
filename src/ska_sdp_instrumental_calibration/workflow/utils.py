@@ -1413,7 +1413,6 @@ def plot_gains(
 @dask.delayed
 def plot_vis(
     vis,
-    gaintable,
     calvis,
     mdlvis,
     path_prefix,
@@ -1424,7 +1423,7 @@ def plot_vis(
     # If not done earlier, remove central beam response
 
     corvis = calvis
-    station_name = gaintable.configuration.names
+    stations = vis.configuration.names.data
     ant1 = vis.antenna1.data[vis.antenna1.data != vis.antenna2.data]
     ant2 = vis.antenna2.data[vis.antenna1.data != vis.antenna2.data]
     nbl = len(vis.baselines)
@@ -1434,43 +1433,43 @@ def plot_vis(
     # ylim_re = (-31, 31)
     # ylim_im = (-31, 31)
 
-    # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(vis.vis.data))
+    ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(vis.vis.data))
 
     raw_fig, axs = plt.subplots(
         2, nbl, figsize=(14, 6), sharex=True, sharey=False
     )
     raw_fig.suptitle("Raw data")
     for k in range(nbl):
-        # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
+        tag = f"{stations[ant1[k]]} x {stations[ant2[k]]}"
         ax = axs[0, k]
         ax.plot(x, np.abs(vis.vis.data[0, k, :, 0]), "b", label="XX")
         ax.plot(x, np.abs(vis.vis.data[0, k, :, 1]), "c", label="XY")
         ax.plot(x, np.abs(vis.vis.data[0, k, :, 2]), "m", label="YX")
         ax.plot(x, np.abs(vis.vis.data[0, k, :, 3]), "r", label="YY")
         ax.grid()
-        # ax.set_ylim(ylim_abs)
-        # ax.set_title(f"|{tag}|")
+        ax.set_ylim(ylim_abs)
+        ax.set_title(f"|{tag}|")
         ax = axs[1, k]
         ax.plot(x, phase(vis.vis.data[0, k, :, 0]), "b")
         ax.plot(x, phase(vis.vis.data[0, k, :, 1]), "c")
         ax.plot(x, phase(vis.vis.data[0, k, :, 2]), "m")
         ax.plot(x, phase(vis.vis.data[0, k, :, 3]), "r")
         ax.grid()
-        # ax.set_title(f"{tag} phase")
+        ax.set_title(f"{tag} phase")
         ax.set_xlabel("frequency (MHz)")
         if k == 0:
             raw_fig.legend()
 
     raw_fig.savefig(f"{path_prefix}-bbp_raw_vis.png")
 
-    # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(calvis.vis.data))
+    ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(calvis.vis.data))
 
     model_fig, axs = plt.subplots(
         2, nbl, figsize=(14, 6), sharex=True, sharey=False
     )
     model_fig.suptitle("Calibrated vis and EveryBeam-based model")
     for k in range(nbl):
-        # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
+        tag = f"{stations[ant1[k]]} x {stations[ant2[k]]}"
         ax = axs[0, k]
         ax.plot(
             x,
@@ -1505,8 +1504,8 @@ def plot_vis(
         ax.plot(x, np.abs(mdlvis.vis.data[0, k, :, 2]), "m", label="YX model")
         ax.plot(x, np.abs(mdlvis.vis.data[0, k, :, 3]), "r", label="YY model")
         ax.grid()
-        # ax.set_ylim(ylim_abs)
-        # ax.set_title(f"|{tag}|")
+        ax.set_ylim(ylim_abs)
+        ax.set_title(f"|{tag}|")
         ax = axs[1, k]
         ax.plot(x, phase(calvis.vis.data[0, k, :, 0]), "b", alpha=0.3)
         ax.plot(x, phase(calvis.vis.data[0, k, :, 1]), "c", alpha=0.3)
@@ -1517,36 +1516,36 @@ def plot_vis(
         ax.plot(x, phase(mdlvis.vis.data[0, k, :, 2]), "m")
         ax.plot(x, phase(mdlvis.vis.data[0, k, :, 3]), "r")
         ax.grid()
-        # ax.set_title(f"{tag} phase")
+        ax.set_title(f"{tag} phase")
         ax.set_xlabel("frequency (MHz)")
         if k == 0:
             model_fig.legend()
 
     model_fig.savefig(f"{path_prefix}-bbp_model_vis.png")
 
-    # ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(corvis.vis.data))
+    ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(corvis.vis.data))
 
     cal_fig, axs = plt.subplots(
         2, nbl, figsize=(14, 6), sharex=True, sharey=False
     )
     cal_fig.suptitle("Beam-corrected, calibratred vis")
     for k in range(nbl):
-        # tag = f"{station_name[ant1[k]]} x {station_name[ant2[k]]}"
+        tag = f"{stations[ant1[k]]} x {stations[ant2[k]]}"
         ax = axs[0, k]
         ax.plot(x, np.abs(corvis.vis.data[0, k, :, 0]), "b", label="XX")
         ax.plot(x, np.abs(corvis.vis.data[0, k, :, 1]), "c", label="XY")
         ax.plot(x, np.abs(corvis.vis.data[0, k, :, 2]), "m", label="YX")
         ax.plot(x, np.abs(corvis.vis.data[0, k, :, 3]), "r", label="YY")
         ax.grid()
-        # ax.set_ylim(ylim_abs)
-        # ax.set_title(f"|{tag}|")
+        ax.set_ylim(ylim_abs)
+        ax.set_title(f"|{tag}|")
         ax = axs[1, k]
         ax.plot(x, phase(corvis.vis.data[0, k, :, 0]), "b")
         ax.plot(x, phase(corvis.vis.data[0, k, :, 1]), "c")
         ax.plot(x, phase(corvis.vis.data[0, k, :, 2]), "m")
         ax.plot(x, phase(corvis.vis.data[0, k, :, 3]), "r")
         ax.grid()
-        # ax.set_title(f"{tag} phase")
+        ax.set_title(f"{tag} phase")
         ax.set_xlabel("frequency (MHz)")
         if k == 0:
             cal_fig.legend()

@@ -869,4 +869,8 @@ def read_dataset_from_zarr(vis_cache_directory, vis_chunks):
 
     zarr_data = zarr_data.assign({"baselines": baselines})
 
+    # Explictly load antenna1 and antenna2
+    zarr_data.antenna1.load()
+    zarr_data.antenna2.load()
+
     return zarr_data

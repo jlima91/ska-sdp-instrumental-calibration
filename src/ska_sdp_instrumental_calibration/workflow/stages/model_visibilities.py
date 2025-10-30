@@ -86,7 +86,7 @@ def predict_visibilities(
     logger.info(f" - Search radius: {fov/2} deg")
     logger.info(f" - Flux limit: {flux_limit} Jy")
 
-    phase_centre = get_phasecentre(_cli_args_["input"])
+    phase_centre = vis.phasecentre
 
     if gleamfile is not None and lsm_csv_path is not None:
         logger.warning("LSM: GLEAMFILE and CSV provided. Using GLEAMFILE")

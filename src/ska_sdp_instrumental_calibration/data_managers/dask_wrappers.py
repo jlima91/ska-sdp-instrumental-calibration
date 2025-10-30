@@ -402,6 +402,10 @@ def _solve(
         vischunk = restore_baselines_dim(vischunk)
         modelchunk = restore_baselines_dim(modelchunk)
         # Call solver
+        vischunk=vischunk.copy(deep=True)
+        modelchunk=modelchunk.copy(deep=True)
+        gainchunk=gainchunk.copy(deep=True)
+
         solve_bandpass(
             vis=vischunk,
             modelvis=modelchunk,
