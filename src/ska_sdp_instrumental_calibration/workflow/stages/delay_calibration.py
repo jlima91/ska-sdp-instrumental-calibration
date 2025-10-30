@@ -98,10 +98,7 @@ def delay_calibration_stage(
                 path_prefix,
                 figure_title="Delay",
                 fixed_axis=plot_config["fixed_axis"],
-            )
-        )
-
-        upstream_output.add_compute_tasks(
+            ),
             plot_station_delays(
                 delaytable,
                 path_prefix,
@@ -109,10 +106,6 @@ def delay_calibration_stage(
             plot_gains(
                 vis,
                 gaintable,
-                path_prefix,
-            ),
-            plot_station_delays(
-                delaytable,
                 path_prefix,
             ),
             plot_vis(

@@ -954,7 +954,7 @@ def plot_station_delays(delaytable, path_prefix):
     station_name = delaytable.configuration.names.data
     fig.suptitle("Station Delays")
     for idx, ax in enumerate(subfigs[0]):
-        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
+        calibration_delay = np.abs(delaytable.delay.data[0, :, idx]) / 1e-9
         sc = ax.scatter(
             longitude, latitude, c=calibration_delay, cmap="plasma", s=10
         )
@@ -966,10 +966,8 @@ def plot_station_delays(delaytable, path_prefix):
         ax.set_title(delaytable.pol.data[idx])
 
     for idx, ax in enumerate(subfigs[1]):
-        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
-        sc = ax.plot(
-            station_name, calibration_delay.reshape(len(station_name))
-        )
+        calibration_delay = np.abs(delaytable.delay.data[0, :, idx]) / 1e-9
+        sc = ax.plot(station_name, calibration_delay)
         ax.set_xlabel("Stations")
         ax.set_ylabel("Absolute Delay (ns)")
         ax.set_title(delaytable.pol.data[idx])
@@ -1318,15 +1316,14 @@ def phase(z: np.complexfloating[Any, Any]) -> np.floating[Any]:
 
 
 @dask.delayed
+@safe
 def plot_gains(
     vis,
     gaintable,
     path_prefix,
 ):
-    # gain plots
-
     x = vis.frequency.data / 1e6
-    station_name = gaintable.configuration.names.data
+    station_name = vis.configuration.names.data
     stations = station_name.size
 
     fig, axs = plt.subplots(
@@ -1366,6 +1363,7 @@ def plot_gains(
 
 
 @dask.delayed
+@safe
 def plot_vis(
     vis,
     calvis,
@@ -1377,10 +1375,6 @@ def plot_vis(
     ant2 = vis.antenna2.data[vis.antenna1.data != vis.antenna2.data]
     nbl = len(vis.baselines)
     x = vis.frequency.data / 1e6
-
-    # ylim_abs = (-1, 31)
-    # ylim_re = (-31, 31)
-    # ylim_im = (-31, 31)
 
     ylim_abs = np.array([-0.05, 1.05]) * np.max(np.abs(vis.vis.data))
 

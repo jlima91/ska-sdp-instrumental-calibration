@@ -217,6 +217,9 @@ def _predict(
             # should be numpy array after map_blocks
             station_rm = station_rm.data
 
+        # Deep copy vischunk as predict modifes it in-place
+        vischunk = vischunk.copy(deep=True)
+
         # Call predict
         predict_from_components(
             vischunk,
@@ -391,15 +394,17 @@ def _solve(
             raise ValueError("Inconsistent frequencies")
         if np.any(gainchunk.frequency.data != modelchunk.frequency.data):
             raise ValueError("Inconsistent frequencies")
-        # Switch to standard variable names and coords for the SDP call
-        gainchunk = gainchunk.rename({"soln_time": "time"})
+
         vischunk = restore_baselines_dim(vischunk)
         modelchunk = restore_baselines_dim(modelchunk)
-        # Call solver
-        vischunk = vischunk.copy(deep=True)
-        modelchunk = modelchunk.copy(deep=True)
-        gainchunk = gainchunk.copy(deep=True)
 
+        # Pass a deep copy of the gainchunk, since solver_bandpass
+        # mutates it in place
+        gainchunk = gainchunk.copy(deep=True)
+        # Switch to standard variable names and coords for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+
+        # Call solver
         solve_bandpass(
             vis=vischunk,
             modelvis=modelchunk,
@@ -414,6 +419,7 @@ def _solve(
             jones_type=jones_type,
             timeslice=timeslice,
         )
+
         # Change the time dimension name back for map_blocks I/O checks
         gainchunk = gainchunk.rename({"time": "soln_time"})
 
@@ -749,8 +755,13 @@ def _apply(
             raise ValueError("Inconsistent frequencies")
         # Switch back to standard variable names for the SDP call
         gainchunk = gainchunk.rename({"soln_time": "time"})
+
+        # Copy vischunk as apply_gaintable modifies it in-place
+        vischunk = vischunk.copy(deep=True)
+
         # Call apply function
         vischunk = apply_gaintable(vis=vischunk, gt=gainchunk, inverse=inverse)
+
     return vischunk
 
 
