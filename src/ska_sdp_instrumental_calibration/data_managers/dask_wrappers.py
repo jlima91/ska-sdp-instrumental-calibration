@@ -38,9 +38,6 @@ import dask.array as da
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
-from astropy.coordinates import AltAz
-from astropy.time import Time
-from casacore.tables import table
 
 # avoid ska_sdp_datamodels/visibility/vis_model.py:201: FutureWarning: the
 # `pandas.MultiIndex` object(s) passed as 'baselines' coordinate(s) or data
@@ -50,9 +47,6 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.beams import (
-    GenericBeams,
-)
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
     solve_bandpass,
