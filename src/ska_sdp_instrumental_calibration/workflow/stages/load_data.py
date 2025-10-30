@@ -1,12 +1,10 @@
 import logging
 import os
-from pathlib import Path
 
 import dask
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
@@ -15,11 +13,7 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     read_dataset_from_zarr,
     write_ms_to_zarr,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_bandpass_table,
-    pre_calculate_metadata,
-    with_chunks,
-)
+from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
 logger = logging.getLogger(__name__)
 

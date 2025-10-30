@@ -263,14 +263,18 @@ def predict_from_components(
             response = rot_array
 
         # Accumulate component in the main dataset
-        vis.vis.data = vis.vis.data + (
-            np.einsum(  # pylint: disable=too-many-function-args
-                "bfpx,tbfxy,bfqy->tbfpq",
-                response[compvis.antenna1.data, :, :, :],
-                compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
-                response[compvis.antenna2.data, :, :, :].conj(),
-            ).reshape(vis.vis.shape)
-        ) * np.cos(theta) ** 2
+        vis.vis.data = (
+            vis.vis.data
+            + (
+                np.einsum(  # pylint: disable=too-many-function-args
+                    "bfpx,tbfxy,bfqy->tbfpq",
+                    response[compvis.antenna1.data, :, :, :],
+                    compvis.vis.data.reshape(vis.vis.shape[:3] + (2, 2)),
+                    response[compvis.antenna2.data, :, :, :].conj(),
+                ).reshape(vis.vis.shape)
+            )
+            * np.cos(theta) ** 2
+        )
 
     # clean up component data
     del compvis

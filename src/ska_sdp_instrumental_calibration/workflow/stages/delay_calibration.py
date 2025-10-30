@@ -6,7 +6,9 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import apply_gaintable_to_dataset
+from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
+    apply_gaintable_to_dataset,
+)
 from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     apply_delay,
     calculate_delay,

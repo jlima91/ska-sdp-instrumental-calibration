@@ -13,12 +13,6 @@ from ...processing_tasks.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
-from ..utils import (
-    beam_model,
-    do_centre_correct,
-    get_phasecentre,
-    pre_calculate_metadata,
-)
 from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()

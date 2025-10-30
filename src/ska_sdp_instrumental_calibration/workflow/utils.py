@@ -1207,7 +1207,6 @@ def beam_model(
     vis: Visibility,
     metadata: MetaData,
 ) -> npt.NDArray[np.complex128]:
-    # ============================================================================ #
     # field centre beam model
 
     jones_eb = np.zeros(
@@ -1241,7 +1240,6 @@ def pre_calculate_metadata(
     dataset: Path,
     vis: Visibility,
 ) -> MetaData:
-    # ============================================================================ #
     # pre-calculate some metadata for later
 
     location: EarthLocation = vis.configuration.location
@@ -1259,7 +1257,8 @@ def pre_calculate_metadata(
     altaz = vis.phasecentre.transform_to(
         AltAz(obstime=time, location=location)
     )
-    # these are used in beam models and should be done separately for each station location
+    # these are used in beam models and should be
+    # done separately for each station location
     # for our purposes though, just use a common location
     theta = np.pi / 2 - altaz.alt.radian
     cos_term = np.cos(theta)
@@ -1324,7 +1323,6 @@ def plot_gains(
     gaintable,
     path_prefix,
 ):
-    # ============================================================================ #
     # gain plots
 
     x = vis.frequency.data / 1e6
@@ -1374,7 +1372,6 @@ def plot_vis(
     mdlvis,
     path_prefix,
 ):
-    # ============================================================================ #
     # vis plots
 
     # If not done earlier, remove central beam response
