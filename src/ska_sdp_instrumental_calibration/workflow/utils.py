@@ -756,7 +756,8 @@ def subplot_gaintable(
             ),
         ).set_xlabel("Frequency [MHz]")
         phase_ax.set_ylabel("Phase (degree)")
-        phase_ax.set_ylim([-180, 180])
+        if fixed_axis:
+            phase_ax.set_ylim([-180, 180])
 
         for pol_idx, phase_pols in enumerate(phase.T):
             phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
@@ -888,7 +889,7 @@ def plot_curve_fit(
                     ),
                 ).set_xlabel("Frequency [MHz]")
 
-                phase_ax.set_ylim([-180, 180])
+                # phase_ax.set_ylim([-180, 180])
                 pol = pol_groups[grp_idx, lbl_idx]
                 if pol in pol_labels:
                     pol_idx = list(pol_labels).index(pol)
