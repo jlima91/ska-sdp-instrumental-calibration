@@ -13,6 +13,7 @@ def test_target_calibration_pipeline_definition():
         target_calibration.load_data_stage,
         target_calibration.predict_vis_stage,
         target_calibration.complex_gain_calibration_stage,
+        target_calibration.ionospheric_delay_stage,
         export_gaintable_stage,
     ]
     assert pipeline.name == "ska_sdp_instrumental_target_calibration"

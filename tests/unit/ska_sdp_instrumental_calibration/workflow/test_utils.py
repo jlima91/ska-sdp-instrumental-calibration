@@ -6,6 +6,7 @@ from numpy import array, testing
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_path_tree,
+    create_solint_slices,
     ecef_to_lla,
     get_gaintables_path,
     get_plots_path,
@@ -677,3 +678,25 @@ def test_should_get_visibilities_path(create_path_tree_mock):
     )
 
     assert result == "/output/visibilities/prefix"
+
+
+def test_should_create_timeslices():
+    data = np.arange(10)
+    time_data = xr.DataArray(data, coords={"time": data}, dims=["time"])
+
+    time_slices = create_solint_slices(time_data, 3)
+
+    expected_time_slices = [
+        xr.DataArray(data[:4], coords={"time": data[:4]}, dims=["time"]),
+        xr.DataArray(data[4:7], coords={"time": data[4:7]}, dims=["time"]),
+        xr.DataArray(data[7:], coords={"time": data[7:]}, dims=["time"]),
+    ]
+
+    for i in range(len(time_slices)):
+        assert time_slices[i].equals(expected_time_slices[i])
+
+    time_slice_indexes = create_solint_slices(
+        time_data, 3, return_indexes=True
+    )
+
+    assert list(time_slice_indexes) == [[0, 1, 2, 3], [4, 5, 6], [7, 8, 9]]

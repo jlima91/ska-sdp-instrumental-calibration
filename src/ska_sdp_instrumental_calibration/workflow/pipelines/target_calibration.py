@@ -10,6 +10,7 @@ from ska_sdp_instrumental_calibration.workflow.stages import (
 
 scheduler = DefaultScheduler()
 
+
 ska_sdp_instrumental_target_calibration = Pipeline(
     "ska_sdp_instrumental_target_calibration",
     stages=Stages(
@@ -17,6 +18,7 @@ ska_sdp_instrumental_target_calibration = Pipeline(
             target_calibration.load_data_stage,
             target_calibration.predict_vis_stage,
             target_calibration.complex_gain_calibration_stage,
+            target_calibration.ionospheric_delay_stage,
             export_gaintable_stage,
         ]
     ),

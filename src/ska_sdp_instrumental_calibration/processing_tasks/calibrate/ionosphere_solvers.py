@@ -3,6 +3,7 @@ import logging
 import dask
 import dask.array as da
 import numpy as np
+import xarray as xr
 from astropy import constants as const
 from ska_sdp_func_python.calibration.ionosphere_solvers import (
     get_param_count,
@@ -12,6 +13,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
+    create_solint_slices,
 )
 
 log = logging.getLogger("func-python-logger")
@@ -86,6 +88,58 @@ class IonosphericSolver:
         If model visibilities are all zero or if polarisations are unsupported.
     """
 
+    @staticmethod
+    def solve_calibrator(
+        vis,
+        modelvis,
+        cluster_indexes=None,
+        block_diagonal=False,
+        niter=15,
+        tol=1e-6,
+        zernike_limit=None,
+    ):
+        gaintable = create_bandpass_table(vis)
+        solver = IonosphericSolver(
+            vis,
+            modelvis,
+            cluster_indexes,
+            block_diagonal,
+            niter,
+            tol,
+            zernike_limit,
+        )
+        return solver.solve(gaintable)
+
+    @staticmethod
+    def solve_target(
+        vis,
+        modelvis,
+        timeslice,
+        cluster_indexes=None,
+        block_diagonal=False,
+        niter=15,
+        tol=1e-6,
+        zernike_limit=None,
+    ):
+
+        return xr.concat(
+            [
+                IonosphericSolver.solve_calibrator(
+                    vis.isel(time=t_slice),
+                    modelvis.isel(time=t_slice),
+                    cluster_indexes,
+                    block_diagonal,
+                    niter,
+                    tol,
+                    zernike_limit,
+                )
+                for t_slice in create_solint_slices(
+                    vis.time, timeslice, return_indexes=True
+                )
+            ],
+            dim="time",
+        )
+
     def __init__(
         self,
         vis,
@@ -126,7 +180,6 @@ class IonosphericSolver:
         self.tol = tol
         self.zernike_limit = zernike_limit
 
-        self._vis = vis
         self.vis = vis.vis.isel(time=0)
         self.weight = vis.weight.isel(time=0)
         self.flags = vis.flags.isel(time=0)
@@ -144,7 +197,7 @@ class IonosphericSolver:
             / vis.frequency.data
         )
 
-    def solve(self):
+    def solve(self, gaintable=None):
         """
         Execute the ionospheric phase screen solver.
 
@@ -152,6 +205,11 @@ class IonosphericSolver:
         parameters and coefficients, iteratively updates them by solving the
         normal equations, and finally constructs a gain table representing
         the solved phase screen.
+
+        Parameters
+        ----------
+        gaintable: xarray.Dataset
+            Input gaintable. Default None
 
         Returns
         -------
@@ -163,7 +221,6 @@ class IonosphericSolver:
         ValueError
             If the `cluster_indexes` array has an incorrect size.
         """
-        gaintable = create_bandpass_table(self._vis)
         if self.cluster_indexes is None:
             self.cluster_indexes = np.zeros(len(gaintable.antenna), "int")
 

@@ -5,8 +5,8 @@ import numpy as np
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
+from ska_sdp_instrumental_calibration.data_managers.data_export import (
+    export_gaintable_to_h5parm,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
@@ -15,8 +15,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     with_chunks,
 )
 
-from ...data_managers.data_export import export_gaintable_to_h5parm
-from ...processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
+from ....processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
 
 logger = logging.getLogger()
 
@@ -24,6 +23,21 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "ionospheric_delay",
     configuration=Configuration(
+        timeslice=ConfigParam(
+            float,
+            3.0,
+            description="""Defines time scale over which each gain solution
+                is valid. This is used to define time axis of the GainTable.
+                This parameter is interpreted as follows,
+
+                float: this is a custom time interval in seconds.
+                Input timestamps are grouped by intervals of this duration,
+                and said groups are separately averaged to produce
+                the output time axis.
+
+                ``None``: match the time resolution of the input, i.e. copy
+                the time axis of the input Visibility""",
+        ),
         cluster_indexes=ConfigParam(
             list,
             None,
@@ -44,7 +58,7 @@ logger = logging.getLogger()
         ),
         niter=ConfigParam(
             int,
-            500,
+            10,
             description="""Number of solver iterations.""",
             nullable=False,
         ),
@@ -71,14 +85,14 @@ logger = logging.getLogger()
         ),
         export_gaintable=ConfigParam(
             bool,
-            False,
+            True,
             description="Export intermediate gain solutions.",
-            nullable=False,
         ),
     ),
 )
 def ionospheric_delay_stage(
     upstream_output,
+    timeslice,
     cluster_indexes,
     block_diagonal,
     niter,
@@ -101,6 +115,17 @@ def ionospheric_delay_stage(
     ----------
     upstream_output : UpstreamOutput
         Output from upstream stage
+    timeslice : float
+        Defines time scale over which each gain solution is valid.
+        This is used to define time axis of the GainTable. This
+        parameter is interpreted as follows,
+        float: this is a custom time interval in seconds. Input
+        timestamps are grouped by intervals of this duration,
+        and said groups are separately averaged to produce the
+        output time axis.
+
+        `None`: match the time resolution of the input, i.e. copy
+        the time axis of the input Visibility
     cluster_indexes : list or numpy.ndarray, optional
         An array of integers assigning each antenna to a specific cluster.
         If None, all antennas are treated as a single cluster (default: None).
@@ -120,7 +145,7 @@ def ionospheric_delay_stage(
         Plot all station Phase vs Frequency (default: False).
     export_gaintable : bool, optional
         If True, the computed gain table is saved to an H5parm file in the
-        specified output directory (default: False).
+        specified output directory (default: True).
     _output_dir_ : str, optional
         Directory path where the output file will be written.
 
@@ -130,6 +155,7 @@ def ionospheric_delay_stage(
         The modified upstream_output object, with the vis attribute
         updated to include the applied ionospheric corrections.
     """
+
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
@@ -138,9 +164,10 @@ def ionospheric_delay_stage(
     modelvis = upstream_output.modelvis
     vis_chunks = upstream_output.chunks
 
-    gaintable = IonosphericSolver.solve_calibrator(
+    gaintable = IonosphericSolver.solve_target(  # pylint: disable=E1121
         vis,
         modelvis,
+        timeslice,
         cluster_indexes,
         block_diagonal,
         niter,
@@ -150,8 +177,8 @@ def ionospheric_delay_stage(
 
     gaintable = gaintable.pipe(with_chunks, vis_chunks)
 
-    vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
-    upstream_output["vis"] = vis
+    # vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
+    # upstream_output["vis"] = vis
 
     if plot_table:
         path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")

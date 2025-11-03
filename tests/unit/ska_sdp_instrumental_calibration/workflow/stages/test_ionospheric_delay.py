@@ -35,8 +35,7 @@ def test_solver_runs_and_applies_correction(
     mock_gaintable = MagicMock(name="gaintable")
     mock_corrected_vis = MagicMock(name="corrected_vis")
     chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
-    mock_solver_instance = MockIonosphericSolver.return_value
-    mock_solver_instance.solve.return_value = mock_gaintable
+    MockIonosphericSolver.solve_calibrator.return_value = mock_gaintable
     mock_gaintable.pipe.return_value = chunked_mock_gaintable
     mock_apply_gaintable.return_value = mock_corrected_vis
 
@@ -52,7 +51,7 @@ def test_solver_runs_and_applies_correction(
         _output_dir_="OUTPUT_DIR",
     )
 
-    MockIonosphericSolver.assert_called_once_with(
+    MockIonosphericSolver.solve_calibrator.assert_called_once_with(
         mock_upstream_output.vis,
         mock_upstream_output.modelvis,
         ANY,
@@ -62,10 +61,8 @@ def test_solver_runs_and_applies_correction(
         None,
     )
 
-    called_args, _ = MockIonosphericSolver.call_args
+    called_args, _ = MockIonosphericSolver.solve_calibrator.call_args
     np.testing.assert_array_equal(called_args[2], np.array([0, 1, 0, 1]))
-
-    mock_solver_instance.solve.assert_called_once()
 
     mock_gaintable.pipe.assert_called_once_with(
         with_chunks, mock_upstream_output.chunks
@@ -127,9 +124,8 @@ def test_gaintable_export_is_triggered(
     """
     Tests that enabling `export_gaintable` correctly adds a Dask task.
     """
-    mock_solver_instance = MockIonosphericSolver.return_value
     mock_gaintable = MagicMock(name="gaintable_to_export")
-    mock_solver_instance.solve.return_value = mock_gaintable
+    MockIonosphericSolver.solve_calibrator.return_value = mock_gaintable
     mock_gaintable.pipe.return_value = mock_gaintable
 
     ionospheric_delay_stage.stage_definition(
