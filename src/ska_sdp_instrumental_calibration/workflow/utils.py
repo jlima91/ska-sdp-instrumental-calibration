@@ -1183,19 +1183,18 @@ class MetaData(NamedTuple):
 
 
 def get_vis_data(
-    dataset: Path, fave_init: int = 4, baselines_to_remove: list[int] = None
+    dataset: Path,
+    fave_init: int = None,
+    baselines_to_remove: list[int] = None,
+    rfi_flagger_params: dict = None,
 ) -> Visibility:
-    # ============================================================================ #
-    # vis data
-
-    # set up some averaging intervals (for test.ms, x36 = 781.25 kHz CBF coarse channel)
-    #  - initial averaging on input
-
+    # read visibilities
     vis: Visibility = create_visibility_from_ms(dataset.as_posix())[0]
 
     # crop and clean the data a bit
     #  - get rid of autos
     vis = vis.isel(baselines=(vis.antenna1 != vis.antenna2))
+
     #  - get rid of the short baseline
     #  - could just flag...
     if baselines_to_remove:
@@ -1204,16 +1203,16 @@ def get_vis_data(
             - set(np.array(baselines_to_remove))
         )
         vis = vis.isel(baselines=baselines_to_select)
+
     #  - flag before downsampling?
-    vis = rfi_flagger(
-        vis,
-        sampling=1,
-        threshold_magnitude=5,
-        threshold_variation=5,
-        threshold_broadband=5,
-    )
+    if rfi_flagger_params:
+        vis = rfi_flagger(
+            vis,
+            **rfi_flagger_params,
+        )
+
     #  - downsample frequency
-    if fave_init > 1:
+    if fave_init and fave_init > 1:
         vis = averaging_frequency(vis, freqstep=fave_init)
     #  - the ms has ant2 <= ant, and create_visibility_from_ms will reorder
     #  - however, it conjugates but does not transpose. So do that now

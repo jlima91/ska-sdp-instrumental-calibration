@@ -3,7 +3,11 @@ import os
 from pathlib import Path
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.configurations import (
+    ConfigParam,
+    Configuration,
+    NestedConfigParam,
+)
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
@@ -81,16 +85,31 @@ logger = logging.getLogger(__name__)
         ),
         fave_init=ConfigParam(
             int,
-            4,
-            nullable=False,
+            48,
+            nullable=True,
             description="Initial averaging on input. Will average the data only"
             "this value is greater than 1.",
         ),
         baselines_to_remove=ConfigParam(
             list,
-            None,
+            [0],
             nullable=True,
-            description="Baseline ids to remove from the input visibility",
+            description="Baseline ids to remove from the input visibility. "
+            "If None, will not remove any baselines.",
+        ),
+        rfi_flagger_params=ConfigParam(
+            dict,
+            {
+                "sampling": 1,
+                "threshold_magnitude": 5,
+                "threshold_variation": 5,
+                "threshold_broadband": 5,
+            },
+            nullable=True,
+            description="Parameters of the RFI flagger. "
+            "Accepts all parameters accepted by rfi_flagger stage. "
+            "If set to null or empty dictionary, INST will not perform "
+            "RFI flagging on the input data.",
         ),
     ),
 )
@@ -105,6 +124,7 @@ def load_data_stage(
     data_desc_id,
     fave_init,
     baselines_to_remove,
+    rfi_flagger_params,
     _cli_args_,
     _output_dir_,
 ):
@@ -147,6 +167,13 @@ def load_data_stage(
         Data Description ID of the data in measurement set
     fave_init: int
         Initial averaging on input
+    baselines_to_remove: list
+        Baseline ids to remove from the input visibility.
+        If None, will not remove any baselines
+    rfi_flagger_params: dict
+        Parameters of the RFI flagger. Accepts all parameters accepted
+        by rfi_flagger stage. If set to null or empty dictionary,
+        INST will not perform RFI flagging on the input data.
     _cli_args_: dict
         Piper builtin. Contains all CLI Arguments.
     _output_dir_: str
@@ -212,6 +239,7 @@ def load_data_stage(
             dataset=Path(input_ms),
             fave_init=fave_init,
             baselines_to_remove=baselines_to_remove,
+            rfi_flagger_params=rfi_flagger_params,
         )
         vis = simplify_baselines_dim(vis)
 
