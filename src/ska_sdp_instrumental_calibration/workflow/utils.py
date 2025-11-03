@@ -58,6 +58,8 @@ from ska_sdp_datamodels.visibility.vis_io_ms import (
     create_visibility_from_ms,
     export_visibility_to_ms,
 )
+from ska_sdp_func_python.preprocessing.averaging import averaging_frequency
+from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -1178,6 +1180,47 @@ class MetaData(NamedTuple):
     beam_itrf: npt.NDArray[np.floating[Any]]
     ant1: npt.NDArray[np.integer[Any]]
     ant2: npt.NDArray[np.integer[Any]]
+
+
+def get_vis_data(
+    dataset: Path, fave_init: int = 4, baselines_to_remove: list[int] = None
+) -> Visibility:
+    # ============================================================================ #
+    # vis data
+
+    # set up some averaging intervals (for test.ms, x36 = 781.25 kHz CBF coarse channel)
+    #  - initial averaging on input
+
+    vis: Visibility = create_visibility_from_ms(dataset.as_posix())[0]
+
+    # crop and clean the data a bit
+    #  - get rid of autos
+    vis = vis.isel(baselines=(vis.antenna1 != vis.antenna2))
+    #  - get rid of the short baseline
+    #  - could just flag...
+    if baselines_to_remove:
+        baselines_to_select = list(
+            set(np.arange(len(vis.baselines)))
+            - set(np.array(baselines_to_remove))
+        )
+        vis = vis.isel(baselines=baselines_to_select)
+    #  - flag before downsampling?
+    vis = rfi_flagger(
+        vis,
+        sampling=1,
+        threshold_magnitude=5,
+        threshold_variation=5,
+        threshold_broadband=5,
+    )
+    #  - downsample frequency
+    if fave_init > 1:
+        vis = averaging_frequency(vis, freqstep=fave_init)
+    #  - the ms has ant2 <= ant, and create_visibility_from_ms will reorder
+    #  - however, it conjugates but does not transpose. So do that now
+    #  - this should not be needed in inst-cal with the new MSv4 interface
+    vis.vis.data[:, :, :, [0, 1, 2, 3]] = vis.vis.data[:, :, :, [0, 2, 1, 3]]
+
+    return vis
 
 
 def radec_to_xyz(
