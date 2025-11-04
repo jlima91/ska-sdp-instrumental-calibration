@@ -3,11 +3,7 @@ import os
 from pathlib import Path
 
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
+from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
@@ -17,7 +13,6 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
     read_dataset_from_zarr,
     write_dataset_to_zarr,
-    write_ms_to_zarr,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
@@ -87,8 +82,9 @@ logger = logging.getLogger(__name__)
             int,
             48,
             nullable=True,
-            description="Initial averaging on input. Will average the data only"
-            "this value is greater than 1.",
+            description="Number of frequency channels by which to average "
+            "on input visibilities. If null or less than 1, INST will not "
+            "perform any averaging.",
         ),
         baselines_to_remove=ConfigParam(
             list,
@@ -166,7 +162,9 @@ def load_data_stage(
     data_desc_id: int
         Data Description ID of the data in measurement set
     fave_init: int
-        Initial averaging on input
+        Number of frequency channels by which to average
+        on input visibilities. If null or less than 1, INST will not
+        perform any averaging.
     baselines_to_remove: list
         Baseline ids to remove from the input visibility.
         If None, will not remove any baselines
@@ -223,7 +221,8 @@ def load_data_stage(
 
     vis_cache_directory = os.path.join(
         cache_directory,
-        f"{os.path.basename(input_ms)}_fid{field_id}_ddid{data_desc_id}_fave{fave_init}",
+        f"{os.path.basename(input_ms)}_"
+        f"fid{field_id}_ddid{data_desc_id}_fave{fave_init}",
     )
     os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
