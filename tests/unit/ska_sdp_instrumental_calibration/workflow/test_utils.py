@@ -251,8 +251,9 @@ def test_should_create_amp_vs_freq_plot_for_all_stations(
 
 
 @patch("ska_sdp_instrumental_calibration.workflow.utils.plt")
+@patch("ska_sdp_instrumental_calibration.workflow.utils.XDim_Frequency")
 @patch("ska_sdp_instrumental_calibration.workflow.utils.np")
-def test_should_create_subplots(numpy_mock, plt_mock):
+def test_should_create_subplots(numpy_mock, x_dim_freq_mock, plt_mock):
     n_rows = 2
     n_cols = 2
     figure_title = "figure title"
@@ -294,11 +295,11 @@ def test_should_create_subplots(numpy_mock, plt_mock):
     frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.pol.values = ["J_XX", "J_YY"]
-    gaintable_mock.gain.isel.return_value = gain_mock
     gaintable_mock.stack.return_value = gaintable_mock
+    x_dim_freq_mock.data.return_value = ([1, 2], frequency_mock)
+    x_dim_freq_mock.gain.return_value = gain_mock
     numpy_mock.abs.return_value = amp_mock
     numpy_mock.angle.return_value = phase_mock
-    numpy_mock.arange.return_value = [1, 2]
     amp_mock.T = transposed_data
     phase_mock.T = transposed_data
     plt_mock.figure.return_value = fig_mock
@@ -322,90 +323,15 @@ def test_should_create_subplots(numpy_mock, plt_mock):
         n_cols,
         figure_title,
         False,
+        x_dim=x_dim_freq_mock,
     )
+
+    x_dim_freq_mock.data.assert_called_once_with(gaintable_mock)
 
     plt_mock.figure.assert_called_once_with(
         layout="constrained", figsize=(18, 18)
     )
     fig_mock.subfigures.assert_called_once_with(2, 2)
-
-    gaintable_mock.gain.isel.assert_has_calls(
-        [
-            call(time=0, antenna=1),
-            call(time=0, antenna=2),
-            call(time=0, antenna=3),
-            call(time=0, antenna=4),
-        ]
-    )
-
-    numpy_mock.interp.assert_has_calls(
-        [
-            call(
-                1,
-                [
-                    1,
-                    2,
-                ],
-                frequency_mock,
-            ),
-            call(
-                1,
-                frequency_mock,
-                [
-                    1,
-                    2,
-                ],
-            ),
-            call(
-                1,
-                [
-                    1,
-                    2,
-                ],
-                frequency_mock,
-            ),
-            call(
-                1,
-                frequency_mock,
-                [
-                    1,
-                    2,
-                ],
-            ),
-            call(
-                1,
-                [
-                    1,
-                    2,
-                ],
-                frequency_mock,
-            ),
-            call(
-                1,
-                frequency_mock,
-                [
-                    1,
-                    2,
-                ],
-            ),
-            call(
-                1,
-                [
-                    1,
-                    2,
-                ],
-                frequency_mock,
-            ),
-            call(
-                1,
-                frequency_mock,
-                [
-                    1,
-                    2,
-                ],
-            ),
-        ]
-    )
 
     numpy_mock.abs.assert_has_calls(
         [call(gain_mock), call(gain_mock), call(gain_mock), call(gain_mock)]
@@ -438,12 +364,13 @@ def test_should_create_subplots(numpy_mock, plt_mock):
         ]
     )
 
-    amp_axis_mock.set_xlabel.assert_has_calls(
-        [call("Channel"), call("Channel"), call("Channel"), call("Channel")]
-    )
-
-    amp_axis_mock.set_xlabel.assert_has_calls(
-        [call("Channel"), call("Channel"), call("Channel"), call("Channel")]
+    x_dim_freq_mock.x_axis.assert_has_calls(
+        [
+            call(amp_axis_mock, phase_axis_mock, frequency_mock),
+            call(amp_axis_mock, phase_axis_mock, frequency_mock),
+            call(amp_axis_mock, phase_axis_mock, frequency_mock),
+            call(amp_axis_mock, phase_axis_mock, frequency_mock),
+        ]
     )
 
     phase_axis_mock.set_ylabel.assert_has_calls(

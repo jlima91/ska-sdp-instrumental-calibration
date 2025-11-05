@@ -1,5 +1,4 @@
 import logging
-import os
 
 import dask
 from ska_sdp_datamodels.calibration.calibration_create import (
@@ -19,8 +18,12 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibrate import (
     target_solver,
 )
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
+from ska_sdp_instrumental_calibration.workflow.plot_x_dim import XDim_Time
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    get_gaintables_path,
+    get_plots_path,
     parse_reference_antenna,
+    plot_gaintable,
     with_chunks,
 )
 
@@ -112,6 +115,21 @@ logger = logging.getLogger()
                 the time axis of the input Visibility""",
             ),
         ),
+        plot_config=NestedConfigParam(
+            "Plot parameters",
+            plot_table=ConfigParam(
+                bool,
+                False,
+                description="Plot the generated gaintable",
+                nullable=False,
+            ),
+            fixed_axis=ConfigParam(
+                bool,
+                False,
+                description="Limit amplitude axis to [0-1]",
+                nullable=False,
+            ),
+        ),
         visibility_key=ConfigParam(
             str,
             "vis",
@@ -129,6 +147,7 @@ logger = logging.getLogger()
 def complex_gain_calibration_stage(
     upstream_output: UpstreamOutput,
     run_solver_config,
+    plot_config,
     visibility_key,
     export_gaintable,
     _output_dir_,
@@ -144,6 +163,9 @@ def complex_gain_calibration_stage(
               same as visibility_key
         run_solver_config: dict
             Run solver config for target calibration
+        plot_config: dict
+            Configuration required for plotting.
+            eg: {{plot_table: False, fixed_axis: False}}
         visibility_key: str
             Visibility data to be used for calibration.
         export_gaintable: bool
@@ -176,10 +198,6 @@ def complex_gain_calibration_stage(
         refant, initial_gaintable
     )
 
-    call_counter_suffix = ""
-    if call_count := upstream_output.get_call_count("complex_gain"):
-        call_counter_suffix = f"_{call_count}"
-
     gaintable = target_solver.run_solver(
         vis=vis,
         modelvis=modelvis,
@@ -187,9 +205,22 @@ def complex_gain_calibration_stage(
         **run_solver_config,
     )
 
+    if plot_config["plot_table"]:
+        path_prefix = get_plots_path(_output_dir_, "complex_gain")
+
+        upstream_output.add_compute_tasks(
+            plot_gaintable(
+                gaintable,
+                path_prefix,
+                figure_title="Complex Gain",
+                fixed_axis=plot_config["fixed_axis"],
+                x_dim=XDim_Time,
+            )
+        )
+
     if export_gaintable:
-        gaintable_file_path = os.path.join(
-            _output_dir_, f"complex_gain{call_counter_suffix}.gaintable.h5parm"
+        gaintable_file_path = get_gaintables_path(
+            _output_dir_, "complex_gain.gaintable.h5parm"
         )
 
         upstream_output.add_compute_tasks(
@@ -199,5 +230,4 @@ def complex_gain_calibration_stage(
         )
 
     upstream_output["gaintable"] = gaintable
-    upstream_output.increment_call_count("complex_gain")
     return upstream_output

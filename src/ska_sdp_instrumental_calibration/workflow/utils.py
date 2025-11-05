@@ -68,6 +68,8 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
 
+from .plot_x_dim import XDim_Frequency
+
 matplotlib.use("Agg")
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -93,18 +95,6 @@ def safe(func):
             print_exc()
 
     return wrapper
-
-
-def channel_frequency_mapper(frequency, reverse=False):
-
-    if reverse:
-        return lambda freq: np.interp(
-            freq, frequency, np.arange(len(frequency))
-        )
-
-    return lambda channel: np.interp(
-        channel, np.arange(len(frequency)), frequency
-    )
 
 
 def create_demo_ms(
@@ -536,6 +526,7 @@ def plot_gaintable(
     all_station_plot=False,
     drop_cross_pols=False,
     phase_only=False,
+    x_dim=XDim_Frequency,
 ):
     """
     Plots the gaintable.
@@ -554,6 +545,12 @@ def plot_gaintable(
             Create all station amp vs freq plot.
         drop_cross_pols: bool
             Do not plot cross polarizations
+        phase_only: bool
+            Plot only phases. Useful for phase only calibrations
+            Default: False
+        x_dim: plot_x_dim.XDim
+            Plot choice for X dimension. [XDim_Frequency, XDim_Time]
+            Default: XDim_Frequency
     """
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
@@ -586,6 +583,7 @@ def plot_gaintable(
             figure_title=figure_title,
             fixed_axis=fixed_axis,
             phase_only=phase_only,
+            x_dim=x_dim,
         )
 
 
@@ -688,6 +686,7 @@ def subplot_gaintable(
     figure_title="",
     fixed_axis=False,
     phase_only=False,
+    x_dim=XDim_Frequency,
 ):
     """
     Plots the Amp vs frequency and Phase vs frequency plots
@@ -711,9 +710,12 @@ def subplot_gaintable(
             Limit amplitude axis values to [0,1]
         phase_only: bool
             Plot phases only. (Default: False)
+        x_dim: XDim, [XDim_Frequency, XDim_Time]
+            Dimension to plot on x axis.
+            Default: XDim_Frequency
     """
-    frequency = gaintable.frequency / 1e6
-    channel = np.arange(len(frequency))
+    x_data, x_support = x_dim.data(gaintable)
+
     label = gaintable.pol.values
     station_names = stations.values
 
@@ -724,38 +726,31 @@ def subplot_gaintable(
     for idx, subfig in enumerate(subfigs):
         if idx >= stations.size:
             break
-        gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
+        gain = x_dim.gain(gaintable, antenna=stations.id[idx])
         amplitude = np.abs(gain)
         phase = np.angle(gain, deg=True)
 
         if phase_only:
             phase_ax = subfig.subplots(1, 1)
-            phase_ax.set_xlabel("Channel")
+            x_dim.x_axis(phase_ax, phase_ax, x_support)
             primary_axes = phase_ax or primary_axes
 
         else:
             phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
             primary_axes = amp_ax or primary_axes
             amp_ax.set_ylabel("Amplitude")
-            amp_ax.set_xlabel("Channel")
+            x_dim.x_axis(amp_ax, phase_ax, x_support)
             if fixed_axis:
                 amp_ax.set_ylim([0, 1])
 
             for pol_idx, amp_pol in enumerate(amplitude.T):
-                amp_ax.scatter(channel, amp_pol, label=label[pol_idx])
+                amp_ax.scatter(x_data, amp_pol, label=label[pol_idx])
 
-        phase_ax.secondary_xaxis(
-            "top",
-            functions=(
-                channel_frequency_mapper(frequency),
-                channel_frequency_mapper(frequency, reverse=True),
-            ),
-        ).set_xlabel("Frequency [MHz]")
         phase_ax.set_ylabel("Phase (degree)")
         phase_ax.set_ylim([-180, 180])
 
         for pol_idx, phase_pols in enumerate(phase.T):
-            phase_ax.scatter(channel, phase_pols, label=label[pol_idx])
+            phase_ax.scatter(x_data, phase_pols, label=label[pol_idx])
 
         subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
 
@@ -822,9 +817,8 @@ def plot_curve_fit(
 
     gain = gaintable.gain.isel(time=0)
 
-    frequency = gaintable.frequency / 1e6
-    channel = np.arange(len(frequency))
     pol_labels = gaintable.pol.values
+    channel, frequency = XDim_Frequency.data(gaintable)
 
     pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
         -1, 2
@@ -874,15 +868,8 @@ def plot_curve_fit(
                 amp_ax = axes[1, grp_idx]
                 amp_ax.set_ylabel("Amplitude")
                 phase_ax.set_ylabel("Phase (degree)")
-                amp_ax.set_xlabel("Channel")
 
-                phase_ax.secondary_xaxis(
-                    "top",
-                    functions=(
-                        channel_frequency_mapper(frequency),
-                        channel_frequency_mapper(frequency, reverse=True),
-                    ),
-                ).set_xlabel("Frequency [MHz]")
+                XDim_Frequency.x_axis(amp_ax, phase_ax, frequency)
 
                 phase_ax.set_ylim([-180, 180])
                 pol = pol_groups[grp_idx, lbl_idx]
