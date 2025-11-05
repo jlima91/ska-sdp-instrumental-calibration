@@ -30,12 +30,12 @@ class XDim_Frequency(XDim):
 
     Attributes
     ----------
-    dim : str
+    label : str
         The name of the dimension, set to "frequency".
 
     """
 
-    dim = "frequency"
+    label = "freq"
 
     @staticmethod
     def x_axis(primary_ax, secondary_ax, frequency):
@@ -114,11 +114,11 @@ class XDim_Time(XDim):
 
     Attributes
     ----------
-    dim : str
+    label : str
         The name of the dimension, hardcoded to "time".
     """
 
-    dim = "time"
+    label = "time"
 
     @staticmethod
     def x_axis(axis, *args):

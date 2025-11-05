@@ -756,7 +756,7 @@ def subplot_gaintable(
 
     handles, labels = primary_axes.get_legend_handles_labels()
     path = (
-        f"{path_prefix}-amp-phase_freq-"
+        f"{path_prefix}-amp-phase_{x_dim.label}-"
         f"{station_names[0]}-{station_names[-1]}.png"
     )
     fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")

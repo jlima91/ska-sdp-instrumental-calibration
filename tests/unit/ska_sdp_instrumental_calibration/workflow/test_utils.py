@@ -274,30 +274,18 @@ def test_should_create_subplots(numpy_mock, x_dim_freq_mock, plt_mock):
     amp_axis_mock = Mock(name="amp axis")
     phase_axis_mock = Mock(name="phase axis")
 
-    def secondary_axis_side_effect(pos, functions):
-        assert pos == "top"
-        assert len(functions) == 2
-        assert callable(functions[0])
-        functions[0](1)
-        functions[1](1)
-        assert callable(functions[1])
-        return phase_axis_mock
-
-    phase_axis_mock.secondary_xaxis = Mock(
-        name="secondary_axix", side_effect=secondary_axis_side_effect
-    )
     handles_mock = Mock(name="handles")
     labels_mock = Mock(name="labels")
 
     stations.id = [1, 2, 3, 4]
     stations.values = ["a", "b", "c", "d"]
     stations.size = 4
-    frequency_mock.__truediv__.return_value = frequency_mock
     gaintable_mock.frequency = frequency_mock
     gaintable_mock.pol.values = ["J_XX", "J_YY"]
     gaintable_mock.stack.return_value = gaintable_mock
     x_dim_freq_mock.data.return_value = ([1, 2], frequency_mock)
     x_dim_freq_mock.gain.return_value = gain_mock
+    x_dim_freq_mock.label = "freq"
     numpy_mock.abs.return_value = amp_mock
     numpy_mock.angle.return_value = phase_mock
     amp_mock.T = transposed_data
