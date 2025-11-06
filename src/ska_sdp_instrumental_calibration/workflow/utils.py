@@ -931,30 +931,34 @@ def plot_station_delays(delaytable, path_prefix):
     """
 
     latitude, longitude, _ = ecef_to_lla(*delaytable.configuration.xyz.data.T)
+    calibration_delay = delaytable.delay.data / 1e-9
     fig, ax = plt.subplots(2, 2, figsize=(10, 8))
 
     fig, subfigs = plt.subplots(figsize=(20, 10), ncols=2, nrows=2)
     station_name = delaytable.configuration.names.data
     fig.suptitle("Station Delays")
     for idx, ax in enumerate(subfigs[0]):
-        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
         sc = ax.scatter(
-            longitude, latitude, c=calibration_delay, cmap="plasma", s=10
+            longitude,
+            latitude,
+            c=calibration_delay[..., idx],
+            cmap="plasma",
+            s=10,
         )
         ax.set_xlabel("Longitude (deg)")
         ax.set_ylabel("Latitude (deg)")
         cbar = fig.colorbar(sc, ax=ax, shrink=0.5, aspect=10)
-        cbar.set_label("Absolute Delay (ns)", rotation=270, labelpad=15)
+        cbar.set_label("Delay (ns)", rotation=270, labelpad=15)
         ax.grid()
         ax.set_title(delaytable.pol.data[idx])
 
     for idx, ax in enumerate(subfigs[1]):
-        calibration_delay = np.abs(delaytable.delay.data[:, :, idx]) / 1e-9
         sc = ax.plot(
-            station_name, calibration_delay.reshape(len(station_name))
+            station_name,
+            calibration_delay[..., idx].reshape(len(station_name)),
         )
         ax.set_xlabel("Stations")
-        ax.set_ylabel("Absolute Delay (ns)")
+        ax.set_ylabel("Delay (ns)")
         ax.set_title(delaytable.pol.data[idx])
         ax.tick_params(axis="x", rotation=90)
 
