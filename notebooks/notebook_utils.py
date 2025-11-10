@@ -290,15 +290,10 @@ def create_gaintable_from_vis_new(
         jones_type=jones_type,
     )
 
-    # Rename dimensions to be more explicity about their usage
-    gain_table = gain_table.rename(time="solution_time", frequency="solution_frequency")
-
     # Chunk data variables
-    gain_table = gain_table.chunk({"solution_time": 1})
-    if gain_table.solution_frequency.size == vis.frequency.size:
-        gain_table = gain_table.chunk(
-            {"solution_frequency": vis.chunksizes["frequency"]}
-        )
+    gain_table = gain_table.chunk(time=1)
+    if gain_table.frequency.size == vis.frequency.size:
+        gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
 
     # Logic duplicated from create_solint_slices
     gain_table.attrs["soln_interval_slices"] = get_indices_from_grouped_bins(
