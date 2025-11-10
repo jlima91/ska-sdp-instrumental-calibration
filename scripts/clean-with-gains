@@ -42,15 +42,36 @@ help()
 
 create-fits() {
   if [ "${AWS_ENV}" = true ]; then
-      module load --silent wsclean
+      module load --silent dp3 wsclean
   fi
 
+  local wsclean_msin extra_args
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i)
+            wsclean_msin="$2"
+            shift 2
+            ;;
+        *)
+            extra_args+=("$1")
+            shift
+            ;;
+    esac
+  done
+  shift $((OPTIND-1))
+  local wsclean_args="${extra_args[*]}"
+  : ${wsclean_msin:?is not set. Use create-fits -i <input.ms>}
+
   set -o xtrace
-  ${WSCLEAN_CMD} $@
+  local beam_corrected_ms=./beamcor.ms
+  ${DP3_CMD} msin=$wsclean_msin steps="[applybeam]" msout=$beam_corrected_ms
+  ${WSCLEAN_CMD} -niter 0 -apply-primary-beam ${wsclean_args} $beam_corrected_ms
+  rm -rf $beam_corrected_ms
   set +o xtrace
 
   if [ "${AWS_ENV}" = true ]; then
-      module unload --silent wsclean
+      module unload --silent dp3 wsclean
   fi
 }
 
@@ -59,6 +80,7 @@ applycal() {
       module load --silent dp3
   fi
 
+  local parmdb msin msout
   # Parse arguments
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
@@ -119,15 +141,12 @@ WSCLEAN_ARGS=$@
 : ${WSCLEAN_ARGS:?is not set. Please provide wsclean args}
 
 check-module-load
-set -e
+# set -e
 
 echo ""
 echo "**************** wsclean without apply ***************"
 
-BEAM_CORRECTED_MS_IN=./beamcor.msin
-$DP3_CMD msin=$MSIN steps="[applybeam]" msout=$BEAM_CORRECTED_MS_IN
-create-fits ${WSCLEAN_ARGS} -niter 0 -apply-primary-beam -name "original" $BEAM_CORRECTED_MS_IN
-rm -rf $BEAM_CORRECTED_MS_IN
+create-fits -i $MSIN -name "original" ${WSCLEAN_ARGS}
 
 echo ""
 echo "**************** ApplyCal ***************"
@@ -135,7 +154,5 @@ applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
 
 echo ""
 echo "**************** wsclean with apply ***************"
-BEAM_CORRECTED_MS_OUT=./beamcor.msout
-$DP3_CMD msin=$MSOUT steps="[applybeam]" msout=$BEAM_CORRECTED_MS_OUT
-create-fits ${WSCLEAN_ARGS} -niter 0 -apply-primary-beam -name "corrected" $BEAM_CORRECTED_MS_OUT
-rm -rf $BEAM_CORRECTED_MS_OUT
+
+create-fits -i $MSOUT -name "corrected" ${WSCLEAN_ARGS}
