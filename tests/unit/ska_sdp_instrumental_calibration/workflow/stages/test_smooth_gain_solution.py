@@ -72,14 +72,15 @@ def test_should_smooth_the_gain_solution_using_sliding_window_mean(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
-    "smooth_gain_solution.plot_gaintable"
+    "smooth_gain_solution.PlotGaintableFrequency"
 )
 def test_should_plot_the_smoothed_gain_solution(
-    plot_gaintable_mock, get_plots_path_mock, sliding_window_smooth_mock
+    plot_gaintable_freq_mock, get_plots_path_mock, sliding_window_smooth_mock
 ):
     get_plots_path_mock.return_value = "./output/path/plots/some/path"
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
+    plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
 
     sliding_window_smooth_mock.return_value = gaintable_mock
 
@@ -96,11 +97,12 @@ def test_should_plot_the_smoothed_gain_solution(
     )
 
     get_plots_path_mock.assert_called_once_with("./output/path", "some/path")
-    plot_gaintable_mock.assert_called_once_with(
+    plot_gaintable_freq_mock.assert_called_once_with(
+        path_prefix="./output/path/plots/some/path",
+    )
+    plot_gaintable_freq_mock.plot.assert_called_once_with(
         gaintable_mock,
-        "./output/path/plots/some/path",
         figure_title="plot title",
-        drop_cross_pols=False,
     )
 
 
@@ -114,10 +116,10 @@ def test_should_plot_the_smoothed_gain_solution(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
-    ".smooth_gain_solution.plot_gaintable"
+    ".smooth_gain_solution.PlotGaintableFrequency"
 )
 def test_should_plot_smoothed_gain_solution_with_suffix(
-    plot_gaintable_mock, get_plots_path_mock, sliding_window_smooth_mock
+    plot_gaintable_freq_mock, get_plots_path_mock, sliding_window_smooth_mock
 ):
     get_plots_path_mock.side_effect = [
         "./output/path/plots/some/path",
@@ -125,6 +127,7 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
     ]
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
+    plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
 
     upstream_output.gaintable = gaintable_mock
     sliding_window_smooth_mock.return_value = gaintable_mock
@@ -150,20 +153,16 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
         ]
     )
 
-    plot_gaintable_mock.assert_has_calls(
+    plot_gaintable_freq_mock.assert_has_calls(
         [
             call(
-                gaintable_mock,
-                "./output/path/plots/some/path",
-                figure_title="plot title",
-                drop_cross_pols=False,
+                path_prefix="./output/path/plots/some/path",
             ),
+            call.plot(gaintable_mock, figure_title="plot title"),
             call(
-                gaintable_mock,
-                "./output/path/plots/some/path_1",
-                figure_title="plot title",
-                drop_cross_pols=False,
+                path_prefix="./output/path/plots/some/path_1",
             ),
+            call.plot(gaintable_mock, figure_title="plot title"),
         ]
     )
 

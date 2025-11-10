@@ -18,12 +18,13 @@ from ska_sdp_instrumental_calibration.processing_tasks.calibrate import (
     target_solver,
 )
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.workflow.plot_x_dim import XDim_Time
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableTime,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
-    plot_gaintable,
     with_chunks,
 )
 
@@ -208,13 +209,15 @@ def complex_gain_calibration_stage(
     if plot_config["plot_table"]:
         path_prefix = get_plots_path(_output_dir_, "complex_gain")
 
+        freq_plotter = PlotGaintableTime(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(
+            freq_plotter.plot(
                 gaintable,
-                path_prefix,
                 figure_title="Complex Gain",
                 fixed_axis=plot_config["fixed_axis"],
-                x_dim=XDim_Time,
             )
         )
 

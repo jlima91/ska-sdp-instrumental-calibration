@@ -100,7 +100,7 @@ def test_solver_runs_and_applies_correction(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
-    ".plot_gaintable"
+    ".PlotGaintableFrequency"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.ionospheric_delay"
@@ -114,7 +114,7 @@ def test_solver_runs_and_applies_correction(
 def test_gaintable_export_is_triggered(
     mock_dask_delayed,
     mock_export_func,
-    mock_plot_func,
+    mock_plot_freq_func,
     mock_get_plot_path,
     mock_get_gaintable_path,
     MockIonosphericSolver,
@@ -127,6 +127,7 @@ def test_gaintable_export_is_triggered(
     mock_gaintable = MagicMock(name="gaintable_to_export")
     MockIonosphericSolver.solve_calibrator.return_value = mock_gaintable
     mock_gaintable.pipe.return_value = mock_gaintable
+    mock_plot_freq_func.return_value = mock_plot_freq_func
 
     ionospheric_delay_stage.stage_definition(
         mock_upstream_output,
@@ -151,9 +152,11 @@ def test_gaintable_export_is_triggered(
     mock_export_func.assert_called_once_with(
         mock_gaintable, "/test/dir/output.h5parm"
     )
-
-    mock_plot_func.assert_called_once_with(
-        mock_gaintable, "/test/dir/plot.png", phase_only=True
+    mock_plot_freq_func.assert_called_once_with(
+        path_prefix="/test/dir/plot.png"
+    )
+    mock_plot_freq_func.plot.assert_called_once_with(
+        mock_gaintable, figure_title="Ionospheric Delay", phase_only=True
     )
 
     assert mock_upstream_output.add_compute_tasks.call_count == 2

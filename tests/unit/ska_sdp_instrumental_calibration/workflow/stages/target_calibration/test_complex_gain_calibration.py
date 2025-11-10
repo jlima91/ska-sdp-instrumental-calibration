@@ -2,7 +2,6 @@ import pytest
 from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.workflow.plot_x_dim import XDim_Time
 from ska_sdp_instrumental_calibration.workflow.stages import target_calibration
 from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
 
@@ -115,7 +114,7 @@ def test_should_perform_complex_gain_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".complex_gain_calibration.plot_gaintable"
+    ".complex_gain_calibration.PlotGaintableTime"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
@@ -133,7 +132,7 @@ def test_should_export_gaintable_with_proper_suffix(
     run_solver_mock,
     create_gaintable_mock,
     parse_ref_ant_mock,
-    plot_gaintable_mock,
+    plot_gaintable_time_mock,
     export_gaintable_mock,
     get_gaintables_path_mock,
     get_plot_path_mock,
@@ -145,6 +144,7 @@ def test_should_export_gaintable_with_proper_suffix(
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
     plot_config = {"plot_table": True, "fixed_axis": True}
+    plot_gaintable_time_mock.return_value = plot_gaintable_time_mock
 
     actual_output = complex_gain_calibration_stage.stage_definition(
         upstream_output,
@@ -165,12 +165,13 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     get_plot_path_mock.assert_called_once_with("/output/path", "complex_gain")
-    plot_gaintable_mock.assert_called_once_with(
+    plot_gaintable_time_mock.assert_called_once_with(
+        path_prefix=get_plot_path_mock.return_value
+    )
+    plot_gaintable_time_mock.plot.assert_called_once_with(
         gaintable_mock,
-        get_plot_path_mock.return_value,
         figure_title="Complex Gain",
         fixed_axis=True,
-        x_dim=XDim_Time,
     )
 
     delayed_mock.assert_called_once_with(export_gaintable_mock)

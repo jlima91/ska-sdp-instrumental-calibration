@@ -10,8 +10,6 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
-    get_plots_path,
-    plot_gaintable,
     with_chunks,
 )
 
@@ -181,11 +179,7 @@ def ionospheric_delay_stage(
     # upstream_output["vis"] = vis
 
     if plot_table:
-        path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
-
-        upstream_output.add_compute_tasks(
-            plot_gaintable(gaintable, path_prefix, phase_only=True)
-        )
+        pass
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(

@@ -7,7 +7,6 @@ __all__ = [
     "get_phasecentre",
     "create_soltab_group",
     "create_soltab_datasets",
-    "plot_gaintable",
     "plot_station_delays",
     "plot_rm_station",
     "plot_bandpass_stages",
@@ -21,16 +20,13 @@ __all__ = [
 import os
 import warnings
 from collections import namedtuple
-from functools import wraps
 from pathlib import Path
-from traceback import print_exc
 from typing import Literal, Optional
 
 import dask.array as da
 import dask.delayed
 import h5py
 import matplotlib
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
@@ -68,7 +64,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
 )
 
-from .plot_x_dim import XDim_Frequency
+from .plot_gaintable import PlotGaintableFrequency, safe
 
 matplotlib.use("Agg")
 
@@ -77,24 +73,16 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 logger = setup_logger(__name__)
 
 
-def safe(func):
-    """
-    Wrapper to catch all exceptions and print traceback to stderr,
-    instead of crashing the application.
-    """
+def channel_frequency_mapper(frequency, reverse=False):
 
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            result = func(*args, **kwargs)
-            return result
-        except Exception as ex:
-            logger.error(
-                "Caught exception in function %s: %s", func.__name__, str(ex)
-            )
-            print_exc()
+    if reverse:
+        return lambda freq: np.interp(
+            freq, frequency, np.arange(len(frequency))
+        )
 
-    return wrapper
+    return lambda channel: np.interp(
+        channel, np.arange(len(frequency)), frequency
+    )
 
 
 def create_demo_ms(
@@ -517,115 +505,6 @@ def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
 
 
 @dask.delayed
-@safe
-def plot_gaintable(
-    gaintable,
-    path_prefix,
-    figure_title="",
-    fixed_axis=False,
-    all_station_plot=False,
-    drop_cross_pols=False,
-    phase_only=False,
-    x_dim=XDim_Frequency,
-):
-    """
-    Plots the gaintable.
-
-    Parameters
-    ----------
-        gaintable: xr.Dataset
-            Gaintable to plot.
-        path_prefix: str
-            Path prefix to save the plots.
-        figure_title: str
-            Title of the figure
-        fixed_axis: bool
-            Limit amplitude axis to [0,1]
-        all_station_plot: bool
-            Create all station amp vs freq plot.
-        drop_cross_pols: bool
-            Do not plot cross polarizations
-        phase_only: bool
-            Plot only phases. Useful for phase only calibrations
-            Default: False
-        x_dim: plot_x_dim.XDim
-            Plot choice for X dimension. [XDim_Frequency, XDim_Time]
-            Default: XDim_Frequency
-    """
-    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
-
-    # from SKB-1027. J_XX, J_YY, j_xy and j_yx
-    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
-    gaintable = gaintable.assign_coords({"pol": polstrs})
-    stations = gaintable.configuration.names
-
-    if all_station_plot:
-        plot_all_stations(gaintable, path_prefix)
-
-    n_rows = 3
-    n_cols = 3
-    plots_per_group = n_rows * n_cols
-    plot_groups = np.split(
-        stations,
-        range(plots_per_group, stations.size, plots_per_group),
-    )
-
-    if drop_cross_pols:
-        gaintable = gaintable.sel(pol=["J_XX", "J_YY"])
-
-    for group_idx in plot_groups:
-        subplot_gaintable(
-            gaintable=gaintable,
-            stations=group_idx,
-            path_prefix=path_prefix,
-            n_rows=n_rows,
-            n_cols=n_cols,
-            figure_title=figure_title,
-            fixed_axis=fixed_axis,
-            phase_only=phase_only,
-            x_dim=x_dim,
-        )
-
-
-def plot_all_stations(gaintable, path_prefix):
-    """
-    Plot amplitude vs frequency plot that incluldes all stations.
-
-    Parameters
-    ----------
-        gaintable: xr.Dataset
-            Gaintable to plot.
-        path_prefix: str
-            Path prefix to save the plots.
-    """
-    amplitude = np.abs(gaintable.isel(time=0).gain)
-    frequency = gaintable.frequency
-    nstations = gaintable.antenna.size
-    cmap = plt.get_cmap("viridis", nstations)
-    norm = plt.Normalize(vmin=0, vmax=nstations - 1)
-    sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-
-    for pol in ["J_XX", "J_YY"]:
-        fig, ax = plt.subplots(figsize=(10, 10))
-        amp_pol = amplitude.sel(pol=pol)
-
-        for idx, station_data in enumerate(amp_pol):
-            ax.plot(frequency, station_data, color=cmap(idx))
-
-        ax.set_title(f"All station Amp vs Freq for pol {pol}")
-        ax.set_xlabel("Freq [HZ]")
-        ax.set_ylabel("Amp")
-        ticks = np.linspace(0, nstations, 11, dtype=int)
-        colorbar = fig.colorbar(sm, ax=ax, ticks=ticks)
-        colorbar.ax.set_title("Stations", loc="center", fontsize=10)
-        fig.savefig(
-            f"{path_prefix}-all_station_amp_vs_freq_{pol}.png",
-            bbox_inches="tight",
-        )
-        plt.close(fig)
-
-
-@dask.delayed
 def plot_flag_gain(
     gaintable,
     path_prefix,
@@ -675,94 +554,6 @@ def plot_flag_gain(
         fig.legend(handles, labels, loc="outside upper right")
         fig.savefig(path)
         plt.close()
-
-
-def subplot_gaintable(
-    gaintable,
-    stations,
-    path_prefix,
-    n_rows,
-    n_cols,
-    figure_title="",
-    fixed_axis=False,
-    phase_only=False,
-    x_dim=XDim_Frequency,
-):
-    """
-    Plots the Amp vs frequency and Phase vs frequency plots
-    of selected stations.
-
-    Parameters
-    ----------
-        gaintable: xr.Dataset
-            Gaintable to plot.
-        stations: xr.DataArray
-            Stations to plot.
-        path_prefix: str
-            Path prefix to save the plots.
-        n_rows: int
-            Number of plots in row.
-        n_cols: int
-            Number of plots in column.
-        figure_title: str
-            Title of the figure.
-        fixed_axis: bool
-            Limit amplitude axis values to [0,1]
-        phase_only: bool
-            Plot phases only. (Default: False)
-        x_dim: XDim, [XDim_Frequency, XDim_Time]
-            Dimension to plot on x axis.
-            Default: XDim_Frequency
-    """
-    x_data, x_support = x_dim.data(gaintable)
-
-    label = gaintable.pol.values
-    station_names = stations.values
-
-    fig = plt.figure(layout="constrained", figsize=(18, 18))
-    subfigs = fig.subfigures(n_rows, n_cols).reshape(-1)
-    primary_axes = None
-
-    for idx, subfig in enumerate(subfigs):
-        if idx >= stations.size:
-            break
-        gain = x_dim.gain(gaintable, antenna=stations.id[idx])
-        amplitude = np.abs(gain)
-        phase = np.angle(gain, deg=True)
-
-        if phase_only:
-            phase_ax = subfig.subplots(1, 1)
-            x_dim.x_axis(phase_ax, phase_ax, x_support)
-            primary_axes = phase_ax or primary_axes
-
-        else:
-            phase_ax, amp_ax = subfig.subplots(2, 1, sharex=True)
-            primary_axes = amp_ax or primary_axes
-            amp_ax.set_ylabel("Amplitude")
-            x_dim.x_axis(amp_ax, phase_ax, x_support)
-            if fixed_axis:
-                amp_ax.set_ylim([0, 1])
-
-            for pol_idx, amp_pol in enumerate(amplitude.T):
-                amp_ax.scatter(x_data, amp_pol, label=label[pol_idx])
-
-        phase_ax.set_ylabel("Phase (degree)")
-        phase_ax.set_ylim([-180, 180])
-
-        for pol_idx, phase_pols in enumerate(phase.T):
-            phase_ax.scatter(x_data, phase_pols, label=label[pol_idx])
-
-        subfig.suptitle(f"Station - {station_names[idx]}", fontsize="large")
-
-    handles, labels = primary_axes.get_legend_handles_labels()
-    path = (
-        f"{path_prefix}-amp-phase_{x_dim.label}-"
-        f"{station_names[0]}-{station_names[-1]}.png"
-    )
-    fig.suptitle(f"{figure_title} Solutions", fontsize="x-large")
-    fig.legend(handles, labels, loc="outside upper right")
-    fig.savefig(path)
-    plt.close()
 
 
 @dask.delayed
@@ -818,12 +609,14 @@ def plot_curve_fit(
     gain = gaintable.gain.isel(time=0)
 
     pol_labels = gaintable.pol.values
-    channel, frequency = XDim_Frequency.data(gaintable)
+    frequency = gaintable.frequency / 1e6
+    channel = np.arange(len(frequency))
 
     pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
         -1, 2
     )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
     normalize_func = normalize_data if normalize_gains else lambda x: x
+    plot_freq = PlotGaintableFrequency()
 
     for stations in plot_groups:
         station_names = stations.values
@@ -869,7 +662,17 @@ def plot_curve_fit(
                 amp_ax.set_ylabel("Amplitude")
                 phase_ax.set_ylabel("Phase (degree)")
 
-                XDim_Frequency.x_axis(amp_ax, phase_ax, frequency)
+                amp_ax.set_xlabel("Channel")
+
+                phase_ax.secondary_xaxis(
+                    "top",
+                    functions=(
+                        plot_freq._primary_sec_ax_mapper(frequency, channel),
+                        plot_freq._primary_sec_ax_mapper(
+                            frequency, channel, reverse=True
+                        ),
+                    ),
+                ).set_xlabel("Frequency [MHz]")
 
                 phase_ax.set_ylim([-180, 180])
                 pol = pol_groups[grp_idx, lbl_idx]
