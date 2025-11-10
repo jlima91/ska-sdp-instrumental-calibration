@@ -95,34 +95,36 @@ def plot_amp_freq(
     plt.close(fig)
 
 
-def get_frequency(h5parm_path):
-    with h5py.File(h5parm_path) as act_gain_f:
-        frequency = act_gain_f["sol000"]["amplitude000"]["freq"][:]
-        return frequency
+class H5ParmIO:
+    @staticmethod
+    def get_frequency(h5parm_path):
+        with h5py.File(h5parm_path) as act_gain_f:
+            frequency = act_gain_f["sol000"]["amplitude000"]["freq"][:]
+            return frequency
 
+    @staticmethod
+    def get_polarisations(h5parm_path):
+        with h5py.File(h5parm_path) as act_gain_f:
+            pols = act_gain_f["sol000"]["amplitude000"]["pol"][:]
+            pols = [item.decode("utf-8") for item in pols]
+            return pols
 
-def get_polarisations(h5parm_path):
-    with h5py.File(h5parm_path) as act_gain_f:
-        pols = act_gain_f["sol000"]["amplitude000"]["pol"][:]
-        pols = [item.decode("utf-8") for item in pols]
-        return pols
+    @staticmethod
+    def get_antennas(h5parm_path):
+        with h5py.File(h5parm_path) as act_gain_f:
+            stations = act_gain_f["sol000"]["amplitude000"]["ant"][:]
+            stations = [item.decode("utf-8") for item in stations]
+            return stations
 
-
-def get_antennas(h5parm_path):
-    with h5py.File(h5parm_path) as act_gain_f:
-        stations = act_gain_f["sol000"]["amplitude000"]["ant"][:]
-        stations = [item.decode("utf-8") for item in stations]
-        return stations
-
-
-def get_values(
-    h5parm_path,
-    solset="amplitude000",
-    time: slice = slice(None),
-    antenna: slice = slice(None),
-    frequency: slice = slice(None),
-    pol: slice = slice(None),
-):
-    with h5py.File(h5parm_path) as act_gain_f:
-        vals = act_gain_f["sol000"][solset]["val"][time, antenna, frequency, pol][:]
-        return vals
+    @staticmethod
+    def get_values(
+        h5parm_path,
+        solset="amplitude000",
+        time: slice = slice(None),
+        antenna: slice = slice(None),
+        frequency: slice = slice(None),
+        pol: slice = slice(None),
+    ):
+        with h5py.File(h5parm_path) as act_gain_f:
+            vals = act_gain_f["sol000"][solset]["val"][time, antenna, frequency, pol][:]
+            return vals
