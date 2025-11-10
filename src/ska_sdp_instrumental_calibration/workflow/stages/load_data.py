@@ -160,7 +160,7 @@ def load_data_stage(
     # Its expected that later stages follow same chunking pattern
     vis_chunks = {
         **non_chunked_dims,
-        "time": -1,
+        "time": ntimes_per_ms_chunk,
         "frequency": nchannels_per_chunk,
     }
     upstream_output["chunks"] = vis_chunks

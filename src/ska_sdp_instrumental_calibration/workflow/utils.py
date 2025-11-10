@@ -54,6 +54,7 @@ from ska_sdp_datamodels.visibility.vis_io_ms import (
     create_visibility_from_ms,
     export_visibility_to_ms,
 )
+from xarray.core.groupby import DataArrayGroupBy
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
@@ -1358,7 +1359,57 @@ def normalize_data(data):
     return data / np.linalg.norm(data, ord=1)
 
 
-def create_solint_slices(time, timeslice, return_indexes=False):
+def indices_to_slice(
+    index_array: np.ndarray | list[int],
+) -> slice | np.ndarray:
+    """
+    Convert a 1D integer index array to a slice **if** it represents
+    an arithmetic progression: same step between all consecutive elements.
+    Otherwise return the original index array.
+
+    Parameters
+    ----------
+    index_array : array_like of int
+
+    Returns
+    -------
+    slice or numpy array
+    """
+    index_array = np.asarray(index_array)
+
+    # Empty input
+    if index_array.size == 0:
+        return index_array
+
+    # Must be integer-valued
+    if not np.issubdtype(index_array.dtype, np.integer):
+        return index_array
+
+    # One element → trivial slice
+    if index_array.size == 1:
+        i = index_array[0]
+        return slice(i, i + 1, 1)
+
+    # Sort (groupby_bins etc. may produce unordered indices)
+    sorted_idx = np.sort(index_array)
+
+    # Compute steps between elements
+    steps = np.diff(sorted_idx)
+
+    # Step must be consistent
+    step = steps[0]
+    if np.all(steps == step):
+        start = sorted_idx[0]
+        stop = sorted_idx[-1] + step
+        return slice(start, stop, step)
+
+    # Not a simple arithmetic progression → return indices
+    return index_array
+
+
+def create_solint_slices(
+    time: xr.DataArray, timeslice: float = None, return_indexes=False
+) -> DataArrayGroupBy | list[slice | np.ndarray]:
     """
     Generate time slices (solution intervals) from a time DataArray.
 
@@ -1376,30 +1427,46 @@ def create_solint_slices(time, timeslice, return_indexes=False):
         The desired duration for each time slice.
         The total time range (time.max() - time.min()) is divided by this
         duration to determine the number of bins.
+        If None, creates same number of bins as size of time.
     return_indexes : bool, optional
         If True, return the integer indices for each bin instead of the
         DataArray slices. Default is False.
 
     Returns
     -------
-    list[xarray.DataArray] or dict_values
+    xarray.DataArrayGroupBy or list of (slice or array)
         If `return_indexes` is False (default):
-            A list of `xarray.DataArray` objects, where each object is a
-            subset of the input `time` DataArray corresponding to one slice.
+            Returns the DataArrayGroupBy objects created
+            after calling groupby_bins
         If `return_indexes` is True:
-            A `dict_values` object (list-like) containing 1D NumPy arrays
-            of the integer indices that fall into each time bin.
+            A list containing either slices,
+            or 1D arrays of the integer indices,
+            that fall into each time bin.
     """
     if timeslice is None:
-        timeslice = -1
+        # Each time value is a seperate bin
+        nbins = time.size
+    else:
+        # Determine number of equal width bins
+        # TODO: Should bins always be of equal interval?
+        nbins = max(
+            1,
+            int(np.ceil((time.data.max() - time.data.min()) / timeslice)),
+        )
 
-    nbins = max(
-        1,
-        np.ceil((time.max() - time.min()) / timeslice).data.astype("int"),
-    )
-    bins = time.groupby_bins("time", nbins, squeeze=False)
+    time_bins = time.groupby_bins("time", nbins, squeeze=False)
 
     if return_indexes:
-        return bins.groups.values()
+        return get_indices_from_grouped_bins(time_bins)
 
-    return [times for _, times in bins]
+    return time_bins
+
+
+def get_indices_from_grouped_bins(
+    bins: DataArrayGroupBy,
+) -> list[slice | np.ndarray]:
+    return [indices_to_slice(idx) for idx in bins.groups.values()]
+
+
+def get_intervals_from_grouped_bins(bins: DataArrayGroupBy) -> np.ndarray:
+    return np.array([(iv.right - iv.left) for iv in bins.groups.keys()])
