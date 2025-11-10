@@ -510,7 +510,6 @@ class PlotGaintableTime(PlotGaintable):
 
         self._x_data = gaintable.time - gaintable.time[0]
         self._x_sec_data = np.arange(len(self._x_data))
-
         return gaintable.assign({"time": self._x_data})
 
     def _primary_sec_ax_mapper(self, time_data, time_indexes, reverse=False):
