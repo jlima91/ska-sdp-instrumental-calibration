@@ -8,10 +8,12 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
 )
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableFrequency,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
-    plot_gaintable,
     with_chunks,
 )
 
@@ -156,8 +158,14 @@ def ionospheric_delay_stage(
     if plot_table:
         path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
 
+        freq_plotter = PlotGaintableFrequency(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(gaintable, path_prefix, phase_only=True)
+            freq_plotter.plot(
+                gaintable, figure_title="Ionospheric Delay", phase_only=True
+            )
         )
 
     if export_gaintable:

@@ -9,6 +9,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableFrequency,
+)
+
 from ...data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
     predict_vis,
@@ -21,7 +25,6 @@ from ..utils import (
     get_plots_path,
     parse_reference_antenna,
     plot_bandpass_stages,
-    plot_gaintable,
     plot_rm_station,
 )
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
@@ -249,10 +252,14 @@ def generate_channel_rm_stage(
         path_prefix = get_plots_path(
             _output_dir_, f"channel_rm{call_counter_suffix}"
         )
+
+        freq_plotter = PlotGaintableFrequency(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(
+            freq_plotter.plot(
                 gaintable,
-                path_prefix,
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,
             )

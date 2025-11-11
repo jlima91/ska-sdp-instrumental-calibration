@@ -6,10 +6,12 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableFrequency,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
-    plot_gaintable,
 )
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
@@ -106,12 +108,14 @@ def smooth_gain_solution_stage(
             _output_dir_,
             f"{plot_config['plot_path_prefix']}{call_counter_suffix}",
         )
+        freq_plotter = PlotGaintableFrequency(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(
+            freq_plotter.plot(
                 upstream_output.gaintable,
-                path_prefix,
                 figure_title=plot_config["plot_title"],
-                drop_cross_pols=False,
             )
         )
 

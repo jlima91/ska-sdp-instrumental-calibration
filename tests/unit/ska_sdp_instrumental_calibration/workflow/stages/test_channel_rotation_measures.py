@@ -296,7 +296,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages"
     ".channel_rotation_measures"
-    ".plot_gaintable"
+    ".PlotGaintableFrequency"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages."
@@ -322,7 +322,7 @@ def test_should_plot_with_proper_suffix(
     model_rotations_mock,
     run_solver_mock,
     export_h5parm_mock,
-    plot_gaintable_mock,
+    plot_gaintable_freq_mock,
     plot_bandpass_stages_mock,
     plot_rm_station_mock,
     get_plots_path_mock,
@@ -349,6 +349,7 @@ def test_should_plot_with_proper_suffix(
     initial_table_mock = Mock(name="initial gaintable")
     upstream_output["gaintable"] = initial_table_mock
 
+    plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
@@ -465,17 +466,21 @@ def test_should_plot_with_proper_suffix(
         ]
     )
 
-    plot_gaintable_mock.assert_has_calls(
+    plot_gaintable_freq_mock.assert_has_calls(
         [
             call(
+                path_prefix="/output/path/plots/channel_rm",
+            ),
+            call.plot(
                 solved_gaintable_mock,
-                "/output/path/plots/channel_rm",
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,
             ),
             call(
+                path_prefix="/output/path/plots/channel_rm_1",
+            ),
+            call.plot(
                 solved_gaintable_mock,
-                "/output/path/plots/channel_rm_1",
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,
             ),

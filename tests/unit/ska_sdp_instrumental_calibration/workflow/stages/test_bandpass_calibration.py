@@ -79,7 +79,7 @@ def test_should_perform_bandpass_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
-    ".plot_gaintable"
+    ".PlotGaintableFrequency"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.bandpass_calibration"
@@ -87,7 +87,7 @@ def test_should_perform_bandpass_calibration(
 )
 def test_should_plot_bp_gaintable_with_proper_suffix(
     run_solver_mock,
-    plot_gaintable_mock,
+    plot_gaintable_freq_mock,
     get_plots_path_mock,
     parse_ref_ant_mock,
 ):
@@ -95,6 +95,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         "/output/path/plots/bandpass",
         "/output/path/plots/bandpass_1",
     ]
+    plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
@@ -137,21 +138,25 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     get_plots_path_mock.assert_has_calls(
         [call("/output/path", "bandpass"), call("/output/path", "bandpass_1")]
     )
-    plot_gaintable_mock.assert_has_calls(
+    plot_gaintable_freq_mock.assert_has_calls(
         [
             call(
+                path_prefix="/output/path/plots/bandpass",
+            ),
+            call.plot(
                 gaintable_mock,
-                "/output/path/plots/bandpass",
                 figure_title="Bandpass",
                 fixed_axis=True,
-                all_station_plot=True,
+                plot_all_stations=True,
             ),
             call(
+                path_prefix="/output/path/plots/bandpass_1",
+            ),
+            call.plot(
                 gaintable_mock,
-                "/output/path/plots/bandpass_1",
                 figure_title="Bandpass",
                 fixed_axis=True,
-                all_station_plot=True,
+                plot_all_stations=True,
             ),
         ]
     )

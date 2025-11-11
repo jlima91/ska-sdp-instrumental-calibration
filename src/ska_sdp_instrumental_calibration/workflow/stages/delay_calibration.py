@@ -10,10 +10,12 @@ from ska_sdp_instrumental_calibration.processing_tasks.delay import (
     apply_delay,
     calculate_delay,
 )
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableFrequency,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
-    plot_gaintable,
     plot_station_delays,
 )
 
@@ -85,10 +87,13 @@ def delay_calibration_stage(
             _output_dir_, f"delay{call_counter_suffix}"
         )
 
+        freq_plotter = PlotGaintableFrequency(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(
+            freq_plotter.plot(
                 gaintable,
-                path_prefix,
                 figure_title="Delay",
                 fixed_axis=plot_config["fixed_axis"],
             )

@@ -9,11 +9,13 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableFrequency,
+)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
-    plot_gaintable,
 )
 
 from ...data_managers.dask_wrappers import run_solver
@@ -150,13 +152,16 @@ def bandpass_calibration_stage(
             _output_dir_, f"bandpass{call_counter_suffix}"
         )
 
+        freq_plotter = PlotGaintableFrequency(
+            path_prefix=path_prefix,
+        )
+
         upstream_output.add_compute_tasks(
-            plot_gaintable(
+            freq_plotter.plot(
                 gaintable,
-                path_prefix,
                 figure_title="Bandpass",
                 fixed_axis=plot_config["fixed_axis"],
-                all_station_plot=True,
+                plot_all_stations=True,
             )
         )
 
