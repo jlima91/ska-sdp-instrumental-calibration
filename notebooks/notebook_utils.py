@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Literal, Union
 
 import dask.array as da
@@ -252,22 +253,40 @@ def compare_arrays(
         actions[output]("info", msg)
 
 
+class Backend(Enum):
+    NUMPY = "numpy"
+    DASK = "dask"
+
+    @property
+    def xp(self):
+        if self is Backend.NUMPY:
+            return np
+        else:
+            return da
+
+
 def create_gaintable_from_vis_new(
     vis: Visibility,
-    timeslice: Union[float, Literal["auto"], None] = None,
+    timeslice: Union[float, Literal["auto", "full"], None] = None,
     jones_type: Literal["T", "G", "B"] = "T",
     lower_precision: bool = True,
+    backend: Backend = Backend.DASK,
 ):
     """
     Similar behavior as create_gaintable_from_vis, except
-    1. Creates dask backed data variables
-    2. Ability to toggle precision of the data variables, currently between 4 or 8 bytes
+    1. new param: timeslice="full"
+        Will create a single solution across the entire observation time
+    2. new param: lower_precision
+        Ability to toggle precision of the data variables, currently between 4 or 8 bytes
+    3. new param: backend
+        Option to choose between backends for data variables
     """
-    # Backward compatibility
+    # Backward compatibility. Should be removed as "auto" is vary vague
     if timeslice == "auto":
         timeslice = None
+
     # TODO: review this time slice creation logic
-    gain_time_bins = create_solint_slices(vis.time, timeslice, False)
+    gain_time_bins = create_solint_slices(vis.time, timeslice)
     gain_time = gain_time_bins.mean().data
     gain_interval = get_intervals_from_grouped_bins(gain_time_bins)
     ntimes = len(gain_time)
@@ -291,14 +310,16 @@ def create_gaintable_from_vis_new(
 
     gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
 
-    # Create dask backed data variables
-    comp_dtype, fl_dtype = np.complex128, np.float64
+    # Create data variables with provided precision and backend
     if lower_precision:
-        comp_dtype, fl_dtype = np.complex64, np.float32
+        complex_dtype, float_dtype = np.complex64, np.float32
+    else:
+        complex_dtype, float_dtype = np.complex128, np.float64
 
-    gain = da.broadcast_to(da.eye(nrec, dtype=comp_dtype), gain_shape)
-    gain_weight = da.ones(gain_shape, dtype=fl_dtype)
-    gain_residual = da.zeros([ntimes, nfrequency, nrec, nrec], dtype=fl_dtype)
+    xp = backend.xp
+    gain = xp.broadcast_to(xp.eye(nrec, dtype=complex_dtype), gain_shape)
+    gain_weight = xp.ones(gain_shape, dtype=float_dtype)
+    gain_residual = xp.zeros([ntimes, nfrequency, nrec, nrec], dtype=float_dtype)
 
     gain_table = GainTable.constructor(
         gain=gain,
@@ -318,7 +339,7 @@ def create_gaintable_from_vis_new(
     if gain_table.frequency.size == vis.frequency.size:
         gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
 
-    # Logic duplicated from create_solint_slices
+    # Attach solution interval slices as attribute
     gain_table.attrs["soln_interval_slices"] = get_indices_from_grouped_bins(
         gain_time_bins
     )
@@ -328,10 +349,8 @@ def create_gaintable_from_vis_new(
 
 # # TODO: Move this to its own test module
 # # Test for the new gain interval logic
-# time_diff = np.diff(vis.time.data)[0]
-# # Full time in single timeslice
-# timeslice = np.max(vis.time) - np.min(vis.time)
-# gain_time_bins = create_solint_slices(vis.time, timeslice, False)
+# timeslice = "full"
+# gain_time_bins = create_solint_slices(vis.time, timeslice)
 # gain_time = gain_time_bins.mean().data
 # gain_interval = get_intervals_from_grouped_bins(gain_time_bins)
 # idx = 0

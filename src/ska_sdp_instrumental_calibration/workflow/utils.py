@@ -21,7 +21,7 @@ import os
 import warnings
 from collections import namedtuple
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Union
 
 import dask.array as da
 import dask.delayed
@@ -1211,8 +1211,9 @@ def indices_to_slice(
 
 
 def create_solint_slices(
-    time: xr.DataArray, timeslice: float = None, return_indexes=False
-) -> DataArrayGroupBy | list[slice | np.ndarray]:
+    time: xr.DataArray,
+    timeslice: Union[float, Literal["full"], None] = None,
+) -> DataArrayGroupBy:
     """
     Generate time slices (solution intervals) from a time DataArray.
 
@@ -1226,28 +1227,23 @@ def create_solint_slices(
     time : xarray.DataArray
         The input time DataArray. Must have a 'time' coordinate or
         be a time coordinate DataArray itself.
-    timeslice : float
+    timeslice : float or "full", optional
         The desired duration for each time slice.
         The total time range (time.max() - time.min()) is divided by this
         duration to determine the number of bins.
-        If None, creates same number of bins as size of time.
-    return_indexes : bool, optional
-        If True, return the integer indices for each bin instead of the
-        DataArray slices. Default is False.
+        If None or less than/equal to 0.0,
+        creates same number of bins as size of time.
+        If "full", creates a single bin.
 
     Returns
     -------
-    xarray.DataArrayGroupBy or list of (slice or array)
-        If `return_indexes` is False (default):
-            Returns the DataArrayGroupBy objects created
-            after calling groupby_bins
-        If `return_indexes` is True:
-            A list containing either slices,
-            or 1D arrays of the integer indices,
-            that fall into each time bin.
+    xarray.DataArrayGroupBy
+        Returns the DataArrayGroupBy objects created
+        after calling groupby_bins
     """
-    if timeslice is None:
-        # Each time value is a seperate bin
+    if timeslice == "full":
+        nbins = 1
+    elif (timeslice is None) or (timeslice <= 0.0):
         nbins = time.size
     else:
         # Determine number of equal width bins
@@ -1257,12 +1253,7 @@ def create_solint_slices(
             int(np.ceil((time.data.max() - time.data.min()) / timeslice)),
         )
 
-    time_bins = time.groupby_bins("time", nbins, squeeze=False)
-
-    if return_indexes:
-        return get_indices_from_grouped_bins(time_bins)
-
-    return time_bins
+    return time.groupby_bins("time", nbins, squeeze=False)
 
 
 def get_indices_from_grouped_bins(

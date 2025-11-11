@@ -14,6 +14,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
     create_solint_slices,
+    get_indices_from_grouped_bins,
 )
 
 log = logging.getLogger("func-python-logger")
@@ -133,8 +134,8 @@ class IonosphericSolver:
                     tol,
                     zernike_limit,
                 )
-                for t_slice in create_solint_slices(
-                    vis.time, timeslice, return_indexes=True
+                for t_slice in get_indices_from_grouped_bins(
+                    create_solint_slices(vis.time, timeslice)
                 )
             ],
             dim="time",
