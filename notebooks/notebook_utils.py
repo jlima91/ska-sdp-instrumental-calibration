@@ -10,8 +10,10 @@ from ska_sdp_datamodels.visibility import Visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_solint_slices, get_indices_from_grouped_bins,
-    get_intervals_from_grouped_bins)
+    create_solint_slices,
+    get_indices_from_grouped_bins,
+    get_intervals_from_grouped_bins,
+)
 
 logger = setup_logger(__name__)
 
@@ -140,6 +142,15 @@ class H5ParmIO:
             return vals
 
 
+def check_for_nans(data: np.ndarray | da.Array):
+    check = np.isnan(data).any()
+
+    if isinstance(data, da.Array):
+        return check.compute()
+
+    return check
+
+
 def compare_arrays(
     actual: np.ndarray,
     expected: np.ndarray,
@@ -193,6 +204,18 @@ def compare_arrays(
             "info",
             f"{meta}: dtype mismatch : actual: {actual.dtype}, expected: {expected.dtype}.\n"
             f"Comparison may be influenced by different precision.",
+        )
+
+    if check_for_nans(actual):
+        actions[output](
+            "info",
+            f"{meta}: NaN found in actual. " f"Comparison may be incorrect.",
+        )
+
+    if check_for_nans(expected):
+        actions[output](
+            "info",
+            f"{meta}: NaN found in expected. " f"Comparison may be incorrect.",
         )
 
     diff = actual - expected
