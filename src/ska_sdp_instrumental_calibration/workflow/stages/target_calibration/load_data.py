@@ -7,7 +7,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
-    read_dataset_from_zarr,
+    read_visibility_from_zarr,
     write_ms_to_zarr,
 )
 
@@ -193,7 +193,7 @@ def load_data_stage(
                 data_desc_id=data_desc_id,
             )
 
-    vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
+    vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
     upstream_output["vis"] = vis
     upstream_output["beams"] = None

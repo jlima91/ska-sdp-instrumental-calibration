@@ -15,6 +15,7 @@ from astropy.coordinates import EarthLocation, SkyCoord
 from astropy.time import Time
 from astropy.units import Quantity
 from casacore.tables import table, taql
+from dask.delayed import Delayed
 from ska_sdp_datamodels.configuration.config_model import Configuration
 from ska_sdp_datamodels.science_data_model.polarisation_model import (
     PolarisationFrame,
@@ -750,10 +751,17 @@ def load_ms_as_dataset_with_time_chunks(
     datacolumn: str = "DATA",
     field_id: int = 0,
     data_desc_id: int = 0,
-) -> xr.Dataset:
+) -> Visibility:
     """
     Distributed load of a MSv2 Measurement Set data (for given field id and
     data description id) into a Visibility dataset, across time chunks.
+
+    NOTE: Here we simplify baselines dimensions to be a numpy array of baseline
+    ids instead of the pandas multiindex object that Visibility class defines.
+    This is because xarray operations like map_block do not work with pandas
+    multi-index coordinates.
+    The baselines should be restored to its original pandas multiindex like format
+    before calling any of the functions from ska-sdp-func-python.
     """
     # Get observation metadata
     vis_template = simplify_baselines_dim(
@@ -798,11 +806,12 @@ def write_ms_to_zarr(
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
-    attributes_file, baselines_file, vis_zarr_file = (
-        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
-    )
-
-    data: xr.Dataset = load_ms_as_dataset_with_time_chunks(
+    """
+    Convert a MSv2 into a Visibility dataset and write it to zarr.
+    NOTE: The baselines coordinates in Visibility are simplified.
+    See note section in :py:func:`load_ms_as_dataset_with_time_chunks`
+    """
+    visibility = load_ms_as_dataset_with_time_chunks(
         input_ms_path,
         zarr_chunks["time"],
         ack=ack,
@@ -811,38 +820,55 @@ def write_ms_to_zarr(
         data_desc_id=data_desc_id,
     )
 
-    attrs = deepcopy(data.attrs)
-    with open(attributes_file, "wb") as file:
-        pickle.dump(attrs, file)
-
-    baselines = deepcopy(data.baselines).compute()
-    with open(baselines_file, "wb") as file:
-        pickle.dump(baselines, file)
-
-    writer = (
-        data.drop_attrs()
-        .drop_vars("baselines")
-        .pipe(with_chunks, zarr_chunks)
-        .to_zarr(vis_zarr_file, mode="w", compute=False)
+    writer = write_visibility_to_zarr(
+        vis_cache_directory, zarr_chunks, visibility
     )
 
     logger.warning("Triggering eager compute to dump visibilities to zarr.")
     dask.compute(writer)
 
 
-def check_if_cache_files_exist(vis_cache_directory):
+def write_visibility_to_zarr(
+    directory_to_write, zarr_chunks, visibility: Visibility
+) -> Delayed:
+    """
+    Writes Visibility to zarr file in the provided directory.
+
+    Since native xarray.to_zarr() function does not allow writing
+    python-object like attributes and coordinates, this function
+    first writes the attributes and "baselines" coordinate values as
+    python pickeled files, and removed them from visibility.
+    Then writes the rest of the visibility to a zarr file.
+
+    Returns
+    -------
+    dask.delayed
+        Returns a dask delayed zarr writer task which the user
+        needs to call compute on to write the actual visibilities.
+    """
     attributes_file, baselines_file, vis_zarr_file = (
-        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+        _generate_file_paths_for_vis_zarr_file(directory_to_write)
     )
 
-    return (
-        os.path.isfile(attributes_file)
-        and os.path.isfile(baselines_file)
-        and os.path.isdir(vis_zarr_file)
+    attrs = deepcopy(visibility.attrs)
+    with open(attributes_file, "wb") as file:
+        pickle.dump(attrs, file)
+
+    baselines = deepcopy(visibility.baselines).compute()
+    with open(baselines_file, "wb") as file:
+        pickle.dump(baselines, file)
+
+    writer = (
+        visibility.drop_attrs()
+        .drop_vars("baselines")
+        .pipe(with_chunks, zarr_chunks)
+        .to_zarr(vis_zarr_file, mode="w", compute=False)
     )
 
+    return writer
 
-def read_dataset_from_zarr(vis_cache_directory, vis_chunks):
+
+def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
     attributes_file, baselines_file, vis_zarr_file = (
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )
@@ -861,4 +887,20 @@ def read_dataset_from_zarr(vis_cache_directory, vis_chunks):
 
     zarr_data = zarr_data.assign({"baselines": baselines})
 
+    # Explictly load antenna1 and antenna2 coordinates
+    zarr_data.antenna1.load()
+    zarr_data.antenna2.load()
+
     return zarr_data
+
+
+def check_if_cache_files_exist(vis_cache_directory):
+    attributes_file, baselines_file, vis_zarr_file = (
+        _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
+    )
+
+    return (
+        os.path.isfile(attributes_file)
+        and os.path.isfile(baselines_file)
+        and os.path.isdir(vis_zarr_file)
+    )
