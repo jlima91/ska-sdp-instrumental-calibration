@@ -1248,9 +1248,12 @@ def create_solint_slices(
     else:
         # Determine number of equal width bins
         # TODO: Should bins always be of equal interval?
-        nbins = max(
-            1,
-            int(np.ceil((time.data.max() - time.data.min()) / timeslice)),
+        nbins = min(
+            max(
+                1,
+                int(np.ceil((time.data.max() - time.data.min()) / timeslice)),
+            ),
+            time.size,
         )
 
     return time.groupby_bins("time", nbins, squeeze=False)
