@@ -791,7 +791,7 @@ def simplify_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
                 baselineid=("baselines", np.arange(len(vis.baselines)))
             )
         return vis.swap_dims({"baselines": "baselineid"}).reset_coords(
-            "baselines"
+            ("baselines", "antenna1", "antenna2")
         )
 
 
