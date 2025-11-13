@@ -1,15 +1,14 @@
 import logging
 
-import dask
 import numpy as np
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.data_managers.data_export import (
-    export_gaintable_to_h5parm,
+from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
+    PlotGaintableTargetIonosphere,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
-    get_gaintables_path,
+    get_plots_path,
     with_chunks,
 )
 
@@ -81,11 +80,6 @@ logger = logging.getLogger()
             description="Plot all station Phase vs Frequency",
             nullable=False,
         ),
-        export_gaintable=ConfigParam(
-            bool,
-            True,
-            description="Export intermediate gain solutions.",
-        ),
     ),
 )
 def ionospheric_delay_stage(
@@ -97,7 +91,6 @@ def ionospheric_delay_stage(
     tol,
     zernike_limit,
     plot_table,
-    export_gaintable,
     _output_dir_,
 ):
     """
@@ -141,9 +134,6 @@ def ionospheric_delay_stage(
         model. If None, a default is used by the solver (default: None).
     plot_table: bool, optional
         Plot all station Phase vs Frequency (default: False).
-    export_gaintable : bool, optional
-        If True, the computed gain table is saved to an H5parm file in the
-        specified output directory (default: True).
     _output_dir_ : str, optional
         Directory path where the output file will be written.
 
@@ -157,7 +147,7 @@ def ionospheric_delay_stage(
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
-    upstream_output.add_checkpoint_key("vis")
+    upstream_output.add_checkpoint_key("gaintable")
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
     vis_chunks = upstream_output.chunks
@@ -174,21 +164,20 @@ def ionospheric_delay_stage(
     )
 
     gaintable = gaintable.pipe(with_chunks, vis_chunks)
-
-    # vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
-    # upstream_output["vis"] = vis
+    upstream_output["gaintable"] = gaintable
 
     if plot_table:
-        pass
+        path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
 
-    if export_gaintable:
-        gaintable_file_path = get_gaintables_path(
-            _output_dir_, "ionospheric_delay.gaintable.h5parm"
+        freq_plotter = PlotGaintableTargetIonosphere(
+            path_prefix=path_prefix,
         )
 
         upstream_output.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
+            freq_plotter.plot(
+                gaintable,
+                figure_title="Ionospheric",
+                fixed_axis=True,
             )
         )
 

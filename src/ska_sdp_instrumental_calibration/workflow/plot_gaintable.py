@@ -543,3 +543,126 @@ class PlotGaintableTime(PlotGaintable):
 
         # Input is index (time in seconds), map to index
         return lambda index: np.interp(index, time_data, time_indexes)
+
+
+class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
+    def __init__(self, path_prefix):
+        """Initializes the frequency-based gaintable plotter.
+
+        Sets the primary x-axis to 'Channel' and the secondary x-axis
+        to 'Frequency [MHz]'.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments passed to the `PlotGaintable` parent class,
+            such as `path_prefix`.
+        """
+        super(PlotGaintableTargetIonosphere, self).__init__(
+            path_prefix=path_prefix
+        )
+        self._plot_args = dict(
+            x="Channel",
+            y="time",
+            col="Station",
+            col_wrap=5,
+            add_colorbar=True,
+            sharex=False,
+            aspect=1.5,
+        )
+        self.__plot_path = f"{path_prefix}-{{plot_type}}-{self.xdim}.png"
+
+    @property
+    def xdim(self):
+        """Abstract property for the x-dimension name.
+
+        This property defines a short string used in the output plot filename
+        to identify the x-axis dimension (e.g., 'time' or 'freq').
+
+        Raises
+        ------
+        NotImplementedError
+            This property must be overridden by a subclass.
+        """
+        return "time-freq"
+
+    def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
+        """Prepares the gaintable for frequency-axis plotting.
+
+        Calls the parent preparation method and then adds a 'Channel'
+        coordinate dimension by mapping the 'frequency' dimension
+        to integer indices. Stores the frequency values (in MHz)
+        in `self._x_data` for axis mapping.
+
+        Parameters
+        ----------
+        gain_table : xarray.Dataset
+            The raw gaintable dataset to process.
+        drop_cross_pols : bool, optional
+            If True, cross-polarization solutions are dropped.
+            Defaults to False.
+
+        Returns
+        -------
+        xarray.Dataset
+            The processed gaintable with a 'Channel' coordinate.
+        """
+        gaintable = super(
+            PlotGaintableTargetIonosphere, self
+        )._prepare_gaintable(gain_table, drop_cross_pols)
+
+        gaintable = gaintable.assign(
+            {"time": gaintable.time - gaintable.time[0]}
+        )
+
+        gain_phase = gaintable.gain.copy()
+        gain_phase.data = np.angle(gain_phase.data, deg=True)
+
+        gaintable = gaintable.assign(
+            {
+                "Phase(Degree)": gain_phase,
+                "Amplitude": np.abs(gaintable.gain),
+            }
+        )
+
+        return gaintable.isel(Jones_Solutions=[0])
+
+    @dask.delayed
+    @safe
+    def plot(self, gaintable, figure_title="", **kwargs):
+        """Generates and saves facet plots for gaintable phase and amplitude.
+
+        This is a Dask delayed method that creates time vs channel phase plots
+        for target ionospheric calibration, faceted by station
+        The plots are saved to disk using the `path_prefix`.
+
+        Parameters
+        ----------
+        gaintable : xarray.Dataset
+            The input gaintable dataset to plot.
+        figure_title : str, optional
+            A prefix for the main figure title. Defaults to "".
+        """
+        y_label = "Observation Time(S)"
+        gaintable = self._prepare_gaintable(gaintable)
+        facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
+
+        facet_plot.set_axis_labels(self._x_label, y_label)
+        for ax in facet_plot.axs.reshape(-1):
+            ax.tick_params(labelbottom=True)
+
+        self._update_facet(facet_plot, y_label)
+        facet_plot.set_ticks(fontsize=8)
+
+        gain_phase_fig = facet_plot.fig
+
+        gain_phase_fig.suptitle(
+            f"{figure_title} Solutions (Phase)", fontsize="x-large"
+        )
+        gain_phase_fig.tight_layout()
+        plt.subplots_adjust(right=0.83)
+        gain_phase_fig.savefig(
+            self.__plot_path.format(plot_type="phase"), bbox_inches="tight"
+        )
+
+        plt.close()
