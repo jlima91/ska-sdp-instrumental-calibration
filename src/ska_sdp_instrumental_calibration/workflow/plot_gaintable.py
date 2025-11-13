@@ -630,12 +630,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         gain_phase = gaintable.gain.copy()
         gain_phase.data = np.angle(gain_phase.data, deg=True)
 
-        gaintable = gaintable.assign(
-            {
-                "Phase(Degree)": gain_phase,
-                "Amplitude": np.abs(gaintable.gain),
-            }
-        )
+        gaintable = gaintable.assign({"Phase(Degree)": gain_phase})
 
         return gaintable.isel(Jones_Solutions=[0])
 

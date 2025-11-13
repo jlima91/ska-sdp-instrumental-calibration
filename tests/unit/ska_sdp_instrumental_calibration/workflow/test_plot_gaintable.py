@@ -3,6 +3,7 @@ from mock import ANY, MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
     PlotGaintableFrequency,
+    PlotGaintableTargetIonosphere,
     PlotGaintableTime,
     safe,
 )
@@ -264,4 +265,63 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_amp.fig.tight_layout.assert_called_once()
     mock_facet_amp.fig.savefig.assert_called_once_with(
         "path/to/save-amp-time.png", bbox_inches="tight"
+    )
+
+
+@patch("ska_sdp_instrumental_calibration.workflow.plot_gaintable.np")
+def test_should_plot_gaintable_for_target_ionospheric(np_mock):
+    gaintable = MagicMock(name="gaintable")
+    gaintable.stack.return_value = gaintable
+    gaintable.assign_coords.return_value = gaintable
+    gaintable.swap_dims.return_value = gaintable
+    gaintable.assign.return_value = gaintable
+    gaintable.isel.return_value = gaintable
+
+    gaintable.time = np.array([1, 2, 3, 4])
+
+    jones_solution_mock = MagicMock(name="jones_solution_mock")
+    jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
+    phase_gain_mock = MagicMock(name="gain_phase")
+    gain_mock = MagicMock(name="gain")
+    gaintable.gain = gain_mock
+    gain_mock.copy.return_value = phase_gain_mock
+    mock_facet_phase = MagicMock(name="facet_plot_phase")
+    phase_gain_mock.plot.return_value = mock_facet_phase
+    gaintable.__getitem__.return_value = phase_gain_mock
+
+    plotter = PlotGaintableTargetIonosphere(path_prefix="path/to/save")
+
+    delayed_plot = plotter.plot(gaintable, figure_title="Plot Title")
+    delayed_plot.compute()
+
+    gaintable.assign.assert_has_calls(
+        [call({"time": ANY}), call({"Phase(Degree)": phase_gain_mock})]
+    )
+
+    gaintable.isel.assert_called_once_with(Jones_Solutions=[0])
+
+    gaintable.swap_dims.assert_has_calls(
+        [call({"antenna": "Station"}), call({"frequency": "Channel"})]
+    )
+
+    phase_gain_mock.plot.assert_called_once_with(
+        x="Channel",
+        y="time",
+        col="Station",
+        col_wrap=5,
+        add_colorbar=True,
+        sharex=False,
+        aspect=1.5,
+    )
+
+    mock_facet_phase.fig.suptitle.assert_called_once_with(
+        (
+            "Plot Title Solutions (Phase)-"
+            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+        ),
+        fontsize="x-large",
+    )
+    mock_facet_phase.fig.tight_layout.assert_called_once()
+    mock_facet_phase.fig.savefig.assert_called_once_with(
+        "path/to/save-phase-time-freq.png", bbox_inches="tight"
     )
