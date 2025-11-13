@@ -1210,29 +1210,27 @@ def indices_to_slice(
     return index_array
 
 
-def create_solint_slices(
-    time: xr.DataArray,
-    timeslice: Union[float, Literal["full"], None] = None,
+def create_grouped_array(
+    data: xr.DataArray,
+    dim_name: str,
+    slice_value: Union[float, Literal["full"], None] = None,
 ) -> DataArrayGroupBy:
     """
-    Generate time slices (solution intervals) from a time DataArray.
-
-    This function divides a continuous time DataArray into bins of a
-    specified `timeslice` duration. It calculates the number of bins
-    required to cover the entire time range and then uses
+    Convert a DataArray into GroupedDataArray based on slice_value value.
+    It calculates the number of bins
+    required to cover the entire data range and then uses
     `xarray.groupby_bins` to create the groups.
 
     Parameters
     ----------
-    time : xarray.DataArray
-        The input time DataArray. Must have a 'time' coordinate or
-        be a time coordinate DataArray itself.
-    timeslice : float or "full", optional
-        The desired duration for each time slice.
-        The total time range (time.max() - time.min()) is divided by this
-        duration to determine the number of bins.
+    data : xarray.DataArray
+        The dataarray which will be grouped into bins.
+    dim_name: str
+        The dimension name to create bins over.
+    slice_value : float or "full", optional
+        The desired interval over dimension "dim_name".
         If None or less than/equal to 0.0,
-        creates same number of bins as size of time.
+        creates same number of bins as size of data.
         If "full", creates a single bin.
 
     Returns
@@ -1241,22 +1239,27 @@ def create_solint_slices(
         Returns the DataArrayGroupBy objects created
         after calling groupby_bins
     """
-    if timeslice == "full":
+    if slice_value == "full":
         nbins = 1
-    elif (timeslice is None) or (timeslice <= 0.0):
-        nbins = time.size
+    elif (slice_value is None) or (slice_value <= 0.0):
+        nbins = data.size
     else:
         # Determine number of equal width bins
         # TODO: Should bins always be of equal interval?
         nbins = min(
             max(
                 1,
-                int(np.ceil((time.data.max() - time.data.min()) / timeslice)),
+                int(
+                    np.ceil(
+                        (data[dim_name].data.max() - data[dim_name].data.min())
+                        / slice_value
+                    )
+                ),
             ),
-            time.size,
+            data[dim_name].size,
         )
 
-    return time.groupby_bins("time", nbins, squeeze=False)
+    return data.groupby_bins(dim_name, nbins, squeeze=False)
 
 
 def get_indices_from_grouped_bins(

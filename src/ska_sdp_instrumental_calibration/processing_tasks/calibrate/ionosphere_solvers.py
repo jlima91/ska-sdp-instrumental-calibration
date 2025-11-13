@@ -13,7 +13,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_bandpass_table,
-    create_solint_slices,
+    create_grouped_array,
     get_indices_from_grouped_bins,
 )
 
@@ -135,7 +135,7 @@ class IonosphericSolver:
                     zernike_limit,
                 )
                 for t_slice in get_indices_from_grouped_bins(
-                    create_solint_slices(vis.time, timeslice)
+                    create_grouped_array(vis.time, "time", timeslice)
                 )
             ],
             dim="time",

@@ -11,7 +11,7 @@ from ska_sdp_datamodels.visibility import Visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_solint_slices,
+    create_grouped_array,
     get_indices_from_grouped_bins,
     get_intervals_from_grouped_bins,
 )
@@ -286,7 +286,7 @@ def create_gaintable_from_vis_new(
         timeslice = None
 
     # TODO: review this time slice creation logic
-    gain_time_bins = create_solint_slices(vis.time, timeslice)
+    gain_time_bins = create_grouped_array(vis.time, "time", timeslice)
     gain_time = gain_time_bins.mean().data
     gain_interval = get_intervals_from_grouped_bins(gain_time_bins)
     ntimes = len(gain_time)
