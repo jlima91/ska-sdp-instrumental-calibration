@@ -4,6 +4,7 @@ from traceback import print_exc
 import dask
 import matplotlib.pyplot as plt
 import numpy as np
+from astropy.time import Time
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -72,6 +73,7 @@ class PlotGaintable:
             Defaults to None.
         """
         self.__plot_path = f"{path_prefix}-{{plot_type}}-{self.xdim}.png"
+        self._post_title = ""
         self._plot_args = dict(
             x=None,
             hue="Jones_Solutions",
@@ -104,6 +106,11 @@ class PlotGaintable:
             This property must be overridden by a subclass.
         """
         raise NotImplementedError("xdim property not implemented")
+
+    def observation_start_time(self, gaintable):
+        return Time(
+            gaintable.time[0] / 86400.0, format="mjd", scale="utc"
+        ).datetime64
 
     @dask.delayed
     @safe
@@ -151,7 +158,9 @@ class PlotGaintable:
         ).fig
 
         gain_phase_fig.suptitle(
-            f"{figure_title} Solutions (Phase)", fontsize="x-large", y=1.08
+            f"{figure_title} Solutions (Phase){self._post_title}",
+            fontsize="x-large",
+            y=1.08,
         )
         gain_phase_fig.tight_layout()
         gain_phase_fig.savefig(
@@ -168,7 +177,7 @@ class PlotGaintable:
             ).fig
 
             gain_amp_fig.suptitle(
-                f"{figure_title} Solutions (Amplitude)",
+                f"{figure_title} Solutions (Amplitude){self._post_title}",
                 fontsize="x-large",
                 y=1.08,
             )
@@ -469,7 +478,7 @@ class PlotGaintableTime(PlotGaintable):
         """
         super(PlotGaintableTime, self).__init__(**kwargs)
         self._plot_args["x"] = "time"
-        self._x_label = "Observation Time (S)"
+        self._x_label = "Solution Time (S)"
         self._x_sec_label = "Time Index"
 
     @property
@@ -508,8 +517,11 @@ class PlotGaintableTime(PlotGaintable):
             gain_table, drop_cross_pols
         )
 
+        starting_time = self.observation_start_time(gaintable)
+
         self._x_data = gaintable.time - gaintable.time[0]
         self._x_sec_data = np.arange(len(self._x_data))
+        self._post_title = f"-[Solution Start Time: {starting_time}]"
         return gaintable.assign({"time": self._x_data})
 
     def _primary_sec_ax_mapper(self, time_data, time_indexes, reverse=False):
@@ -643,7 +655,9 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         figure_title : str, optional
             A prefix for the main figure title. Defaults to "".
         """
-        y_label = "Observation Time(S)"
+        y_label = "Solution Time (S)"
+        starting_time = self.observation_start_time(gaintable)
+
         gaintable = self._prepare_gaintable(gaintable)
         facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
 
@@ -657,7 +671,11 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         gain_phase_fig = facet_plot.fig
 
         gain_phase_fig.suptitle(
-            f"{figure_title} Solutions (Phase)", fontsize="x-large"
+            (
+                f"{figure_title} Solutions (Phase)-"
+                f"[Solution Start Time: {starting_time}]"
+            ),
+            fontsize="x-large",
         )
         gain_phase_fig.tight_layout()
         plt.subplots_adjust(right=0.83)

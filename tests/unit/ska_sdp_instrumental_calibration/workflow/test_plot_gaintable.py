@@ -241,7 +241,12 @@ def test_should_plot_gaintable_for_time(np_mock):
     )
 
     mock_facet_phase.fig.suptitle.assert_called_once_with(
-        "Plot Title Solutions (Phase)", fontsize="x-large", y=1.08
+        (
+            "Plot Title Solutions (Phase)-"
+            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+        ),
+        fontsize="x-large",
+        y=1.08,
     )
     mock_facet_phase.fig.tight_layout.assert_called_once()
     mock_facet_phase.fig.savefig.assert_called_once_with(
@@ -249,7 +254,12 @@ def test_should_plot_gaintable_for_time(np_mock):
     )
 
     mock_facet_amp.fig.suptitle.assert_called_once_with(
-        "Plot Title Solutions (Amplitude)", fontsize="x-large", y=1.08
+        (
+            "Plot Title Solutions (Amplitude)"
+            "-[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+        ),
+        fontsize="x-large",
+        y=1.08,
     )
     mock_facet_amp.fig.tight_layout.assert_called_once()
     mock_facet_amp.fig.savefig.assert_called_once_with(
