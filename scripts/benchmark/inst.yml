@@ -69,7 +69,6 @@ global_parameters:
         plot_config:
           plot_table: true
           fixed_axis: false
-          anotate_stations: false
         export_gaintable: true
     - export_gain_table:
         file_name: inst.gaintable
