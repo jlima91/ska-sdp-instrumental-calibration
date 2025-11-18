@@ -1,6 +1,22 @@
 Changelog
 #########
 
+0.6.0
+*****
+
+Added
+-----
+
+* Ionospheric Delay calibration for calibrator.
+* DI calibration for target:
+  * Complex Gain Calibration
+  * Ionospheric Delay Calibration
+
+Improved
+--------
+* Dask computation for compute and checkpoint tasks.
+* Refactored plot gaintable.
+
 0.5.0
 *****
 
