@@ -30,7 +30,9 @@ module load $INST_MODULES
 INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
 INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
-EVERYBEAM_DATADIR=$(module show everybeam | grep CMAKE_PREFIX_PATH | sed 's=.*CMAKE_PREFIX_PATH \(.*\)/\.=\1/share/everybeam=')
+
+#Hardcoding everybeam path to fix the problem of pipefail with module show / grep.
+EVERYBEAM_DATADIR="/shared/fsx1/spack/install/linux-ubuntu22.04-x86_64_v3/gcc-11.4.0/everybeam-0.7.4-e7wx5ohtswiqc6x5zs3bmca7ihhzwg2m/share/everybeam"
 
 # Create output directories
 mkdir -p $OUTPUT_PATH $REPORT_PATH
