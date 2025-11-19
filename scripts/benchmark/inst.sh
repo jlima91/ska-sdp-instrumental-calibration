@@ -6,7 +6,7 @@
 #SBATCH --job-name=inst
 #SBATCH --output=slurm-%j-%x.out
 
-set -e
+set -euo pipefail
 
 # User set environment variables
 : ${INPUT_PATH:?is not set.}
