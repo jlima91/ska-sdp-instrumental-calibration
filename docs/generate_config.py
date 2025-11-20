@@ -71,6 +71,7 @@ def generate_config_dfs_per_stage(pipeline_definition):
 
 calibrator_df = generate_config_dfs_per_stage(instrumental_calibration.ska_sdp_instrumental_calibration)
 target_calibration_df = generate_config_dfs_per_stage(target_calibration.ska_sdp_instrumental_target_calibration)
+target_ionospeheric_df = generate_config_dfs_per_stage(target_calibration.ska_sdp_instrumental_target_ionospheric_calibration)
 
 #######################
 # Generate the RST file
@@ -99,6 +100,13 @@ Target Calibration Stages
 This section describes the stages used in the Target Calibration pipeline.
 
 {target_stages}
+
+Target Ionospheric Calibration Stages
+*************************
+
+This section describes the stages used in the Target Ionospheric pipeline.
+
+{target_ionospheric_stages}
 """
 
 table_config = """
@@ -155,8 +163,14 @@ with open(out_rst_path, "w") as f:
         target_calibration_df
     )
 
+    target_ionospheric_config = generate_stage_config(
+        target_calibration.ska_sdp_instrumental_target_ionospheric_calibration,
+        target_ionospeheric_df
+    )
+
     output_string = output_string.format(
         calibrator_stages=calibrator_config,
-        target_stages=target_config
+        target_stages=target_config,
+        target_ionospheric_stages=target_ionospheric_config
     )
     f.write(output_string)

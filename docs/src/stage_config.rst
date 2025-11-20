@@ -569,10 +569,177 @@ Parameters
     |                                   |                |                   | the output time axis.                  ``None``: match the time resolution of   |            |                                                                                            |
     |                                   |                |                   | the input, i.e. copy                 the time axis of the input Visibility      |            |                                                                                            |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | plot_config.plot_table            | bool           | False             | Plot the generated gaintable                                                    | False      |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+    | plot_config.fixed_axis            | bool           | False             | Limit amplitude axis to [0-1]                                                   | False      |                                                                                            |
+    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | visibility_key                    | str            | vis               | Visibility data to be used for calibration.                                     | True       | ['vis', 'corrected_vis']                                                                   |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | export_gaintable                  | bool           | False             | Export intermediate gain solutions.                                             | False      |                                                                                            |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
+
+
+export_gain_table
+=================
+
+    Export gain table solutions to a file.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | Param           | Type   | Default   | Description                            | Nullable   | Allowed values     |
+    +=================+========+===========+========================================+============+====================+
+    | file_name       | str    | gaintable | Gain table file name without extension | True       |                    |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | export_format   | str    | h5parm    | Export file format                     | True       | ['h5parm', 'hdf5'] |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+    | export_metadata | bool   | False     | Export metadata into YAML file         | True       |                    |
+    +-----------------+--------+-----------+----------------------------------------+------------+--------------------+
+
+
+
+
+Target Ionospheric Calibration Stages
+*************************
+
+This section describes the stages used in the Target Ionospheric pipeline.
+
+target_load_data
+================
+
+    This stage loads the target visibility data from either (in order of
+    preference):
+
+    1. An existing dataset stored as a zarr file inside the 'cache_directory'.
+    2. From input MSv2 measurement set. Here it will create an intemediate
+       zarr file with chunks along frequency and time, then use it as input
+       to the pipeline. This zarr dataset will be stored in 'cache_directory'
+       for later use.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | Param               | Type   | Default   | Description                                                                      | Nullable   | Allowed values                           |
+    +=====================+========+===========+==================================================================================+============+==========================================+
+    | nchannels_per_chunk | int    | 32        | Number of frequency channels per chunk in the             written zarr file.     | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ntimes_per_ms_chunk | int    | 5         | Number of time slots to include in each chunk             while reading from     | False      |                                          |
+    |                     |        |           | measurement set and writing in zarr file.             This is also the size of   |            |                                          |
+    |                     |        |           | time chunk used across the pipeline.                                             |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | cache_directory     | str    | ``null``  | Cache directory containing previously stored             visibility datasets as  | True       |                                          |
+    |                     |        |           | zarr files. The directory should contain             a subdirectory with same    |            |                                          |
+    |                     |        |           | name as the input target ms file name,             which internally contains the |            |                                          |
+    |                     |        |           | zarr and pickle files.             If None, the input ms will be converted to    |            |                                          |
+    |                     |        |           | zarr file,             and this zarr file will be stored in a new 'cache'        |            |                                          |
+    |                     |        |           | subdirectory under the provided output directory.                                |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | ack                 | bool   | False     | Ask casacore to acknowledge each table operation                                 | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | datacolumn          | str    | DATA      | MS data column to read visibility data from.                                     | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | field_id            | int    | 0         | Field ID of the data in measurement set                                          | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | data_desc_id        | int    | 0         | Data Description ID of the data in measurement set                               | False      |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+
+
+predict_vis
+===========
+
+    Predict model visibilities using a local sky model.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | Param                    | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
+    +==========================+========+===========+==================================================================================+============+==================+
+    | beam_type                | str    | everybeam | Type of beam model to use.                                                       | True       |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | normalise_at_beam_centre | bool   | True      | If true, before running calibration, multiply vis             and model vis by   | True       |                  |
+    |                          |        |           | the inverse of the beam response in the             beam pointing direction.     |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_ms                    | str    | ``null``  | If beam_type is "everybeam" but input ms does             not have all of the    | True       |                  |
+    |                          |        |           | metadata required by everybeam, this parameter             is used to specify a  |            |                  |
+    |                          |        |           | separate dataset to use when setting up             the beam models.             |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | eb_coeffs                | str    | ``null``  | Everybeam coeffs datadir containing beam             coefficients. Required if   | True       |                  |
+    |                          |        |           | beam_type is 'everybeam'.                                                        |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | gleamfile                | str    | ``null``  | Specifies the location of gleam catalogue             file gleamegc.dat          | True       |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | lsm_csv_path             | str    | ``null``  | Specifies the location of CSV file containing the             sky model. The CSV | True       |                  |
+    |                          |        |           | file should be in OSKAR CSV format.                                              |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | fov                      | float  | 10.0      | Specifies the width of the cone used when             searching for compoents,   | True       |                  |
+    |                          |        |           | in units of degrees.                                                             |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | flux_limit               | float  | 1.0       | Specifies the flux density limit used when             searching for compoents,  | True       |                  |
+    |                          |        |           | in units of Jy.                                                                  |            |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | alpha0                   | float  | -0.78     | Nominal alpha value to use when fitted data             are unspecified..        | True       |                  |
+    +--------------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+
+
+ionospheric_delay
+=================
+
+    Calculates and applies ionospheric delay corrections to visibility data.
+
+    This function uses an IonosphericSolver to model phase screens based on
+    the difference between observed visibilities and model visibilities. It
+    derives a gain table representing these phase corrections and applies it
+    to the visibility data. The resulting gain table can be optionally
+    exported to an H5parm file.
+
+Parameters
+----------
+
+..  table::
+    :width: 100%
+    :widths: 15, 10, 10, 45, 10, 10
+
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | Param           | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
+    +=================+========+===========+==================================================================================+============+==================+
+    | timeslice       | float  | 3.0       | Defines time scale over which each gain solution                 is valid. This  | True       |                  |
+    |                 |        |           | is used to define time axis of the GainTable.                 This parameter is  |            |                  |
+    |                 |        |           | interpreted as follows,                  float: this is a custom time interval   |            |                  |
+    |                 |        |           | in seconds.                 Input timestamps are grouped by intervals of this    |            |                  |
+    |                 |        |           | duration,                 and said groups are separately averaged to produce     |            |                  |
+    |                 |        |           | the output time axis.                  ``None``: match the time resolution of    |            |                  |
+    |                 |        |           | the input, i.e. copy                 the time axis of the input Visibility       |            |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | cluster_indexes | list   | ``null``  | Array of integers assigning each antenna to a cluster. If None, all antennas are | True       |                  |
+    |                 |        |           | treated as a single cluster                                                      |            |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | block_diagonal  | bool   | True      | If True, solve for all clusters simultaneously assuming a block-diagonal system. | False      |                  |
+    |                 |        |           | If False, solve for each cluster sequentially                                    |            |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | niter           | int    | 10        | Number of solver iterations.                                                     | False      |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | tol             | float  | 1e-06     | Iteration stops when the fractional change             in the gain solution is   | False      |                  |
+    |                 |        |           | below this tolerance.                                                            |            |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | zernike_limit   | int    | ``null``  | The maximum order of Zernike polynomials to use for the screen model.            | True       |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
+    | plot_table      | bool   | False     | Plot all station Phase vs Frequency                                              | False      |                  |
+    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
 
 
 export_gain_table
