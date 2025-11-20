@@ -1,9 +1,6 @@
 import logging
 
 import dask
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
 from ska_sdp_piper.piper.configurations import (
     ConfigParam,
     Configuration,
@@ -13,9 +10,6 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
-)
-from ska_sdp_instrumental_calibration.processing_tasks.calibrate import (
-    target_solver,
 )
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
@@ -27,6 +21,9 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     parse_reference_antenna,
     with_chunks,
 )
+
+from ....dask_wrappers.solver import run_solver
+from ....processing_tasks.solvers.solvers import SolverFactory
 
 logger = logging.getLogger()
 
@@ -100,21 +97,6 @@ logger = logging.getLogger()
                 allowed_values=[None, "mean", "median"],
                 nullable=True,
             ),
-            timeslice=ConfigParam(
-                float,
-                None,
-                description="""Defines time scale over which each gain solution
-                is valid. This is used to define time axis of the GainTable.
-                This parameter is interpreted as follows,
-
-                float: this is a custom time interval in seconds.
-                Input timestamps are grouped by intervals of this duration,
-                and said groups are separately averaged to produce
-                the output time axis.
-
-                ``None``: match the time resolution of the input, i.e. copy
-                the time axis of the input Visibility""",
-            ),
         ),
         plot_config=NestedConfigParam(
             "Plot parameters",
@@ -183,15 +165,12 @@ def complex_gain_calibration_stage(
     upstream_output.add_checkpoint_key("gaintable")
     modelvis = upstream_output.modelvis
     vis_chunks = upstream_output.chunks
-
-    timeslice = run_solver_config["timeslice"]
+    run_solver_config["timeslice"] = upstream_output.timeslice
 
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for complex gain calibration.")
 
-    initial_gaintable = create_gaintable_from_visibility(
-        vis, timeslice=timeslice, jones_type="G"
-    )
+    initial_gaintable = upstream_output.gaintable
     initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
 
     refant = run_solver_config["refant"]
@@ -199,11 +178,13 @@ def complex_gain_calibration_stage(
         refant, initial_gaintable
     )
 
-    gaintable = target_solver.run_solver(
+    solver = SolverFactory.get_solver(**run_solver_config)
+
+    gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
         gaintable=initial_gaintable,
-        **run_solver_config,
+        solver=solver,
     )
 
     if plot_config["plot_table"]:

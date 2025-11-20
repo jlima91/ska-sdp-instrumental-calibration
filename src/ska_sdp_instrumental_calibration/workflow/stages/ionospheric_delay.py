@@ -18,6 +18,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 )
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
 
 logger = logging.getLogger()
@@ -139,10 +140,12 @@ def ionospheric_delay_stage(
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
     vis_chunks = upstream_output.chunks
+    initialtable = create_gaintable_from_visibility(vis, "full", "B")
 
-    gaintable = IonosphericSolver.solve_calibrator(
+    gaintable = IonosphericSolver.solve(
         vis,
         modelvis,
+        initialtable,
         cluster_indexes,
         block_diagonal,
         niter,

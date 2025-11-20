@@ -5,14 +5,13 @@ import dask
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (
+    create_gaintable_from_visibility,
+)
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
-    read_dataset_from_zarr,
+    read_visibility_from_zarr,
     write_ms_to_zarr,
-)
-from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_bandpass_table,
-    with_chunks,
 )
 
 logger = logging.getLogger(__name__)
@@ -149,18 +148,10 @@ def load_data_stage(
         ]
     }
 
-    # This is chunking of the intermidiate zarr file
-    zarr_chunks = {
-        **non_chunked_dims,
-        "time": ntimes_per_ms_chunk,
-        "frequency": nchannels_per_chunk,
-    }
-
-    # Pipeline only works on frequency chunks
     # Its expected that later stages follow same chunking pattern
     vis_chunks = {
         **non_chunked_dims,
-        "time": -1,
+        "time": ntimes_per_ms_chunk,
         "frequency": nchannels_per_chunk,
     }
     upstream_output["chunks"] = vis_chunks
@@ -190,18 +181,19 @@ def load_data_stage(
             write_ms_to_zarr(
                 input_ms,
                 vis_cache_directory,
-                zarr_chunks,
+                vis_chunks,
                 ack=ack,
                 datacolumn=datacolumn,
                 field_id=field_id,
                 data_desc_id=data_desc_id,
             )
 
-    vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
+    vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
-    gaintable = create_bandpass_table(vis)
     upstream_output["vis"] = vis
-    upstream_output["gaintable"] = gaintable.pipe(with_chunks, vis_chunks)
-    upstream_output["beams"] = None
+    upstream_output["gaintable"] = create_gaintable_from_visibility(
+        vis, "full", "B"
+    )
+    upstream_output["central_beams"] = None
 
     return upstream_output

@@ -9,17 +9,15 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
-    PlotGaintableFrequency,
-)
-from ska_sdp_instrumental_calibration.workflow.utils import (
+from ...dask_wrappers.solver import run_solver
+from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...processing_tasks.solvers.solvers import SolverFactory
+from ..plot_gaintable import PlotGaintableFrequency
+from ..utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
 )
-
-from ...data_managers.dask_wrappers import run_solver
-from ...data_managers.data_export import export_gaintable_to_h5parm
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
@@ -130,6 +128,8 @@ def bandpass_calibration_stage(
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
 
+    solver = SolverFactory.get_solver(**run_solver_config)
+
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
 
@@ -144,7 +144,7 @@ def bandpass_calibration_stage(
         vis=vis,
         modelvis=modelvis,
         gaintable=initialtable,
-        **run_solver_config,
+        solver=solver,
     )
 
     if plot_config["plot_table"]:

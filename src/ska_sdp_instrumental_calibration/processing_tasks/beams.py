@@ -6,8 +6,10 @@ import everybeam as eb
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
-from astropy.coordinates import ITRS, AltAz, SkyCoord
+from astropy.coordinates import AltAz, SkyCoord
 from astropy.time import Time
+
+from .predict_model.beams import radec_to_xyz
 
 logger = logging.getLogger("processing_tasks.beams")
 
@@ -233,16 +235,3 @@ class GenericBeams:
             beams[..., :, :] = np.eye(2)
 
         return beams
-
-
-# from everybeam.readthedocs.io/en/latest/tree/demos/lofar-array-factor.html
-def radec_to_xyz(direction: SkyCoord, time: Time):
-    """
-    Convert RA and Dec ICRS coordinates to ITRS cartesian coordinates.
-
-    :param direction: SkyCoord astropy pointing direction
-    :param time: astropy obstime
-    :return: NumPy array containing the ITRS X, Y and Z coordinates
-    """
-    direction_itrs = direction.transform_to(ITRS(obstime=time))
-    return np.asarray(direction_itrs.cartesian.xyz.transpose())

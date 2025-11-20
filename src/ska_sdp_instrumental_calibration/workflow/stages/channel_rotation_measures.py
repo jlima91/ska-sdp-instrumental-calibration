@@ -13,13 +13,13 @@ from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
     PlotGaintableFrequency,
 )
 
-from ...data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
-    predict_vis,
-    run_solver,
-)
+from ...dask_wrappers.apply import apply_gaintable_to_dataset
+from ...dask_wrappers.predict import predict_vis
+from ...dask_wrappers.solver import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...processing_tasks.rotation_measures import model_rotations
+from ...processing_tasks.solvers.solvers import SolverFactory
 from ..utils import (
     get_gaintables_path,
     get_plots_path,
@@ -189,6 +189,7 @@ def generate_channel_rm_stage(
 
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
+    beam_factory = upstream_output.beams_factory
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
@@ -210,21 +211,25 @@ def generate_channel_rm_stage(
     modelvis = predict_vis(
         vis,
         upstream_output["lsm"],
-        beam_type=upstream_output["beam_type"],
-        eb_ms=upstream_output["eb_ms"],
-        eb_coeffs=upstream_output["eb_coeffs"],
+        initialtable.time.data,
+        initialtable.soln_interval_slices,
+        beam_factory,
         station_rm=rotations.rm_est,
     )
 
-    if upstream_output["beams"] is not None:
+    if upstream_output["central_beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
-            modelvis, upstream_output["beams"], inverse=True
+            modelvis, upstream_output["central_beams"], inverse=True
         )
+
+    solver = SolverFactory.get_solver(**run_solver_config)
+    empty_table = create_gaintable_from_visibility(vis, "full", "B")
 
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,
-        **run_solver_config,
+        gaintable=empty_table,
+        solver=solver,
     )
 
     if plot_rm_config["plot_rm"]:

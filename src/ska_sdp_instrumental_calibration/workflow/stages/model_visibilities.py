@@ -3,17 +3,11 @@ import logging
 from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
-    predict_vis,
-    prediction_central_beams,
-)
-from ...exceptions import RequiredArgumentMissingException
-from ...processing_tasks.lsm import (
-    generate_lsm_from_csv,
-    generate_lsm_from_gleamegc,
-)
-from ..utils import get_phasecentre
+from ...dask_wrappers.apply import apply_gaintable_to_dataset
+from ...dask_wrappers.beams import prediction_central_beams
+from ...dask_wrappers.predict import predict_vis
+from ...data_managers.local_sky_model import GlobalSkyModel
+from ...processing_tasks.predict_model.beams import BeamsFactory
 from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()
@@ -76,68 +70,56 @@ def predict_visibilities(
     """
     upstream_output.add_checkpoint_key("modelvis")
     vis = upstream_output.vis
+    gaintable = upstream_output.gaintable
 
-    logger.info("Generating LSM for predict with:")
-    logger.info(f" - Search radius: {fov/2} deg")
-    logger.info(f" - Flux limit: {flux_limit} Jy")
+    upstream_output["lsm"] = GlobalSkyModel(
+        vis.configuration.location,
+        vis.phasecentre,
+        fov,
+        flux_limit,
+        alpha0,
+        gleamfile,
+        lsm_csv_path,
+    )
 
-    phase_centre = get_phasecentre(_cli_args_["input"])
+    beams_factory = None
 
-    if gleamfile is not None and lsm_csv_path is not None:
-        logger.warning("LSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
-
-    if gleamfile is not None:
-        logger.info(f" - Catalogue file: {gleamfile}")
-        lsm = generate_lsm_from_gleamegc(
-            gleamfile=gleamfile,
-            phasecentre=phase_centre,
-            fov=fov,
-            flux_limit=flux_limit,
-            alpha0=alpha0,
-        )
-    elif lsm_csv_path is not None:
-        logger.info(f" - Catalogue file: {lsm_csv_path}")
-        lsm = generate_lsm_from_csv(
-            csvfile=lsm_csv_path,
-            phasecentre=phase_centre,
-            fov=fov,
-            flux_limit=flux_limit,
-        )
-    else:
-        raise RequiredArgumentMissingException(
-            "No LSM components provided. "
-            "Either provide GLEAMFILE or LSM CSV file"
-        )
-    upstream_output["lsm"] = lsm
-    upstream_output["beam_type"] = beam_type
-    upstream_output["eb_coeffs"] = eb_coeffs
-
-    logger.info(f"LSM: found {len(lsm)} components")
-
+    # Process beam related parameters
     eb_ms = _cli_args_["input"] if eb_ms is None else eb_ms
-    upstream_output["eb_ms"] = eb_ms
+
+    if beam_type == "everybeam":
+        logger.info("Using EveryBeam model in predict")
+
+        beams_factory = BeamsFactory(
+            nstations=vis.configuration.id.size,
+            array_location=vis.configuration.location,
+            direction=vis.phasecentre,
+            ms_path=eb_ms,
+        )
 
     modelvis = predict_vis(
         vis,
-        lsm,
-        beam_type=beam_type,
-        eb_ms=eb_ms,
-        eb_coeffs=eb_coeffs,
+        upstream_output["lsm"],
+        gaintable.time.data,
+        gaintable.soln_interval_slices,
+        beams_factory,
     )
 
-    if normalise_at_beam_centre:
-        beams = prediction_central_beams(
-            vis,
-            beam_type=beam_type,
-            eb_ms=eb_ms,
-            eb_coeffs=eb_coeffs,
-        ).persist()
-        vis = apply_gaintable_to_dataset(vis, beams, inverse=True)
-        modelvis = apply_gaintable_to_dataset(modelvis, beams, inverse=True)
-        upstream_output["beams"] = beams
+    if normalise_at_beam_centre and beam_type == "everybeam":
+        central_beams = prediction_central_beams(
+            gaintable,
+            beams_factory,
+        )
+        vis = apply_gaintable_to_dataset(vis, central_beams, inverse=True)
+        modelvis = apply_gaintable_to_dataset(
+            modelvis, central_beams, inverse=True
+        )
+        upstream_output["central_beams"] = central_beams
+        upstream_output.add_checkpoint_key("central_beams")
         upstream_output["vis"] = vis
 
     upstream_output["modelvis"] = modelvis
+    upstream_output["beams_factory"] = beams_factory
     upstream_output.increment_call_count("predict_vis")
 
     return upstream_output

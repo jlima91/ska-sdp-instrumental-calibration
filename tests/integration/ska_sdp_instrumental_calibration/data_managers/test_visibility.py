@@ -4,7 +4,7 @@ import numpy as np
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
-    read_dataset_from_zarr,
+    read_visibility_from_zarr,
     write_ms_to_zarr,
 )
 
@@ -48,7 +48,7 @@ def test_visibility_write_and_read(tmp_path, generate_vis, generate_ms):
 
     assert check_if_cache_files_exist(cache_dir)
 
-    zarred_dataset = read_dataset_from_zarr(cache_dir, vis_chunks)
+    zarred_dataset = read_visibility_from_zarr(cache_dir, vis_chunks)
 
     np.testing.assert_allclose(
         np.real(gen_vis.vis.data), np.real(zarred_dataset.vis.data)
