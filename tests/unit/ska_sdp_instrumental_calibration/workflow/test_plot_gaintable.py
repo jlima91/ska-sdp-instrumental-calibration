@@ -320,6 +320,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
             "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
         ),
         fontsize="x-large",
+        y=1.08,
     )
     mock_facet_phase.fig.tight_layout.assert_called_once()
     mock_facet_phase.fig.savefig.assert_called_once_with(

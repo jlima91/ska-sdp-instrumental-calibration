@@ -478,7 +478,7 @@ class PlotGaintableTime(PlotGaintable):
         """
         super(PlotGaintableTime, self).__init__(**kwargs)
         self._plot_args["x"] = "time"
-        self._x_label = "Solution Time (S)"
+        self._x_label = "Time (S)"
         self._x_sec_label = "Time Index"
 
     @property
@@ -650,7 +650,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         figure_title : str, optional
             A prefix for the main figure title. Defaults to "".
         """
-        y_label = "Solution Time (S)"
+        y_label = "Time (S)"
         starting_time = self.observation_start_time(gaintable)
 
         gaintable = self._prepare_gaintable(gaintable)
@@ -671,6 +671,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
                 f"[Solution Start Time: {starting_time}]"
             ),
             fontsize="x-large",
+            y=1.08,
         )
         gain_phase_fig.tight_layout()
         plt.subplots_adjust(right=0.83)
