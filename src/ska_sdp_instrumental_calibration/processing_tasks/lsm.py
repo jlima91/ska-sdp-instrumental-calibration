@@ -10,19 +10,21 @@ __all__ = [
     "generate_lsm_from_gleamegc",
 ]
 
+import logging
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import AltAz, SkyCoord
 from numpy import typing
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
-from ska_sdp_datamodels.sky_model import SkyComponent
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
+from ..data_managers.local_sky_component import LocalSkyComponent
+from .predict_model.beams import convert_time_to_solution_time
 
-logger = setup_logger("processing_tasks.lsm")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -65,6 +67,24 @@ class Component:
     beam_major: float = 0.0
     beam_minor: float = 0.0
     beam_pa: float = 0.0
+
+    @cached_property
+    def direction(self):
+        return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
+
+    def get_altaz(self, solution_time: float, array_location):
+        return self.direction.transform_to(
+            AltAz(
+                obstime=convert_time_to_solution_time(solution_time),
+                location=array_location,
+            )
+        )
+
+    def is_above_horizon(self, solution_time: float, array_location):
+        return self.get_altaz(solution_time, array_location).alt.degree >= 0
+
+    def get_skycomponent(self, frequency, _):
+        return convert_model_to_skycomponents([self], frequency)[0]
 
 
 def generate_lsm_from_csv(
@@ -272,7 +292,7 @@ def generate_lsm_from_gleamegc(
 def convert_model_to_skycomponents(
     model: list[Component],
     freq: typing.NDArray[float],
-) -> list[SkyComponent]:
+) -> list[LocalSkyComponent]:
     """Convert the LocalSkyModel to a list of SkyComponents.
 
     All sources are unpolarised and specified in the linear polarisation frame
@@ -319,12 +339,8 @@ def convert_model_to_skycomponents(
             }
 
         skycomponents.append(
-            SkyComponent(
-                direction=SkyCoord(
-                    ra=comp.RAdeg,
-                    dec=comp.DEdeg,
-                    unit="deg",
-                ),
+            LocalSkyComponent(
+                direction=comp.direction,
                 frequency=freq,
                 name=comp.name,
                 flux=flux,
