@@ -2,7 +2,9 @@
 Common configuration elements shared between different stages.
 """
 
-from ska_sdp_piper.piper.configurations import ConfigParam
+from copy import deepcopy
+
+from ska_sdp_piper.piper.configurations import ConfigParam, NestedConfigParam
 
 RUN_SOLVER_COMMON = dict(
     solver=ConfigParam(
@@ -196,5 +198,70 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         -0.78,
         description="""Nominal alpha value to use when fitted data
             are unspecified..""",
+    ),
+)
+
+BANDPASS_COMMON_CONFIG = dict(
+    run_solver_config=NestedConfigParam(
+        "Run Solver parameters",
+        **{
+            **(deepcopy(RUN_SOLVER_COMMON)),
+            "solver": ConfigParam(
+                str,
+                "gain_substitution",
+                description="""Calibration algorithm to use. Options are:
+            "gain_substitution" - original substitution algorithm
+            with separate solutions for each polarisation term.
+            "jones_substitution" - solve antenna-based Jones matrices
+            as a whole, with independent updates within each iteration.
+            "normal_equations" - solve normal equations within
+            each iteration formed from linearisation with respect to
+            antenna-based gain and leakage terms.
+            "normal_equations_presum" - same as normal_equations
+            option but with an initial accumulation of visibility
+            products over time and frequency for each solution
+            interval. This can be much faster for large datasets
+            and solution intervals.""",
+                allowed_values=[
+                    "gain_substitution",
+                    "jones_substitution",
+                    "normal_equations",
+                    "normal_equations_presum",
+                ],
+            ),
+            "niter": ConfigParam(
+                int,
+                200,
+                description="""Number of solver iterations.""",
+                nullable=False,
+            ),
+        },
+    ),
+    plot_config=NestedConfigParam(
+        "Plot parameters",
+        plot_table=ConfigParam(
+            bool,
+            False,
+            description="Plot the generated gaintable",
+            nullable=False,
+        ),
+        fixed_axis=ConfigParam(
+            bool,
+            False,
+            description="Limit amplitude axis to [0-1]",
+            nullable=False,
+        ),
+    ),
+    visibility_key=ConfigParam(
+        str,
+        "vis",
+        description="Visibility data to be used for calibration.",
+        allowed_values=["vis", "corrected_vis"],
+    ),
+    export_gaintable=ConfigParam(
+        bool,
+        False,
+        description="Export intermediate gain solutions.",
+        nullable=False,
     ),
 )

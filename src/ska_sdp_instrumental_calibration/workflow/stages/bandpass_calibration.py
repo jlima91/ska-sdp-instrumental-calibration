@@ -1,12 +1,7 @@
 import logging
-from copy import deepcopy
 
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
+from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
@@ -23,79 +18,12 @@ from ...data_managers.dask_wrappers import (
     run_solver,
 )
 from ...data_managers.data_export import export_gaintable_to_h5parm
-from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
+from ._common import BANDPASS_COMMON_CONFIG, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "bandpass_calibration",
-    configuration=Configuration(
-        run_solver_config=NestedConfigParam(
-            "Run Solver parameters",
-            **{
-                **(deepcopy(RUN_SOLVER_COMMON)),
-                "solver": ConfigParam(
-                    str,
-                    "gain_substitution",
-                    description="""Calibration algorithm to use. Options are:
-                "gain_substitution" - original substitution algorithm
-                with separate solutions for each polarisation term.
-                "jones_substitution" - solve antenna-based Jones matrices
-                as a whole, with independent updates within each iteration.
-                "normal_equations" - solve normal equations within
-                each iteration formed from linearisation with respect to
-                antenna-based gain and leakage terms.
-                "normal_equations_presum" - same as normal_equations
-                option but with an initial accumulation of visibility
-                products over time and frequency for each solution
-                interval. This can be much faster for large datasets
-                and solution intervals.""",
-                    allowed_values=[
-                        "gain_substitution",
-                        "jones_substitution",
-                        "normal_equations",
-                        "normal_equations_presum",
-                    ],
-                ),
-                "niter": ConfigParam(
-                    int,
-                    200,
-                    description="""Number of solver iterations.""",
-                    nullable=False,
-                ),
-            },
-        ),
-        plot_config=NestedConfigParam(
-            "Plot parameters",
-            plot_table=ConfigParam(
-                bool,
-                False,
-                description="Plot the generated gaintable",
-                nullable=False,
-            ),
-            fixed_axis=ConfigParam(
-                bool,
-                False,
-                description="Limit amplitude axis to [0-1]",
-                nullable=False,
-            ),
-        ),
-        visibility_key=ConfigParam(
-            str,
-            "vis",
-            description="Visibility data to be used for calibration.",
-            allowed_values=["vis", "corrected_vis"],
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            False,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-)
-def bandpass_calibration_stage(
+def bandpass_calibration(
     upstream_output,
     run_solver_config,
     plot_config,
@@ -193,6 +121,11 @@ def bandpass_calibration_stage(
     return upstream_output
 
 
-bandpass_calibration_stage.__doc__ = bandpass_calibration_stage.__doc__.format(
+bandpass_calibration.__doc__ = bandpass_calibration.__doc__.format(
     run_solver_docstring=RUN_SOLVER_DOCSTRING
 )
+
+bandpass_calibration_stage = ConfigurableStage(
+    "bandpass_calibration",
+    configuration=Configuration(**BANDPASS_COMMON_CONFIG),
+)(bandpass_calibration)
