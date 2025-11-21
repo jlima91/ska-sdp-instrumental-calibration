@@ -68,87 +68,6 @@ def find_best_refant_from_vis(
     return numpy.argsort(med_pnr_ants)[::-1]
 
 
-def _solve_with_mask(
-    crosspol,
-    gaintable_gain: numpy.ndarray,
-    gaintable_weight: numpy.ndarray,
-    gaintable_residual: numpy.ndarray,
-    mask,
-    niter,
-    phase_only,
-    row,
-    tol,
-    npol,
-    x,
-    xwt,
-    refant,
-    refant_sort,
-):
-    """
-    Method extracted from solve_gaintable to decrease
-    complexity. Calculations when `numpy.sum(mask) > 0`
-    """
-    x_shape = x.shape
-    x[mask] = x[mask] / xwt[mask]
-    x[~mask] = 0.0
-    xwt[mask] = xwt[mask] / numpy.max(xwt[mask])
-    xwt[~mask] = 0.0
-    x = x.reshape(x_shape)
-    if npol == 2 or (npol == 4 and not crosspol):
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_nocrossdata(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
-    elif npol == 4 and crosspol:
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_matrix(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
-
-    else:
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_scalar(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
-
-
-def _apply_flag(x: numpy.ndarray, flags: numpy.ndarray):
-    return x * (1 - flags)
-
-
 def gain_substitution(
     gain: numpy.ndarray,
     gain_weight: numpy.ndarray,
@@ -274,3 +193,84 @@ def create_point_vis(
         if model_vis is not None
         else (vis_vis, vis_weight)
     )
+
+
+def _solve_with_mask(
+    crosspol,
+    gaintable_gain: numpy.ndarray,
+    gaintable_weight: numpy.ndarray,
+    gaintable_residual: numpy.ndarray,
+    mask,
+    niter,
+    phase_only,
+    row,
+    tol,
+    npol,
+    x,
+    xwt,
+    refant,
+    refant_sort,
+):
+    """
+    Method extracted from solve_gaintable to decrease
+    complexity. Calculations when `numpy.sum(mask) > 0`
+    """
+    x_shape = x.shape
+    x[mask] = x[mask] / xwt[mask]
+    x[~mask] = 0.0
+    xwt[mask] = xwt[mask] / numpy.max(xwt[mask])
+    xwt[~mask] = 0.0
+    x = x.reshape(x_shape)
+    if npol == 2 or (npol == 4 and not crosspol):
+        (
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            gaintable_residual[row, ...],
+        ) = _solve_antenna_gains_itsubs_nocrossdata(
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            x,
+            xwt,
+            phase_only=phase_only,
+            niter=niter,
+            tol=tol,
+            refant=refant,
+            refant_sort=refant_sort,
+        )
+    elif npol == 4 and crosspol:
+        (
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            gaintable_residual[row, ...],
+        ) = _solve_antenna_gains_itsubs_matrix(
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            x,
+            xwt,
+            phase_only=phase_only,
+            niter=niter,
+            tol=tol,
+            refant=refant,
+            refant_sort=refant_sort,
+        )
+
+    else:
+        (
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            gaintable_residual[row, ...],
+        ) = _solve_antenna_gains_itsubs_scalar(
+            gaintable_gain[row, ...],
+            gaintable_weight[row, ...],
+            x,
+            xwt,
+            phase_only=phase_only,
+            niter=niter,
+            tol=tol,
+            refant=refant,
+            refant_sort=refant_sort,
+        )
+
+
+def _apply_flag(x: numpy.ndarray, flags: numpy.ndarray):
+    return x * (1 - flags)
