@@ -11,6 +11,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import get_plots_path
 
 from ....data_managers.gaintable import create_gaintable_from_visibility
 from ....processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
+from ...utils import with_chunks
 
 logger = logging.getLogger()
 
@@ -125,8 +126,10 @@ def ionospheric_delay_stage(
     timeslice = upstream_output.timeslice
 
     initialtable = create_gaintable_from_visibility(
-        vis, timeslice, "B", chunks=vis_chunks
+        vis, timeslice, "B", skip_default_chunk=True
     )
+
+    initialtable = initialtable.pipe(with_chunks, vis_chunks)
 
     gaintable = IonosphericSolver.solve(  # pylint: disable=E1121
         vis,
@@ -139,7 +142,6 @@ def ionospheric_delay_stage(
         zernike_limit,
     )
 
-    # gaintable = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["gaintable"] = gaintable
 
     if plot_table:

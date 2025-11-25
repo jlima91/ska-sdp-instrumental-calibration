@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
@@ -49,7 +49,7 @@ def create_gaintable_from_visibility(
     timeslice: Union[float, Literal["auto", "full"], None] = None,
     jones_type: Literal["T", "G", "B"] = "T",
     lower_precision: bool = True,
-    chunks: Optional[dict] = None,
+    skip_default_chunk: bool = False,
 ):
     """
     Similar behavior as create_gaintable_from_vis, except
@@ -114,10 +114,8 @@ def create_gaintable_from_visibility(
     gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
     # Chunk data variables
 
-    if chunks is not None:
-        return gain_table.chunk(
-            time=chunks.get("time", 1), frequency=chunks["frequency"]
-        )
+    if skip_default_chunk:
+        return gain_table
 
     gain_table = gain_table.chunk(time=1)
     if gain_table.frequency.size == vis.frequency.size:

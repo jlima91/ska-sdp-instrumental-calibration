@@ -20,9 +20,14 @@ load_data_stage = target_calibration.load_data_stage
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".load_data.read_dataset_from_zarr"
+    ".load_data.read_visibility_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.create_gaintable_from_visibility"
 )
 def test_should_load_data_from_existing_cached_zarr_file(
+    create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
     check_cache_mock,
@@ -32,6 +37,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
 
     frequency_per_chunk = 2
     times_per_ms_chunk = 3
+    timeslice = 1
 
     upstream_output = UpstreamOutput()
 
@@ -40,6 +46,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         frequency_per_chunk,
         times_per_ms_chunk,
         "/cache/dir/path",
+        timeslice,
         True,
         "ANOTHER_DATA",
         2,
@@ -69,8 +76,14 @@ def test_should_load_data_from_existing_cached_zarr_file(
         },
     )
 
+    create_gaintable_mock.assert_called_once_with(
+        read_data_mock.return_value, timeslice, "G"
+    )
+
     assert new_up_output["vis"] == read_data_mock.return_value
-    assert new_up_output["beams"] is None
+    assert new_up_output["timeslice"] == 1
+    assert new_up_output["gaintable"] == create_gaintable_mock.return_value
+    assert new_up_output["central_beams"] is None
 
 
 @patch(
@@ -87,9 +100,14 @@ def test_should_load_data_from_existing_cached_zarr_file(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".load_data.read_dataset_from_zarr"
+    ".load_data.read_visibility_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
+    ".load_data.create_gaintable_from_visibility"
 )
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
+    create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
     check_cache_mock,
@@ -107,6 +125,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         frequency_per_chunk,
         times_per_ms_chunk,
         None,
+        0,
         False,
         "ANOTHER_DATA",
         10,

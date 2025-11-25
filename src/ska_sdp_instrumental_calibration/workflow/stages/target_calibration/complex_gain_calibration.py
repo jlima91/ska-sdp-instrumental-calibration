@@ -179,7 +179,6 @@ def complex_gain_calibration_stage(
     )
 
     solver = SolverFactory.get_solver(**run_solver_config)
-
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,

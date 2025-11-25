@@ -17,7 +17,7 @@ from ...dask_wrappers.apply import apply_gaintable_to_dataset
 from ...dask_wrappers.predict import predict_vis
 from ...dask_wrappers.solver import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
-from ...data_managers.gaintable import create_gaintable_from_visibility
+from ...data_managers.gaintable import reset_gaintable
 from ...processing_tasks.rotation_measures import model_rotations
 from ...processing_tasks.solvers.solvers import SolverFactory
 from ..utils import (
@@ -223,7 +223,7 @@ def generate_channel_rm_stage(
         )
 
     solver = SolverFactory.get_solver(**run_solver_config)
-    empty_table = create_gaintable_from_visibility(vis, "full", "B")
+    empty_table = reset_gaintable(initialtable)
 
     gaintable = run_solver(
         vis=vis,

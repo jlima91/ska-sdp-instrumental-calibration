@@ -13,17 +13,19 @@ complex_gain_calibration_stage = (
 @pytest.fixture
 def upstream_output():
     uo = UpstreamOutput()
+    uo["gaintable"] = Mock(name="gaintable")
     uo["vis"] = Mock(name="vis")
     uo["corrected_vis"] = Mock(name="corrected_vis")
     uo["modelvis"] = Mock(name="modelvis")
     uo["chunks"] = Mock(name="chunks")
+    uo["timeslice"] = 1
     return uo
 
 
 @pytest.fixture
 def run_solver_config():
     return {
-        "solver": "solver",
+        "solver": "test_solver",
         "niter": 1,
         "refant": 2,
         "phase_only": True,
@@ -41,27 +43,27 @@ def run_solver_config():
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".complex_gain_calibration.create_gaintable_from_visibility",
+    ".complex_gain_calibration.run_solver",
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".complex_gain_calibration.target_solver.run_solver",
+    ".complex_gain_calibration.SolverFactory",
 )
 @pytest.mark.parametrize("visibility_key_attr", ["vis", "corrected_vis"])
 def test_should_perform_complex_gain_calibration(
+    solver_factory_mock,
     run_solver_mock,
-    create_gaintable_mock,
     parse_ref_ant_mock,
     upstream_output,
     run_solver_config,
     visibility_key_attr,
 ):
-    initial_gaintable = Mock(name="initial_gaintable")
+    initial_gaintable = upstream_output.gaintable
     initial_gaintable.pipe.return_value = initial_gaintable
-    create_gaintable_mock.return_value = initial_gaintable
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
     plot_config = {"plot_table": False, "fixed_axis": False}
+    solver_factory_mock.get_solver.return_value = "SOLVER"
 
     out = complex_gain_calibration_stage.stage_definition(
         upstream_output,
@@ -73,24 +75,24 @@ def test_should_perform_complex_gain_calibration(
     )
 
     parse_ref_ant_mock.assert_called_once_with(2, initial_gaintable)
-    create_gaintable_mock.assert_called_once_with(
-        upstream_output[visibility_key_attr], timeslice=0.5, jones_type="G"
-    )
     initial_gaintable.pipe.assert_called_once_with(
         with_chunks, upstream_output["chunks"]
     )
-    run_solver_mock.assert_called_once_with(
-        vis=upstream_output[visibility_key_attr],
-        modelvis=upstream_output.modelvis,
-        gaintable=initial_gaintable,
-        solver="solver",
+    solver_factory_mock.get_solver.assert_called_once_with(
+        solver="test_solver",
         niter=1,
         refant=3,
         phase_only=True,
         tol=1e-06,
         crosspol=False,
         normalise_gains="mean",
-        timeslice=0.5,
+        timeslice=1,
+    )
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output[visibility_key_attr],
+        modelvis=upstream_output.modelvis,
+        gaintable=initial_gaintable,
+        solver="SOLVER",
     )
     assert out.gaintable == gaintable_mock
 
@@ -122,16 +124,16 @@ def test_should_perform_complex_gain_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".complex_gain_calibration.create_gaintable_from_visibility",
+    ".complex_gain_calibration.run_solver"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.target_calibration"
-    ".complex_gain_calibration.target_solver.run_solver"
+    ".complex_gain_calibration.SolverFactory",
 )
 def test_should_export_gaintable_with_proper_suffix(
+    solver_factory_mock,
     run_solver_mock,
-    create_gaintable_mock,
-    parse_ref_ant_mock,
+    parese_reference_antenna_mock,
     plot_gaintable_time_mock,
     export_gaintable_mock,
     get_gaintables_path_mock,

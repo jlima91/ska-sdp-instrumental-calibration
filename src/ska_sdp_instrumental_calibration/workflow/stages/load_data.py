@@ -195,5 +195,6 @@ def load_data_stage(
         vis, "full", "B"
     )
     upstream_output["central_beams"] = None
+    upstream_output["beams_factory"] = None
 
     return upstream_output
