@@ -60,5 +60,5 @@ run_sim:
   image_size: 1024                  # Image size (pixels)
   pixel_size: "2arcsec"             # Pixel size (angular units)
 
-  # Extra parameters to pass directly to run_oskar.py
+  # Extra parameters to pass directly to utils/run_oskar.py
   run_oskar_extra_params: "--use-gpus --double-precision"
