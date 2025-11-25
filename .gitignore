@@ -25,3 +25,10 @@ docs/src/api
 .idea
 .eclipse
 .vscode
+
+# Additional files from scripts/ska_low_sim
+scripts/ska_low_sim/cable_delays/
+scripts/ska_low_sim/gain-tables/
+scripts/ska_low_sim/sky-models/
+scripts/ska_low_sim/tec/
+scripts/ska_low_sim/telescope-models/

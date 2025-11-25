@@ -27,7 +27,7 @@ fields:
 # ==================================
 
 generate_gaintable:
-  output_gaintable: &gen_gaintable "./gaintables/custom_gaintable.h5"
+  output_gaintable: &gen_gaintable "./gain-tables/custom_gaintable.h5"
 
   station_offset: true              # Apply per-station amplitude/phase offsets
   time_variant: true                # Apply time-dependent effects
@@ -37,7 +37,7 @@ generate_gaintable:
   rfi_end_freq_hz: 159.8090277778474e6           # Hz
 
   plot: true                        # Generate diagnostic plots
-  plot_output_dir: "./gaintables/generation_plots/"
+  plot_output_dir: "./gain-tables/generation_plots/"
 
 # ===============================
 # Options for run_sim.py
