@@ -93,3 +93,40 @@ def generate_ms(tmp_path, generate_vis):
     yield ms_path
 
     shutil.rmtree(ms_path)
+
+
+@pytest.fixture
+def generate_vis_mvis_gain_ndarray_data(generate_vis):
+    """Create mock visibility data for testing."""
+    vis, gaintable = generate_vis
+
+    vis_vis = vis.vis.values
+    vis_flags = vis.flags.values
+    vis_weight = vis.weight.values
+
+    ntime, nbaseline, nfreq, npol = vis_vis.shape
+    model_vis = np.random.randn(
+        ntime, nbaseline, nfreq, npol
+    ) + 1j * np.random.randn(ntime, nbaseline, nfreq, npol)
+    model_flags = np.zeros((ntime, nbaseline, nfreq, npol), dtype=bool)
+
+    gain_gain = gaintable.gain.values
+    gain_weight = gaintable.weight.values
+    gain_residual = gaintable.residual.values
+
+    ant1 = vis.antenna1.values
+    ant2 = vis.antenna2.values
+
+    return {
+        "vis_vis": vis_vis,
+        "vis_flags": vis_flags,
+        "vis_weight": vis_weight,
+        "model_vis": model_vis,
+        "model_flags": model_flags,
+        "gain_gain": gain_gain,
+        "gain_weight": gain_weight,
+        "gain_residual": gain_residual,
+        "ant1": ant1,
+        "ant2": ant2,
+        "nchannels": nfreq,
+    }
