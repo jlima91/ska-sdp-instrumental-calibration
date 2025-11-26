@@ -23,7 +23,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 )
 
 from ....dask_wrappers.solver import run_solver
-from ....processing_tasks.solvers.solvers import SolverFactory
+from ....processing_tasks.solvers import SolverFactory
 
 logger = logging.getLogger()
 

@@ -7,9 +7,7 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     restore_baselines_dim,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.solvers.solvers import (
-    Solver,
-)
+from ska_sdp_instrumental_calibration.processing_tasks.solvers import Solver
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,23 @@ def _run_solver_map_block_(
     vis = restore_baselines_dim(vis)
     modelvis = restore_baselines_dim(modelvis)
 
-    solved_gaintable = solver.solve(vis, modelvis, gaintable)
+    gain, weight, residual = solver.solve(
+        vis.vis.data,
+        vis.flags.data,
+        vis.weight.data,
+        modelvis.vis.data,
+        modelvis.flags.data,
+        gaintable.gain.data,
+        gaintable.weight.data,
+        gaintable.residual.data,
+        vis.antenna1.data,
+        vis.antenna2.data,
+    )
+
+    solved_gaintable = gaintable.copy(deep=True)
+    solved_gaintable.gain.data = gain
+    solved_gaintable.weight.data = weight
+    solved_gaintable.residual.data = residual
 
     # Revert frequency change
     if REVERT_FREQUENCY:
@@ -137,4 +151,6 @@ def run_solver(
             solution_frequency="frequency"
         )
 
-    return combined_gaintable
+    norm_gain = solver.normalise_gains(combined_gaintable.gain)
+
+    return combined_gaintable.assign({"gain": norm_gain})

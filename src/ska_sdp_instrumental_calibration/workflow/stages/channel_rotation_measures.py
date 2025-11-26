@@ -19,7 +19,7 @@ from ...dask_wrappers.solver import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...data_managers.gaintable import reset_gaintable
 from ...processing_tasks.rotation_measures import model_rotations
-from ...processing_tasks.solvers.solvers import SolverFactory
+from ...processing_tasks.solvers import SolverFactory
 from ..utils import (
     get_gaintables_path,
     get_plots_path,

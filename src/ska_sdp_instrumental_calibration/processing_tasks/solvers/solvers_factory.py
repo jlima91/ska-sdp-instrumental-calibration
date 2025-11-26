@@ -34,5 +34,10 @@ class SolverFactory:
     }
 
     @classmethod
-    def get_solver(cls, solver, *args, **kwargs):
-        return cls._solvers[solver](*args, **kwargs)
+    def get_solver(cls, solver="gain_substitution", **kwargs):
+        if solver not in cls._solvers:
+            raise ValueError(
+                f"{solver} not definebd."
+                f" Supported solvers: {','.join(cls._solvers)}"
+            )
+        return cls._solvers[solver](**kwargs)

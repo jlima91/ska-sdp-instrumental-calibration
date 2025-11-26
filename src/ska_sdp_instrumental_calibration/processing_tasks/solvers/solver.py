@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple
 
 import numpy as np
+import xarray as xr
 
 
 class Solver(ABC):
@@ -26,7 +27,7 @@ class Solver(ABC):
     The `solve` method should be overridden in derived classes.
     """
 
-    def __init__(self, niter=50, tol=1e-6):
+    def __init__(self, niter=50, tol=1e-6, **_):
         self.niter = niter
         self.tol = tol
 
@@ -77,3 +78,17 @@ class Solver(ABC):
             Updated gain, weights, and residual arrays after calibration.
         """
         pass
+
+    def normalise_gains(self, gain: xr.DataArray) -> xr.DataArray:
+        """
+        Function to normalize gains
+
+        Parameters
+        ----------
+        gaintable: xarray.DataArray
+
+        Returns
+        -------
+        xarray.DataArray
+        """
+        return gain

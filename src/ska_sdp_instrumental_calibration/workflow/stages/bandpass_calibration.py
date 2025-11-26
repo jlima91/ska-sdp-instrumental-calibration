@@ -11,7 +11,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...dask_wrappers.solver import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
-from ...processing_tasks.solvers.solvers import SolverFactory
+from ...processing_tasks.solvers import SolverFactory
 from ..plot_gaintable import PlotGaintableFrequency
 from ..utils import (
     get_gaintables_path,

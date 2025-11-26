@@ -55,6 +55,6 @@ def test_get_solver_with_kwargs():
     assert solver.tol == 1e-8
 
 
-def test_get_solver_raises_key_error_for_invalid_solver():
-    with pytest.raises(KeyError):
+def test_get_solver_raises_value_for_invalid_solver():
+    with pytest.raises(ValueError):
         SolverFactory.get_solver("invalid_solver")

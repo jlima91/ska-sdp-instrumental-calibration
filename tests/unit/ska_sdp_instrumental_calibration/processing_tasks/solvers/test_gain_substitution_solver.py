@@ -1,7 +1,7 @@
-from unittest.mock import patch
-
 import numpy as np
 import pytest
+import xarray as xr
+from mock import patch
 
 from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
     gain_substitution_solver,
@@ -269,6 +269,39 @@ def test_solve_raises_error_for_empty_model_vis(
             ant1=mock_data["ant1"],
             ant2=mock_data["ant2"],
         )
+
+
+def test_should_normalise_gains():
+
+    solver = GainSubstitution(refant=0, normalise_gains=None)
+    gain = xr.DataArray(np.array([0, 1, 2, 3, 4]), dims=["frequency"])
+
+    np.testing.assert_allclose(
+        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
+    )
+
+    solver = GainSubstitution(refant=0, normalise_gains="mean")
+    expected_gain = solver.normalise_gains(gain)
+
+    np.testing.assert_allclose(
+        expected_gain.data, np.array([0, 0.5, 1, 1.5, 2])
+    )
+
+    solver = GainSubstitution(refant=0, normalise_gains="median")
+    expected_gain = solver.normalise_gains(gain)
+
+    np.testing.assert_allclose(
+        expected_gain.data, np.array([0, 0.5, 1, 1.5, 2])
+    )
+
+
+def test_should_throw_exception_for_unsupported_normalise_function():
+
+    solver = GainSubstitution(refant=0, normalise_gains="std")
+    gain = xr.DataArray(np.array([0, 1, 2, 3, 4]), dims=["frequency"])
+
+    with pytest.raises(ValueError):
+        solver.normalise_gains(gain)
 
 
 def test_solve_raises_error_for_mismatched_model_inputs(
