@@ -7,7 +7,7 @@ from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.local_sky_model import GlobalSkyModel, LocalSkyModel
-from ..processing_tasks.predict_model.beams import BeamsFactory
+from ..processing_tasks.lsm.beams import BeamsFactory
 from ..workflow.utils import with_chunks
 
 logger = logging.getLogger(__name__)

@@ -12,9 +12,9 @@ from ..processing_tasks.lsm import (
     Component,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
+    generate_rotation_matrices,
 )
-from ..processing_tasks.predict_model.beams import BeamsFactory
-from ..processing_tasks.predict_model.predict import generate_rotation_matrices
+from ..processing_tasks.lsm.beams import BeamsFactory
 
 logger = logging.getLogger()
 

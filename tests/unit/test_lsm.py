@@ -27,8 +27,8 @@ CSV_CONTENT = """# Number of sources: 1434
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_generate_lsm_from_gleam_catalogue_file(
     logger_mock, path_mock, open_mock
 ):
@@ -84,8 +84,8 @@ def test_generate_lsm_from_gleam_catalogue_file(
     ]
 
 
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
     logger_mock, path_mock
 ):
@@ -112,8 +112,8 @@ def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_should_exclude_component_when_flux_is_less_than_min_flux(
     logger_mock, path_mock, open_mock
 ):
@@ -151,8 +151,8 @@ def test_should_exclude_component_when_flux_is_less_than_min_flux(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     logger_mock, path_mock, open_mock
 ):
@@ -211,7 +211,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
 def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     """
     Test that for a Component in the gleam catalogue file,
@@ -237,7 +237,8 @@ def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.lsm.deconvolve_gaussian"
+    "ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm"
+    ".deconvolve_gaussian"
 )
 def test_convert_model_to_skycomponents(deconvolve_gaussian_mock):
     """
@@ -285,7 +286,8 @@ def test_convert_model_to_skycomponents(deconvolve_gaussian_mock):
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.lsm.deconvolve_gaussian"
+    "ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm"
+    ".deconvolve_gaussian"
 )
 def test_convert_point_source_to_skycomponent(deconvolve_gaussian_mock):
     """
@@ -372,7 +374,7 @@ def test_deconvolve_circular_gaussian():
     np.testing.assert_allclose(expectd_params, actual_params)
 
 
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
 def test_should_raise_exception_for_invalid_csv_file(path_mock):
 
     path_mock.return_value = path_mock
@@ -384,8 +386,8 @@ def test_should_raise_exception_for_invalid_csv_file(path_mock):
         generate_lsm_from_csv("sky_model.csv", phasecentre, fov=10)
 
 
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
 
     path_mock.return_value = path_mock
@@ -415,8 +417,8 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
     ]
 
 
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     logger_mock, path_mock
 ):
@@ -436,8 +438,8 @@ def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     assert lsm == []
 
 
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm.logger")
 def test_exclude_csv_comp_when_its_out_of_fov(logger_mock, path_mock):
 
     path_mock.return_value = path_mock

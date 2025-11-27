@@ -7,7 +7,7 @@ from ...dask_wrappers.apply import apply_gaintable_to_dataset
 from ...dask_wrappers.beams import prediction_central_beams
 from ...dask_wrappers.predict import predict_vis
 from ...data_managers.local_sky_model import GlobalSkyModel
-from ...processing_tasks.predict_model.beams import BeamsFactory
+from ...processing_tasks.lsm.beams import BeamsFactory
 from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()

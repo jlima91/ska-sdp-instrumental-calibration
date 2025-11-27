@@ -9,7 +9,7 @@ import xarray as xr
 from astropy.coordinates import AltAz, SkyCoord
 from astropy.time import Time
 
-from .predict_model.beams import radec_to_xyz
+from .lsm.beams import radec_to_xyz
 
 logger = logging.getLogger("processing_tasks.beams")
 
