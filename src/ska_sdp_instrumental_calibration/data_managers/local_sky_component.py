@@ -2,8 +2,8 @@ import numpy as np
 from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ..data_managers.gaintable import apply_antenna_gains_to_visibility
+from ..processing_tasks.dft import dft_skycomponent
 from ..processing_tasks.lsm.beams import BeamsLow
-from ..processing_tasks.predict_model.predict import dft_skycomponent
 
 
 class LocalSkyComponent(SkyComponent):

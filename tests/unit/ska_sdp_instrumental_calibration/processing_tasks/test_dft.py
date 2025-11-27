@@ -15,10 +15,10 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import Component
-from ska_sdp_instrumental_calibration.processing_tasks.predict_model.predict import (  # noqa: E501
+from ska_sdp_instrumental_calibration.processing_tasks.dft import (  # noqa: E501
     gaussian_tapers,
 )
+from ska_sdp_instrumental_calibration.processing_tasks.lsm import Component
 
 
 @pytest.mark.skip("Function doesn't exist")
