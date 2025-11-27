@@ -2,7 +2,7 @@
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.processing_tasks.delay import (
+from ska_sdp_instrumental_calibration.dask_wrappers.delay import (
     apply_delay,
     calculate_delay,
     calculate_gain_rot,

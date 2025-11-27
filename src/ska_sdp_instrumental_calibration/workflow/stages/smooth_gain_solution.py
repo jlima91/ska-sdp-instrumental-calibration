@@ -14,8 +14,8 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     get_plots_path,
 )
 
+from ...dask_wrappers.gain_smoothing import sliding_window_smooth
 from ...data_managers.data_export import export_gaintable_to_h5parm
-from ...processing_tasks.gain_smoothing import sliding_window_smooth
 
 
 @ConfigurableStage(

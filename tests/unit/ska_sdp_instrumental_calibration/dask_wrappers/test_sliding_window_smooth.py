@@ -2,7 +2,7 @@
 import pytest
 from mock import Mock
 
-from ska_sdp_instrumental_calibration.processing_tasks.gain_smoothing import (
+from ska_sdp_instrumental_calibration.dask_wrappers.gain_smoothing import (
     sliding_window_smooth,
 )
 

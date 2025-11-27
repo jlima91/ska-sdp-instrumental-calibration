@@ -6,7 +6,7 @@ from astropy.coordinates import SkyCoord
 from mock import MagicMock, patch
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.processing_tasks.lsm.lsm import (
     Component,
     convert_model_to_skycomponents,
     deconvolve_gaussian,
