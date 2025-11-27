@@ -72,7 +72,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
             "polarisation": -1,
             "spatial": -1,
             "time": times_per_ms_chunk,
-            "frequency": -1,
+            "frequency": frequency_per_chunk,
         },
     )
 
@@ -165,6 +165,6 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "polarisation": -1,
             "spatial": -1,
             "time": times_per_ms_chunk,
-            "frequency": -1,
+            "frequency": frequency_per_chunk,
         },
     )

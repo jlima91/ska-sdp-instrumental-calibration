@@ -25,12 +25,6 @@ def _run_solver_map_block_(
         The gaintable xarray dataset
     """
     # Rename time
-    gaintable = gaintable.rename(solution_time="time")
-    # For sol_types T and G, solution_frequency will be present
-    REVERT_FREQUENCY = False
-    if "solution_frequency" in gaintable.dims:
-        REVERT_FREQUENCY = True
-        gaintable = gaintable.rename(solution_frequency="frequency")
 
     vis = restore_baselines_dim(vis)
     modelvis = restore_baselines_dim(modelvis)
@@ -52,14 +46,6 @@ def _run_solver_map_block_(
     solved_gaintable.gain.data = gain
     solved_gaintable.weight.data = weight
     solved_gaintable.residual.data = residual
-
-    # Revert frequency change
-    if REVERT_FREQUENCY:
-        solved_gaintable = solved_gaintable.rename(
-            frequency="solution_frequency"
-        )
-    # Bring back solution_time
-    solved_gaintable = solved_gaintable.rename(time="solution_time")
 
     return solved_gaintable
 

@@ -56,10 +56,7 @@ logger = logging.getLogger(__name__)
             float: this is a custom time interval in seconds.
             Input timestamps are grouped by intervals of this duration,
             and said groups are separately averaged to produce
-            the output time axis.
-
-            ``None``: match the time resolution of the input, i.e. copy
-            the time axis of the input Visibility""",
+            the output time axis.""",
         ),
         ack=ConfigParam(
             bool,
@@ -141,9 +138,6 @@ def load_data_stage(
         timestamps are grouped by intervals of this duration,
         and said groups are separately averaged to produce the
         output time axis.
-
-        `None`: match the time resolution of the input, i.e. copy
-        the time axis of the input Visibility
     datacolumn: str
         Measurement set data column name to read data from.
     field_id: int
@@ -174,20 +168,12 @@ def load_data_stage(
         ]
     }
 
-    # This is chunking of the intermidiate zarr file
-    zarr_chunks = {
+    vis_chunks = {
         **non_chunked_dims,
         "time": ntimes_per_ms_chunk,
         "frequency": nchannels_per_chunk,
     }
 
-    # Pipeline only works on time chunks
-    # Its expected that later stages follow same chunking pattern
-    vis_chunks = {
-        **non_chunked_dims,
-        "time": ntimes_per_ms_chunk,
-        "frequency": -1,
-    }
     upstream_output["chunks"] = vis_chunks
 
     if cache_directory is None:
@@ -215,7 +201,7 @@ def load_data_stage(
             write_ms_to_zarr(
                 input_ms,
                 vis_cache_directory,
-                zarr_chunks,
+                vis_chunks,
                 ack=ack,
                 datacolumn=datacolumn,
                 field_id=field_id,

@@ -59,7 +59,7 @@ def test_should_perform_bandpass_calibration(
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="solver",
         niter=1,
-        refant=2,
+        refant=parse_ref_ant_mock.return_value,
         phase_only=False,
         tol=1e-06,
         crosspol=False,
@@ -329,7 +329,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="solver",
         niter=1,
-        refant=2,
+        refant=parse_ref_ant_mock.return_value,
         phase_only=False,
         tol=1e-06,
         crosspol=False,

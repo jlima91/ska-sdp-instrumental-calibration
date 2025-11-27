@@ -128,13 +128,12 @@ def bandpass_calibration_stage(
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
 
-    solver = SolverFactory.get_solver(**run_solver_config)
-
     vis = upstream_output[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
+    solver = SolverFactory.get_solver(**run_solver_config)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

@@ -505,6 +505,7 @@ def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
 
 
 @dask.delayed
+@safe
 def plot_flag_gain(
     gaintable,
     path_prefix,
@@ -557,6 +558,7 @@ def plot_flag_gain(
 
 
 @dask.delayed
+@safe
 def plot_curve_fit(
     gaintable,
     amp_fits,

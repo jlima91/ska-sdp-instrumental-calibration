@@ -150,10 +150,10 @@ class IonosphericSolver:
         self.tol = tol
         self.zernike_limit = zernike_limit
 
-        self.vis = vis.vis.isel(time=0)
-        self.weight = vis.weight.isel(time=0)
-        self.flags = vis.flags.isel(time=0)
-        self.modelvis = modelvis.vis.isel(time=0)
+        self.vis = vis.vis.isel(time=0).chunk(-1)
+        self.weight = vis.weight.isel(time=0).chunk(-1)
+        self.flags = vis.flags.isel(time=0).chunk(-1)
+        self.modelvis = modelvis.vis.isel(time=0).chunk(-1)
 
         self.xyz = vis.configuration.xyz
         self.antenna1 = vis.antenna1.data
