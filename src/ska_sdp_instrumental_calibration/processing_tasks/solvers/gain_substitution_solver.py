@@ -1,9 +1,13 @@
+import logging
 from typing import Tuple
 
 import numpy as np
+import xarray as xr
 
 from .processing_functions import create_point_vis, gain_substitution
 from .solver import Solver
+
+logger = logging.getLogger(__name__)
 
 
 class GainSubstitution(Solver):
@@ -34,11 +38,24 @@ class GainSubstitution(Solver):
     ... )
     """
 
-    def __init__(self, refant=0, phase_only=False, crosspol=False, **kwargs):
-        super().__init__(**kwargs)
+    _NORMALISER = {
+        "median": np.median,
+        "mean": np.mean,
+    }
+
+    def __init__(
+        self,
+        refant=0,
+        phase_only=False,
+        crosspol=False,
+        normalise_gains=None,
+        **kwargs,
+    ):
+        super(GainSubstitution, self).__init__(**kwargs)
         self.refant = refant
         self.phase_only = phase_only
         self.crosspol = crosspol
+        self._norm_method = normalise_gains
 
     def solve(
         self,
@@ -90,3 +107,31 @@ class GainSubstitution(Solver):
             tol=self.tol,
             refant=self.refant,
         )
+
+    def normalise_gains(self, gain: xr.DataArray) -> xr.DataArray:
+        """
+        Function to normalize gains
+
+        Parameters
+        ----------
+        gaintable: xarray.DataArray
+
+        Returns
+        -------
+        xarray.DataArray
+        """
+        if self._norm_method is None:
+            return gain
+
+        logger.info(f"Normalizing gains using {self._norm_method}")
+
+        if self._norm_method not in self._NORMALISER:
+            raise ValueError(
+                f"Undefined normalisation function {self._norm_method}"
+            )
+
+        norm_func = self._NORMALISER[self._norm_method]
+
+        gabs = norm_func(np.abs(gain))
+
+        return gain / gabs

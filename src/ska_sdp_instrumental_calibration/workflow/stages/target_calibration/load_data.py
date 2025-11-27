@@ -7,9 +7,11 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
-    read_dataset_from_zarr,
+    read_visibility_from_zarr,
     write_ms_to_zarr,
 )
+
+from ....data_managers.gaintable import create_gaintable_from_visibility
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,21 @@ logger = logging.getLogger(__name__)
             and this zarr file will be stored in a new 'cache'
             subdirectory under the provided output directory.""",
         ),
+        timeslice=ConfigParam(
+            float,
+            3.0,
+            nullable=False,
+            description="""Defines time scale over which each gain solution
+            is valid. This is used to define time axis of the GainTable.
+            This parameter is interpreted as follows,
+            float: this is a custom time interval in seconds.
+            Input timestamps are grouped by intervals of this duration,
+            and said groups are separately averaged to produce
+            the output time axis.
+
+            ``None``: match the time resolution of the input, i.e. copy
+            the time axis of the input Visibility""",
+        ),
         ack=ConfigParam(
             bool,
             False,
@@ -76,6 +93,7 @@ def load_data_stage(
     nchannels_per_chunk,
     ntimes_per_ms_chunk,
     cache_directory,
+    timeslice,
     ack,
     datacolumn,
     field_id,
@@ -115,6 +133,17 @@ def load_data_stage(
         subdirectory under the provided output directory.
     ack: bool
         Ask casacore to acknowledge each table operation
+    timeslice : float
+        Defines time scale over which each gain solution is valid.
+        This is used to define time axis of the GainTable. This
+        parameter is interpreted as follows,
+        float: this is a custom time interval in seconds. Input
+        timestamps are grouped by intervals of this duration,
+        and said groups are separately averaged to produce the
+        output time axis.
+
+        `None`: match the time resolution of the input, i.e. copy
+        the time axis of the input Visibility
     datacolumn: str
         Measurement set data column name to read data from.
     field_id: int
@@ -193,8 +222,11 @@ def load_data_stage(
                 data_desc_id=data_desc_id,
             )
 
-    vis = read_dataset_from_zarr(vis_cache_directory, vis_chunks)
+    vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
+    gaintable = create_gaintable_from_visibility(vis, timeslice, "G")
 
+    upstream_output["timeslice"] = timeslice
     upstream_output["vis"] = vis
-    upstream_output["beams"] = None
+    upstream_output["gaintable"] = gaintable
+    upstream_output["central_beams"] = None
     return upstream_output

@@ -812,5 +812,5 @@ def restore_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
     else:
         logger.debug("Restoring baselines MultiIndex coord")
         return vis.swap_dims({"baselineid": "baselines"}).reset_coords(
-            "baselineid", drop=True
+            "baselineid"
         )

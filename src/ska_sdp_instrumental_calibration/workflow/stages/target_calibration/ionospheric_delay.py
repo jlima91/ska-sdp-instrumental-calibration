@@ -7,12 +7,11 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
     PlotGaintableTargetIonosphere,
 )
-from ska_sdp_instrumental_calibration.workflow.utils import (
-    get_plots_path,
-    with_chunks,
-)
+from ska_sdp_instrumental_calibration.workflow.utils import get_plots_path
 
-from ....processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
+from ....data_managers.gaintable import create_gaintable_from_visibility
+from ....processing_tasks.solvers import IonosphericSolver
+from ...utils import with_chunks
 
 logger = logging.getLogger()
 
@@ -20,21 +19,6 @@ logger = logging.getLogger()
 @ConfigurableStage(
     "ionospheric_delay",
     configuration=Configuration(
-        timeslice=ConfigParam(
-            float,
-            3.0,
-            description="""Defines time scale over which each gain solution
-                is valid. This is used to define time axis of the GainTable.
-                This parameter is interpreted as follows,
-
-                float: this is a custom time interval in seconds.
-                Input timestamps are grouped by intervals of this duration,
-                and said groups are separately averaged to produce
-                the output time axis.
-
-                ``None``: match the time resolution of the input, i.e. copy
-                the time axis of the input Visibility""",
-        ),
         cluster_indexes=ConfigParam(
             list,
             None,
@@ -84,7 +68,6 @@ logger = logging.getLogger()
 )
 def ionospheric_delay_stage(
     upstream_output,
-    timeslice,
     cluster_indexes,
     block_diagonal,
     niter,
@@ -106,17 +89,6 @@ def ionospheric_delay_stage(
     ----------
     upstream_output : UpstreamOutput
         Output from upstream stage
-    timeslice : float
-        Defines time scale over which each gain solution is valid.
-        This is used to define time axis of the GainTable. This
-        parameter is interpreted as follows,
-        float: this is a custom time interval in seconds. Input
-        timestamps are grouped by intervals of this duration,
-        and said groups are separately averaged to produce the
-        output time axis.
-
-        `None`: match the time resolution of the input, i.e. copy
-        the time axis of the input Visibility
     cluster_indexes : list or numpy.ndarray, optional
         An array of integers assigning each antenna to a specific cluster.
         If None, all antennas are treated as a single cluster (default: None).
@@ -151,11 +123,18 @@ def ionospheric_delay_stage(
     vis = upstream_output.vis
     modelvis = upstream_output.modelvis
     vis_chunks = upstream_output.chunks
+    timeslice = upstream_output.timeslice
 
-    gaintable = IonosphericSolver.solve_target(  # pylint: disable=E1121
+    initialtable = create_gaintable_from_visibility(
+        vis, timeslice, "B", skip_default_chunk=True
+    )
+
+    initialtable = initialtable.pipe(with_chunks, vis_chunks)
+
+    gaintable = IonosphericSolver.solve(  # pylint: disable=E1121
         vis,
         modelvis,
-        timeslice,
+        initialtable,
         cluster_indexes,
         block_diagonal,
         niter,
@@ -163,7 +142,6 @@ def ionospheric_delay_stage(
         zernike_limit,
     )
 
-    gaintable = gaintable.pipe(with_chunks, vis_chunks)
     upstream_output["gaintable"] = gaintable
 
     if plot_table:

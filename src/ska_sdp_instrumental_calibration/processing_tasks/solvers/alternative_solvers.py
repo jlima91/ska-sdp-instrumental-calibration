@@ -29,7 +29,7 @@ class AlternativeSolver(Solver):
     """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super(AlternativeSolver, self).__init__(**kwargs)
         self._solver_fn = None
 
     def solve(
@@ -140,18 +140,18 @@ class JonesSubtitution(AlternativeSolver):
     antenna-based Jones matrices are solved iteratively.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super(JonesSubtitution, self).__init__(**kwargs)
         self._solver_fn = _jones_sub_solve
 
 
 class NormalEquation(AlternativeSolver):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super(NormalEquation, self).__init__(**kwargs)
         self._solver_fn = _normal_equation_solve
 
 
 class NormalEquationsPreSum(AlternativeSolver):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
+        super(NormalEquationsPreSum, self).__init__(**kwargs)
         self._solver_fn = _normal_equation_solve_with_presumming

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
     alternative_solvers,
@@ -218,3 +219,25 @@ class TestNormalEquationsPreSum:
         )
 
         assert mock_presum_solve.call_count == mock_data["nchannels"]
+
+
+def test_should_gains_without_normalising():
+
+    solver = JonesSubtitution(normalise_gains="mean")
+    gain = xr.DataArray(np.array([0, 1, 2, 3, 4]), dims=["frequency"])
+
+    np.testing.assert_allclose(
+        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
+    )
+
+    solver = NormalEquation(normalise_gains="mean")
+
+    np.testing.assert_allclose(
+        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
+    )
+
+    solver = NormalEquationsPreSum(normalise_gains="mean")
+
+    np.testing.assert_allclose(
+        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
+    )

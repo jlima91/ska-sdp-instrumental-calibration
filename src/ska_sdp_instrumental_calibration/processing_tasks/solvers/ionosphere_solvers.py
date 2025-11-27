@@ -11,12 +11,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
     set_coeffs_and_params,
 )
 
-from ska_sdp_instrumental_calibration.workflow.utils import (
-    create_bandpass_table,
-    create_solint_slices,
-)
-
-log = logging.getLogger("func-python-logger")
+logger = logging.getLogger(__name__)
 
 
 class IonosphericSolver:
@@ -89,42 +84,19 @@ class IonosphericSolver:
     """
 
     @staticmethod
-    def solve_calibrator(
+    def solve(
         vis,
         modelvis,
+        gaintable,
         cluster_indexes=None,
         block_diagonal=False,
         niter=15,
         tol=1e-6,
         zernike_limit=None,
     ):
-        gaintable = create_bandpass_table(vis)
-        solver = IonosphericSolver(
-            vis,
-            modelvis,
-            cluster_indexes,
-            block_diagonal,
-            niter,
-            tol,
-            zernike_limit,
-        )
-        return solver.solve(gaintable)
-
-    @staticmethod
-    def solve_target(
-        vis,
-        modelvis,
-        timeslice,
-        cluster_indexes=None,
-        block_diagonal=False,
-        niter=15,
-        tol=1e-6,
-        zernike_limit=None,
-    ):
-
         return xr.concat(
             [
-                IonosphericSolver.solve_calibrator(
+                IonosphericSolver(
                     vis.isel(time=t_slice),
                     modelvis.isel(time=t_slice),
                     cluster_indexes,
@@ -132,10 +104,8 @@ class IonosphericSolver:
                     niter,
                     tol,
                     zernike_limit,
-                )
-                for t_slice in create_solint_slices(
-                    vis.time, timeslice, return_indexes=True
-                )
+                )._solve(gaintable.isel(time=[idx]))
+                for idx, t_slice in enumerate(gaintable.soln_interval_slices)
             ],
             dim="time",
         )
@@ -197,7 +167,7 @@ class IonosphericSolver:
             / vis.frequency.data
         )
 
-    def solve(self, gaintable=None):
+    def _solve(self, gaintable=None):
         """
         Execute the ionospheric phase screen solver.
 
@@ -236,18 +206,20 @@ class IonosphericSolver:
         n_cluster = np.amax(self.cluster_indexes) + 1
         n_param = get_param_count(self.param)[0]
         if n_cluster == 1:
-            log.info(
+            logger.info(
                 "Setting up iono solver for %d stations in a single cluster",
                 len(gaintable.antenna),
             )
-            log.info("There are %d total parameters in the cluster", n_param)
+            logger.info(
+                "There are %d total parameters in the cluster", n_param
+            )
         else:
-            log.info(
+            logger.info(
                 "Setting up iono solver for %d stations in %d clusters",
                 len(gaintable.antenna),
                 n_cluster,
             )
-            log.info(
+            logger.info(
                 "There are %d total parameters: %d in c[0] + %d x c[1:%d]",
                 n_param,
                 len(self.param[0]),
@@ -684,6 +656,6 @@ class IonosphericSolver:
             / np.abs(np.hstack(param)[mask].astype("float_"))
         )
 
-        log.info(
+        logger.info(
             "Ionospheric Solver: Iteration %d, change: %f", it, self.change
         )

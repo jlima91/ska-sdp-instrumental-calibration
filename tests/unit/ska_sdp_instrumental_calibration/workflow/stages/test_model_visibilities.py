@@ -1,34 +1,31 @@
-import pytest
 from mock import Mock, call, patch
 
-from ska_sdp_instrumental_calibration.exceptions import (
-    RequiredArgumentMissingException,
-)
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.workflow.stages import predict_vis_stage
 
 
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".get_phasecentre"
+    ".BeamsFactory"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".generate_lsm_from_gleamegc"
+    ".GlobalSkyModel"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
     ".predict_vis"
 )
 def test_should_predict_visibilities(
-    predict_vis_mock, generate_lsm_mock, get_phasecentre_mock
+    predict_vis_mock,
+    global_sky_model_mock,
+    beams_factory_mock,
 ):
 
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
     cli_args = {"input": "path/to/input/ms"}
-    get_phasecentre_mock.return_value = (0.0, 0.0)
-    generate_lsm_mock.return_value = ["source1", "source2"]
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -47,20 +44,21 @@ def test_should_predict_visibilities(
         upstream_output, **params, _cli_args_=cli_args
     )
 
-    get_phasecentre_mock.assert_called_once_with("path/to/input/ms")
-    generate_lsm_mock.assert_called_once_with(
-        gleamfile="/path/to/gleam.dat",
-        phasecentre=(0.0, 0.0),
-        fov=10.0,
-        flux_limit=1.0,
-        alpha0=-0.78,
+    global_sky_model_mock.assert_called_once_with(
+        upstream_output.vis.configuration.location,
+        upstream_output.vis.phasecentre,
+        10.0,
+        1.0,
+        -0.78,
+        "/path/to/gleam.dat",
+        None,
     )
     predict_vis_mock.assert_called_once_with(
         upstream_output.vis,
-        ["source1", "source2"],
-        beam_type="everybeam",
-        eb_ms="path/to/input/ms",
-        eb_coeffs="/path/to/coeffs",
+        global_sky_model_mock.return_value,
+        upstream_output.gaintable.time.data,
+        upstream_output.gaintable.soln_interval_slices,
+        beams_factory_mock.return_value,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -68,82 +66,26 @@ def test_should_predict_visibilities(
 
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".get_phasecentre"
+    ".BeamsFactory"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".generate_lsm_from_csv"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".predict_vis"
-)
-def test_should_predict_visibilities_using_csv_lsm(
-    predict_vis_mock, generate_lsm_from_csv_mock, get_phasecentre_mock
-):
-
-    upstream_output = UpstreamOutput()
-    upstream_output["vis"] = Mock(name="Visibilities")
-    cli_args = {"input": "path/to/input/ms"}
-    get_phasecentre_mock.return_value = (0.0, 0.0)
-    generate_lsm_from_csv_mock.return_value = ["source1", "source2"]
-    predict_vis_mock.return_value = [1, 2, 3]
-
-    params = {
-        "beam_type": "everybeam",
-        "normalise_at_beam_centre": False,
-        "eb_ms": "test.ms",
-        "eb_coeffs": "/path/to/coeffs",
-        "gleamfile": None,
-        "lsm_csv_path": "/path/to/lsm.csv",
-        "fov": 10.0,
-        "flux_limit": 1.0,
-        "alpha0": -0.78,
-    }
-
-    result = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
-    )
-
-    get_phasecentre_mock.assert_called_once_with("path/to/input/ms")
-    generate_lsm_from_csv_mock.assert_called_once_with(
-        csvfile="/path/to/lsm.csv",
-        phasecentre=(0.0, 0.0),
-        fov=10.0,
-        flux_limit=1.0,
-    )
-    predict_vis_mock.assert_called_once_with(
-        upstream_output.vis,
-        ["source1", "source2"],
-        beam_type="everybeam",
-        eb_ms="test.ms",
-        eb_coeffs="/path/to/coeffs",
-    )
-
-    assert result.modelvis == [1, 2, 3]
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".get_phasecentre"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".generate_lsm_from_csv"
+    ".GlobalSkyModel"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
     ".predict_vis"
 )
 def test_should_update_call_count(
-    predict_vis_mock, generate_lsm_from_csv_mock, get_phasecentre_mock
+    predict_vis_mock,
+    global_sky_model_mock,
+    beams_factory_mock,
 ):
 
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
     cli_args = {"input": "path/to/input/ms"}
-    get_phasecentre_mock.return_value = (0.0, 0.0)
-    generate_lsm_from_csv_mock.return_value = ["source1", "source2"]
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -171,47 +113,11 @@ def test_should_update_call_count(
 
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".get_phasecentre"
+    ".BeamsFactory"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".predict_vis"
-)
-def test_should_throw_exception_if_lsm_is_none(
-    predict_vis_mock, get_phasecentre_mock
-):
-
-    upstream_output = UpstreamOutput()
-    upstream_output["vis"] = Mock(name="Visibilities")
-    cli_args = {"input": "path/to/input/ms"}
-    get_phasecentre_mock.return_value = (0.0, 0.0)
-    predict_vis_mock.return_value = [1, 2, 3]
-
-    params = {
-        "beam_type": "everybeam",
-        "normalise_at_beam_centre": False,
-        "eb_ms": "test.ms",
-        "eb_coeffs": "/path/to/coeffs",
-        "gleamfile": None,
-        "lsm_csv_path": None,
-        "fov": 10.0,
-        "flux_limit": 1.0,
-        "alpha0": -0.78,
-    }
-
-    with pytest.raises(RequiredArgumentMissingException):
-        predict_vis_stage.stage_definition(
-            upstream_output, **params, _cli_args_=cli_args
-        )
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".get_phasecentre"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
-    ".generate_lsm_from_gleamegc"
+    ".GlobalSkyModel"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.model_visibilities"
@@ -229,8 +135,8 @@ def test_should_normalise_at_beam_centre(
     apply_gaintable_mock,
     prediction_beams_mock,
     predict_vis_mock,
-    generate_lsm_mock,
-    get_phasecentre_mock,
+    global_sky_model_mock,
+    beams_factory_mock,
 ):
     vis = Mock(name="Visibilities")
     upstream_output = UpstreamOutput()
@@ -238,9 +144,8 @@ def test_should_normalise_at_beam_centre(
     upstream_output["vis"] = vis
     cli_args = {"input": "path/to/input/ms"}
 
-    get_phasecentre_mock.return_value = (0.0, 0.0)
-    generate_lsm_mock.return_value = ["source1", "source2"]
     model_vis = Mock(name="Model Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
     predict_vis_mock.return_value = model_vis
     mock_beams = Mock(name="Beams")
     mock_beams.persist.return_value = mock_beams
@@ -267,10 +172,7 @@ def test_should_normalise_at_beam_centre(
     )
 
     prediction_beams_mock.assert_called_once_with(
-        vis,
-        beam_type="everybeam",
-        eb_ms="path/to/input/ms",
-        eb_coeffs="/path/to/coeffs",
+        upstream_output.gaintable, beams_factory_mock.return_value
     )
 
     apply_gaintable_mock.assert_has_calls(
@@ -280,6 +182,7 @@ def test_should_normalise_at_beam_centre(
         ]
     )
 
-    assert result.beams == mock_beams
+    assert result.central_beams == mock_beams
+    assert result.beams_factory == beams_factory_mock.return_value
     assert result.vis == normalised_vis
     assert result.modelvis == normalised_modelvis

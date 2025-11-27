@@ -2,6 +2,7 @@
 
 import logging
 
+from ska_sdp_piper.piper.utils.log_config import LOGGING_CONFIG
 from ska_ser_logging import configure_logging
 
 
@@ -29,7 +30,9 @@ def setup_logger(name: str, level=logging.INFO) -> logging.Logger:
     logger = logging.getLogger(name)
 
     if not logger.hasHandlers():
-        configure_logging(level=level)
+        # Override with custom config from piper
+        # supporting tags
+        configure_logging(level=level, overrides=LOGGING_CONFIG)
         logger = logging.getLogger(name)
 
     return logger

@@ -9,7 +9,7 @@ from ska_sdp_instrumental_calibration.workflow.stages.load_data import (
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.load_data" ".os.makedirs"
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data.os.makedirs"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
@@ -21,11 +21,11 @@ from ska_sdp_instrumental_calibration.workflow.stages.load_data import (
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".read_dataset_from_zarr"
+    ".read_visibility_from_zarr"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".create_bandpass_table"
+    ".create_gaintable_from_visibility"
 )
 def test_should_load_data_from_existing_cached_zarr_file(
     create_bandpass_mock,
@@ -75,28 +75,30 @@ def test_should_load_data_from_existing_cached_zarr_file(
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": -1,
+            "time": 3,
             "frequency": frequency_per_chunk,
         },
     )
 
-    create_bandpass_mock.assert_called_once_with(read_data_mock.return_value)
+    create_bandpass_mock.assert_called_once_with(
+        read_data_mock.return_value, "full", "B"
+    )
 
     assert new_up_output["vis"] == read_data_mock.return_value
-    assert new_up_output["beams"] is None
+    assert new_up_output["central_beams"] is None
+    assert new_up_output["beams_factory"] is None
 
-    assert dict(new_up_output["gaintable"].chunksizes) == {
-        "time": (1,),
-        "frequency": (
-            2,
-            2,
-        ),
-        "antenna": (3,),
+    assert new_up_output["chunks"] == {
+        "baselineid": -1,
+        "polarisation": -1,
+        "spatial": -1,
+        "time": 3,
+        "frequency": frequency_per_chunk,
     }
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.workflow.stages.load_data" ".os.makedirs"
+    "ska_sdp_instrumental_calibration.workflow.stages.load_data.os.makedirs"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
@@ -108,11 +110,11 @@ def test_should_load_data_from_existing_cached_zarr_file(
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".read_dataset_from_zarr"
+    ".read_visibility_from_zarr"
 )
 @patch(
     "ska_sdp_instrumental_calibration.workflow.stages.load_data"
-    ".create_bandpass_table"
+    ".create_gaintable_from_visibility"
 )
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     create_bandpass_mock,
@@ -174,7 +176,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": -1,
+            "time": 8,
             "frequency": frequency_per_chunk,
         },
     )
