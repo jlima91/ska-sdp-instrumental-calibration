@@ -19,7 +19,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...data_managers.gaintable import create_gaintable_from_visibility
-from ...processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
+from ...processing_tasks.solvers import IonosphericSolver
 
 logger = logging.getLogger()
 

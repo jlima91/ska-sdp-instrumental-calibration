@@ -1,4 +1,5 @@
+from .ionosphere_solvers import IonosphericSolver
 from .solver import Solver
 from .solvers_factory import SolverFactory
 
-__all__ = ["SolverFactory", "Solver"]
+__all__ = ["SolverFactory", "Solver", "IonosphericSolver"]

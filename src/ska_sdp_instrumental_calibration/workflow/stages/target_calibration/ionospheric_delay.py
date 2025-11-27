@@ -10,7 +10,7 @@ from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
 from ska_sdp_instrumental_calibration.workflow.utils import get_plots_path
 
 from ....data_managers.gaintable import create_gaintable_from_visibility
-from ....processing_tasks.calibrate.ionosphere_solvers import IonosphericSolver
+from ....processing_tasks.solvers import IonosphericSolver
 from ...utils import with_chunks
 
 logger = logging.getLogger()
