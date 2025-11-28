@@ -15,11 +15,11 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     plot_station_delays,
 )
 
-from ...dask_wrappers.delay import apply_delay, calculate_delay
 from ...data_managers.data_export import (
     export_clock_to_h5parm,
     export_gaintable_to_h5parm,
 )
+from ...xarray_processors.delay import apply_delay, calculate_delay
 
 
 @ConfigurableStage(

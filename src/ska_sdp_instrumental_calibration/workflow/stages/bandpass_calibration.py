@@ -9,9 +9,9 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...dask_wrappers.solver import run_solver
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...processing_tasks.solvers import SolverFactory
+from ...xarray_processors.solver import run_solver
 from ..plot_gaintable import PlotGaintableFrequency
 from ..utils import (
     get_gaintables_path,

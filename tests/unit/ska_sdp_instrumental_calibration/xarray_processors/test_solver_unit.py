@@ -6,7 +6,7 @@ import pytest
 import xarray as xr
 from mock import MagicMock, call, patch
 
-from ska_sdp_instrumental_calibration.dask_wrappers.solver import (
+from ska_sdp_instrumental_calibration.xarray_processors.solver import (
     _run_solver_map_block_,
     run_solver,
 )

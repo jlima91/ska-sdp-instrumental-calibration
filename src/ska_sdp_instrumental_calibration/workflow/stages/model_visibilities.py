@@ -3,11 +3,11 @@ import logging
 from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...dask_wrappers.apply import apply_gaintable_to_dataset
-from ...dask_wrappers.beams import prediction_central_beams
-from ...dask_wrappers.predict import predict_vis
 from ...data_managers.beams import BeamsFactory
 from ...data_managers.local_sky_model import GlobalSkyModel
+from ...xarray_processors.apply import apply_gaintable_to_dataset
+from ...xarray_processors.beams import prediction_central_beams
+from ...xarray_processors.predict import predict_vis
 from ._common import PREDICT_VISIBILITIES_COMMON_CONFIG
 
 logger = logging.getLogger()

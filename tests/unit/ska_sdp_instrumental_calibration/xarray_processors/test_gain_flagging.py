@@ -4,7 +4,7 @@ import pytest
 import xarray as xr
 from mock import MagicMock, patch
 
-from ska_sdp_instrumental_calibration.dask_wrappers.gain_flagging import (
+from ska_sdp_instrumental_calibration.xarray_processors.gain_flagging import (
     GainFlagger,
     flag_on_gains,
 )
@@ -229,13 +229,16 @@ def test_should_throw_exception_if_window_size_is_even():
         flagger_obj.flag_dimension(gains, weights, "a1", "X", "Y")
 
 
-@patch("ska_sdp_instrumental_calibration.dask_wrappers.gain_flagging.xr.where")
 @patch(
-    "ska_sdp_instrumental_calibration.dask_wrappers."
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "gain_flagging.xr.where"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "gain_flagging.xr.apply_ufunc"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.dask_wrappers."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "gain_flagging.GainFlagger"
 )
 def test_should_perform_gain_flagging(
@@ -408,11 +411,11 @@ def test_should_perform_gain_flagging(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.dask_wrappers.gain_flagging"
+    "ska_sdp_instrumental_calibration.xarray_processors.gain_flagging"
     ".GainFlagger"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.dask_wrappers.gain_flagging"
+    "ska_sdp_instrumental_calibration.xarray_processors.gain_flagging"
     ".xr.apply_ufunc"
 )
 def test_should_perform_gain_flagging_without_apply(

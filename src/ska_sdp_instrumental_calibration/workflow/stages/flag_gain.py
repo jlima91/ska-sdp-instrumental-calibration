@@ -6,11 +6,11 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ...dask_wrappers.gain_flagging import (
+from ...data_managers.data_export import export_gaintable_to_h5parm
+from ...xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
 )
-from ...data_managers.data_export import export_gaintable_to_h5parm
 from ..utils import (
     get_gaintables_path,
     get_plots_path,
