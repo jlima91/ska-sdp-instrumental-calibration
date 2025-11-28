@@ -72,7 +72,6 @@ class GlobalSkyModel:
 
     def __init__(
         self,
-        array_location: EarthLocation,
         phasecentre: SkyCoord,
         fov=10.0,
         flux_limit=1.0,
@@ -80,8 +79,6 @@ class GlobalSkyModel:
         gleamfile=None,
         lsm_csv_path=None,
     ):
-        self.array_location = array_location
-
         if gleamfile is not None and lsm_csv_path is not None:
             logger.warning("GSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
 
@@ -116,10 +113,12 @@ class GlobalSkyModel:
 
         self.components = lsm
 
-    def get_local_sky_model(self, solution_time: float):
+    def get_local_sky_model(
+        self, solution_time: float, array_location: EarthLocation
+    ):
         components = [
             comp
             for comp in self.components
-            if comp.is_above_horizon(solution_time, self.array_location)
+            if comp.is_above_horizon(solution_time, array_location)
         ]
         return LocalSkyModel(components, solution_time)

@@ -73,7 +73,6 @@ def predict_visibilities(
     gaintable = upstream_output.gaintable
 
     upstream_output["lsm"] = GlobalSkyModel(
-        vis.configuration.location,
         vis.phasecentre,
         fov,
         flux_limit,

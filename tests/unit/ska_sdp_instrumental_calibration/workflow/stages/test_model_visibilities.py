@@ -45,7 +45,6 @@ def test_should_predict_visibilities(
     )
 
     global_sky_model_mock.assert_called_once_with(
-        upstream_output.vis.configuration.location,
         upstream_output.vis.phasecentre,
         10.0,
         1.0,

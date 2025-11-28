@@ -127,7 +127,9 @@ def predict_vis(
     # Call predict ufunc, once per solution interval
     predicted_across_soln_time = []
     for idx, slc in enumerate(soln_interval_slices):
-        local_sky_model = gsm.get_local_sky_model(soln_time[idx])
+        local_sky_model = gsm.get_local_sky_model(
+            soln_time[idx], vis.configuration.location
+        )
 
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
