@@ -40,12 +40,12 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
-    apply_gaintable,
-)
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
+)
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.post_processing import (
     model_rotations,

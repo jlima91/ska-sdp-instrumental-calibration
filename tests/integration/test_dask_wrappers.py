@@ -14,12 +14,12 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     predict_vis,
     run_solver,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
-    apply_gaintable,
-)
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
     Component,
     convert_model_to_skycomponents,
+)
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,

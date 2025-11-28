@@ -15,28 +15,28 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
-from ska_sdp_instrumental_calibration.processing_tasks.dft import (  # noqa: E501
+from ska_sdp_instrumental_calibration.numpy_processors.dft import (  # noqa: E501
     gaussian_tapers,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import Component
+from ska_sdp_instrumental_calibration.numpy_processors.lsm import Component
 
 
 @pytest.mark.skip("Function doesn't exist")
 class TestPredictVis:
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.dft_skycomponent_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.with_chunks"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.convert_comp_to_skycomponent"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.xr.apply_ufunc"
     )
     def test_predict_from_components(
@@ -157,27 +157,27 @@ class TestPredictVis:
         )
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.correct_comp_vis_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.AltAz"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.create_beams"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.with_chunks"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.convert_comp_to_skycomponent"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.xr.apply_ufunc"
     )
     def test_predict_from_components_with_everybeam(
@@ -289,27 +289,27 @@ class TestPredictVis:
         np.testing.assert_equal(args[4].data, vis.antenna2)
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.correct_comp_vis_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.generate_rotation_matrices"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.dft_skycomponent_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.with_chunks"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.convert_comp_to_skycomponent"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.xr.apply_ufunc"
     )
     def test_predict_from_components_with_station_rm(
@@ -377,35 +377,35 @@ class TestPredictVis:
         np.testing.assert_equal(args[4].data, vis.antenna2)
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.AltAz"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.create_beams"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.correct_comp_vis_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.generate_rotation_matrices"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.dft_skycomponent_ufunc"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.with_chunks"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ".predict_model.predict.convert_comp_to_skycomponent"
     )
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ""
         ".predict_model.predict.xr.apply_ufunc"
     )
@@ -501,7 +501,7 @@ class TestPredictVis:
 @pytest.mark.skip("Function doesn't exist")
 class TestConvertCompToSkycomponent:
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ""
         ".predict_model.predict.deconvolve_gaussian"
     )
@@ -560,7 +560,7 @@ class TestConvertCompToSkycomponent:
         )
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks"
+        "ska_sdp_instrumental_calibration.numpy_processors"
         ""
         ".predict_model.predict.deconvolve_gaussian"
     )
@@ -724,7 +724,7 @@ def test_dft_point_source_skycomponent(generate_vis):
 
 @pytest.mark.skip("Function doesn't exist")
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks"
+    "ska_sdp_instrumental_calibration.numpy_processors"
     ""
     ".predict_model.predict.gaussian_tapers"
 )

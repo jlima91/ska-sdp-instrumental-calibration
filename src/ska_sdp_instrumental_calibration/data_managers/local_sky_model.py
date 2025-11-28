@@ -8,7 +8,7 @@ from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
 )
 
-from ..processing_tasks.lsm import (
+from ..numpy_processors.lsm import (
     Component,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
@@ -67,7 +67,6 @@ class LocalSkyModel:
 
 
 class GlobalSkyModel:
-    array_location: EarthLocation
     components: list[Component]
 
     def __init__(

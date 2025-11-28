@@ -52,12 +52,12 @@ from ska_sdp_datamodels.visibility.vis_io_ms import (
 )
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
-    apply_gaintable,
-)
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
     Component,
     convert_model_to_skycomponents,
+)
+from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
+    apply_gaintable,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     generate_rotation_matrices,

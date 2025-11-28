@@ -3,7 +3,7 @@
 from astropy.coordinates import SkyCoord
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
