@@ -1,12 +1,4 @@
-from .alternative_solvers import (
-    JonesSubtitution,
-    NormalEquation,
-    NormalEquationsPreSum,
-)
-from .gain_substitution_solver import GainSubstitution
-
-
-class SolverFactory:
+class SolverFactory(type):
     """
     Factory class for creating solver instances for different calibration
     algorithms.
@@ -26,18 +18,20 @@ class SolverFactory:
         - "normal_equations_presum"
     """
 
-    _solvers = {
-        "gain_substitution": GainSubstitution,
-        "jones_substitution": JonesSubtitution,
-        "normal_equations": NormalEquation,
-        "normal_equations_presum": NormalEquationsPreSum,
-    }
+    _solvers = {}
+
+    def __new__(cls, name, bases, attrs):
+        new_class = super(SolverFactory, cls).__new__(cls, name, bases, attrs)
+        if "_SOLVER_NAME_" in attrs:
+            cls._solvers[attrs["_SOLVER_NAME_"]] = new_class
+
+        return new_class
 
     @classmethod
     def get_solver(cls, solver="gain_substitution", **kwargs):
         if solver not in cls._solvers:
             raise ValueError(
                 f"{solver} not definebd."
-                f" Supported solvers: {','.join(cls._solvers)}"
+                f" Supported solvers: {', '.join(cls._solvers)}"
             )
         return cls._solvers[solver](**kwargs)

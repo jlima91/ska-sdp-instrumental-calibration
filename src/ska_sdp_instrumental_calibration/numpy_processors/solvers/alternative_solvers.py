@@ -140,18 +140,24 @@ class JonesSubtitution(AlternativeSolver):
     antenna-based Jones matrices are solved iteratively.
     """
 
+    _SOLVER_NAME_ = "jones_substitution"
+
     def __init__(self, **kwargs):
         super(JonesSubtitution, self).__init__(**kwargs)
         self._solver_fn = _jones_sub_solve
 
 
 class NormalEquation(AlternativeSolver):
+    _SOLVER_NAME_ = "normal_equations"
+
     def __init__(self, **kwargs):
         super(NormalEquation, self).__init__(**kwargs)
         self._solver_fn = _normal_equation_solve
 
 
 class NormalEquationsPreSum(AlternativeSolver):
+    _SOLVER_NAME_ = "normal_equations_presum"
+
     def __init__(self, **kwargs):
         super(NormalEquationsPreSum, self).__init__(**kwargs)
         self._solver_fn = _normal_equation_solve_with_presumming

@@ -38,6 +38,8 @@ class GainSubstitution(Solver):
     ... )
     """
 
+    _SOLVER_NAME_ = "gain_substitution"
+
     _NORMALISER = {
         "median": np.median,
         "mean": np.mean,

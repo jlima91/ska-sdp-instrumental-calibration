@@ -1,11 +1,12 @@
-from abc import ABC, abstractmethod
 from typing import Tuple
 
 import numpy as np
 import xarray as xr
 
+from .solvers_factory import SolverFactory
 
-class Solver(ABC):
+
+class Solver(metaclass=SolverFactory):
     """
     Base class for gain solvers.
 
@@ -31,7 +32,6 @@ class Solver(ABC):
         self.niter = niter
         self.tol = tol
 
-    @abstractmethod
     def solve(
         self,
         vis_vis: np.ndarray,
@@ -77,7 +77,7 @@ class Solver(ABC):
         tuple(numpy.ndarray, numpy.ndarray, numpy.ndarray)
             Updated gain, weights, and residual arrays after calibration.
         """
-        pass
+        raise NotImplementedError("solve not implemented")
 
     def normalise_gains(self, gain: xr.DataArray) -> xr.DataArray:
         """
