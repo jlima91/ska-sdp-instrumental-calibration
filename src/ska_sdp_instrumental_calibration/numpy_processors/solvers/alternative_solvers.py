@@ -28,9 +28,9 @@ class AlternativeSolver(Solver):
         Function implementing the alternative solver algorithm.
     """
 
-    def __init__(self, **kwargs):
-        super(AlternativeSolver, self).__init__(**kwargs)
-        self._solver_fn = None
+    @property
+    def _solver_fn(self):
+        raise NotImplementedError("Solver function not defined")
 
     def solve(
         self,
@@ -51,12 +51,6 @@ class AlternativeSolver(Solver):
         Fits observed visibilities to model visibilities using the selected
         algorithm.
         """
-        if self._solver_fn is None:
-            raise ValueError(
-                "AlternativeSolver: alternative solver function to "
-                + "be used is not provided."
-            )
-
         _gain_gain = gain_gain.copy()
         gain = _gain_gain[0]  # select first time
 
@@ -142,22 +136,22 @@ class JonesSubtitution(AlternativeSolver):
 
     _SOLVER_NAME_ = "jones_substitution"
 
-    def __init__(self, **kwargs):
-        super(JonesSubtitution, self).__init__(**kwargs)
-        self._solver_fn = _jones_sub_solve
+    @property
+    def _solver_fn(self):
+        return _jones_sub_solve
 
 
 class NormalEquation(AlternativeSolver):
     _SOLVER_NAME_ = "normal_equations"
 
-    def __init__(self, **kwargs):
-        super(NormalEquation, self).__init__(**kwargs)
-        self._solver_fn = _normal_equation_solve
+    @property
+    def _solver_fn(self):
+        return _normal_equation_solve
 
 
 class NormalEquationsPreSum(AlternativeSolver):
     _SOLVER_NAME_ = "normal_equations_presum"
 
-    def __init__(self, **kwargs):
-        super(NormalEquationsPreSum, self).__init__(**kwargs)
-        self._solver_fn = _normal_equation_solve_with_presumming
+    @property
+    def _solver_fn(self):
+        return _normal_equation_solve_with_presumming

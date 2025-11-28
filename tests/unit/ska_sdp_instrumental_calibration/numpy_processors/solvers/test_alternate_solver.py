@@ -1,8 +1,7 @@
-from unittest.mock import MagicMock, patch
-
 import numpy as np
 import pytest
 import xarray as xr
+from mock import patch
 
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     alternative_solvers,
@@ -16,20 +15,6 @@ NormalEquationsPreSum = alternative_solvers.NormalEquationsPreSum
 
 class TestAlternativeSolver:
 
-    def test_alternative_solver_initialization(self):
-        solver = AlternativeSolver()
-
-        assert solver._solver_fn is None
-        assert solver.niter == 50
-        assert solver.tol == 1e-6
-
-    def test_alternative_solver_initialization_with_params(self):
-        solver = AlternativeSolver(niter=100, tol=1e-8)
-
-        assert solver._solver_fn is None
-        assert solver.niter == 100
-        assert solver.tol == 1e-8
-
     def test_solve_raises_error_when_solver_fn_is_none(
         self, generate_vis_mvis_gain_ndarray_data
     ):
@@ -37,7 +22,7 @@ class TestAlternativeSolver:
 
         solver = AlternativeSolver()
 
-        with pytest.raises(ValueError) as err:
+        with pytest.raises(NotImplementedError) as err:
             solver.solve(
                 vis_vis=mock_data["vis_vis"],
                 vis_flags=mock_data["vis_flags"],
@@ -50,55 +35,8 @@ class TestAlternativeSolver:
                 ant1=mock_data["ant1"],
                 ant2=mock_data["ant2"],
             )
-        expected_message = (
-            "AlternativeSolver: alternative solver "
-            "function to be used is not provided."
-        )
+        expected_message = "Solver function not defined"
         assert str(err.value) == expected_message
-
-    def test_solve_passes_correct_parameters_to_solver_fn(
-        self, generate_vis_mvis_gain_ndarray_data
-    ):
-        mock_data = generate_vis_mvis_gain_ndarray_data
-        mock_solver_fn = MagicMock()
-
-        niter = 42
-        tol = 1e-9
-
-        solver = AlternativeSolver(niter=niter, tol=tol)
-        solver._solver_fn = mock_solver_fn
-
-        gain, weight, residual = solver.solve(
-            vis_vis=mock_data["vis_vis"],
-            vis_flags=mock_data["vis_flags"],
-            vis_weight=mock_data["vis_weight"],
-            model_vis=mock_data["model_vis"],
-            model_flags=mock_data["model_flags"],
-            gain_gain=mock_data["gain_gain"],
-            gain_weight=mock_data["gain_weight"],
-            gain_residual=mock_data["gain_residual"],
-            ant1=mock_data["ant1"],
-            ant2=mock_data["ant2"],
-        )
-
-        call_args = mock_solver_fn.call_args_list[0].args
-
-        assert mock_solver_fn.called
-        assert mock_solver_fn.call_count == mock_data["nchannels"]
-
-        assert len(call_args) == 9
-
-        np.testing.assert_equal(call_args[3], mock_data["ant1"])
-        np.testing.assert_equal(call_args[4], mock_data["ant2"])
-        np.testing.assert_equal(call_args[5], mock_data["gain_gain"][0])
-
-        assert call_args[6] == 0
-        assert call_args[7] == niter
-        assert call_args[8] == tol
-
-        np.testing.assert_equal(gain, mock_data["gain_gain"])
-        np.testing.assert_equal(weight, mock_data["gain_weight"])
-        np.testing.assert_equal(residual, mock_data["gain_residual"])
 
 
 class TestJonesSubtitution:
@@ -125,7 +63,7 @@ class TestJonesSubtitution:
 
         solver = JonesSubtitution(niter=25, tol=1e-5)
 
-        solver.solve(
+        gain, weight, residual = solver.solve(
             vis_vis=mock_data["vis_vis"],
             vis_flags=mock_data["vis_flags"],
             vis_weight=mock_data["vis_weight"],
@@ -139,6 +77,22 @@ class TestJonesSubtitution:
         )
 
         assert mock_jones_solve.call_count == mock_data["nchannels"]
+
+        call_args = mock_jones_solve.call_args_list[0].args
+
+        assert len(call_args) == 9
+
+        np.testing.assert_equal(call_args[3], mock_data["ant1"])
+        np.testing.assert_equal(call_args[4], mock_data["ant2"])
+        np.testing.assert_equal(call_args[5], mock_data["gain_gain"][0])
+
+        assert call_args[6] == 0
+        assert call_args[7] == 25
+        assert call_args[8] == 1e-5
+
+        np.testing.assert_equal(gain, mock_data["gain_gain"])
+        np.testing.assert_equal(weight, mock_data["gain_weight"])
+        np.testing.assert_equal(residual, mock_data["gain_residual"])
 
 
 class TestNormalEquation:
@@ -165,7 +119,7 @@ class TestNormalEquation:
 
         solver = NormalEquation(niter=20, tol=1e-4)
 
-        solver.solve(
+        gain, weight, residual = solver.solve(
             vis_vis=mock_data["vis_vis"],
             vis_flags=mock_data["vis_flags"],
             vis_weight=mock_data["vis_weight"],
@@ -179,6 +133,22 @@ class TestNormalEquation:
         )
 
         assert mock_normal_solve.call_count == mock_data["nchannels"]
+
+        call_args = mock_normal_solve.call_args_list[0].args
+
+        assert len(call_args) == 9
+
+        np.testing.assert_equal(call_args[3], mock_data["ant1"])
+        np.testing.assert_equal(call_args[4], mock_data["ant2"])
+        np.testing.assert_equal(call_args[5], mock_data["gain_gain"][0])
+
+        assert call_args[6] == 0
+        assert call_args[7] == 20
+        assert call_args[8] == 1e-4
+
+        np.testing.assert_equal(gain, mock_data["gain_gain"])
+        np.testing.assert_equal(weight, mock_data["gain_weight"])
+        np.testing.assert_equal(residual, mock_data["gain_residual"])
 
 
 class TestNormalEquationsPreSum:
@@ -205,7 +175,7 @@ class TestNormalEquationsPreSum:
 
         solver = NormalEquationsPreSum(niter=15, tol=1e-3)
 
-        solver.solve(
+        gain, weight, residual = solver.solve(
             vis_vis=mock_data["vis_vis"],
             vis_flags=mock_data["vis_flags"],
             vis_weight=mock_data["vis_weight"],
@@ -219,6 +189,22 @@ class TestNormalEquationsPreSum:
         )
 
         assert mock_presum_solve.call_count == mock_data["nchannels"]
+
+        call_args = mock_presum_solve.call_args_list[0].args
+
+        assert len(call_args) == 9
+
+        np.testing.assert_equal(call_args[3], mock_data["ant1"])
+        np.testing.assert_equal(call_args[4], mock_data["ant2"])
+        np.testing.assert_equal(call_args[5], mock_data["gain_gain"][0])
+
+        assert call_args[6] == 0
+        assert call_args[7] == 15
+        assert call_args[8] == 1e-3
+
+        np.testing.assert_equal(gain, mock_data["gain_gain"])
+        np.testing.assert_equal(weight, mock_data["gain_weight"])
+        np.testing.assert_equal(residual, mock_data["gain_residual"])
 
 
 def test_should_gains_without_normalising():
