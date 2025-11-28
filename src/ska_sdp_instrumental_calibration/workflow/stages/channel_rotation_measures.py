@@ -15,10 +15,10 @@ from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...data_managers.gaintable import reset_gaintable
-from ...processing_tasks.rotation_measures import model_rotations
 from ...processing_tasks.solvers import SolverFactory
 from ...xarray_processors.apply import apply_gaintable_to_dataset
 from ...xarray_processors.predict import predict_vis
+from ...xarray_processors.rotation_measures import model_rotations
 from ...xarray_processors.solver import run_solver
 from ..utils import (
     get_gaintables_path,

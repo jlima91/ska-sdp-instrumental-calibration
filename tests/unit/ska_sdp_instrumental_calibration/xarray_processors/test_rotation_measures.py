@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from mock import ANY, MagicMock, Mock, call, patch
 
-from ska_sdp_instrumental_calibration.processing_tasks.rotation_measures import (  # noqa: E501
+from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
     ModelRotationData,
     fit_curve,
     get_rm_spec,
@@ -111,63 +111,63 @@ def test_model_rotation_data_value_error():
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.ModelRotationData"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.calculate_phi_raw"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.get_stn_masks"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.update_jones_with_masks"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.get_rm_spec"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.fit_curve"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.from_delayed"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.linalg.norm"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.abs"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.max"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.argmax"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.where"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.cos"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.sin"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks."
+    "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.dask.array.hstack"
 )
 def test_model_rotations_function(
@@ -409,7 +409,7 @@ def test_get_station_masks_when_refant_weights_are_non_zero():
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks"
+    "ska_sdp_instrumental_calibration.xarray_processors"
     ".rotation_measures.curve_fit"
 )
 def test_should_fit_curve(curve_fit_mock):

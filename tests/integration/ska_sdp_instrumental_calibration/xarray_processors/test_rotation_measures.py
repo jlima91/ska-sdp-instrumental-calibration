@@ -2,7 +2,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.processing_tasks.rotation_measures import (  # noqa: E501
+from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
     model_rotations,
 )
 
