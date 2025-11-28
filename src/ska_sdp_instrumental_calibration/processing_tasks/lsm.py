@@ -16,8 +16,8 @@ from astropy.coordinates import AltAz, SkyCoord
 from numpy import typing
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
-from ...data_managers.local_sky_component import LocalSkyComponent
-from .beams import convert_time_to_solution_time
+from ..data_managers.beams import convert_time_to_solution_time
+from ..data_managers.local_sky_component import LocalSkyComponent
 
 logger = logging.getLogger(__name__)
 

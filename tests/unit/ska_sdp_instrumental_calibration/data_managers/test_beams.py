@@ -13,9 +13,7 @@ from astropy.coordinates import SkyCoord
 from astropy.time import Time
 from mock import MagicMock, Mock, call, patch
 
-from ska_sdp_instrumental_calibration.processing_tasks.lsm.beams import (
-    BeamsFactory,
-)
+from ska_sdp_instrumental_calibration.data_managers.beams import BeamsFactory
 
 # from ska_sdp_instrumental_calibration.processing_tasks.beams import (
 #     GenericBeams,

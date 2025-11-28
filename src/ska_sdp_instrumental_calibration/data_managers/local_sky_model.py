@@ -14,7 +14,7 @@ from ..processing_tasks.lsm import (
     generate_lsm_from_gleamegc,
     generate_rotation_matrices,
 )
-from ..processing_tasks.lsm.beams import BeamsFactory
+from .beams import BeamsFactory
 
 logger = logging.getLogger()
 
