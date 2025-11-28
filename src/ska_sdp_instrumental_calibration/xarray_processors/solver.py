@@ -7,7 +7,8 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     restore_baselines_dim,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.solvers import Solver
+
+from ..numpy_processors.solvers import Solver
 
 logger = logging.getLogger(__name__)
 

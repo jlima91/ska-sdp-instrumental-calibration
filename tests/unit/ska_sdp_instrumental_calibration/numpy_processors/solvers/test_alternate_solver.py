@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
+from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     alternative_solvers,
 )
 
@@ -104,7 +104,7 @@ class TestAlternativeSolver:
 class TestJonesSubtitution:
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._jones_sub_solve"
     )
     def test_jones_substitution_initialization(self, jones_sub_solve_mock):
@@ -115,7 +115,7 @@ class TestJonesSubtitution:
         assert solver.tol == 1e-6
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._jones_sub_solve"
     )
     def test_jones_substitution_solve(
@@ -144,7 +144,7 @@ class TestJonesSubtitution:
 class TestNormalEquation:
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._normal_equation_solve"
     )
     def test_normal_equation_initialization(self, normal_equation_solve_mock):
@@ -155,7 +155,7 @@ class TestNormalEquation:
         assert solver.tol == 1e-6
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._normal_equation_solve"
     )
     def test_normal_equation_solve(
@@ -184,7 +184,7 @@ class TestNormalEquation:
 class TestNormalEquationsPreSum:
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._normal_equation_solve_with_presumming"
     )
     def test_normal_equations_presum_initialization(self, mock_presum_solve):
@@ -195,7 +195,7 @@ class TestNormalEquationsPreSum:
         assert solver.tol == 1e-6
 
     @patch(
-        "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+        "ska_sdp_instrumental_calibration.numpy_processors.solvers."
         "alternative_solvers._normal_equation_solve_with_presumming"
     )
     def test_normal_equations_presum_solve(

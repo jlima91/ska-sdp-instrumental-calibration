@@ -3,7 +3,7 @@ import pytest
 import xarray as xr
 from mock import patch
 
-from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
+from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     gain_substitution_solver,
 )
 
@@ -71,11 +71,11 @@ def test_gain_substitution_initialization_with_params():
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+    "ska_sdp_instrumental_calibration.numpy_processors.solvers."
     "gain_substitution_solver.create_point_vis"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+    "ska_sdp_instrumental_calibration.numpy_processors.solvers."
     "gain_substitution_solver.gain_substitution"
 )
 def test_solve_should_perform_gain_substitution(
@@ -147,11 +147,11 @@ def test_solve_should_perform_gain_substitution(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+    "ska_sdp_instrumental_calibration.numpy_processors.solvers."
     "gain_substitution_solver.create_point_vis"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.processing_tasks.solvers."
+    "ska_sdp_instrumental_calibration.numpy_processors.solvers."
     "gain_substitution_solver.gain_substitution"
 )
 def test_solve_should_perform_gain_substitution_without_model_vis(

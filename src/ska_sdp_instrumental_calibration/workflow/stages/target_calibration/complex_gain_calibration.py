@@ -22,7 +22,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
     with_chunks,
 )
 
-from ....processing_tasks.solvers import SolverFactory
+from ....numpy_processors.solvers import SolverFactory
 from ....xarray_processors.solver import run_solver
 
 logger = logging.getLogger()

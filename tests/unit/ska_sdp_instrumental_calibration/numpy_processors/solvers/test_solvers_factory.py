@@ -1,6 +1,6 @@
 import pytest
 
-from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
+from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     alternative_solvers,
     gain_substitution_solver,
     solvers_factory,

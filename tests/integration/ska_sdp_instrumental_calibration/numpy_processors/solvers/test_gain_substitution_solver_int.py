@@ -7,7 +7,7 @@ from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.solvers import (
+from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     gain_substitution_solver,
 )
 
