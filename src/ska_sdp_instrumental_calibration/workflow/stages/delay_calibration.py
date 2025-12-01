@@ -6,19 +6,16 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
-    PlotGaintableFrequency,
-)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
-    plot_station_delays,
 )
 
 from ...data_managers.data_export import (
     export_clock_to_h5parm,
     export_gaintable_to_h5parm,
 )
+from ...plot import PlotGaintableFrequency, plot_station_delays
 from ...xarray_processors.delay import apply_delay, calculate_delay
 
 

@@ -5,7 +5,6 @@ from mock import MagicMock, Mock, patch
 
 from ska_sdp_instrumental_calibration.workflow.utils import (
     create_path_tree,
-    ecef_to_lla,
     get_gaintables_path,
     get_plots_path,
     get_visibilities_path,
@@ -16,18 +15,6 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 plot_gaintable = Mock(name="plot_gaintable")
 plot_all_stations = Mock(name="plot_all_stations")
 subplot_gaintable = Mock(name="subplot_gaintable")
-
-
-def test_should_convert_earth_centric_coordinates_to_geodetic():
-    x = np.array([-5133977.79947732, -5133977.79947732])
-    y = np.array([10168886.79974105, -10168886.79974105])
-    z = np.array([-5723265.90488199, -5723265.90488199])
-
-    lat, lng, alt = ecef_to_lla(x, y, z)
-
-    np.testing.assert_allclose(lat, np.array([-26.753052, -26.753052]))
-    np.testing.assert_allclose(lng, np.array([116.787894, 243.212106]))
-    np.testing.assert_allclose(alt, np.array([6374502.632896, 6374502.632896]))
 
 
 def test_should_parse_reference_antenna():

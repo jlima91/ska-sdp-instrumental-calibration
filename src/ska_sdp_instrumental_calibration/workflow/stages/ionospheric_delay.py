@@ -8,9 +8,6 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
 )
-from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
-    PlotGaintableFrequency,
-)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,
@@ -19,6 +16,7 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...data_managers.gaintable import create_gaintable_from_visibility
+from ...plot import PlotGaintableFrequency
 from ...xarray_processors.ionosphere_solvers import IonosphericSolver
 
 logger = logging.getLogger()

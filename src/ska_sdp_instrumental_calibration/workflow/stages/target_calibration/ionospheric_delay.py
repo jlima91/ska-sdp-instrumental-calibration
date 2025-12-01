@@ -4,9 +4,10 @@ import numpy as np
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.plot import PlotGaintableTargetIonosphere
+
 from ....data_managers.gaintable import create_gaintable_from_visibility
 from ....xarray_processors.ionosphere_solvers import IonosphericSolver
-from ...plot_gaintable import PlotGaintableTargetIonosphere
 from ...utils import get_plots_path, with_chunks
 
 logger = logging.getLogger()

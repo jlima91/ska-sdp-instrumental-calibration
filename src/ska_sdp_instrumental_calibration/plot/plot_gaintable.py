@@ -1,6 +1,3 @@
-from functools import wraps
-from traceback import print_exc
-
 import dask
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,27 +5,9 @@ from astropy.time import Time
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
+from ._util import safe
+
 logger = setup_logger(__name__)
-
-
-def safe(func):
-    """
-    Wrapper to catch all exceptions and print traceback to stderr,
-    instead of crashing the application.
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            result = func(*args, **kwargs)
-            return result
-        except Exception as ex:
-            logger.error(
-                "Caught exception in function %s: %s", func.__name__, str(ex)
-            )
-            print_exc()
-
-    return wrapper
 
 
 class PlotGaintable:

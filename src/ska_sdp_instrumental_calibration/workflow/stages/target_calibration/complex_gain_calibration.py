@@ -11,10 +11,8 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
 )
+from ska_sdp_instrumental_calibration.plot import PlotGaintableTime
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
-    PlotGaintableTime,
-)
 from ska_sdp_instrumental_calibration.workflow.utils import (
     get_gaintables_path,
     get_plots_path,

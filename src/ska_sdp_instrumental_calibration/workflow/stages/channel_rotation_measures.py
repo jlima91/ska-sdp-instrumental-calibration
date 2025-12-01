@@ -9,13 +9,14 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.workflow.plot_gaintable import (
-    PlotGaintableFrequency,
-)
-
 from ...data_managers.data_export import export_gaintable_to_h5parm
 from ...data_managers.gaintable import reset_gaintable
 from ...numpy_processors.solvers import SolverFactory
+from ...plot import (
+    PlotGaintableFrequency,
+    plot_bandpass_stages,
+    plot_rm_station,
+)
 from ...xarray_processors.apply import apply_gaintable_to_dataset
 from ...xarray_processors.predict import predict_vis
 from ...xarray_processors.rotation_measures import model_rotations
@@ -24,8 +25,6 @@ from ..utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
-    plot_bandpass_stages,
-    plot_rm_station,
 )
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
