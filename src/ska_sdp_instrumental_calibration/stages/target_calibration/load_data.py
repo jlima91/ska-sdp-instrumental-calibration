@@ -1,0 +1,217 @@
+import logging
+import os
+
+import dask
+from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
+from ska_sdp_piper.piper.stage import ConfigurableStage
+
+from ...data_managers.gaintable import create_gaintable_from_visibility
+from ...data_managers.visibility import (
+    check_if_cache_files_exist,
+    read_visibility_from_zarr,
+    write_ms_to_zarr,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@ConfigurableStage(
+    "target_load_data",
+    configuration=Configuration(
+        nchannels_per_chunk=ConfigParam(
+            int,
+            32,
+            nullable=False,
+            description="""Number of frequency channels per chunk in the
+            written zarr file.""",
+        ),
+        ntimes_per_ms_chunk=ConfigParam(
+            int,
+            5,
+            nullable=False,
+            description="""Number of time slots to include in each chunk
+            while reading from measurement set and writing in zarr file.
+            This is also the size of time chunk used across the pipeline.""",
+        ),
+        cache_directory=ConfigParam(
+            str,
+            None,
+            nullable=True,
+            description="""Cache directory containing previously stored
+            visibility datasets as zarr files. The directory should contain
+            a subdirectory with same name as the input target ms file name,
+            which internally contains the zarr and pickle files.
+            If None, the input ms will be converted to zarr file,
+            and this zarr file will be stored in a new 'cache'
+            subdirectory under the provided output directory.""",
+        ),
+        timeslice=ConfigParam(
+            float,
+            3.0,
+            nullable=False,
+            description="""Defines time scale over which each gain solution
+            is valid. This is used to define time axis of the GainTable.
+            This parameter is interpreted as follows,
+            float: this is a custom time interval in seconds.
+            Input timestamps are grouped by intervals of this duration,
+            and said groups are separately averaged to produce
+            the output time axis.""",
+        ),
+        ack=ConfigParam(
+            bool,
+            False,
+            nullable=False,
+            description="Ask casacore to acknowledge each table operation",
+        ),
+        datacolumn=ConfigParam(
+            str,
+            "DATA",
+            nullable=False,
+            description="MS data column to read visibility data from.",
+            allowed_values=["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+        ),
+        field_id=ConfigParam(
+            int,
+            0,
+            nullable=False,
+            description="Field ID of the data in measurement set",
+        ),
+        data_desc_id=ConfigParam(
+            int,
+            0,
+            nullable=False,
+            description="Data Description ID of the data in measurement set",
+        ),
+    ),
+)
+def load_data_stage(
+    upstream_output,
+    nchannels_per_chunk,
+    ntimes_per_ms_chunk,
+    cache_directory,
+    timeslice,
+    ack,
+    datacolumn,
+    field_id,
+    data_desc_id,
+    _cli_args_,
+    _output_dir_,
+):
+    """
+    This stage loads the target visibility data from either (in order of
+    preference):
+
+    1. An existing dataset stored as a zarr file inside the 'cache_directory'.
+    2. From input MSv2 measurement set. Here it will create an intemediate
+       zarr file with chunks along frequency and time, then use it as input
+       to the pipeline. This zarr dataset will be stored in 'cache_directory'
+       for later use.
+
+    Parameters
+    ----------
+    upstream_output: dict
+        Output from the upstream stage
+    nchannels_per_chunk: int
+        Number of frequency channels per chunk in the
+        written zarr file.
+    ntimes_per_ms_chunk: int
+        Number of time dimension to include in each chunk
+        while reading from measurement set and writing in zarr file.
+        This value is used across the pipeline,
+        i.e. for zarr file and for the visibility dataset.
+    cache_directory: str
+        Cache directory containing previously stored
+        visibility datasets as zarr files. The directory should contain
+        a subdirectory with same name as the input target ms file name, which
+        internally contains the zarr and pickle files.
+        If None, the input ms will be converted to zarr file,
+        and this zarr file will be stored in a new 'cache'
+        subdirectory under the provided output directory.
+    ack: bool
+        Ask casacore to acknowledge each table operation
+    timeslice : float
+        Defines time scale over which each gain solution is valid.
+        This is used to define time axis of the GainTable. This
+        parameter is interpreted as follows,
+        float: this is a custom time interval in seconds. Input
+        timestamps are grouped by intervals of this duration,
+        and said groups are separately averaged to produce the
+        output time axis.
+    datacolumn: str
+        Measurement set data column name to read data from.
+    field_id: int
+        Field ID of the data in measurement set
+    data_desc_id: int
+        Data Description ID of the data in measurement set
+    _cli_args_: dict
+        Piper builtin. Contains all CLI Arguments.
+    _output_dir_: str
+        Piper builtin. Stores the output directory path.
+
+    Returns
+    -------
+    dict
+        Updated upstream_output with the loaded target visibility data
+    """
+    input_ms = _cli_args_["input"]
+
+    input_ms = os.path.realpath(input_ms)
+
+    # Common dimensions across zarr and loaded visibility dataset
+    non_chunked_dims = {
+        dim: -1
+        for dim in [
+            "baselineid",
+            "polarisation",
+            "spatial",
+        ]
+    }
+
+    vis_chunks = {
+        **non_chunked_dims,
+        "time": ntimes_per_ms_chunk,
+        "frequency": nchannels_per_chunk,
+    }
+
+    upstream_output["chunks"] = vis_chunks
+
+    if cache_directory is None:
+        logger.info(
+            "Setting cache_directory to output directory: %s", _output_dir_
+        )
+        cache_directory = _output_dir_
+
+    vis_cache_directory = os.path.join(
+        cache_directory,
+        f"{os.path.basename(input_ms)}_fid{field_id}_ddid{data_desc_id}",
+    )
+    os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
+
+    if check_if_cache_files_exist(vis_cache_directory):
+        logger.info(
+            "Reading cached visibilities from path %s", vis_cache_directory
+        )
+    else:
+        logger.info(
+            "Writing converted visibilities to cache dir: %s",
+            vis_cache_directory,
+        )
+        with dask.annotate(resources={"process": 1}):
+            write_ms_to_zarr(
+                input_ms,
+                vis_cache_directory,
+                vis_chunks,
+                ack=ack,
+                datacolumn=datacolumn,
+                field_id=field_id,
+                data_desc_id=data_desc_id,
+            )
+
+    vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
+    gaintable = create_gaintable_from_visibility(vis, timeslice, "G")
+
+    upstream_output["timeslice"] = timeslice
+    upstream_output["vis"] = vis
+    upstream_output["gaintable"] = gaintable
+    upstream_output["central_beams"] = None
+    return upstream_output
