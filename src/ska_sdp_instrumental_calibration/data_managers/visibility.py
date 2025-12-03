@@ -23,8 +23,7 @@ from ska_sdp_datamodels.science_data_model.polarisation_model import (
 )
 from ska_sdp_datamodels.visibility.vis_model import Visibility
 
-from ..workflow.utils import with_chunks
-from .dask_wrappers import simplify_baselines_dim
+from ..xarray_processors import simplify_baselines_dim, with_chunks
 
 logger = logging.getLogger(__name__)
 

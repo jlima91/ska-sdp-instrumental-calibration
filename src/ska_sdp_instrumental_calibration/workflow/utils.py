@@ -7,8 +7,6 @@ __all__ = [
     "get_phasecentre",
     "create_soltab_group",
     "create_soltab_datasets",
-    "with_chunks",
-    "normalize_data",
 ]
 
 import warnings

@@ -3,7 +3,7 @@ from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import target_calibration
-from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
+from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 complex_gain_calibration_stage = (
     target_calibration.complex_gain_calibration_stage

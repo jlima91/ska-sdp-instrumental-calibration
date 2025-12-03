@@ -8,7 +8,7 @@ from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.local_sky_model import GlobalSkyModel, LocalSkyModel
-from ..workflow.utils import with_chunks
+from ._utils import with_chunks
 
 logger = logging.getLogger(__name__)
 

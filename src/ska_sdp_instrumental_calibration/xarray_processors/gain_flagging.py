@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
 
-from ..workflow.utils import normalize_data
+from ._utils import normalize_data
 
 logger = logging.getLogger()
 

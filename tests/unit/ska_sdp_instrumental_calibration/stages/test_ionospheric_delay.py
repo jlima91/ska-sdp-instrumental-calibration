@@ -3,7 +3,7 @@ import pytest
 from mock import ANY, MagicMock, patch
 
 from ska_sdp_instrumental_calibration.stages import ionospheric_delay_stage
-from ska_sdp_instrumental_calibration.workflow.utils import with_chunks
+from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 
 @pytest.fixture

@@ -6,7 +6,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere
-from ...workflow.utils import with_chunks
+from ...xarray_processors import with_chunks
 from ...xarray_processors.ionosphere_solvers import IonosphericSolver
 from .._utils import get_plots_path
 

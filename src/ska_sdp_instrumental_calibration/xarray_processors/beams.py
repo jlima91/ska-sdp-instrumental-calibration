@@ -5,7 +5,7 @@ import xarray as xr
 from ska_sdp_datamodels.calibration import GainTable
 
 from ..data_managers.beams import BeamsFactory
-from ..workflow.utils import with_chunks
+from ._utils import with_chunks
 
 logger = logging.getLogger(__name__)
 

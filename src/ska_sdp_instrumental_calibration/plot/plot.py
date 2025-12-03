@@ -8,7 +8,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     generate_rotation_matrices,
 )
 
-from ..workflow.utils import normalize_data
+from ..xarray_processors import normalize_data
 from ._util import _ecef_to_lla, safe
 from .plot_gaintable import PlotGaintableFrequency
 
