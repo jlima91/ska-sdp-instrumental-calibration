@@ -31,6 +31,7 @@ class Solver(metaclass=SolverFactory):
     def __init__(self, niter=50, tol=1e-6, **_):
         self.niter = niter
         self.tol = tol
+        self.norm_method = None
 
     def solve(
         self,
@@ -91,4 +92,9 @@ class Solver(metaclass=SolverFactory):
         -------
         xarray.DataArray
         """
-        return gain
+        if self.norm_method is None:
+            return gain
+
+        raise NotImplementedError(
+            f"Normalise gains using {self.norm_method} not implemented"
+        )

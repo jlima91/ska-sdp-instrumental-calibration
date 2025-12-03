@@ -57,7 +57,7 @@ class GainSubstitution(Solver):
         self.refant = refant
         self.phase_only = phase_only
         self.crosspol = crosspol
-        self._norm_method = normalise_gains
+        self.norm_method = normalise_gains
 
     def solve(
         self,
@@ -122,17 +122,17 @@ class GainSubstitution(Solver):
         -------
         xarray.DataArray
         """
-        if self._norm_method is None:
+        if self.norm_method is None:
             return gain
 
-        logger.info(f"Normalizing gains using {self._norm_method}")
+        logger.info(f"Normalizing gains using {self.norm_method}")
 
-        if self._norm_method not in self._NORMALISER:
+        if self.norm_method not in self._NORMALISER:
             raise ValueError(
-                f"Undefined normalisation function {self._norm_method}"
+                f"Undefined normalisation function {self.norm_method}"
             )
 
-        norm_func = self._NORMALISER[self._norm_method]
+        norm_func = self._NORMALISER[self.norm_method]
 
         gabs = norm_func(np.abs(gain))
 

@@ -207,7 +207,7 @@ class TestNormalEquationsPreSum:
         np.testing.assert_equal(residual, mock_data["gain_residual"])
 
 
-def test_should_gains_without_normalising():
+def test_should_return_gains_without_normalising():
 
     solver = JonesSubtitution(normalise_gains="mean")
     gain = xr.DataArray(np.array([0, 1, 2, 3, 4]), dims=["frequency"])
@@ -227,3 +227,15 @@ def test_should_gains_without_normalising():
     np.testing.assert_allclose(
         solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
     )
+
+
+def test_should_raise_exception_if_normal_method_is_defined():
+
+    solver = JonesSubtitution()
+    solver.norm_method = "mean"
+
+    with pytest.raises(
+        NotImplementedError,
+        match=("Normalise gains using mean not implemented"),
+    ):
+        solver.normalise_gains([0, 1, 2, 3, 4])
