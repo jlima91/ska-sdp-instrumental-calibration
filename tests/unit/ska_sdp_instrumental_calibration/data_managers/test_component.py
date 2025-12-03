@@ -2,14 +2,10 @@ from io import StringIO
 
 import numpy as np
 import pytest
-from astropy.coordinates import SkyCoord
 from mock import MagicMock, patch
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
-from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
+from ska_sdp_instrumental_calibration.data_managers.component import (
     Component,
-    convert_model_to_skycomponents,
-    deconvolve_gaussian,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
@@ -27,8 +23,8 @@ CSV_CONTENT = """# Number of sources: 1434
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_generate_lsm_from_gleam_catalogue_file(
     logger_mock, path_mock, open_mock
 ):
@@ -84,8 +80,8 @@ def test_generate_lsm_from_gleam_catalogue_file(
     ]
 
 
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
     logger_mock, path_mock
 ):
@@ -112,8 +108,8 @@ def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_should_exclude_component_when_flux_is_less_than_min_flux(
     logger_mock, path_mock, open_mock
 ):
@@ -151,8 +147,8 @@ def test_should_exclude_component_when_flux_is_less_than_min_flux(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     logger_mock, path_mock, open_mock
 ):
@@ -211,7 +207,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
 
 
 @patch("builtins.open")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
 def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     """
     Test that for a Component in the gleam catalogue file,
@@ -236,88 +232,6 @@ def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
     assert lsm == []
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.numpy_processors.lsm"
-    ".deconvolve_gaussian"
-)
-def test_convert_model_to_skycomponents(deconvolve_gaussian_mock):
-    """
-    Given a list of Components and range frequencies over which
-    we wish to store the flux information, for each component:
-    1. perform power law scaling
-    2. deconvove gausssian to get beam information
-    3. create a Skycomponent (defined in ska-sdp-datamodels)
-
-    This test uses a dummy gaussian source as compoenent.
-    """
-    deconvolve_gaussian_mock.return_value = (7200, 9000, 5.0)
-
-    component = Component(
-        name="J12345",
-        RAdeg=260,
-        DEdeg=-85,
-        flux=4.0,
-        ref_freq=200,
-        alpha=2.0,
-    )
-
-    skycomp = convert_model_to_skycomponents([component], [400, 800])
-
-    deconvolve_gaussian_mock.assert_called_once_with(component)
-
-    assert len(skycomp) == 1
-    # SkyComponent does not implement @dataclass or __equal__
-    actual_component = skycomp[0]
-    assert actual_component.direction == SkyCoord(ra=260, dec=-85, unit="deg")
-    assert actual_component.name == "J12345"
-    assert actual_component.polarisation_frame == PolarisationFrame("linear")
-    assert actual_component.shape == "GAUSSIAN"
-    assert actual_component.params == {
-        "bmaj": 2.0,
-        "bmin": 2.5,
-        "bpa": 5.0,
-    }
-    np.testing.assert_allclose(
-        actual_component.frequency, np.array([400, 800])
-    )
-    np.testing.assert_allclose(
-        actual_component.flux, np.array([[16, 0, 0, 16], [64, 0, 0, 64]])
-    )
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.numpy_processors.lsm"
-    ".deconvolve_gaussian"
-)
-def test_convert_point_source_to_skycomponent(deconvolve_gaussian_mock):
-    """
-    Given a list of Components and range frequencies over which
-    we wish to store the flux information,
-    if a component in the list is a point source,
-    then the shape and parameters of the Skycomponent must be set
-    appropriately.
-    """
-    deconvolve_gaussian_mock.return_value = (0, 0, 0)
-
-    component = Component(
-        name="J12345",
-        RAdeg=260,
-        DEdeg=-85,
-        flux=4.0,
-        ref_freq=200,
-        alpha=2.0,
-    )
-
-    skycomp = convert_model_to_skycomponents([component], [400, 800])
-
-    deconvolve_gaussian_mock.assert_called_once_with(component)
-
-    assert len(skycomp) == 1
-    actual_component = skycomp[0]
-    assert actual_component.shape == "POINT"
-    assert actual_component.params == {}
-
-
 def test_deconvolve_gaussian():
     """
     Given a component, deconvolve MWA synthesised beam.
@@ -337,7 +251,7 @@ def test_deconvolve_gaussian():
         beam_pa=20,
     )
 
-    actual_params = np.array(deconvolve_gaussian(component))
+    actual_params = np.array(component.deconvolve_gaussian())
     expectd_params = np.array(
         (168.6690698011579, 107.47439179828898, -29.158834703512973)
     )
@@ -368,13 +282,13 @@ def test_deconvolve_circular_gaussian():
         beam_pa=beam_pa,
     )
 
-    actual_params = np.array(deconvolve_gaussian(component))
+    actual_params = np.array(component.deconvolve_gaussian())
     expectd_params = np.array((beam_major, beam_minor, 90 + beam_pa))
 
     np.testing.assert_allclose(expectd_params, actual_params)
 
 
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
 def test_should_raise_exception_for_invalid_csv_file(path_mock):
 
     path_mock.return_value = path_mock
@@ -386,8 +300,8 @@ def test_should_raise_exception_for_invalid_csv_file(path_mock):
         generate_lsm_from_csv("sky_model.csv", phasecentre, fov=10)
 
 
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
 
     path_mock.return_value = path_mock
@@ -417,8 +331,8 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
     ]
 
 
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     logger_mock, path_mock
 ):
@@ -438,8 +352,8 @@ def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     assert lsm == []
 
 
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.Path")
-@patch("ska_sdp_instrumental_calibration.numpy_processors.lsm.logger")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.Path")
+@patch("ska_sdp_instrumental_calibration.data_managers.component.logger")
 def test_exclude_csv_comp_when_its_out_of_fov(logger_mock, path_mock):
 
     path_mock.return_value = path_mock

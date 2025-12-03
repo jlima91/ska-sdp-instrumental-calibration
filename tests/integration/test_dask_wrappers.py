@@ -8,21 +8,21 @@ from ska_sdp_datamodels.calibration.calibration_create import (
 )
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
+from ska_sdp_instrumental_calibration.data_managers.component import Component
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
     run_solver,
 )
-from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
-    Component,
-    convert_model_to_skycomponents,
-)
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     predict_from_components,
+)
+from ska_sdp_instrumental_calibration.workflow.utils import (
+    convert_model_to_skycomponents,
 )
 
 

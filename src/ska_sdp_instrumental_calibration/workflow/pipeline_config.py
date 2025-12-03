@@ -2,11 +2,11 @@
 
 from astropy.coordinates import SkyCoord
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
+from ska_sdp_instrumental_calibration.data_managers.component import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
+from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
 
 logger = setup_logger("workflow.pipeline_config")

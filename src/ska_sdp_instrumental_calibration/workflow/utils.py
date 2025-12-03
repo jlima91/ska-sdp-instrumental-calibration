@@ -38,11 +38,9 @@ from ska_sdp_datamodels.visibility.vis_io_ms import (
     export_visibility_to_ms,
 )
 
+from ska_sdp_instrumental_calibration.data_managers import local_sky_component
+from ska_sdp_instrumental_calibration.data_managers.component import Component
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
-    Component,
-    convert_model_to_skycomponents,
-)
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
 )
@@ -53,6 +51,33 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 logger = setup_logger(__name__)
+
+
+def convert_model_to_skycomponents(
+    model: list[Component], freq
+) -> list[local_sky_component.LocalSkyComponent]:
+    """Convert the LocalSkyModel to a list of SkyComponents.
+
+    All sources are unpolarised and specified in the linear polarisation frame
+    using XX = YY = Stokes I.
+
+    Function :func:`~deconvolve_gaussian` is used to deconvolve the MWA
+    synthesised beam from catalogue shape parameters of each component.
+    Components with non-zero widths after this process are stored with
+    shape = "GAUSSIAN". Otherwise shape = "POINT".
+
+    :param model: Component list
+    :param freq: Frequency list in Hz
+    :param freq0: Reference Frequency for flux scaling in Hz. Default is 200e6.
+        Note: freq0 should really be part of the sky model
+    :return: SkyComponent list
+    """
+
+    freq = np.array(freq)
+    return [
+        local_sky_component.LocalSkyComponent.create_from_component(comp, freq)
+        for comp in model
+    ]
 
 
 def channel_frequency_mapper(frequency, reverse=False):

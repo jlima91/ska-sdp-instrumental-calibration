@@ -23,6 +23,10 @@ from ska_sdp_datamodels.calibration.calibration_functions import (
 )
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
+from ska_sdp_instrumental_calibration.data_managers.component import (
+    generate_lsm_from_csv,
+    generate_lsm_from_gleamegc,
+)
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     ingest_predict_and_solve,
     load_ms,
@@ -30,10 +34,6 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     run_solver,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.numpy_processors.lsm import (
-    generate_lsm_from_csv,
-    generate_lsm_from_gleamegc,
-)
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )

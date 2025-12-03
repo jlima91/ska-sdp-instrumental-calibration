@@ -8,13 +8,14 @@ from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
 )
 
-from ..numpy_processors.lsm import (
+from ..numpy_processors.rotation_matrix import generate_rotation_matrices
+from .beams import BeamsFactory
+from .component import (
     Component,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
-from ..numpy_processors.rotation_matrix import generate_rotation_matrices
-from .beams import BeamsFactory
+from .local_sky_component import LocalSkyComponent
 
 logger = logging.getLogger()
 
@@ -53,7 +54,9 @@ class LocalSkyModel:
             dtype=output_dtype,
         )
         for comp in self.components:
-            skycomponent = comp.get_skycomponent(frequency, polarisation)
+            skycomponent = LocalSkyComponent.create_from_component(
+                comp, frequency, polarisation
+            )
             predicted_vis = predicted_vis + skycomponent.create_vis(
                 uvw,
                 phasecentre,
