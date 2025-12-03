@@ -12,8 +12,9 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..plot import PlotGaintableFrequency
-from ..workflow.utils import get_gaintables_path, get_plots_path, with_chunks
+from ..workflow.utils import with_chunks
 from ..xarray_processors.ionosphere_solvers import IonosphericSolver
+from ._utils import get_gaintables_path, get_plots_path
 
 logger = logging.getLogger()
 

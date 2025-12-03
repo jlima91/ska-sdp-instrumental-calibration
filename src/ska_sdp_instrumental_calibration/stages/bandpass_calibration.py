@@ -12,13 +12,13 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
 from ..plot import PlotGaintableFrequency
-from ..workflow.utils import (
+from ..xarray_processors.solver import run_solver
+from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
+from ._utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
 )
-from ..xarray_processors.solver import run_solver
-from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 
 logger = logging.getLogger()
 

@@ -17,16 +17,16 @@ from ..plot import (
     plot_bandpass_stages,
     plot_rm_station,
 )
-from ..workflow.utils import (
-    get_gaintables_path,
-    get_plots_path,
-    parse_reference_antenna,
-)
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
 from ..xarray_processors.rotation_measures import model_rotations
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
+from ._utils import (
+    get_gaintables_path,
+    get_plots_path,
+    parse_reference_antenna,
+)
 
 logger = logging.getLogger()
 

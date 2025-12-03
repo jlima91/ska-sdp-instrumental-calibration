@@ -15,13 +15,13 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 from ...numpy_processors.solvers import SolverFactory
 from ...plot import PlotGaintableTime
 from ...scheduler import UpstreamOutput
-from ...workflow.utils import (
+from ...workflow.utils import with_chunks
+from ...xarray_processors.solver import run_solver
+from .._utils import (
     get_gaintables_path,
     get_plots_path,
     parse_reference_antenna,
-    with_chunks,
 )
-from ...xarray_processors.solver import run_solver
 
 logger = logging.getLogger()
 

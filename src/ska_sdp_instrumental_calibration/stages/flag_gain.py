@@ -8,11 +8,11 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
-from ..workflow.utils import get_gaintables_path, get_plots_path
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
 )
+from ._utils import get_gaintables_path, get_plots_path
 
 
 @ConfigurableStage(

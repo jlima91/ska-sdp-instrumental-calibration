@@ -11,8 +11,8 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..workflow.utils import get_gaintables_path, get_plots_path
 from ..xarray_processors.delay import apply_delay, calculate_delay
+from ._utils import get_gaintables_path, get_plots_path
 
 
 @ConfigurableStage(

@@ -4,7 +4,7 @@ from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.dask_wrappers import apply_gaintable_to_dataset
-from ..workflow.utils import get_visibilities_path
+from ._utils import get_visibilities_path
 
 
 @ConfigurableStage(
