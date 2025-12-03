@@ -12,8 +12,8 @@ from ..numpy_processors.lsm import (
     Component,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
-    generate_rotation_matrices,
 )
+from ..numpy_processors.rotation_matrix import generate_rotation_matrices
 from .beams import BeamsFactory
 
 logger = logging.getLogger()
