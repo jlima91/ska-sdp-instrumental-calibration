@@ -2,7 +2,7 @@
 
 from astropy.coordinates import SkyCoord
 
-from ska_sdp_instrumental_calibration.data_managers.component import (
+from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )

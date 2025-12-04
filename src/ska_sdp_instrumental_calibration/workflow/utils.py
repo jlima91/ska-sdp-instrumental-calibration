@@ -38,8 +38,10 @@ from ska_sdp_datamodels.visibility.vis_io_ms import (
     export_visibility_to_ms,
 )
 
-from ska_sdp_instrumental_calibration.data_managers import local_sky_component
-from ska_sdp_instrumental_calibration.data_managers.component import Component
+from ska_sdp_instrumental_calibration.data_managers.sky_model import (
+    Component,
+    LocalSkyComponent,
+)
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
@@ -55,7 +57,7 @@ logger = setup_logger(__name__)
 
 def convert_model_to_skycomponents(
     model: list[Component], freq
-) -> list[local_sky_component.LocalSkyComponent]:
+) -> list[LocalSkyComponent]:
     """Convert the LocalSkyModel to a list of SkyComponents.
 
     All sources are unpolarised and specified in the linear polarisation frame
@@ -75,8 +77,7 @@ def convert_model_to_skycomponents(
 
     freq = np.array(freq)
     return [
-        local_sky_component.LocalSkyComponent.create_from_component(comp, freq)
-        for comp in model
+        LocalSkyComponent.create_from_component(comp, freq) for comp in model
     ]
 
 

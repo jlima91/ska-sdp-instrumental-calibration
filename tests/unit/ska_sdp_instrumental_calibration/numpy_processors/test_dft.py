@@ -15,7 +15,7 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
-from ska_sdp_instrumental_calibration.data_managers.component import Component
+from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
 from ska_sdp_instrumental_calibration.numpy_processors.dft import (  # noqa: E501
     gaussian_tapers,
 )

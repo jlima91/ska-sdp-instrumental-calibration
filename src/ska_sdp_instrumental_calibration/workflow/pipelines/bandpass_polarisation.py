@@ -32,16 +32,16 @@ from ska_sdp_func_python.preprocessing.averaging import (
 )
 from ska_sdp_func_python.preprocessing.flagger import rfi_flagger
 
-from ska_sdp_instrumental_calibration.data_managers.component import (
-    generate_lsm_from_csv,
-    generate_lsm_from_gleamegc,
-)
 from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     apply_gaintable_to_dataset,
     load_ms,
     predict_vis,
     prediction_central_beams,
     run_solver,
+)
+from ska_sdp_instrumental_calibration.data_managers.sky_model import (
+    generate_lsm_from_csv,
+    generate_lsm_from_gleamegc,
 )
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (

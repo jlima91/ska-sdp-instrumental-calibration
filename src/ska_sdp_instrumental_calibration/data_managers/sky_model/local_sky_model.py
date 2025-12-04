@@ -8,14 +8,11 @@ from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
 )
 
-from ..numpy_processors.rotation_matrix import generate_rotation_matrices
-from .beams import BeamsFactory
-from .component import (
-    Component,
-    generate_lsm_from_csv,
-    generate_lsm_from_gleamegc,
-)
+from ...numpy_processors.rotation_matrix import generate_rotation_matrices
+from ..beams import BeamsFactory
+from .component import Component
 from .local_sky_component import LocalSkyComponent
+from .sky_model_reader import generate_lsm_from_csv, generate_lsm_from_gleamegc
 
 logger = logging.getLogger()
 

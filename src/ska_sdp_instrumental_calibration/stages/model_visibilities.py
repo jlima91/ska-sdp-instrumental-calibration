@@ -4,7 +4,7 @@ from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
-from ..data_managers.local_sky_model import GlobalSkyModel
+from ..data_managers.sky_model import GlobalSkyModel
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis

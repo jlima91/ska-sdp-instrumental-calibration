@@ -47,7 +47,7 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
-from ska_sdp_instrumental_calibration.data_managers.component import Component
+from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,

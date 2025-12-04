@@ -1,0 +1,121 @@
+"""Module for generating the local sky model.
+
+Note that these are temporary functions that will be replaced by functions that
+connect to ska-sdp-global-sky-model functions.
+"""
+
+import logging
+from dataclasses import dataclass
+from functools import cached_property
+
+import numpy as np
+from astropy.coordinates import AltAz, SkyCoord
+
+from ..beams import convert_time_to_solution_time
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Component:
+    """Class for LSM components.
+
+    Class to hold catalogue data for a component of the local sky model. For
+    components with elliptical Gaussian parameters, if beam parameters are also
+    supplied, the beam will be deconvolved from the component parameters. If
+    the component parameters have already had the beam deconvolved, the beam
+    parameters should be left at zero.
+
+    Args:
+        name (str): Name
+        RAdeg (float): Right Ascension J2000 (degrees)
+        DEdeg (float): Declination J2000 (degrees)
+        flux (float): Flux density (Jy) at the reference frequency, ref_freq.
+        ref_freq (float): Reference frequency (Hz). Default=200e6.
+        alpha (float): Spectral index. Default=0
+        major (float): Fitted semi-major axis (arcsec). Default=0
+        minor (float): Fitted semi-minor axis (arcsec). Default=0
+        pa (float): Fitted position angle (degrees). Default=0
+        beam_major (float): Semi-major axis of a beam that is still convolved
+            into the main component shape (arcsec). Default=0 (no beam present)
+        beam_minor (float): Semi-minor axis of a beam that is still convolved
+            into the main component shape (arcsec). Default=0 (no beam present)
+        beam_pa (float): Position angle of a beam that is still convolved
+            into the main component shape (degrees). Default=0
+    """
+
+    name: str
+    RAdeg: float
+    DEdeg: float
+    flux: float
+    ref_freq: float = 200e6
+    alpha: float = 0.0
+    major: float = 0.0
+    minor: float = 0.0
+    pa: float = 0.0
+    beam_major: float = 0.0
+    beam_minor: float = 0.0
+    beam_pa: float = 0.0
+
+    @cached_property
+    def direction(self):
+        return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
+
+    def get_altaz(self, solution_time: float, array_location):
+        return self.direction.transform_to(
+            AltAz(
+                obstime=convert_time_to_solution_time(solution_time),
+                location=array_location,
+            )
+        )
+
+    def is_above_horizon(self, solution_time: float, array_location):
+        return self.get_altaz(solution_time, array_location).alt.degree >= 0
+
+    def deconvolve_gaussian(self) -> tuple[float]:
+        """Deconvolve MWA synthesised beam from Gaussian shape parameters.
+
+        This follows the approach of the analysisutilities function
+        deconvolveGaussian in the askap-analysis repository, written by Matthew
+        Whiting. This is based on the approach described in Wild (1970),
+        AuJPh 23, 113.
+
+        :param self: :class:`~Component` data for a source
+        :return: Tuple of deconvolved parameters (same units as data in self)
+        """
+
+        # fitted data on source
+        fmajsq = self.major * self.major
+        fminsq = self.minor * self.minor
+        fdiff = fmajsq - fminsq
+        fphi = 2.0 * self.pa * np.pi / 180.0
+
+        # beam data at source location
+        bmajsq = self.beam_major * self.beam_major
+        bminsq = self.beam_minor * self.beam_minor
+        bdiff = bmajsq - bminsq
+        bphi = 2.0 * self.beam_pa * np.pi / 180.0
+
+        # source data after deconvolution
+        if fdiff < 1e-6:
+            # Circular Gaussian case
+            smaj = np.sqrt(fmajsq - bminsq)
+            smin = np.sqrt(fmajsq - bmajsq)
+            psmaj = np.pi / 2.0 + self.beam_pa * np.pi / 180.0
+
+        else:
+            # General case
+            sinsphi = fdiff * np.sin(fphi) - bdiff * np.sin(bphi)
+            cossphi = fdiff * np.cos(fphi) - bdiff * np.cos(bphi)
+            sdiff = np.sqrt(
+                fdiff * fdiff
+                + bdiff * bdiff
+                - 2.0 * fdiff * bdiff * np.cos(fphi - bphi)
+            )
+            smajsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq + sdiff)
+            sminsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq - sdiff)
+            smaj = 0 if smajsq <= 0 else np.sqrt(smajsq)
+            smin = 0 if sminsq <= 0 else np.sqrt(sminsq)
+            psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
+
+        return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi

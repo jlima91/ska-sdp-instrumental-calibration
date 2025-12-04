@@ -3,10 +3,10 @@ from astropy.coordinates import SkyCoord
 from mock import Mock
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
-from ska_sdp_instrumental_calibration.data_managers import local_sky_component
-
-Component = local_sky_component.Component
-LocalSkyComponent = local_sky_component.LocalSkyComponent
+from ska_sdp_instrumental_calibration.data_managers.sky_model import (
+    Component,
+    LocalSkyComponent,
+)
 
 
 def test_convert_model_to_skycomponents():
