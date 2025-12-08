@@ -465,6 +465,13 @@ Parameters
     |                     |        |           | zarr file,             and this zarr file will be stored in a new 'cache'        |            |                                          |
     |                     |        |           | subdirectory under the provided output directory.                                |            |                                          |
     +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | timeslice           | float  | 3.0       | Defines time scale over which each gain solution             is valid. This is   | False      |                                          |
+    |                     |        |           | used to define time axis of the GainTable.             This parameter is         |            |                                          |
+    |                     |        |           | interpreted as follows,             float: this is a custom time interval in     |            |                                          |
+    |                     |        |           | seconds.             Input timestamps are grouped by intervals of this duration, |            |                                          |
+    |                     |        |           | and said groups are separately averaged to produce             the output time   |            |                                          |
+    |                     |        |           | axis.                                                                            |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
     | ack                 | bool   | False     | Ask casacore to acknowledge each table operation                                 | False      |                                          |
     +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
     | datacolumn          | str    | DATA      | MS data column to read visibility data from.                                     | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
@@ -561,14 +568,6 @@ Parameters
     |                                   |                |                   | "mean", "median".                 To perform no normalization, set this to      |            |                                                                                            |
     |                                   |                |                   | ``null``.                                                                       |            |                                                                                            |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
-    | run_solver_config.timeslice       | float          | ``null``          | Defines time scale over which each gain solution                 is valid. This | True       |                                                                                            |
-    |                                   |                |                   | is used to define time axis of the GainTable.                 This parameter is |            |                                                                                            |
-    |                                   |                |                   | interpreted as follows,                  float: this is a custom time interval  |            |                                                                                            |
-    |                                   |                |                   | in seconds.                 Input timestamps are grouped by intervals of this   |            |                                                                                            |
-    |                                   |                |                   | duration,                 and said groups are separately averaged to produce    |            |                                                                                            |
-    |                                   |                |                   | the output time axis.                  ``None``: match the time resolution of   |            |                                                                                            |
-    |                                   |                |                   | the input, i.e. copy                 the time axis of the input Visibility      |            |                                                                                            |
-    +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | plot_config.plot_table            | bool           | False             | Plot the generated gaintable                                                    | False      |                                                                                            |
     +-----------------------------------+----------------+-------------------+---------------------------------------------------------------------------------+------------+--------------------------------------------------------------------------------------------+
     | plot_config.fixed_axis            | bool           | False             | Limit amplitude axis to [0-1]                                                   | False      |                                                                                            |
@@ -644,6 +643,13 @@ Parameters
     |                     |        |           | zarr file,             and this zarr file will be stored in a new 'cache'        |            |                                          |
     |                     |        |           | subdirectory under the provided output directory.                                |            |                                          |
     +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
+    | timeslice           | float  | 3.0       | Defines time scale over which each gain solution             is valid. This is   | False      |                                          |
+    |                     |        |           | used to define time axis of the GainTable.             This parameter is         |            |                                          |
+    |                     |        |           | interpreted as follows,             float: this is a custom time interval in     |            |                                          |
+    |                     |        |           | seconds.             Input timestamps are grouped by intervals of this duration, |            |                                          |
+    |                     |        |           | and said groups are separately averaged to produce             the output time   |            |                                          |
+    |                     |        |           | axis.                                                                            |            |                                          |
+    +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
     | ack                 | bool   | False     | Ask casacore to acknowledge each table operation                                 | False      |                                          |
     +---------------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------------------------------+
     | datacolumn          | str    | DATA      | MS data column to read visibility data from.                                     | False      | ['DATA', 'CORRECTED_DATA', 'MODEL_DATA'] |
@@ -717,14 +723,6 @@ Parameters
     +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | Param           | Type   | Default   | Description                                                                      | Nullable   | Allowed values   |
     +=================+========+===========+==================================================================================+============+==================+
-    | timeslice       | float  | 3.0       | Defines time scale over which each gain solution                 is valid. This  | True       |                  |
-    |                 |        |           | is used to define time axis of the GainTable.                 This parameter is  |            |                  |
-    |                 |        |           | interpreted as follows,                  float: this is a custom time interval   |            |                  |
-    |                 |        |           | in seconds.                 Input timestamps are grouped by intervals of this    |            |                  |
-    |                 |        |           | duration,                 and said groups are separately averaged to produce     |            |                  |
-    |                 |        |           | the output time axis.                  ``None``: match the time resolution of    |            |                  |
-    |                 |        |           | the input, i.e. copy                 the time axis of the input Visibility       |            |                  |
-    +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+
     | cluster_indexes | list   | ``null``  | Array of integers assigning each antenna to a cluster. If None, all antennas are | True       |                  |
     |                 |        |           | treated as a single cluster                                                      |            |                  |
     +-----------------+--------+-----------+----------------------------------------------------------------------------------+------------+------------------+

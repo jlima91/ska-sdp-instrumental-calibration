@@ -47,20 +47,18 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
+from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
     apply_gaintable,
     solve_bandpass,
-)
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
-    Component,
-    convert_model_to_skycomponents,
 )
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
     generate_central_beams,
     predict_from_components,
 )
 from ska_sdp_instrumental_calibration.workflow.utils import (
+    convert_model_to_skycomponents,
     create_bandpass_table,
     get_ms_metadata,
 )

@@ -29,11 +29,11 @@ from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
     predict_vis,
     run_solver,
 )
-from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.lsm import (
+from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
+from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.workflow.pipeline_config import (
     PipelineConfig,
 )
