@@ -11,7 +11,8 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(f"{module_dir}/../src")
 
 from ska_sdp_piper.piper.configurations.nested_config import NestedConfigParam
-from ska_sdp_instrumental_calibration.workflow.pipelines import instrumental_calibration, target_calibration
+from ska_sdp_instrumental_calibration.instrumental_calibration import ska_sdp_instrumental_calibration
+from ska_sdp_instrumental_calibration.target_calibration import ska_sdp_instrumental_target_calibration, ska_sdp_instrumental_target_ionospheric_calibration
 
 NONE_FILL = "``null``"
 
@@ -69,9 +70,9 @@ def generate_config_dfs_per_stage(pipeline_definition):
     return dataframes
 
 
-calibrator_df = generate_config_dfs_per_stage(instrumental_calibration.ska_sdp_instrumental_calibration)
-target_calibration_df = generate_config_dfs_per_stage(target_calibration.ska_sdp_instrumental_target_calibration)
-target_ionospeheric_df = generate_config_dfs_per_stage(target_calibration.ska_sdp_instrumental_target_ionospheric_calibration)
+calibrator_df = generate_config_dfs_per_stage(ska_sdp_instrumental_calibration)
+target_calibration_df = generate_config_dfs_per_stage(ska_sdp_instrumental_target_calibration)
+target_ionospeheric_df = generate_config_dfs_per_stage(ska_sdp_instrumental_target_ionospheric_calibration)
 
 #######################
 # Generate the RST file
@@ -154,17 +155,17 @@ with open(out_rst_path, "w") as f:
     # Write the header first
     output_string = f"{header}\n\n"
     calibrator_config = generate_stage_config(
-        instrumental_calibration.ska_sdp_instrumental_calibration,
+        ska_sdp_instrumental_calibration,
         calibrator_df
     )
 
     target_config = generate_stage_config(
-        target_calibration.ska_sdp_instrumental_target_calibration,
+        ska_sdp_instrumental_target_calibration,
         target_calibration_df
     )
 
     target_ionospheric_config = generate_stage_config(
-        target_calibration.ska_sdp_instrumental_target_ionospheric_calibration,
+        ska_sdp_instrumental_target_ionospheric_calibration,
         target_ionospeheric_df
     )
 

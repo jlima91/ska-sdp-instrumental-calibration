@@ -67,6 +67,13 @@ source_suffix = {
     '.md': 'markdown',
 }
 
+# List of modules to mock
+autodoc_mock_imports = [
+    'everybeam',
+    'casacore',
+    'ska_sdp_func',
+]
+
 # The master toctree document.
 master_doc = 'index'
 
@@ -105,4 +112,13 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable", None),
     "python": ("https://docs.python.org/3", None),
     "xarray": ("https://docs.xarray.dev/en/stable", None),
+    "astropy": ("https://docs.astropy.org/en/stable/", None),
+    "ska_sdp_piper": ("https://developer.skao.int/projects/ska-sdp-exec-piper/en/latest/", None),
 }
+
+# Ensure that functions are documented as they are 
+# present in the source code
+autodoc_member_order = 'bysource'
+
+# Disable smart quoting
+smartquotes = False

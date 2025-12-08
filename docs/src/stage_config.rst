@@ -604,7 +604,7 @@ Parameters
 
 
 Target Ionospheric Calibration Stages
-*************************
+*************************************
 
 This section describes the stages used in the Target Ionospheric pipeline.
 
