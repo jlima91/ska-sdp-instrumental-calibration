@@ -4,8 +4,8 @@ from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ...numpy_processors.dft import dft_skycomponent
+from ...numpy_processors.gaintable import apply_antenna_gains_to_visibility
 from ..beams import BeamsLow
-from ..gaintable import apply_antenna_gains_to_visibility
 from .component import Component
 
 

@@ -5,7 +5,7 @@ import xarray as xr
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.visibility import Visibility
 
-from ..data_managers.gaintable import apply_antenna_gains_to_visibility
+from ..numpy_processors.gaintable import apply_antenna_gains_to_visibility
 
 logger = logging.getLogger(__name__)
 
