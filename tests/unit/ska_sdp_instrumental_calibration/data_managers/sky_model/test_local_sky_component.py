@@ -9,17 +9,7 @@ from ska_sdp_instrumental_calibration.data_managers.sky_model import (
 )
 
 
-def test_convert_model_to_skycomponents():
-    """
-    Given a list of Components and range frequencies over which
-    we wish to store the flux information, for each component:
-    1. perform power law scaling
-    2. deconvove gausssian to get beam information
-    3. create a Skycomponent (defined in ska-sdp-datamodels)
-
-    This test uses a dummy gaussian source as compoenent.
-    """
-
+def test_create_model_to_skycomponents():
     component = Component(
         name="J12345",
         RAdeg=260,
@@ -56,14 +46,7 @@ def test_convert_model_to_skycomponents():
     )
 
 
-def test_convert_point_source_to_skycomponent():
-    """
-    Given a list of Components and range frequencies over which
-    we wish to store the flux information,
-    if a component in the list is a point source,
-    then the shape and parameters of the Skycomponent must be set
-    appropriately.
-    """
+def test_create_point_source_to_skycomponent():
     component = Component(
         name="J12345",
         RAdeg=260,
