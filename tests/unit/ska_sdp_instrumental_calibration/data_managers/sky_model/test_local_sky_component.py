@@ -9,7 +9,7 @@ from ska_sdp_instrumental_calibration.data_managers.sky_model import (
 )
 
 
-def test_create_model_to_skycomponents():
+def test_create_skycomponent_from_component():
     component = Component(
         name="J12345",
         RAdeg=260,
@@ -46,7 +46,7 @@ def test_create_model_to_skycomponents():
     )
 
 
-def test_create_point_source_to_skycomponent():
+def test_create_skycomponent_from_point_source():
     component = Component(
         name="J12345",
         RAdeg=260,

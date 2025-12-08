@@ -9,7 +9,7 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 )
 
 from ..xarray_processors import normalize_data
-from ._util import _ecef_to_lla, safe
+from ._util import ecef_to_lla, safe
 from .plot_gaintable import PlotGaintableFrequency
 
 matplotlib.use("Agg")
@@ -256,7 +256,7 @@ def plot_station_delays(delaytable, path_prefix):
             Path prefix to save the plots.
     """
 
-    latitude, longitude, _ = _ecef_to_lla(*delaytable.configuration.xyz.data.T)
+    latitude, longitude, _ = ecef_to_lla(*delaytable.configuration.xyz.data.T)
     calibration_delay = delaytable.delay.data / 1e-9
     fig, ax = plt.subplots(2, 2, figsize=(10, 8))
 

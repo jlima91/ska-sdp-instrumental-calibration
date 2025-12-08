@@ -28,7 +28,7 @@ def safe(func):
     return wrapper
 
 
-def _ecef_to_lla(x, y, z):
+def ecef_to_lla(x, y, z):
     """Translate Earth-Centred Earth-Fixed (in meters) to
     geodetic (WGS84) coordinates.
 

@@ -1,7 +1,7 @@
 import numpy as np
 from mock import patch
 
-from ska_sdp_instrumental_calibration.plot._util import _ecef_to_lla, safe
+from ska_sdp_instrumental_calibration.plot._util import ecef_to_lla, safe
 
 
 @patch("ska_sdp_instrumental_calibration.plot._util.logger")
@@ -47,7 +47,7 @@ def test_should_convert_earth_centric_coordinates_to_geodetic():
     y = np.array([10168886.79974105, -10168886.79974105])
     z = np.array([-5723265.90488199, -5723265.90488199])
 
-    lat, lng, alt = _ecef_to_lla(x, y, z)
+    lat, lng, alt = ecef_to_lla(x, y, z)
 
     np.testing.assert_allclose(lat, np.array([-26.753052, -26.753052]))
     np.testing.assert_allclose(lng, np.array([116.787894, 243.212106]))
