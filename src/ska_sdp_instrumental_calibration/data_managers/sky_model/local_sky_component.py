@@ -15,22 +15,27 @@ class LocalSkyComponent(SkyComponent):
     def create_from_component(
         comp: Component, freq: typing.NDArray[float], _=None
     ):
-        """Convert the LocalSkyModel to a list of SkyComponents.
+        """
+        Construct a LocalSkyComponent from a Component.
 
         All sources are unpolarised and specified in the linear polarisation
         frame using XX = YY = Stokes I.
 
-        Function :func:`~deconvolve_gaussian` is used to deconvolve the MWA
-        synthesised beam from catalogue shape parameters of each component.
-        Components with non-zero widths after this process are stored with
+        After deconvolving the gaussian for a given component, components
+        with non-zero widths after this process are stored with
         shape = "GAUSSIAN". Otherwise shape = "POINT".
 
-        :param model: Component list
-        :param freq: Frequency list in Hz
-        :param freq0: Reference Frequency for flux scaling in Hz. Default is
-        200e6.
-            Note: freq0 should really be part of the sky model
-        :return: SkyComponent list
+        Parameters
+        ----------
+        comp : Component
+            An instance of Component
+        freq : ndarray
+            An array of frequency values in Hz
+
+        Returns
+        -------
+        LocalSkyComponent
+            An instance of LocalSkyComponent
         """
         freq = np.array(freq)
 
@@ -78,6 +83,32 @@ class LocalSkyComponent(SkyComponent):
         beams: BeamsLow = None,
         faraday_rot_matrix: np.ndarray = None,
     ):
+        """
+        Create visibility for a given LocalSkyComponent.
+
+        Parameters
+        ----------
+        uvw : np.ndarray
+            UVW coordinates of shape (time, frequency, baselineid, spatial).
+        phasecentre : SkyCoord
+            Phase centre of the observation.
+        antenna1 : np.ndarray
+            The indices of 1st antenna in each pair of baseline. Must be of
+            shape (baselineid,).
+        antenna2 : np.ndarray
+            The indices of 2nd antenna in each pair of baseline. Must be of
+            shape (baselineid,).
+        beams : BeamsLow, optional
+            Beams object containing the primary beam.
+        faraday_rot_matrix : np.ndarray, optional
+            4D faraday rotation matrix of shape (antenna, frequency, 2, 2).
+
+        Returns
+        -------
+        np.ndarray
+            Visibility for the given LocalSkyComponent. This has shape
+            (time, frequency, baselineid, polarisation).
+        """
         sky_comp_vis = dft_skycomponent(
             uvw=uvw, skycomponent=self, phase_centre=phasecentre
         )

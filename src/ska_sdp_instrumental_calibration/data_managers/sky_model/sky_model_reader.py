@@ -17,29 +17,44 @@ def generate_lsm_from_csv(
     flux_limit: float = 0.0,
 ) -> list[Component]:
     """
-    Generate a local sky model using a csv file of the format used in various
-    OSKAR simulations.
+    Generate a local sky model using a CSV file.
 
-    Form a list of Component objects. If the csv file cannot be found, a single
-    point source will be generated at phasecentre.
+    This function reads a CSV file formatted for OSKAR simulations and converts
+    it into a list of :class:`~Component` objects. If the CSV file cannot be
+    found, the function raises a ValueError.
 
-    The csv files are expected to have the following 12 columns:
-    RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy),
-    Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2),
-    FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
+    The CSV file is expected to have a mandatory header row and the following
+    12 columns in order:
+    RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz),
+    Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec),
+    FWHM minor (arcsec), Position angle (deg).
 
-    The header is mandatory, and is the first uncommented line of the CSV file.
+    Frequency parameters (Q, U, V, and RM) are ignored. All components are
+    treated as Gaussians, though many may default to point sources.
 
-    Frequency parameters (Q, U, V and RM) are ignored in this function.
+    Parameters
+    ----------
+    csvfile : str
+        The path to the CSV file. Must follow the format described above.
+    phasecentre : SkyCoord
+        The phase centre of the observation, serving as the reference point for
+        the sky model.
+    fov : float, optional
+        The field of view diameter in degrees. Components outside this radius
+        (centered on `phasecentre`) are excluded. Default is 5.0.
+    flux_limit : float, optional
+        The minimum flux density in Jy. Components below this limit are
+        excluded. Default is 0.0.
 
-    All components are Gaussians, although many will typically default to
-    point sources. See data class :class:`~Component` for more information.
+    Returns
+    -------
+    list[Component]
+        A list of component objects extracted from the CSV file.
 
-    :param csvfile: CSV filename. Must follow the format above.
-    :param phasecentre: astropy SkyCoord for the centre of the sky model.
-    :param fov: Field of view in degrees. Default is 5.
-    :param flux_limit: minimum flux density in Jy. Default is 0.
-    :return: Component list
+    Raises
+    ------
+    ValueError
+        If the `csvfile` does not exist or cannot be opened.
     """
     if not Path(csvfile).is_file():
         raise ValueError(f"Cannot open csv file {csvfile}")
@@ -109,25 +124,37 @@ def generate_lsm_from_gleamegc(
     alpha0: float = -0.78,
 ) -> list[Component]:
     """
-    Generate a local sky model using gleamegc.
+    Generate a local sky model using the GLEAM-EGC catalogue.
 
-    Form a list of Component objects. If the catalogue file cannot be found, a
-    single point source will be generated at phasecentre.
+    This function parses a GLEAM-EGC formatted file and converts it into a list
+    of :class:`~Component` objects. If the file cannot be found, a warning is
+    logged and a single point source at the phase centre is returned.
 
-    All components are Gaussians with data from the following GLEAM columns.
-    Where available, Fintfit200 and alpha are used to set the spectral
-    parameters flux and alpha. Otherwise, Fintwide and alpha0 are used.
+    All components are treated as Gaussians. The function attempts to use
+    'Fintfit200' and 'alpha' columns for flux and spectral index. If these are
+    unavailable (marked as '---'), it falls back to 'Fintwide' and ``alpha0``.
 
-    See data class :class:`~Component` and the gleamegc ReadMe file for more
-    information on columns extracted from the catalogue.
+    Parameters
+    ----------
+    gleamfile : str
+        The path to the catalogue file. Must follow the GLEAM-EGC data format.
+    phasecentre : SkyCoord
+        The phase centre of the observation, serving as the reference point for
+        the sky model.
+    fov : float, optional
+        The field of view diameter in degrees. Components outside this radius
+        (centered on ``phasecentre``) are excluded. Default is 5.0.
+    flux_limit : float, optional
+        The minimum flux density in Jy. Components below this limit are
+        excluded. Default is 0.0.
+    alpha0 : float, optional
+        The nominal spectral index to use when fitted data are unspecified in
+        the catalogue. Default is -0.78.
 
-    :param gleamfile: Catalogue filename. Must follow the gleamegc.dat format.
-    :param phasecentre: astropy SkyCoord for the centre of the sky model.
-    :param fov: Field of view in degrees. Default is 5.
-    :param flux_limit: minimum flux density in Jy. Default is 0.
-    :param alpha0: Nominal alpha value to use when fitted data are unspecified.
-        Default is -0.78.
-    :return: Component list
+    Returns
+    -------
+    list[Component]
+        A list of component objects extracted from the catalogue.
     """
     if not Path(gleamfile).is_file():
         logger.warning(

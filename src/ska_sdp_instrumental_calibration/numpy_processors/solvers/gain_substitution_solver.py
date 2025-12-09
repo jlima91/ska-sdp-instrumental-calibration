@@ -15,27 +15,44 @@ class GainSubstitution(Solver):
     Solver for antenna gains using the gain substitution algorithm.
 
     This class implements the iterative gain substitution method for solving
-    antenna-based complex gains in radio interferometric calibration.
+    antenna-based complex gains in radio interferometric calibration. It
+    compares observed visibilities against a model to derive gain corrections.
+
+
 
     Parameters
     ----------
     refant : int, optional
-        Index of the reference antenna. (default is 0)
+        Index of the reference antenna. The phase of this antenna is clamped
+        to zero during the solution. Default is 0.
     phase_only : bool, optional
-        If True, solve for phase-only gains. If False, solve for complex gains.
-        (default is False)
+        If True, solve only for the phase of the gains, keeping amplitudes
+        constant. Default is False.
     crosspol : bool, optional
-        If True, solve for cross-polarization terms as well. (default is False)
-        i.e. XY, YX or RL, LR.
+        If True, solve for cross-polarization terms (e.g., XY, YX, RL, LR)
+        in addition to parallel hands. Default is False.
+    normalise_gains : str, optional
+        Method to normalize gain amplitudes. Options are 'mean', 'median',
+        or None. Default is None.
+    **kwargs
+        Additional keyword arguments passed to the base `Solver` class
+        (e.g., `niter`, `tol`).
+
+    Attributes
+    ----------
+    refant : int
+        Reference antenna index.
+    phase_only : bool
+        Whether to solve for phase only.
+    crosspol : bool
+        Whether to solve for cross-polarization.
+    norm_method : str or None
+        Selected normalization method.
 
     Examples
     --------
-    >>> solver = GainSubstitution(refant=0, phase_only=True, crosspol=False,
-    ...     normalise_gains="mean", niter=100, tol=1e-6)
-    >>> updated_gains = solver.solve(
-    ...     vis_vis, vis_flags, vis_weight, model_vis, model_flags,
-    ...     gain_gain, gain_weight, gain_residual, ant1, ant2
-    ... )
+    >>> solver = GainSubstitution(refant=0, phase_only=True, niter=50)
+    >>> gains, wgt, resid = solver.solve(vis, flags, wgt, model, ...)
     """
 
     _SOLVER_NAME_ = "gain_substitution"
@@ -73,7 +90,47 @@ class GainSubstitution(Solver):
         ant2: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Run the gain solver algorithm.
+        Run the gain substitution solver algorithm.
+
+        This method prepares the visibility data (creating point source
+        equivalents) and invokes the iterative substitution solver.
+
+        Parameters
+        ----------
+        vis_vis : np.ndarray
+            Complex observed visibilities. Shape: (ntime, nbl, nchan, npol).
+        vis_flags : np.ndarray
+            Boolean flags for observed visibilities (True is flagged).
+        vis_weight : np.ndarray
+            Weights for observed visibilities.
+        model_vis : np.ndarray
+            Complex model visibilities. Must be provided if `model_flags` is
+            provided.
+        model_flags : np.ndarray
+            Boolean flags for model visibilities.
+        gain_gain : np.ndarray
+            Initial guess for complex gains. Shape:
+            (ntime_sol, nchan_sol, nant, nrec, nrec).
+        gain_weight : np.ndarray
+            Weights for the gain solutions.
+        gain_residual : np.ndarray
+            Buffer to store residuals of the fit.
+        ant1 : np.ndarray
+            Indices of antenna 1 for each baseline.
+        ant2 : np.ndarray
+            Indices of antenna 2 for each baseline.
+
+        Returns
+        -------
+        tuple of np.ndarray
+            A tuple containing (gain_gain, gain_weight, gain_residual) with
+            the updated solutions.
+
+        Raises
+        ------
+        ValueError
+            If `refant` is out of bounds.
+            If `model_vis` contains only zeros or is mismatched with flags.
         """
         if self.refant < 0 or self.refant >= gain_gain.shape[1]:
             raise ValueError(
@@ -112,15 +169,23 @@ class GainSubstitution(Solver):
 
     def normalise_gains(self, gain: xr.DataArray) -> xr.DataArray:
         """
-        Function to normalize gains
+        Normalize gain amplitudes using the configured method.
 
         Parameters
         ----------
-        gaintable: xarray.DataArray
+        gain : xarray.DataArray
+            The gain array to normalize.
 
         Returns
         -------
         xarray.DataArray
+            The normalized gain array.
+
+        Raises
+        ------
+        ValueError
+            If the `normalise_gains` method specified in `__init__` is
+            not valid (i.e., not 'mean' or 'median').
         """
         if self.norm_method is None:
             return gain

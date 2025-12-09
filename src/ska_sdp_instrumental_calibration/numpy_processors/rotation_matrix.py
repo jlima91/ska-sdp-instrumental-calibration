@@ -1,3 +1,5 @@
+# pylint: disable=W1401
+
 import numpy as np
 from astropy import constants as const
 
@@ -7,14 +9,37 @@ def generate_rotation_matrices(
     frequency: np.ndarray,
     output_dtype: type = np.complex64,
 ) -> np.ndarray:
-    """Generate station rotation matrix from RM values.
-
-    :param rm: 1D array of rotation measure values [nstation].
-    :param frequency: 1D array of frequency values [nfrequency].
-    :param output_dtype: output dtype of rotation matrix
-
-    :return: 4D array of rotation matrix: [nstation, nfrequency, 2, 2].
     """
+    Generate station rotation matrices based on Rotation Measure (RM) values.
+
+    This function calculates the Faraday rotation angle for each station and
+    frequency channel and constructs the corresponding 2x2 rotation matrices.
+    These matrices effectively rotate the polarization plane of the incident
+    radiation.
+
+    Parameters
+    ----------
+    rm : numpy.ndarray
+        A 1D array containing the Rotation Measure values for each station in
+        rad/m^2. Shape: (n_stations,).
+    frequency : numpy.ndarray
+        A 1D array of frequency channels in Hz. Shape: (n_channels,).
+    output_dtype : data-type, optional
+        The desired data type of the output rotation matrix. Default is
+        ``np.complex64``.
+
+    Returns
+    -------
+    numpy.ndarray
+        A 4D array containing the rotation matrices.
+        Shape: (n_stations, n_channels, 2, 2).
+
+    Notes
+    -----
+    The rotation angle :math:`\phi` is calculated as
+    :math:`\phi = \text{RM} \cdot \lambda^2`.
+
+    """  # noqa: W605
     lambda_sq = np.power(
         (const.c.value / frequency), 2  # pylint: disable=E1101
     )

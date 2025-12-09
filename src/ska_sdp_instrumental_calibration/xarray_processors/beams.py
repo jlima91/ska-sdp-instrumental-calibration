@@ -40,10 +40,34 @@ def prediction_central_beams(
     beams_factory: BeamsFactory,
 ) -> GainTable:
     """
+    Predict the central beam response for the provided gaintable configuration.
+
+    This function calculates the primary beam response (central beam) for each
+    antenna, frequency, and time step defined in the input `gaintable`. It
+    uses the provided `beams_factory` to model the beam patterns.
+
+
+
+    The calculation is parallelized over frequency chunks using `xarray` and
+    `dask`. The resulting beam responses are stored as gains in a new
+    `GainTable`.
+
+    Parameters
+    ----------
+    gaintable : GainTable
+        The template GainTable defining the time, frequency, and antenna
+        structure for the prediction. The existing `gain` data in this table
+        is ignored, but coordinates and attributes are preserved.
+    beams_factory : BeamsFactory
+        The factory object responsible for generating or retrieving the
+        antenna beam models (e.g., based on antenna type, time, and frequency).
 
     Returns
     -------
-    Gaintable
+    GainTable
+        A new GainTable where the `gain` variable contains the predicted
+        central beam responses (complex Jones matrices). The shape matches
+        the input gaintable: (time, antenna, frequency, receptor1, receptor2).
     """
     # need to calculate central beam response across entire frequency
     frequency_xdr = xr.DataArray(

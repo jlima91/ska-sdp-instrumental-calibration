@@ -1,3 +1,5 @@
+# pylint: disable=W1401
+
 import logging
 
 import numpy as np
@@ -11,11 +13,44 @@ logger = logging.getLogger(__name__)
 def gaussian_tapers(
     u: np.ndarray,
     v: np.ndarray,
-    params: dict[float],
+    params: dict[str, float],
 ) -> np.ndarray:
-    """Calculated visibility amplitude tapers for Gaussian components.
+    """
+    Calculate visibility amplitude tapers for Gaussian components.
 
-    Note: this needs to be tested. Generate, image and fit a model component?
+    This function computes the Gaussian tapering factor in the UV plane
+    corresponding to a source with specific major/minor axes and position
+    angle. It rotates the input UV coordinates to align with the Gaussian's
+    orientation and applies the appropriate scaling based on the Full Width
+    at Half Maximum (FWHM).
+
+    Parameters
+    ----------
+    u : numpy.ndarray
+        The u-coordinates of the baselines (typically in wavelengths).
+    v : numpy.ndarray
+        The v-coordinates of the baselines (typically in wavelengths).
+    params : dict[str, float]
+        A dictionary containing the Gaussian component parameters:
+
+        * `bmaj`: The major axis FWHM in degrees.
+        * `bmin`: The minor axis FWHM in degrees.
+        * `bpa`: The position angle in degrees.
+
+    Returns
+    -------
+    numpy.ndarray
+        The calculated amplitude taper values. The shape matches the input
+        `u` and `v` arrays.
+
+    Notes
+    -----
+    The scaling factor is derived from the properties of the Fourier transform
+    of a Gaussian function.
+
+    **Development Note:** This implementation requires further validation.
+    The recommended testing strategy is to generate a model component, image it
+    and fit the resulting source to verify the taper accuracy.
     """
     # exp(-a*x^2) transforms to exp(-pi^2*u^2/a)
     # a = 4log(2)/FWHM^2 so scaling = pi^2 * FWHM^2 / (4log(2))
@@ -37,12 +72,44 @@ def dft_skycomponent(
     phase_centre: SkyCoord,
 ) -> np.ndarray:
     """
-    uvw: (time, baselineid, spatial)
-    skycomponent.frequency: (frequency,)
-    skycomponent.flux: (frequency, polarisation)
+    Calculate the Direct Fourier Transform (DFT) for a single sky component.
 
-    returns: (time, baselineid, frequency, polarisation)
-    """
+    This function computes the visibility contribution of a sky component by
+    calculating the phase delay associated with its position relative to the
+    phase centre. It accounts for wide-field effects (w-term) and applies
+    Gaussian tapering if the component shape is defined as such.
+
+    Parameters
+    ----------
+    uvw : numpy.ndarray
+        The UVW coordinates of the baselines in metres.
+        Expected shape: (n_times, n_baselines, 3).
+    skycomponent : SkyComponent
+        The sky component object to transform. It must contain the following
+        attributes:
+
+        * ``frequency``: Array of shape (n_freqs,).
+        * ``flux``: Array of shape (n_freqs, n_pols).
+        * ``direction``: SkyCoord object representing the source position.
+        * ``shape``: String indicating shape (e.g., "GAUSSIAN", "POINT").
+        * ``params``: Dictionary of shape parameters (if Gaussian).
+    phase_centre : SkyCoord
+        The phase centre of the observation, used as the reference point for
+        calculating direction cosines ($l, m, n$).
+
+    Returns
+    -------
+    numpy.ndarray
+        The calculated visibilities for the component.
+        Shape: (n_times, n_baselines, n_freqs, n_pols).
+
+    Notes
+    -----
+    The phase calculation uses the full $w$-term correction:
+
+    .. math:: V = I \cdot \exp(-2\pi i (ul + vm + w(n-1)))
+
+    """  # noqa: W605
 
     scaled_uvw = np.einsum(
         "tbs,f->tbfs",

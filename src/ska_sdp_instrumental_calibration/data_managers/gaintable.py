@@ -17,12 +17,38 @@ def create_gaintable_from_visibility(
     skip_default_chunk: bool = False,
 ):
     """
-    Similar behavior as create_gaintable_from_vis, except
+    Create gaintable from visibility.
+    Similar behavior as `create_gaintable_from_vis`, except
     1. new param: timeslice="full"
         Will create a single solution across the entire observation time
     2. new param: lower_precision
         Ability to toggle precision of the data variables, currently
         between 4 or 8 bytes
+
+    Parameters
+    ----------
+    vis: Visibility
+        Visibility to create gaintable from
+    timeslice: str|float
+        Time slice definition ot be used while creating the gaintable
+        Default: None
+    jones_type: str
+        Jones types for the gaintable.
+        Allowed valued: "T", "G", "B"
+        Default: "T"
+    lower_precision: bool
+        Used to set up the float bit sizes while initialising the gaintable.
+        If true, uses np.complex64 and np.float32 instead of higher precision
+        np.complex128 and np.float64. Useful for memory optimization.
+        Default: True
+    skip_default_chunk: bool
+        If set to true, skips Dask/Xarray chunking of data in alignment to the
+        input visibility. Useful in cases of chunk alignment issues.
+        Default: False
+
+    Returns
+    -------
+        GainTable
     """
     # Backward compatibility. Should be removed as "auto" is vary vague
     if timeslice == "auto":
@@ -93,6 +119,15 @@ def reset_gaintable(gaintable: GainTable) -> GainTable:
     """
     Returns a new dask-backed gaintable with all data variables resetted
     to their initial sensible values
+
+    Parameters
+    ----------
+    gaintable: GainTable
+        Gaintable object to be reset
+
+    Returns
+    -------
+    Gaintable with data variables resetted to their intial sensible values.
     """
     gain_shape = gaintable.gain.shape
     nrec = gain_shape[-1]

@@ -57,6 +57,50 @@ def apply_gaintable_to_dataset(
     gaintable: GainTable,
     inverse=False,
 ) -> Visibility:
+    """
+    Apply calibration gains from a GainTable to a Visibility dataset.
+
+    This function modifies visibility data by applying antenna-based Jones
+    matrices. It supports both calibration (removing instrumental effects by
+    applying inverse gains) and corruption (simulating instrumental effects
+    by applying forward gains).
+
+
+
+    The function handles different Jones matrix types:
+    - Type 'B' (Bandpass): Gains match the visibility frequency resolution.
+    - Type 'T' or 'G': Frequency-independent gains are broadcast across all
+      visibility channels.
+
+    Operations are performed per solution interval. The function iterates over
+    time slices defined in the gaintable, applying the corresponding gain
+    solution to the matching block of visibilities using `xarray.apply_ufunc`
+    for parallel processing.
+
+    Parameters
+    ----------
+    vis : Visibility
+        The input visibility dataset containing observed data.
+    gaintable : GainTable
+        The calibration solutions (Jones matrices) to apply. Must contain
+        valid `soln_interval_slices` mapping gain times to visibility times.
+    inverse : bool, optional
+        If True, apply the inverse of the gains (calibrate).
+        If False, apply the gains directly (corrupt/simulate).
+        Default is False.
+
+    Returns
+    -------
+    Visibility
+        A new Visibility object containing the modified visibility data
+        ('vis' variable updated) with attributes preserved.
+
+    Raises
+    ------
+    AssertionError
+        If Jones type is not 'B' and the gaintable has more than one
+        frequency channel.
+    """
     gains = gaintable.gain
     if gaintable.jones_type == "B":
         # solution frequency same as vis frequency

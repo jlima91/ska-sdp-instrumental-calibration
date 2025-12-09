@@ -14,6 +14,11 @@ logger = logging.getLogger()
 
 
 class INSTMetaData:
+    """
+    Create, manage and export pipeline metadata file for
+    instrumental calibration
+    """
+
     @staticmethod
     def can_create_metadata():
         """

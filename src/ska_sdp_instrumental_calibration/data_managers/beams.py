@@ -12,7 +12,16 @@ logger = logging.getLogger(__name__)
 
 def convert_time_to_solution_time(time: float | np.ndarray) -> Time:
     """
-    :return Time object containing an array of time values
+    Convert float time to Astropy time.
+
+    Parameters
+    ----------
+    time: float
+        Input time in float
+
+    Return
+    ------
+      Time object containing an array of time values
     """
     # This Time->Time conversion is what was originally done in INST
     # Although Time can be treated as a "Value Object", there are subtle
@@ -27,15 +36,27 @@ def radec_to_xyz(direction: SkyCoord, time: Time):
     """
     Convert RA and Dec ICRS coordinates to ITRS cartesian coordinates.
 
-    :param direction: SkyCoord astropy pointing direction
-    :param time: astropy obstime
-    :return: NumPy array containing the ITRS X, Y and Z coordinates
+    Parameters
+    ----------
+    direction: SkyCoord
+        astropy pointing direction
+    time: astropy.time.Timne
+        Observation time
+
+    Return
+    ------
+    NumPy array containing the ITRS X, Y and Z coordinates
     """
     direction_itrs = direction.transform_to(ITRS(obstime=time))
     return np.asarray(direction_itrs.cartesian.xyz.transpose())
 
 
 class PointingBelowHorizon(Exception):
+    """
+    Pointing below exception raised when a sky component with its RA-DEC at a
+    given time is below horizon
+    """
+
     pass
 
 
@@ -130,9 +151,18 @@ class BeamsLow:
         Calculate Altitude-Azimuth for a direction, and ensure that the
         direction is valid for the given solution interval of the beam
 
-        raises PointingBelowHorizon exception if direction is below horizon
+        Parameters
+        ----------
+        direction: SkyCoord
+           direction of the source
 
-        :return Altaz[list] if direction is valid
+        Raises
+        ------
+        PointingBelowHorizon exception if direction is below horizon
+
+        Returns
+        -------
+        Altaz[list] if direction is valid
         """
         altaz = direction.transform_to(
             AltAz(obstime=self.solution_time, location=self.array_location)
@@ -148,8 +178,14 @@ class BeamsLow:
     ) -> np.ndarray:
         """Return the response of each antenna or station in a given direction
 
-        :param direction: Direction of desired response
-        :return: np.complex128 array of beam matrices [nant, nfreq, 2, 2]
+        Parameters
+        ----------
+        direction: SkyCoord
+            Direction of desired response
+
+        Returns
+        -------
+        np.complex128 array of beam matrices [nant, nfreq, 2, 2]
         """
         # Get the component direction in ITRF
         dir_itrf = radec_to_xyz(direction, self.solution_time)
@@ -184,12 +220,30 @@ class BeamsLow:
 
 @dataclass
 class BeamsFactory:
+    """
+    Dataclass to denote a beam.
+    """
+
     nstations: int
     array_location: EarthLocation
     direction: SkyCoord
     ms_path: str
 
     def get_beams_low(self, frequency, soln_time) -> BeamsLow:
+        """
+        Initializes and returns a BeamsLow object.
+
+        Parameters
+        ----------
+        frequency: np.ndarray
+            Array of frequencies
+        soln_time: float
+            Solution time for the given solution interval
+
+        Returns
+        -------
+            A BeamsLow Object for the given frequency range and solution time.
+        """
         return BeamsLow(
             **self.__dict__, frequency=frequency, soln_time=soln_time
         )

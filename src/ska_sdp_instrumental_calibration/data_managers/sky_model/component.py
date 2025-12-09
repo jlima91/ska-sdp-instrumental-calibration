@@ -18,50 +18,66 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Component:
-    """Class for LSM components.
+    """
+    Class for LSM components.
 
     Class to hold catalogue data for a component of the local sky model. For
     components with elliptical Gaussian parameters, if beam parameters are also
     supplied, the beam will be deconvolved from the component parameters. If
     the component parameters have already had the beam deconvolved, the beam
     parameters should be left at zero.
-
-    Args:
-        name (str): Name
-        RAdeg (float): Right Ascension J2000 (degrees)
-        DEdeg (float): Declination J2000 (degrees)
-        flux (float): Flux density (Jy) at the reference frequency, ref_freq.
-        ref_freq (float): Reference frequency (Hz). Default=200e6.
-        alpha (float): Spectral index. Default=0
-        major (float): Fitted semi-major axis (arcsec). Default=0
-        minor (float): Fitted semi-minor axis (arcsec). Default=0
-        pa (float): Fitted position angle (degrees). Default=0
-        beam_major (float): Semi-major axis of a beam that is still convolved
-            into the main component shape (arcsec). Default=0 (no beam present)
-        beam_minor (float): Semi-minor axis of a beam that is still convolved
-            into the main component shape (arcsec). Default=0 (no beam present)
-        beam_pa (float): Position angle of a beam that is still convolved
-            into the main component shape (degrees). Default=0
     """
 
     name: str
+    "Name of the component"
     RAdeg: float
+    "Right Ascension J2000 (degrees)"
     DEdeg: float
+    "Declination J2000 (degrees)"
     flux: float
+    "Flux density (Jy) at the reference frequency, ref_freq"
     ref_freq: float = 200e6
+    "Reference frequency (Hz)"
     alpha: float = 0.0
+    "Spectral index"
     major: float = 0.0
+    "Fitted semi-major axis (arcsec)"
     minor: float = 0.0
+    "Fitted semi-minor axis (arcsec)"
     pa: float = 0.0
+    "Fitted position angle (degrees)"
     beam_major: float = 0.0
+    "Semi-major axis of a beam that is still convolved into the "
+    "main component shape (arcsec). Default=0 (no beam present)"
     beam_minor: float = 0.0
+    "Semi-minor axis of a beam that is still convolved into the "
+    "main component shape (arcsec). Default=0 (no beam present)"
     beam_pa: float = 0.0
+    "Position angle of a beam that is still convolved into the "
+    "main component shape (degrees). Default=0"
 
     @cached_property
     def direction(self):
+        """
+        Return the SkyCoord direction of the component.
+        """
         return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
 
     def get_altaz(self, solution_time: float, array_location):
+        """
+        Compute the ALTAZ of the given component at a solution_time.
+
+        Parameters
+        ----------
+        solution_time: float
+            Solution time to compute altaz.
+        array_location: np.ndarray
+            Array locations.
+
+        Returns
+        -------
+        ALTAZ of the given component
+        """
         return self.direction.transform_to(
             AltAz(
                 obstime=convert_time_to_solution_time(solution_time),
@@ -70,6 +86,22 @@ class Component:
         )
 
     def is_above_horizon(self, solution_time: float, array_location):
+        """
+        Checks if the component is above horizon for the given solution time
+        and array location
+
+        Parameters
+        ----------
+        solution_time: float
+            Solution time.
+        array_location: np.ndarray
+            Array Locations
+
+        Returns
+        -------
+        Bool. True if the given component is above the horizon at the solution
+        time for the given array location.
+        """
         return self.get_altaz(solution_time, array_location).alt.degree >= 0
 
     def deconvolve_gaussian(self) -> tuple[float]:
@@ -80,8 +112,9 @@ class Component:
         Whiting. This is based on the approach described in Wild (1970),
         AuJPh 23, 113.
 
-        :param self: :class:`~Component` data for a source
-        :return: Tuple of deconvolved parameters (same units as data in self)
+        Returns
+        -------
+        Tuple of deconvolved parameters (same units as data in self)
         """
 
         # fitted data on source

@@ -17,19 +17,56 @@ def find_best_refant_from_vis(
     nants: int,
 ):
     """
-    This method comes from katsdpcal.
-    (https://github.com/ska-sa/katsdpcal/blob/
-    200c2f6e60b2540f0a89e7b655b26a2b04a8f360/katsdpcal/calprocs.py#L332)
-    Determine antenna whose FFT has the maximum peak to noise ratio (PNR) by
-    taking the median PNR of the FFT over all baselines to each antenna.
+    Determine the best reference antenna based on visibility quality.
 
-    When the input vis has only one channel, this uses all the vis of the
-    same antenna for the operations peak, mean and std.
+    This function ranks antennas by analyzing the Peak-to-Noise Ratio (PNR)
+    of the delay transform (FFT of visibilities) for each antenna's
+    baselines. For single-channel data, it ranks antennas based on the
+    sum of their weights.
 
-    :param vis: Visibilities
-    :return: Array of indices of antennas in decreasing order
-            of median of PNR over all baselines
+    Parameters
+    ----------
+    flagged_vis : numpy.ndarray
+        Observed visibilities, typically with flags applied (i.e., bad data
+        zeroed or masked). Shape: (ntime, nbl, nchan, npol).
+    flagged_weight : numpy.ndarray
+        Weights associated with the visibilities. Used primarily for the
+        single-channel case. Shape: (ntime, nbl, nchan, npol).
+    ant1 : numpy.ndarray
+        Indices of antenna 1 for each baseline. Shape: (nbl,).
+    ant2 : numpy.ndarray
+        Indices of antenna 2 for each baseline. Shape: (nbl,).
+    nants : int
+        Total number of antennas in the array.
 
+    Returns
+    -------
+    numpy.ndarray
+        Array of antenna indices sorted in descending order of quality
+        (best reference antenna first).
+
+    Notes
+    -----
+    This method is adapted from `katsdpcal` [1]_.
+
+    Algorithm details:
+
+    * **Multi-channel:**
+
+        1.  FFTs visibilities to the delay domain.
+        2.  Centers the peak response.
+        3.  Calculates PNR = (Peak - Mean) / Std, where Mean and Std are
+            derived from the "noise" region (central channels of the FFT).
+        4.  Antennas are ranked by the median PNR of all their baselines.
+
+    * **Single-channel:**
+
+        1.  Antennas are ranked by the sum of weights on their baselines.
+        2.  A small epsilon is added to ensure stable sorting.
+
+    References
+    ----------
+    .. [1] https://github.com/ska-sa/katsdpcal
     """
     visdata = flagged_vis
     _, _, nchan, _ = visdata.shape
@@ -83,6 +120,64 @@ def gain_substitution(
     tol: float = 1e-6,
     refant: int = 0,
 ) -> Tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]:
+    """
+    Solve for antenna gains using the iterative substitution algorithm.
+
+    This function acts as the driver for the gain substitution solver. It
+    accumulates visibility data into antenna-based correlation matrices,
+    determines the optimal reference antenna based on signal-to-noise
+    ratio, and invokes the iterative solver backend.
+
+
+
+    Parameters
+    ----------
+    gain : numpy.ndarray
+        Initial gain estimates. Shape: (ntime, nants, nchan, nrec, nrec).
+        Acts as the starting point for the iteration.
+    gain_weight : numpy.ndarray
+        Weights associated with the input gains. Shape matches `gain`.
+    gain_residual : numpy.ndarray
+        Buffer to store the residuals of the gain solution. Shape matches
+        `gain`.
+    pointvis_vis : numpy.ndarray
+        Visibilities calibrated by the model (i.e., V_obs / V_model),
+        effectively treating the sky as a point source of unit flux.
+        Shape: (ntime, nbl, nchan, npol).
+    pointvis_flags : numpy.ndarray
+        Boolean flags for the point source visibilities (True indicates
+        flagged/bad data). Shape matches `pointvis_vis`.
+    pointvis_weight : numpy.ndarray
+        Weights associated with the point source visibilities.
+        Shape matches `pointvis_vis`.
+    ant1 : numpy.ndarray
+        Indices of antenna 1 for each baseline. Shape: (nbl,).
+    ant2 : numpy.ndarray
+        Indices of antenna 2 for each baseline. Shape: (nbl,).
+    crosspol : bool, optional
+        If True, solve for cross-polarization gain terms. Default is False.
+    niter : int, optional
+        Maximum number of iterations for the solver. Default is 30.
+    phase_only : bool, optional
+        If True, solve for phase terms only (amplitude fixed to 1.0).
+        Default is True.
+    tol : float, optional
+        Tolerance for convergence. Iteration stops if the change in
+        solution is below this threshold. Default is 1e-6.
+    refant : int, optional
+        Preferred reference antenna index. If this antenna is flagged or
+        has low SNR, the solver will select a better fallback based on
+        data quality. Default is 0.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        A tuple containing:
+
+        - Updated gain array.
+        - Gain weights.
+        - Gain residuals.
+    """
     _gain = gain.copy()
     _gain_weight = gain_weight.copy()
     _gain_residual = gain_residual.copy()
@@ -148,24 +243,41 @@ def divide_visibility(
     vis_flagged: numpy.ndarray,
     vis_flagged_weight: numpy.ndarray,
     model_flagged_vis: numpy.ndarray,
-):
+) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
-    Divide visibility by model forming
-    visibility for equivalent point source.
+    Divide visibility by model to form equivalent point source visibilities.
 
-    This is a useful intermediate product for calibration.
-    Variation of the visibility in time and frequency due
-    to the model structure is removed and the data can be
-    averaged to a limit determined by the instrumental stability.
-    The weight is adjusted to compensate for the division.
+    This function computes the ratio of observed visibilities to model
+    visibilities. This operation removes variations in time and frequency
+    caused by the source structure, effectively normalizing the data to
+    represent a point source of unit flux. This is a critical intermediate
+    step in calibration, allowing for data averaging limited only by
+    instrumental stability.
 
-    Zero divisions are avoided and the corresponding weight set to zero.
+    The weights are adjusted to compensate for the division operation
+    (propagation of variance), and protection against division by zero is
+    included.
 
-    :param vis: Visibility to be divided
-    :param modelvis: Visibility to divide with
-    :return: Divided Visibility
+    Parameters
+    ----------
+    vis_flagged : numpy.ndarray
+        Observed visibilities, typically with flags applied.
+        Shape: (ntime, nbl, nchan, npol).
+    vis_flagged_weight : numpy.ndarray
+        Weights associated with the observed visibilities.
+        Shape: matches `vis_flagged`.
+    model_flagged_vis : numpy.ndarray
+        Model visibilities corresponding to the observations.
+        Shape: matches `vis_flagged`.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        A tuple containing:
+
+        - `x`: The divided visibilities (point source equivalent).
+        - `xwt`: Adjusted weights corresponding to the divided visibilities.
     """
-
     x = numpy.zeros_like(vis_flagged)
     xwt = numpy.abs(model_flagged_vis) ** 2 * vis_flagged_weight
     mask = xwt > 0.0
@@ -180,7 +292,44 @@ def create_point_vis(
     vis_weight: numpy.ndarray,
     model_vis: numpy.ndarray,
     model_flags: numpy.ndarray,
-):
+) -> Tuple[numpy.ndarray, numpy.ndarray]:
+    """
+    Create equivalent point source visibilities from observed and model data.
+
+    This function prepares visibility data for calibration by removing source
+    structure effects. If a model is provided, the observed visibilities are
+    divided by the model visibilities (using `divide_visibility`). Flags are
+    applied to both observed and model data before this operation.
+
+    If `model_vis` is None, the observed visibilities are returned as-is,
+    assuming they effectively represent a point source or no model correction
+    is required.
+
+    Parameters
+    ----------
+    vis_vis : numpy.ndarray
+        Observed complex visibilities. Shape: (ntime, nbl, nchan, npol).
+    vis_flags : numpy.ndarray
+        Boolean flags for observed data (True indicates flagged/bad data).
+        Shape matches `vis_vis`.
+    vis_weight : numpy.ndarray
+        Weights associated with the observed visibilities.
+        Shape matches `vis_vis`.
+    model_vis : numpy.ndarray or None
+        Model complex visibilities representing the source structure.
+        If None, the function bypasses the division step.
+    model_flags : numpy.ndarray or None
+        Boolean flags for the model data. Must be provided if `model_vis`
+        is provided.
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        A tuple containing:
+
+        - `point_vis`: The resulting point source equivalent visibilities.
+        - `point_weight`: The associated wghts (adjusted if division occurred)
+    """
     vis_flagged = _apply_flag(vis_vis, vis_flags)
     vis_flagged_weight = _apply_flag(vis_weight, vis_flags)
 

@@ -80,8 +80,55 @@ def predict_vis(
     station_rm: xr.DataArray = None,
 ) -> Visibility:
     """
-    Distributed Visibility predict.
-    Supports chunking across frequency and time.
+    Predict visibilities from a Global Sky Model (Distributed).
+
+    This function computes expected visibilities by evaluating the radio
+    interferometry measurement equation. It uses a Global Sky Model (GSM) to
+    generate local sky models for specific time steps and applies primary
+    beam effects if a beam factory is provided.
+
+
+
+    The prediction is distributed and chunked:
+
+    1.  **Time:** Iterates over solution intervals defined by `soln_time` and
+        `soln_interval_slices`.
+    2.  **Frequency:** Handled via Dask chunking on the input visibility
+        object.
+
+    Parameters
+    ----------
+    vis : Visibility
+        The template visibility dataset. Its structure (time, frequency,
+        baselines, UVW coordinates) determines the grid for the prediction.
+    gsm : GlobalSkyModel
+        The sky model source. The method `get_local_sky_model` is called for
+        each solution time to retrieve sources above the horizon.
+    soln_time : np.ndarray
+        Array of timestamps (float, seconds) representing the center of each
+        solution interval.
+    soln_interval_slices : list[slice]
+        A list of slice objects. Each slice corresponds to a timestamp in
+        `soln_time` and selects the range of time indices in `vis` that fall
+        within that interval.
+    beams_factory : BeamsFactory, optional
+        Factory to generate antenna primary beams. If None, the sky model is
+        assumed to be multiplied by unity (no beam attenuation).
+    station_rm : xr.DataArray, optional
+        Station-based Rotation Measures (RM) for ionospheric Faraday rotation
+        simulation. If provided, it is passed to the prediction kernel.
+
+    Returns
+    -------
+    Visibility
+        A new Visibility object containing the predicted data in the `vis`
+        variable. Metadata and coordinates are preserved from the input `vis`.
+
+    Raises
+    ------
+    AssertionError
+        If the number of solution times does not match the number of interval
+        slices.
     """
     assert len(soln_interval_slices) == len(soln_time), (
         "lengths of " "soln_interval_slices and soln_time do not match"

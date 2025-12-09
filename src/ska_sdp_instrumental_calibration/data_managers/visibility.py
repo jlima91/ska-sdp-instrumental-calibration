@@ -40,19 +40,43 @@ def create_template_vis_from_ms(
     data_desc_ids: List[int] = None,
 ) -> List[Visibility]:
     """
-    Creates empty "template" visibility objects from given
-    MS file path.
+    Create empty "template" visibility objects from a Measurement Set.
 
-    Returns a list of Visibility, where each visibility's
-    vis, flags and weights are empty dask arrays with
-    correct shapes and dtypes. These can be filled in later
-    by reading the actual data.
+    This function inspects the provided Measurement Set (MS) to determine
+    the shapes, types, and metadata required to create Visibility objects.
+    It returns a list of these objects where the data arrays (vis, flags,
+    weights, uvw) are initialized as empty Dask arrays. These templates
+    can be populated later.
 
-    If field_ids or data_desc_ids is None, by default this will
-    try to fetch the data corresponding the index 0 for both.
+    Parameters
+    ----------
+    msname : str
+        The file path to the Measurement Set.
+    ack : bool, optional
+        If True, print an acknowledgement message when opening the table.
+        Default is False.
+    datacolumn : str, optional
+        The name of the column in the MS to use for determining the data
+        type of the visibility data. Default is "DATA".
+    field_ids : list[int], optional
+        A list of field IDs to process. If None, defaults to [0].
+    data_desc_ids : list[int], optional
+        A list of data description IDs to process. If None, defaults to [0].
 
-    Number of elements in the returned list correspond to
-    field ids and data desc ids.
+    Returns
+    -------
+    list[Visibility]
+        A list of Visibility objects corresponding to the selected field
+        and data description IDs. The data arrays within are empty Dask
+        arrays.
+
+    Raises
+    ------
+    ValueError
+        If the selection for a specific Field ID or Data Description ID
+        yields no rows in the MS.
+    KeyError
+        If the polarization configuration in the MS is not recognized.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -308,13 +332,47 @@ def get_col_from_ms(
     data_desc_ids: List[int] = None,
 ) -> List[npt.NDArray]:
     """
-    Get data from a column in measurment set.
-    The data is read from partial rows based on start_time_idx,
-    number of times and number of baselines.
+    Extract data from a specific column in a Measurement Set.
 
-    Returns a list of np arrays, where each element
-    corresponds to corresponding column data
-    from one field and one data description
+    This function reads a slice of data from the specified column, determined
+    by a starting time index, a duration (number of times), and the number of
+    baselines. It iterates over the specified Field IDs and Data Description
+    IDs, returning the extracted data for each combination.
+
+    Parameters
+    ----------
+    msname : str
+        The file path to the Measurement Set.
+    colname : str
+        The name of the column to retrieve (e.g., "DATA", "UVW", "FLAG").
+    start_time_idx : int
+        The index of the starting time step to read. This is used to calculate
+        the starting row offset: ``start_time_idx * num_baselines``.
+    ntimes : int
+        The number of time steps to read.
+    num_baselines : int
+        The number of baselines per time step. Used to calculate the total
+        number of rows to read.
+    ack : bool, optional
+        If True, print an acknowledgement message when opening the table.
+        Default is False.
+    field_ids : list[int], optional
+        A list of Field IDs to query. If None, defaults to [0].
+    data_desc_ids : list[int], optional
+        A list of Data Description IDs to query. If None, defaults to [0].
+
+    Returns
+    -------
+    list[numpy.ndarray]
+        A list of NumPy arrays containing the column data. Each element in the
+        list corresponds to the data extracted for a specific combination of
+        Field ID and Data Description ID.
+
+    Raises
+    ------
+    ValueError
+        If the query for a specific Field ID or Data Description ID returns
+        zero rows (empty selection).
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -536,6 +594,7 @@ def _load_data_vars(
 ):
     """
     Pre-requisites:
+
       * vis dimensions:
           time, baselineid, frequency, polarisation
         Measurement set "data" dimensions:
@@ -749,15 +808,44 @@ def load_ms_as_dataset_with_time_chunks(
     data_desc_id: int = 0,
 ) -> Visibility:
     """
-    Distributed load of a MSv2 Measurement Set data (for given field id and
-    data description id) into a Visibility dataset, across time chunks.
+    Load MSv2 data into a Visibility dataset using distributed time chunks.
 
-    NOTE: Here we simplify baselines dimensions to be a numpy array of baseline
-    ids instead of the pandas multiindex object that Visibility class defines.
-    This is because xarray operations like map_block do not work with pandas
-    multi-index coordinates.
-    The baselines should be restored to its original pandas multiindex
-    like format before calling any of the functions from ska-sdp-func-python.
+    This function loads data for a specific field and data description ID into
+    a Visibility object. The loading is distributed, chunking the data along
+    the time axis to facilitate parallel processing (e.g., with Dask).
+
+    Parameters
+    ----------
+    ms_name : str
+        The file path to the Measurement Set.
+    times_per_chunk : int
+        The number of time steps to include in each Dask chunk.
+    ack : bool, optional
+        If True, print an acknowledgement message when opening the table.
+        Default is False.
+    datacolumn : str, optional
+        The name of the column to read (e.g., "DATA"). Default is "DATA".
+    field_id : int, optional
+        The Field ID to load. Default is 0.
+    data_desc_id : int, optional
+        The Data Description ID to load. Default is 0.
+
+    Returns
+    -------
+    Visibility
+        The loaded Visibility dataset with dask-backed arrays.
+
+    Notes
+    -----
+    The `baselines` dimension in the returned dataset is simplified to a
+    NumPy array of baseline IDs, rather than the standard Pandas MultiIndex
+    used by the Visibility class. This modification is necessary because
+    `xarray` operations like `map_blocks` do not support Pandas MultiIndex
+    coordinates.
+
+    **Important:** You must restore the baselines to the original Pandas
+    MultiIndex format before passing this object to any functions in
+    `ska-sdp-func-python`.
     """
     # Get observation metadata
     vis_template = simplify_baselines_dim(
@@ -865,6 +953,30 @@ def write_visibility_to_zarr(
 
 
 def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
+    """
+    Read a Visibility dataset from a Zarr cache directory.
+
+    This function reconstructs a Visibility object by opening the main Zarr
+    storage and manually reloading metadata that cannot be natively stored in
+    Zarr (such as complex object attributes and Pandas MultiIndex baselines)
+    from separate pickle files.
+
+    Parameters
+    ----------
+    vis_cache_directory : str
+        The path to the directory containing the cached Zarr store and
+        associated metadata pickle files.
+    vis_chunks : dict
+        The chunking scheme to apply when opening the dataset (e.g.,
+        ``{'time': 1, 'frequency': 10}``). Passed directly to
+        ``xr.open_dataset``.
+
+    Returns
+    -------
+    Visibility
+        The fully reconstructed Visibility dataset with attributes and
+        baseline coordinates restored.
+    """
     attributes_file, baselines_file, vis_zarr_file = (
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )
@@ -891,6 +1003,23 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
 
 
 def check_if_cache_files_exist(vis_cache_directory):
+    """
+    Verify if the necessary cache files exist in the specified directory.
+
+    This function checks for the presence of three specific artifacts required
+    to reconstruct a Visibility dataset: the attributes pickle file, the
+    baselines pickle file, and the Zarr directory itself.
+
+    Parameters
+    ----------
+    vis_cache_directory : str
+        The path to the directory to inspect.
+
+    Returns
+    -------
+    bool
+        True if all required files and directories exist; False otherwise.
+    """
     attributes_file, baselines_file, vis_zarr_file = (
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )

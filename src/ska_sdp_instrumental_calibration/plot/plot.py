@@ -32,6 +32,31 @@ def plot_flag_gain(
     path_prefix,
     figure_title="",
 ):
+    """
+    Plot gain weights for each station across frequency channels.
+
+    This function generates diagnostic plots to inspect the weights associated
+    with antenna gains. It handles large arrays by splitting stations into
+    groups (pages) and plotting them on a 4x4 grid layout. The resulting
+    figures are saved to disk with filenames derived from the station names.
+
+    Parameters
+    ----------
+    gaintable : xarray.Dataset or xarray.DataArray
+        The input gain table containing weight data. It must have 'weight'
+        data, configuration metadata (for station names), and appropriate
+        dimensions (time, antenna, frequency, polarization).
+    path_prefix : str
+        The file path prefix for saving the plots. The full filename will be
+        constructed as `{path_prefix}-weights_freq-{first}-{last}.png`.
+    figure_title : str, optional
+        The overall title text for the generated figures. Default is an
+        empty string.
+
+    Returns
+    -------
+    None
+    """
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]

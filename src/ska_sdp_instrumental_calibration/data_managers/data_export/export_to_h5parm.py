@@ -28,9 +28,15 @@ def export_gaintable_to_h5parm(
 ):
     """Export a GainTable to a H5Parm HDF5 file.
 
-    :param gaintable: GainTable
-    :param filename: Name of H5Parm file
-    :param squeeze: If True, remove axes of length one from dataset
+    Parameters
+    ----------
+    gaintable: GainTable
+        Gaintable instance
+    filename: str
+        Name of H5Parm file
+    squeeze: bool
+        If True, remove axes of length one from dataset
+        Default: False
     """
     logger.info(f"exporting cal solutions to {filename}")
 
@@ -91,9 +97,15 @@ def export_clock_to_h5parm(
 ):
     """Export delaytable Dataset to a H5Parm HDF5 file.
 
-    :param delaytable: xr.Dataset
-    :param filename: Name of H5Parm file
-    :param squeeze: If True, remove axes of length one from dataset
+    Parameters
+    ----------
+    delaytable: xr.Dataset
+        Xarray dataset representing the delay table. Similar to gaintable
+    filename: str
+        Name of H5Parm file
+    squeeze: bool
+        If True, remove axes of length one from dataset
+        Default: False
     """
     logger.info(f"exporting cal solutions to {filename}")
 
