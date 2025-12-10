@@ -1,4 +1,5 @@
 from .bandpass_calibration import bandpass_calibration_stage
+from .bandpass_initialisation import bandpass_initialisation_stage
 from .channel_rotation_measures import generate_channel_rm_stage
 from .data_exports import export_gaintable_stage
 from .delay_calibration import delay_calibration_stage
@@ -20,4 +21,5 @@ __all__ = [
     "export_visibilities_stage",
     "flag_gain_stage",
     "ionospheric_delay_stage",
+    "bandpass_initialisation_stage",
 ]

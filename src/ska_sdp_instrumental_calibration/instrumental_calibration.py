@@ -13,6 +13,7 @@ from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 from ska_sdp_instrumental_calibration.scheduler import DefaultScheduler
 from ska_sdp_instrumental_calibration.stages import (
     bandpass_calibration_stage,
+    bandpass_initialisation_stage,
     delay_calibration_stage,
     export_gaintable_stage,
     export_visibilities_stage,
@@ -23,8 +24,6 @@ from ska_sdp_instrumental_calibration.stages import (
     predict_vis_stage,
     smooth_gain_solution_stage,
 )
-
-# from ska_sdp_instrumental_calibration.workflow.stages.delay_calibration import delay_calibration_stage
 
 logger = logging.getLogger()
 
@@ -38,6 +37,7 @@ ska_sdp_instrumental_calibration = Pipeline(
             load_data_stage,
             predict_vis_stage,
             ionospheric_delay_stage,
+            bandpass_initialisation_stage,
             bandpass_calibration_stage,
             flag_gain_stage,
             generate_channel_rm_stage,
