@@ -179,6 +179,12 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         description="""Specifies the location of CSV file containing the
             sky model. The CSV file should be in OSKAR CSV format.""",
     ),
+    element_response_model=ConfigParam(
+        str,
+        "oskar_dipole_cos",
+        description="""Type of element response model.
+            Required if beam_type is 'everybeam'""",
+    ),
     fov=ConfigParam(
         float,
         10.0,

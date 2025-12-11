@@ -21,6 +21,7 @@ def predict_visibilities(
     eb_coeffs,
     gleamfile,
     lsm_csv_path,
+    element_response_model,
     fov,
     flux_limit,
     alpha0,
@@ -51,6 +52,9 @@ def predict_visibilities(
     lsm_csv_path: str
         Specifies the location of CSV file containing the
         sky model. The CSV file should be in OSKAR CSV format.
+    element_response_model: str
+        type of element response model given to Everybeam.
+        (default: oskar_dipole_cos).
     fov: float
         Field of view diameter in degrees for source selection
         (default: 10.0).
@@ -94,6 +98,7 @@ def predict_visibilities(
             array_location=vis.configuration.location,
             direction=vis.phasecentre,
             ms_path=eb_ms,
+            element_response_model=element_response_model,
         )
 
     modelvis = predict_vis(

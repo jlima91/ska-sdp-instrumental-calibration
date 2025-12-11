@@ -13,6 +13,7 @@ def test_should_predict_visibilities():
         "eb_coeffs",
         "gleamfile",
         "lsm_csv_path",
+        "element_response_model",
         "fov",
         "flux_limit",
         "alpha0",

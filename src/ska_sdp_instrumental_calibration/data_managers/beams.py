@@ -71,12 +71,14 @@ class BeamsLow:
         frequency: np.ndarray,
         ms_path: str,
         soln_time: float,
+        element_response_model: str,
     ):
         self.nstations = nstations
         self.array_location = array_location
         self.beam_direction = direction
         self.frequency = frequency
         self.beam_ms = ms_path
+        self.element_response_model = element_response_model
 
         self.delay_dir_itrf = None
 
@@ -93,7 +95,8 @@ class BeamsLow:
         )
 
         self.telescope = eb.load_telescope(  # pylint: disable=I1101
-            self.beam_ms
+            self.beam_ms,
+            element_response_model=element_response_model,
         )
 
         self.scale = np.ones(
@@ -228,6 +231,7 @@ class BeamsFactory:
     array_location: EarthLocation
     direction: SkyCoord
     ms_path: str
+    element_response_model: str
 
     def get_beams_low(self, frequency, soln_time) -> BeamsLow:
         """

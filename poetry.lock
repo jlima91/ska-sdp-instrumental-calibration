@@ -958,18 +958,18 @@ url = "https://gitlab.com/ska-telescope/external/python-etcd3/-/archive/master/p
 
 [[package]]
 name = "everybeam"
-version = "0.7.4"
+version = "0.8.0"
 description = "EveryBeam"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "everybeam-0.7.4-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:83c38ae6a9d1b46a47112be7561a129a319083ad5bfb2ccf7ec15d5b9ada43a1"},
-    {file = "everybeam-0.7.4-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:b8c4275bb7d4c4e408478b50fb993306fae144bc9e022398ab600f1702efece1"},
-    {file = "everybeam-0.7.4-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0ada007889156ba49d4ff5574e3b9e901ee225210ccf61d0957b5b1c509b2516"},
-    {file = "everybeam-0.7.4-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:7453c1177a8b634706222018307fd3e526a75cb10067b3b9bcef112a0b99398f"},
-    {file = "everybeam-0.7.4-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:9a272218bbe01932b0b9f65bda1db769b51c653c5d83924092bcfa70546967ff"},
-    {file = "everybeam-0.7.4-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:d04ac6b9cdcf97ccc8ef0c8e5967156d852ab3cf30e2596da66a1464d63ccffb"},
+    {file = "everybeam-0.8.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:82364303f9aa3abd60d4345faa0140bc91f86c962f630558d9c864dc6fc53340"},
+    {file = "everybeam-0.8.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:e31bf0da45acab099c15c0ff2002d422e97ef637d38eaa70af5f7e50846c8822"},
+    {file = "everybeam-0.8.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:1a09ac2e706112986b35fda6fe2fae85a85aad38c5fb249c19abea0c3dc106bf"},
+    {file = "everybeam-0.8.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:e671e5c68c68c081807067d1f8ef3b3daf027d75c907c7c1ac36272e501f2d7f"},
+    {file = "everybeam-0.8.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:f403d48e4b7bd216e8cdcb02cc12ccea0028e0826d018609c09ed42d28fa306f"},
+    {file = "everybeam-0.8.0.tar.gz", hash = "sha256:bb1cf841d6fbda772f345e3f8603c3e80aeb0ad8af2ba572c948a6ca7e113051"},
 ]
 
 [package.dependencies]
@@ -4895,4 +4895,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "2c143e1f6fda1bd1a67c1db512762723dd2e9730c5ff88ad19cefbae82ccb8f3"
+content-hash = "ada27e1c257a5a545b37fb87e8e88ac3c85840fe74567d52c94d5898b8094077"

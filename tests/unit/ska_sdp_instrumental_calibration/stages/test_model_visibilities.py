@@ -34,6 +34,7 @@ def test_should_predict_visibilities(
         "eb_coeffs": "/path/to/coeffs",
         "gleamfile": "/path/to/gleam.dat",
         "lsm_csv_path": None,
+        "element_response_model": "dipole_model",
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
@@ -92,6 +93,7 @@ def test_should_update_call_count(
         "eb_coeffs": "/path/to/coeffs",
         "gleamfile": None,
         "lsm_csv_path": "/path/to/lsm.csv",
+        "element_response_model": "dipole_model",
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
@@ -158,6 +160,7 @@ def test_should_normalise_at_beam_centre(
         "eb_coeffs": "/path/to/coeffs",
         "gleamfile": "/path/to/gleam.dat",
         "lsm_csv_path": None,
+        "element_response_model": "dipole_model",
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
@@ -182,3 +185,57 @@ def test_should_normalise_at_beam_centre(
     assert result.beams_factory == beams_factory_mock.return_value
     assert result.vis == normalised_vis
     assert result.modelvis == normalised_modelvis
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    ".GlobalSkyModel"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+)
+def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
+    predict_vis_mock,
+    global_sky_model_mock,
+):
+
+    upstream_output = UpstreamOutput()
+    upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
+    cli_args = {"input": "path/to/input/ms"}
+    predict_vis_mock.return_value = [1, 2, 3]
+
+    params = {
+        "beam_type": None,
+        "normalise_at_beam_centre": False,
+        "eb_ms": None,
+        "eb_coeffs": "/path/to/coeffs",
+        "gleamfile": "/path/to/gleam.dat",
+        "lsm_csv_path": None,
+        "element_response_model": "dipole_model",
+        "fov": 10.0,
+        "flux_limit": 1.0,
+        "alpha0": -0.78,
+    }
+
+    result = predict_vis_stage.stage_definition(
+        upstream_output, **params, _cli_args_=cli_args
+    )
+
+    global_sky_model_mock.assert_called_once_with(
+        upstream_output.vis.phasecentre,
+        10.0,
+        1.0,
+        -0.78,
+        "/path/to/gleam.dat",
+        None,
+    )
+    predict_vis_mock.assert_called_once_with(
+        upstream_output.vis,
+        global_sky_model_mock.return_value,
+        upstream_output.gaintable.time.data,
+        upstream_output.gaintable.soln_interval_slices,
+        None,
+    )
+
+    assert result.modelvis == [1, 2, 3]
