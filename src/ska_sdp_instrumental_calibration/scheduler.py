@@ -1,7 +1,8 @@
 import logging
 
 import dask
-from distributed import get_client, wait
+from dask.delayed import Delayed
+from distributed import as_completed, futures_of, get_client
 from ska_sdp_piper.piper.scheduler import PiperScheduler
 
 logger = logging.getLogger()
@@ -195,6 +196,32 @@ class DefaultScheduler(PiperScheduler):
         """
         self._stage_outputs = UpstreamOutput()
 
+    @staticmethod
+    def wait_and_throw_on_failure(delayed_tasks: tuple[Delayed]):
+        """
+        Waits for a collection of persisted delayed tasks to complete
+        and raises an exception if any task failed.
+
+        Parameters
+        ----------
+        delayed_tasks : tuple of Delayed
+            A tuple containing Delayed task objects to wait for.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        Exception
+            Re-raises the exception from any task that failed
+            (i.e., with status "error").
+        """
+
+        for task in as_completed(futures_of(delayed_tasks)):
+            if task.status == "error":
+                raise task.result()
+
     def schedule(self, stages):
         """
         Execute the provided list of pipeline stages.
@@ -245,7 +272,7 @@ class DefaultScheduler(PiperScheduler):
             ]
 
             if is_client_present:
-                wait(persisted_values)
+                self.wait_and_throw_on_failure(persisted_values)
 
             output.checkpoint_keys = []
             output.stage_compute_tasks = []
