@@ -4,6 +4,10 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import generate_channel_rm_stage
 
 
+def test_generate_channel_rm_stage_is_optional():
+    assert generate_channel_rm_stage.is_optional
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
     ".dask.delayed",

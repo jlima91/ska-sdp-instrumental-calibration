@@ -98,6 +98,7 @@ from ._utils import get_gaintables_path, get_plots_path
             ),
         ),
     ),
+    optional=True,
 )
 def flag_gain_stage(
     upstream_output,

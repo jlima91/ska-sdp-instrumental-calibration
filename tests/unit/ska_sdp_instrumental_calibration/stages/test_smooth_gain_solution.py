@@ -4,6 +4,10 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import smooth_gain_solution_stage
 
 
+def test_smooth_gain_solution_stage_is_optional():
+    assert smooth_gain_solution_stage.is_optional
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages."
     "smooth_gain_solution.sliding_window_smooth"

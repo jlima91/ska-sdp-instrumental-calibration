@@ -53,6 +53,7 @@ from ._utils import get_gaintables_path, get_plots_path
             nullable=False,
         ),
     ),
+    optional=True,
 )
 def smooth_gain_solution_stage(
     upstream_output,

@@ -74,6 +74,7 @@ logger = logging.getLogger()
             nullable=False,
         ),
     ),
+    optional=True,
 )
 def ionospheric_delay_stage(
     upstream_output,

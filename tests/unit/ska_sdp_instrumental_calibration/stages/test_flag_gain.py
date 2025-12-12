@@ -4,6 +4,10 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import flag_gain_stage
 
 
+def test_flag_gain_stage_is_optional():
+    assert flag_gain_stage.is_optional
+
+
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.flag_on_gains")

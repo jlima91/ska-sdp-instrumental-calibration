@@ -18,6 +18,10 @@ def mock_upstream_output():
     return mock_output
 
 
+def test_ionospeheric_delay_stage_is_optional():
+    assert ionospheric_delay_stage.is_optional
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.ionospheric_delay"
     ".apply_gaintable_to_dataset"

@@ -128,6 +128,7 @@ logger = logging.getLogger()
             nullable=False,
         ),
     ),
+    optional=True,
 )
 def generate_channel_rm_stage(
     upstream_output,
