@@ -56,7 +56,8 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'recommonmark',
-    "ska_sdp_piper.extensions.sphynx_stage"
+    "ska_sdp_piper.extensions.sphynx_stage",
+    "sphinx_autodoc_typehints",
 ]
 
 # The suffix(es) of source filenames.
@@ -114,6 +115,7 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable", None),
     "astropy": ("https://docs.astropy.org/en/stable/", None),
     "ska_sdp_piper": ("https://developer.skao.int/projects/ska-sdp-exec-piper/en/latest/", None),
+    "ska_sdp_datamodels": ("https://developer.skao.int/projects/ska-sdp-datamodels/en/latest/", None),
 }
 
 # Ensure that functions are documented as they are 
@@ -122,3 +124,7 @@ autodoc_member_order = 'bysource'
 
 # Disable smart quoting
 smartquotes = False
+
+# Configurations for sphinx_autodoc_typehints
+typehints_defaults = "comma"
+always_use_bars_union = True

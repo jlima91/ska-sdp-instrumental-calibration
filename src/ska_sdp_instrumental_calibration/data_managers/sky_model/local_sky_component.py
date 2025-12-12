@@ -12,9 +12,7 @@ from .component import Component
 class LocalSkyComponent(SkyComponent):
 
     @staticmethod
-    def create_from_component(
-        comp: Component, freq: typing.NDArray[float], _=None
-    ):
+    def create_from_component(comp: Component, freq: np.ndarray, *_):
         """
         Construct a LocalSkyComponent from a Component.
 

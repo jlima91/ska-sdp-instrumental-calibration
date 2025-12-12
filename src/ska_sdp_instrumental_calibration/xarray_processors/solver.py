@@ -15,18 +15,15 @@ logger = logging.getLogger(__name__)
 
 def _run_solver_map_block_(
     vis: Visibility, modelvis: Visibility, gaintable: GainTable, solver: Solver
-):
+) -> GainTable:
     """
     A map-block compatible wrapper function which internally calls
     `solve_gaintable` function.
 
     Returns
     -------
-    Gaintable
-        The gaintable xarray dataset
+        A new gaintable containing solutions
     """
-    # Rename time
-
     vis = restore_baselines_dim(vis)
     modelvis = restore_baselines_dim(modelvis)
 
@@ -58,39 +55,28 @@ def run_solver(
     solver: Solver,
 ) -> GainTable:
     """
-    A generic function to solve for gaintables, given
-    visibility, model visibility and gaintable.
+    A function used for distributing the ``solver.solve()`` function
+    call across solution intervals of gaintable, and across the chunks
+    of visibility.
 
     Parameters
     ----------
-    vis: Visibility
-        Visibility dataset containing observed data.
-    modelvis: Visibility
-        Visibility dataset containing model data.
-    gaintable: Gaintable
+    vis
+        Visibility dataset containing observed data. If its backed by a dask
+        array, then it can be chunked in time and frequency axis.
+    modelvis
+        Visibility dataset containing model data, having similar shape,
+        dtype and chunksizes as ``vis``
+    gaintable
         GainTable dataset containing initial solutions.
-    solver: str, default: "gain_substitution"
-        Solver type to use. Currently any solver type accepted by
-        solve_gaintable.
-    refant: int, default: 0
-        Reference antenna. Note that how referencing is done
-        depends on the solver.
-    niter: int, default: 200
-        Number of solver iterations.
-    phase_only: bool, default: False
-        Solve only for the phases.
-    tol: float, default: 1e-06
-        Iteration stops when the fractional change in the gain solution is
-        below this tolerance.
-    crosspol: bool, default: False
-        Do solutions including cross polarisations.
-    normalise_gains: str, default: "mean"
-        Normalises the gains.
+    solver
+        An instance of solver, whose ``.solve()``
+        method will be called, wrapped in :py:func:`xarray.map_blocks`
+        for distributions across dask chunks
 
     Returns
     -------
-    GainTable
-        A new gaintabel xarray dataset, or the mutated input gaintable
+        A new gaintable
     """
 
     vis_chunks_per_solution = {"time": -1}

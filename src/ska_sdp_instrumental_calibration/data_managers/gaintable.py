@@ -2,7 +2,10 @@ from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
-from ska_sdp_datamodels.calibration import GainTable
+from ska_sdp_datamodels.calibration import (
+    GainTable,
+    create_gaintable_from_visibility,
+)
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
@@ -15,40 +18,60 @@ def create_gaintable_from_visibility(
     jones_type: Literal["T", "G", "B"] = "T",
     lower_precision: bool = True,
     skip_default_chunk: bool = False,
-):
+) -> GainTable:
     """
-    Create gaintable from visibility.
-    Similar behavior as `create_gaintable_from_vis`, except
-    1. new param: timeslice="full"
-        Will create a single solution across the entire observation time
-    2. new param: lower_precision
-        Ability to toggle precision of the data variables, currently
-        between 4 or 8 bytes
+    Create a unity- or identity-initialised GainTable consistent with the
+    given Visibility.
+
+    GainTable either represents:
+
+    - a collection of complex-valued scalar gains, if Visibility carries only
+      Stokes I data.
+    - a collection of 2x2 complex-valued Jones matrices otherwise.
+
+    In the first case, gains are initialised to unity. In the second case,
+    Jones matrices are initialised to the identity matrix.
 
     Parameters
     ----------
-    vis: Visibility
+    vis
         Visibility to create gaintable from
-    timeslice: str|float
-        Time slice definition ot be used while creating the gaintable
-        Default: None
-    jones_type: str
-        Jones types for the gaintable.
-        Allowed valued: "T", "G", "B"
-        Default: "T"
-    lower_precision: bool
+    timeslice
+        Defines the time scale over which each gain solution is
+        valid. This is used to define the time axis of the GainTable. This
+        parameter is interpreted as follows depending on its type:
+
+        - ``float``: this is a custom time interval in seconds. Input timestamps
+          are grouped by intervals of this duration, and said groups are
+          separately averaged to produce the output time axis.
+        - "full": create a single solution across the entire visibility time
+        - "auto" or ``None``: match the time resolution of the input visibility,
+          i.e. copy the time axis of the input Visibility
+
+    jones_type
+        Type of Jones term, one of {"T", "G", "B"}.
+        The frequency axis of the output GainTable depends on the value
+        provided:
+
+        - "B": the output frequency axis is the same as that of the input
+          Visibility.
+        - "T" or "G": solution is assumed to be frequency-independent,
+          and the frequency axis of the output contains a single value: the
+          average frequency of the input Visibility's channels.
+
+    lower_precision
         Used to set up the float bit sizes while initialising the gaintable.
         If true, uses np.complex64 and np.float32 instead of higher precision
         np.complex128 and np.float64. Useful for memory optimization.
-        Default: True
-    skip_default_chunk: bool
+    skip_default_chunk
         If set to true, skips Dask/Xarray chunking of data in alignment to the
         input visibility. Useful in cases of chunk alignment issues.
         Default: False
 
     Returns
     -------
-        GainTable
+        Gaintable suitable for storing calibration solutions of given
+        visibility
     """
     # Backward compatibility. Should be removed as "auto" is vary vague
     if timeslice == "auto":
@@ -118,16 +141,16 @@ def create_gaintable_from_visibility(
 def reset_gaintable(gaintable: GainTable) -> GainTable:
     """
     Returns a new dask-backed gaintable with all data variables resetted
-    to their initial sensible values
+    to their initial sensible values.
 
     Parameters
     ----------
-    gaintable: GainTable
+    gaintable
         Gaintable object to be reset
 
     Returns
     -------
-    Gaintable with data variables resetted to their intial sensible values.
+        Gaintable with data variables resetted to their intial sensible values.
     """
     gain_shape = gaintable.gain.shape
     nrec = gain_shape[-1]

@@ -65,17 +65,16 @@ def apply_gaintable_to_dataset(
     applying inverse gains) and corruption (simulating instrumental effects
     by applying forward gains).
 
-
-
     The function handles different Jones matrix types:
+
     - Type 'B' (Bandpass): Gains match the visibility frequency resolution.
     - Type 'T' or 'G': Frequency-independent gains are broadcast across all
       visibility channels.
 
     Operations are performed per solution interval. The function iterates over
     time slices defined in the gaintable, applying the corresponding gain
-    solution to the matching block of visibilities using `xarray.apply_ufunc`
-    for parallel processing.
+    solution to the matching block of visibilities using
+    :py:func:`xarray.apply_ufunc` for parallel processing.
 
     Parameters
     ----------

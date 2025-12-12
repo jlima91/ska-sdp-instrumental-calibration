@@ -18,8 +18,6 @@ class GainSubstitution(Solver):
     antenna-based complex gains in radio interferometric calibration. It
     compares observed visibilities against a model to derive gain corrections.
 
-
-
     Parameters
     ----------
     refant : int, optional

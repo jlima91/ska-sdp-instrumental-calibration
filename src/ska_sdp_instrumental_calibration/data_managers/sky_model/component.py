@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
-from astropy.coordinates import AltAz, SkyCoord
+from astropy.coordinates import AltAz, SkyCoord, EarthLocation
 
 from ..beams import convert_time_to_solution_time
 
@@ -63,20 +63,28 @@ class Component:
         """
         return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
 
-    def get_altaz(self, solution_time: float, array_location):
+    def get_altaz(self, solution_time: float, array_location: EarthLocation) -> SkyCoord:
         """
-        Compute the ALTAZ of the given component at a solution_time.
+        Get the AltAz coordinate of the component at given solution time
+        and array location.
 
         Parameters
         ----------
-        solution_time: float
-            Solution time to compute altaz.
-        array_location: np.ndarray
-            Array locations.
+        solution_time
+            Solution time (seconds since mjd epoch)
+        array_location
+            Location of the array.
 
         Returns
         -------
-        ALTAZ of the given component
+            A new object with the component's direction coordinate
+            represented in the given AltAz frame.
+
+        Notes
+        -----
+        The solution time is converted to a datetime object using the
+        py:func:`convert_time_to_solution_time` function before being passed to
+        `AltAz`.
         """
         return self.direction.transform_to(
             AltAz(
@@ -85,27 +93,28 @@ class Component:
             )
         )
 
-    def is_above_horizon(self, solution_time: float, array_location):
+    def is_above_horizon(self, solution_time: float, array_location: EarthLocation) -> bool:
         """
         Checks if the component is above horizon for the given solution time
         and array location
 
         Parameters
         ----------
-        solution_time: float
+        solution_time
             Solution time.
-        array_location: np.ndarray
+        array_location
             Array Locations
 
         Returns
         -------
-        Bool. True if the given component is above the horizon at the solution
-        time for the given array location.
+            True if the given component is above the horizon at the solution
+            time for the given array location.
         """
         return self.get_altaz(solution_time, array_location).alt.degree >= 0
 
     def deconvolve_gaussian(self) -> tuple[float]:
-        """Deconvolve MWA synthesised beam from Gaussian shape parameters.
+        """
+        Deconvolve MWA synthesised beam from Gaussian shape parameters.
 
         This follows the approach of the analysisutilities function
         deconvolveGaussian in the askap-analysis repository, written by Matthew
@@ -114,7 +123,7 @@ class Component:
 
         Returns
         -------
-        Tuple of deconvolved parameters (same units as data in self)
+            Tuple of deconvolved parameters (same units as data in self)
         """
 
         # fitted data on source

@@ -24,7 +24,7 @@ def _predict_vis_ufunc(
     local_sky_model: LocalSkyModel,
     beams_factory: BeamsFactory = None,
     output_dtype: type = np.complex64,
-):
+) -> np.ndarray:
     """
     A helper function which bridges the gap between
     LocalSkyModel.create_vis and predict_vis_new functions
@@ -35,20 +35,10 @@ def _predict_vis_ufunc(
     :param polarisation: (polarisation,)
     :param antenna1: (nant,)
     :param antenna2: (nant,)
-    :param configuration: object
-    :param phasecentre: object
-    :param lsm: Component List containing the local sky model
-    :param beam_type: str
-        Type of beam model to use. Default is "everybeam". If set
-        to None, no beam will be applied.
-    :param eb_ms: str
-        Measurement set need to initialise the everybeam telescope.
-        Required if beam_type is "everybeam".
-    :param soln_time: float
-        "Solution time" value of the gain solution. Used for initialising Beams
-        for that current time slice. Required if beam_type is "everybeam".
-        Must be a single time value.
-    :param output_dtype: Type
+    :param phasecentre
+    :param local_sky_model
+    :param beams_factory
+    :param output_dtype
 
     returns: (time, frequency, baselineid, polarisation)
     """
@@ -87,8 +77,6 @@ def predict_vis(
     generate local sky models for specific time steps and applies primary
     beam effects if a beam factory is provided.
 
-
-
     The prediction is distributed and chunked:
 
     1.  **Time:** Iterates over solution intervals defined by `soln_time` and
@@ -98,29 +86,28 @@ def predict_vis(
 
     Parameters
     ----------
-    vis : Visibility
+    vis
         The template visibility dataset. Its structure (time, frequency,
         baselines, UVW coordinates) determines the grid for the prediction.
-    gsm : GlobalSkyModel
+    gsm
         The sky model source. The method `get_local_sky_model` is called for
         each solution time to retrieve sources above the horizon.
-    soln_time : np.ndarray
+    soln_time
         Array of timestamps (float, seconds) representing the center of each
         solution interval.
-    soln_interval_slices : list[slice]
+    soln_interval_slices
         A list of slice objects. Each slice corresponds to a timestamp in
         `soln_time` and selects the range of time indices in `vis` that fall
         within that interval.
-    beams_factory : BeamsFactory, optional
+    beams_factory
         Factory to generate antenna primary beams. If None, the sky model is
         assumed to be multiplied by unity (no beam attenuation).
-    station_rm : xr.DataArray, optional
+    station_rm
         Station-based Rotation Measures (RM) for ionospheric Faraday rotation
         simulation. If provided, it is passed to the prediction kernel.
 
     Returns
     -------
-    Visibility
         A new Visibility object containing the predicted data in the `vis`
         variable. Metadata and coordinates are preserved from the input `vis`.
 

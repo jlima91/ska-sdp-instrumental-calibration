@@ -149,53 +149,50 @@ class GlobalSkyModel:
     generate local sky models for specific observation times and array
     locations.
 
+    Parameters
+    ----------
+    phasecentre
+        The phase centre of the observation, used as the reference point
+        for the field of view search
+    fov
+        The field of view diameter in degrees
+    flux_limit
+        The minimum flux density threshold in Jy. Sources below this limit
+        are excluded
+    alpha0
+        The default spectral index to use if not specified in the catalogue
+    gleamfile
+        Path to the GLEAM catalogue file. If provided, the model is
+        generated from this file
+    lsm_csv_path
+        Path to a CSV file containing sky model components. Used if
+        ``gleamfile`` is None
+
+    Raises
+    ------
+    RequiredArgumentMissingException
+        If neither ``gleamfile`` nor ``lsm_csv_path`` is provided.
+
     Attributes
     ----------
-    components : list[Component]
-        The list of sky components loaded into the global model.
-    """
-
     components: list[Component]
+        The list of sky components loaded into the global model
+    """
 
     def __init__(
         self,
         phasecentre: SkyCoord,
-        fov=10.0,
-        flux_limit=1.0,
-        alpha0=-0.78,
-        gleamfile=None,
-        lsm_csv_path=None,
+        fov : float =10.0,
+        flux_limit : float =1.0,
+        alpha0 : float =-0.78,
+        gleamfile : str =None,
+        lsm_csv_path : str =None,
     ):
         """
         Initialize the Global Sky Model from a catalogue.
 
         Loads components based on a specified field of view and flux limit.
         Prioritizes the GLEAM file if both GLEAM and CSV paths are provided.
-
-        Parameters
-        ----------
-        phasecentre : SkyCoord
-            The phase centre of the observation, used as the reference point
-            for the field of view search.
-        fov : float, optional
-            The field of view diameter in degrees. Defaults to 10.0.
-        flux_limit : float, optional
-            The minimum flux density threshold in Jy. Sources below this limit
-            are excluded. Defaults to 1.0.
-        alpha0 : float, optional
-            The default spectral index to use if not specified in the catalogue
-            Defaults to -0.78.
-        gleamfile : str or Path, optional
-            Path to the GLEAM catalogue file. If provided, the model is
-            generated from this file. Defaults to None.
-        lsm_csv_path : str or Path, optional
-            Path to a CSV file containing sky model components. Used if
-            `gleamfile` is None. Defaults to None.
-
-        Raises
-        ------
-        RequiredArgumentMissingException
-            If neither `gleamfile` nor `lsm_csv_path` is provided.
         """
         if gleamfile is not None and lsm_csv_path is not None:
             logger.warning("GSM: GLEAMFILE and CSV provided. Using GLEAMFILE")
@@ -233,7 +230,7 @@ class GlobalSkyModel:
 
     def get_local_sky_model(
         self, solution_time: float, array_location: EarthLocation
-    ):
+    ) -> LocalSkyModel:
         """
         Generate a Local Sky Model for a specific time and location.
 
@@ -242,16 +239,15 @@ class GlobalSkyModel:
 
         Parameters
         ----------
-        solution_time : float
+        solution_time
             The time of the observation (e.g., MJD or Unix timestamp) used to
             calculate source positions.
-        array_location : EarthLocation
+        array_location
             The geographical location of the telescope array.
 
         Returns
         -------
-        LocalSkyModel
-            A new instance containing only the visible components for the
+            A new object containing only the visible components for the
             specified parameters.
         """
         components = [

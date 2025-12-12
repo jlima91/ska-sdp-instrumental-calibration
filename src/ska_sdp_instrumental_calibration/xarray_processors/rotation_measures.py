@@ -6,11 +6,11 @@ __all__ = ["model_rotations"]
 import dask
 import dask.array as da
 import numpy as np
-import xarray as xr
 from astropy import constants as const
 from scipy.optimize import curve_fit
-
 from ska_sdp_instrumental_calibration.logger import setup_logger
+
+from ska_sdp_datamodels.calibration import GainTable
 
 logger = setup_logger("processing_tasks.post_processing")
 
@@ -21,17 +21,17 @@ class ModelRotationData:
 
     Parameters
     ----------
-    gaintable: Gaintable dataset
-        Gaintable.
-    refant: int
+    gaintable
+        Calibrated gaintable
+    refant
         Reference antenna.
-    oversample: int, default: 5
+    oversample
         Oversampling value used in the rotation
         calculatiosn. Note that setting this value to some higher
         integer may result in high memory usage.
     """
 
-    def __init__(self, gaintable, refant, oversample=5):
+    def __init__(self, gaintable: GainTable, refant: int, oversample: int=5):
         if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
             raise ValueError("gaintable must contain Jones matrices")
 
@@ -115,33 +115,33 @@ class ModelRotationData:
 
 
 def model_rotations(
-    gaintable: xr.Dataset,
+    gaintable: GainTable,
     peak_threshold: float = 0.5,
     refine_fit: bool = True,
     refant: int = 0,
     oversample: int = 5,
-):
+) -> ModelRotationData:
     """
     Performs Model Rotations
 
     Parameters
     ----------
-        gaintable: Gaintable dataset
-            Gaintable.
-        peak_threshold: float
+        gaintable
+            Bandpass calibrated gaintable
+        peak_threshold
             Peak threshold.
-        refine_fit: bool
+        refine_fit
             Refine the fit.
-        refant: int, default: 0
+        refant
             Reference antenna.
-        oversample: int, default: 5
+        oversample
             Oversampling value used in the rotation
             calculatiosn. Note that setting this value to some higher
             integer may result in high memory usage.
 
     Returns
     -------
-        rotations: ModelRotation obj.
+        rotations.
     """
 
     rotations = ModelRotationData(gaintable, refant, oversample)

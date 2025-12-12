@@ -56,6 +56,9 @@ ska_sdp_instrumental_calibration = Pipeline(
         )
     ),
 )
+"""
+This is the entrypoint for instrumental calibration pipeline.
+"""
 
 
 @ska_sdp_instrumental_calibration.sub_command(
@@ -72,8 +75,8 @@ def experimental(cli_args):
 
     Parameters
     ----------
-        cli_args: argparse.Namespace
-            CLI arguments
+    cli_args: argparse.Namespace
+        CLI arguments
     """
     fixed_stages = []
 
