@@ -20,4 +20,4 @@ def test_should_predict_visibilities():
         "_cli_args_",
     ]
 
-    assert predict_vis_stage.params == expected_params
+    assert predict_vis_stage.stage_definition_args == expected_params

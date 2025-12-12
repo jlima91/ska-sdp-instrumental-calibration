@@ -38,7 +38,7 @@ python-casacore = "^3.7.1"
 ska-sdp-datamodels = "^1.0.0"
 ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^1.0.1"
-ska-sdp-exec-piper = "^1.0.4"
+ska-sdp-exec-piper = "^1.1.0"
 # This is a temporary fix. See issue: https://github.com/fastapi/typer/discussions/1215
 click = "8.1.*"
 ska-sdp-dataproduct-metadata = "^1.0.0.post1"

@@ -56,7 +56,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'recommonmark',
-    "ska_sdp_piper.extensions.sphynx_stage",
+    "ska_sdp_piper.extensions.sphinx_piper_stage",
     "sphinx_autodoc_typehints",
 ]
 
