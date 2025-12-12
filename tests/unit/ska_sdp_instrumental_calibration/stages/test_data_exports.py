@@ -9,6 +9,18 @@ from ska_sdp_instrumental_calibration.stages.data_exports import (
 INST_METADATA_FILE = "ska-data-product.yaml"
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "export_gain_table": {
+            "file_name": "inst.gaintable",
+            "export_format": "h5parm",
+            "export_metadata": False,
+        },
+    }
+
+    assert export_gaintable_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"

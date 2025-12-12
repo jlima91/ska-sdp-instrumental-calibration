@@ -6,6 +6,19 @@ from ska_sdp_instrumental_calibration.stages import (
 )
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "bandpass_initialisation": {
+            "refant": 0,
+            "niter": 200,
+            "tol": 1.0e-06,
+            "export_gaintable": True,
+        }
+    }
+
+    assert bandpass_initialisation_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
     ".parse_reference_antenna"

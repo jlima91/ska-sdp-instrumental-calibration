@@ -4,6 +4,18 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import delay_calibration_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "delay_calibration": {
+            "oversample": 1,
+            "plot_config": {"plot_table": True, "fixed_axis": False},
+            "export_gaintable": True,
+        },
+    }
+
+    assert delay_calibration_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".calculate_delay"

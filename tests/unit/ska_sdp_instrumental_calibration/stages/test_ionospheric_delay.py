@@ -6,6 +6,22 @@ from ska_sdp_instrumental_calibration.stages import ionospheric_delay_stage
 from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "ionospheric_delay": {
+            "cluster_indexes": None,
+            "block_diagonal": True,
+            "niter": 500,
+            "tol": 1.0e-06,
+            "zernike_limit": None,
+            "plot_table": False,
+            "export_gaintable": False,
+        }
+    }
+
+    assert ionospheric_delay_stage.config == expected_config
+
+
 @pytest.fixture
 def mock_upstream_output():
     mock_output = MagicMock(name="UpstreamOutput")

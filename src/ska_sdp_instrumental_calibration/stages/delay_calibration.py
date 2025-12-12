@@ -18,11 +18,11 @@ from ._utils import get_gaintables_path, get_plots_path
 @ConfigurableStage(
     "delay_calibration",
     configuration=Configuration(
-        oversample=ConfigParam(int, 16, description="Oversample rate"),
+        oversample=ConfigParam(int, 1, description="Oversample rate"),
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
-                bool, False, description="Plot the generated gaintable"
+                bool, True, description="Plot the generated gaintable"
             ),
             fixed_axis=ConfigParam(
                 bool, False, description="Limit amplitude axis to [0-1]"
@@ -30,7 +30,7 @@ from ._utils import get_gaintables_path, get_plots_path
         ),
         export_gaintable=ConfigParam(
             bool,
-            False,
+            True,
             description="Export intermediate gain solutions.",
             nullable=False,
         ),

@@ -4,6 +4,17 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import export_visibilities_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "export_visibilities": {
+            "data_to_export": "all",
+            "apply_gaintable_to_vis": True,
+        },
+    }
+
+    assert export_visibilities_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages."
     "export_visibilities.get_visibilities_path"

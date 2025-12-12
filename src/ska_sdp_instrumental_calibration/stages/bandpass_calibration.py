@@ -32,7 +32,7 @@ logger = logging.getLogger()
                 **(deepcopy(RUN_SOLVER_COMMON)),
                 "solver": ConfigParam(
                     str,
-                    "gain_substitution",
+                    "jones_substitution",
                     description="""Calibration algorithm to use. Options are:
                 "gain_substitution" - original substitution algorithm
                 with separate solutions for each polarisation term.
@@ -55,8 +55,15 @@ logger = logging.getLogger()
                 ),
                 "niter": ConfigParam(
                     int,
-                    200,
+                    50,
                     description="""Number of solver iterations.""",
+                    nullable=False,
+                ),
+                "tol": ConfigParam(
+                    float,
+                    1e-03,
+                    description="""Iteration stops when the fractional change
+                    in the gain solution is below this tolerance.""",
                     nullable=False,
                 ),
             },
@@ -65,7 +72,7 @@ logger = logging.getLogger()
             "Plot parameters",
             plot_table=ConfigParam(
                 bool,
-                False,
+                True,
                 description="Plot the generated gaintable",
                 nullable=False,
             ),
@@ -84,7 +91,7 @@ logger = logging.getLogger()
         ),
         export_gaintable=ConfigParam(
             bool,
-            False,
+            True,
             description="Export intermediate gain solutions.",
             nullable=False,
         ),

@@ -12,14 +12,14 @@ from ._utils import get_visibilities_path
     configuration=Configuration(
         data_to_export=ConfigParam(
             str,
-            default=None,
+            default="all",
             description="Visibilities to export",
             allowed_values=["all", "vis", "modelvis", None],
             nullable=True,
         ),
         apply_gaintable_to_vis=ConfigParam(
             bool,
-            default=False,
+            default=True,
             description="Apply gaintable to vis",
             nullable=True,
         ),

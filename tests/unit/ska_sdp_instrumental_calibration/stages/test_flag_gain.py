@@ -4,6 +4,27 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import flag_gain_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "flag_gain": {
+            "soltype": "both",
+            "mode": "smooth",
+            "order": 3,
+            "apply_flag": True,
+            "skip_cross_pol": True,
+            "max_ncycles": 5,
+            "n_sigma": 10.0,
+            "n_sigma_rolling": 10.0,
+            "window_size": 11,
+            "normalize_gains": True,
+            "export_gaintable": False,
+            "plot_config": {"curve_fit_plot": True, "gain_flag_plot": True},
+        },
+    }
+
+    assert flag_gain_stage.config == expected_config
+
+
 def test_flag_gain_stage_is_optional():
     assert flag_gain_stage.is_optional
 

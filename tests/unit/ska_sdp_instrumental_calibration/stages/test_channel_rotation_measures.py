@@ -4,6 +4,32 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import generate_channel_rm_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "generate_channel_rm": {
+            "oversample": 5,
+            "peak_threshold": 0.5,
+            "refine_fit": True,
+            "visibility_key": "vis",
+            "plot_rm_config": {"plot_rm": False, "station": 0},
+            "plot_table": False,
+            "run_solver_config": {
+                "solver": "jones_substitution",
+                "refant": 0,
+                "niter": 50,
+                "phase_only": False,
+                "tol": 0.001,
+                "crosspol": False,
+                "normalise_gains": None,
+                "timeslice": None,
+            },
+            "export_gaintable": False,
+        },
+    }
+
+    assert generate_channel_rm_stage.config == expected_config
+
+
 def test_generate_channel_rm_stage_is_optional():
     assert generate_channel_rm_stage.is_optional
 

@@ -4,6 +4,23 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import smooth_gain_solution_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "smooth_gain_solution": {
+            "window_size": 1,
+            "mode": "median",
+            "plot_config": {
+                "plot_table": False,
+                "plot_path_prefix": "smoothed-gain",
+                "plot_title": "Smoothed Gain",
+            },
+            "export_gaintable": False,
+        },
+    }
+
+    assert smooth_gain_solution_stage.config == expected_config
+
+
 def test_smooth_gain_solution_stage_is_optional():
     assert smooth_gain_solution_stage.is_optional
 

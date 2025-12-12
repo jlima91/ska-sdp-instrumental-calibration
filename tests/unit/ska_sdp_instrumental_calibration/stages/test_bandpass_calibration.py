@@ -4,6 +4,28 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import bandpass_calibration_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "bandpass_calibration": {
+            "run_solver_config": {
+                "solver": "jones_substitution",
+                "refant": 0,
+                "niter": 50,
+                "phase_only": False,
+                "tol": 1.0e-03,
+                "crosspol": False,
+                "normalise_gains": None,
+                "timeslice": None,
+            },
+            "plot_config": {"plot_table": True, "fixed_axis": False},
+            "visibility_key": "vis",
+            "export_gaintable": True,
+        }
+    }
+
+    assert bandpass_calibration_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".parse_reference_antenna"

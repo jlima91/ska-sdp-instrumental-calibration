@@ -36,7 +36,7 @@ logger = logging.getLogger()
         ),
         export_gaintable=ConfigParam(
             bool,
-            False,
+            True,
             description="Export intermediate gain solutions.",
             nullable=False,
         ),

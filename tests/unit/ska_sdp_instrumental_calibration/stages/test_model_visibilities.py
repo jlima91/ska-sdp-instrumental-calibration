@@ -4,6 +4,25 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import predict_vis_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "predict_vis": {
+            "beam_type": "everybeam",
+            "normalise_at_beam_centre": True,
+            "eb_ms": None,
+            "element_response_model": "oskar_dipole_cos",
+            "eb_coeffs": None,
+            "gleamfile": None,
+            "lsm_csv_path": None,
+            "fov": 5.0,
+            "flux_limit": 1.0,
+            "alpha0": -0.78,
+        }
+    }
+
+    assert predict_vis_stage.config == expected_config
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.model_visibilities"
     ".BeamsFactory"

@@ -6,6 +6,22 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.load_data import load_data_stage
 
 
+def test_should_have_the_expected_default_configuration():
+    expected_config = {
+        "load_data": {
+            "nchannels_per_chunk": 32,
+            "ntimes_per_ms_chunk": 5,
+            "cache_directory": None,
+            "ack": False,
+            "datacolumn": "DATA",
+            "field_id": 0,
+            "data_desc_id": 0,
+        }
+    }
+
+    assert load_data_stage.config == expected_config
+
+
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"

@@ -187,7 +187,7 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
     ),
     fov=ConfigParam(
         float,
-        10.0,
+        5.0,
         description="""Specifies the width of the cone used when
             searching for compoents, in units of degrees.""",
     ),

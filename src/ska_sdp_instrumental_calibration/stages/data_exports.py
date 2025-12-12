@@ -23,7 +23,7 @@ INST_METADATA_FILE = "ska-data-product.yaml"
     configuration=Configuration(
         file_name=ConfigParam(
             str,
-            "gaintable",
+            "inst.gaintable",
             description="Gain table file name without extension",
         ),
         export_format=ConfigParam(
