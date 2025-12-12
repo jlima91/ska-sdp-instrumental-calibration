@@ -6,6 +6,18 @@ from ska_sdp_instrumental_calibration.stages import ionospheric_delay_stage
 from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 
+@pytest.fixture
+def mock_upstream_output():
+    mock_output = MagicMock(name="UpstreamOutput")
+    mock_output.vis = MagicMock(name="original_vis")
+    mock_output.modelvis = MagicMock(name="model_vis")
+    mock_output.chunks = MagicMock(name="chunks")
+
+    mock_output.__setitem__ = MagicMock()
+
+    return mock_output
+
+
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "ionospheric_delay": {
@@ -20,18 +32,6 @@ def test_should_have_the_expected_default_configuration():
     }
 
     assert ionospheric_delay_stage.config == expected_config
-
-
-@pytest.fixture
-def mock_upstream_output():
-    mock_output = MagicMock(name="UpstreamOutput")
-    mock_output.vis = MagicMock(name="original_vis")
-    mock_output.modelvis = MagicMock(name="model_vis")
-    mock_output.chunks = MagicMock(name="chunks")
-
-    mock_output.__setitem__ = MagicMock()
-
-    return mock_output
 
 
 def test_ionospeheric_delay_stage_is_optional():

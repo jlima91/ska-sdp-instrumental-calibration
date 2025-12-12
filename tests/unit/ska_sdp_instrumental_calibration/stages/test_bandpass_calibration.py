@@ -26,6 +26,10 @@ def test_should_have_the_expected_default_configuration():
     assert bandpass_calibration_stage.config == expected_config
 
 
+def test_bandpass_calibration_stage_is_required():
+    assert bandpass_calibration_stage.is_required
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".parse_reference_antenna"

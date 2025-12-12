@@ -19,6 +19,10 @@ def test_should_have_the_expected_default_configuration():
     assert bandpass_initialisation_stage.config == expected_config
 
 
+def test_bandpass_initialisation_stage_is_required():
+    assert bandpass_initialisation_stage.is_required
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
     ".parse_reference_antenna"

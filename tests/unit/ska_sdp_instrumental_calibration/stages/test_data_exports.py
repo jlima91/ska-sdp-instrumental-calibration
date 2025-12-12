@@ -21,6 +21,10 @@ def test_should_have_the_expected_default_configuration():
     assert export_gaintable_stage.config == expected_config
 
 
+def test_export_gaintable_stage_is_required():
+    assert export_gaintable_stage.is_required
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"

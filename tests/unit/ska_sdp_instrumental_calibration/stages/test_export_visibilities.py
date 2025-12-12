@@ -15,6 +15,10 @@ def test_should_have_the_expected_default_configuration():
     assert export_visibilities_stage.config == expected_config
 
 
+def test_export_visibilities_stage_is_required():
+    assert export_visibilities_stage.is_required
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages."
     "export_visibilities.get_visibilities_path"

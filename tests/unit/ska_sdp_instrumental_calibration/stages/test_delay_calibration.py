@@ -16,6 +16,10 @@ def test_should_have_the_expected_default_configuration():
     assert delay_calibration_stage.config == expected_config
 
 
+def test_delay_calibration_stage_is_required():
+    assert delay_calibration_stage.is_required
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".calculate_delay"
