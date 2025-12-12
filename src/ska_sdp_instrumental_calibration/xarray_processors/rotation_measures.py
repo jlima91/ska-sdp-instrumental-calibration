@@ -8,9 +8,9 @@ import dask.array as da
 import numpy as np
 from astropy import constants as const
 from scipy.optimize import curve_fit
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
 from ska_sdp_datamodels.calibration import GainTable
+
+from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("processing_tasks.post_processing")
 
@@ -31,7 +31,7 @@ class ModelRotationData:
         integer may result in high memory usage.
     """
 
-    def __init__(self, gaintable: GainTable, refant: int, oversample: int=5):
+    def __init__(self, gaintable: GainTable, refant: int, oversample: int = 5):
         if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
             raise ValueError("gaintable must contain Jones matrices")
 

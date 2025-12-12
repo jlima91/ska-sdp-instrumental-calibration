@@ -182,11 +182,11 @@ class GlobalSkyModel:
     def __init__(
         self,
         phasecentre: SkyCoord,
-        fov : float =10.0,
-        flux_limit : float =1.0,
-        alpha0 : float =-0.78,
-        gleamfile : str =None,
-        lsm_csv_path : str =None,
+        fov: float = 10.0,
+        flux_limit: float = 1.0,
+        alpha0: float = -0.78,
+        gleamfile: str = None,
+        lsm_csv_path: str = None,
     ):
         """
         Initialize the Global Sky Model from a catalogue.

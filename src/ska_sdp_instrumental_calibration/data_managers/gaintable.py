@@ -2,10 +2,7 @@ from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
-from ska_sdp_datamodels.calibration import (
-    GainTable,
-    create_gaintable_from_visibility,
-)
+from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
@@ -41,12 +38,13 @@ def create_gaintable_from_visibility(
         valid. This is used to define the time axis of the GainTable. This
         parameter is interpreted as follows depending on its type:
 
-        - ``float``: this is a custom time interval in seconds. Input timestamps
-          are grouped by intervals of this duration, and said groups are
-          separately averaged to produce the output time axis.
+        - ``float``: this is a custom time interval in seconds.
+          Input timestamps are grouped by intervals of this duration,
+          and said groups are separately averaged to produce
+          the output time axis.
         - "full": create a single solution across the entire visibility time
-        - "auto" or ``None``: match the time resolution of the input visibility,
-          i.e. copy the time axis of the input Visibility
+        - "auto" or ``None``: match the time resolution of the input
+          visibility, i.e. copy the time axis of the input Visibility
 
     jones_type
         Type of Jones term, one of {"T", "G", "B"}.

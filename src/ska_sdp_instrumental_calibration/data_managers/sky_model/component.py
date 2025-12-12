@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
-from astropy.coordinates import AltAz, SkyCoord, EarthLocation
+from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 
 from ..beams import convert_time_to_solution_time
 
@@ -63,7 +63,9 @@ class Component:
         """
         return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
 
-    def get_altaz(self, solution_time: float, array_location: EarthLocation) -> SkyCoord:
+    def get_altaz(
+        self, solution_time: float, array_location: EarthLocation
+    ) -> SkyCoord:
         """
         Get the AltAz coordinate of the component at given solution time
         and array location.
@@ -93,7 +95,9 @@ class Component:
             )
         )
 
-    def is_above_horizon(self, solution_time: float, array_location: EarthLocation) -> bool:
+    def is_above_horizon(
+        self, solution_time: float, array_location: EarthLocation
+    ) -> bool:
         """
         Checks if the component is above horizon for the given solution time
         and array location

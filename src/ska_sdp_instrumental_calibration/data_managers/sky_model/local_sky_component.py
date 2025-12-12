@@ -1,5 +1,4 @@
 import numpy as np
-from numpy import typing
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
 
