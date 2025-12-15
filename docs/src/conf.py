@@ -45,19 +45,20 @@ version = "0.6.0"
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.doctest',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    'recommonmark',
-    "ska_sdp_piper.extensions.sphinx_piper_stage",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.doctest",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.todo",
+    "sphinx.ext.coverage",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.ifconfig",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.githubpages",
+    "myst_parser",
     "sphinx_autodoc_typehints",
+    "ska_sdp_piper.extensions.sphinx_piper_stage",
+    "ska_sdp_piper.extensions.sphinx_piper_pipeline",
 ]
 
 # The suffix(es) of source filenames.
@@ -67,6 +68,8 @@ source_suffix = {
     '.rst': 'restructuredtext',
     '.md': 'markdown',
 }
+
+autoclass_content = "class"
 
 # List of modules to mock
 autodoc_mock_imports = [
@@ -106,8 +109,7 @@ html_static_path = ['_static']
 html_context = {}
 latex_elements = {}
 
-
-# Example configuration for intersphinx: refer to the Python standard library.
+# Cross reference across dependent libraries
 intersphinx_mapping = {
     "dask": ("https://docs.dask.org/en/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),

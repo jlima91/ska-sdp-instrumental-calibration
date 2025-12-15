@@ -48,7 +48,6 @@ python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 
-
 [tool.poetry.group.dev.dependencies]
 mock = "^5.1.0"
 pylint = "^3.3.1"
@@ -70,14 +69,10 @@ pylance = "^0.5.9"
 setuptools-scm = "^7.1.0"
 
 [tool.poetry.group.docs.dependencies]
-sphinx = "^8.1"
-sphinx-autobuild = "^2021.3.14"
+sphinx = ">=8"
+myst-parser = ">=4"
 sphinx-autodoc-typehints = ">=3"
-sphinxcontrib-websupport = "^1.2.4"
-ska-ser-sphinx-theme = "^0.2.1"
-recommonmark = "^0.7.1"
-pygments = "^2.15.1"
-tabulate = "^0.9.0"
+ska-ser-sphinx-theme = ">=0.2.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
