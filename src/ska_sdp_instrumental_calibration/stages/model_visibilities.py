@@ -54,7 +54,9 @@ def predict_visibilities(
         sky model. The CSV file should be in OSKAR CSV format.
     element_response_model: str
         type of element response model given to Everybeam.
-        (default: oskar_dipole_cos).
+        Defaulted oskar_dipole_cos.
+        Refer documentation for more detials.
+        https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
     fov: float
         Field of view diameter in degrees for source selection
         (default: 10.0).

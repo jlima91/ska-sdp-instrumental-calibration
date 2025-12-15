@@ -183,7 +183,10 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         str,
         "oskar_dipole_cos",
         description="""Type of element response model.
-            Required if beam_type is 'everybeam'""",
+            Required if beam_type is 'everybeam'.
+            Refer documentation for more detials
+            https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
+            """,
     ),
     fov=ConfigParam(
         float,
