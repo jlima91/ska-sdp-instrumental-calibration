@@ -1,0 +1,18 @@
+# Pipeline Configuration
+end_to_end_subbands: true
+h5parm_name: "bandpass.h5parm"
+hdf5_name: null
+fchunk: 16
+
+# Sky Model Parameters
+lsm: null                    # Local sky model using a component list
+fov: 5.0                     # Units: degrees
+flux_limit: 1.0              # Units: Jy
+csvfile: null
+gleamfile: null
+
+# Beam Parameters
+beam_type: "none"               # Allowed values: "everybeam" , "none"
+eb_coeffs: null                 # Must be set if beam_type is "everybeam"
+eb_ms: null                     # Optional. Defaults to input ms.
+normalise_at_beam_centre: false
