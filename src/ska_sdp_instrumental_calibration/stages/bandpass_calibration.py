@@ -9,6 +9,10 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter import (
+    UVRangeFilter,
+)
+
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
 from ..plot import PlotGaintableFrequency
@@ -68,6 +72,13 @@ logger = logging.getLogger()
                 ),
             },
         ),
+        uvdist=ConfigParam(
+            str,
+            None,
+            description="CASA like uvrange strings"
+            ", separated by comma for multiple. E.g. '0~10klambda','100~500m'",
+            nullable=True,
+        ),
         plot_config=NestedConfigParam(
             "Plot parameters",
             plot_table=ConfigParam(
@@ -100,6 +111,7 @@ logger = logging.getLogger()
 def bandpass_calibration_stage(
     upstream_output,
     run_solver_config,
+    uvdist,
     plot_config,
     visibility_key,
     export_gaintable,
@@ -114,13 +126,16 @@ def bandpass_calibration_stage(
             Output from the upstream stage
         run_solver_config: dict
             {run_solver_docstring}
+        uvdist: str
+            CASA like uvrange strings, separated by comma for multiple.
+            E.g. '0~10klambda','100~500m'
         plot_config: dict
             Configuration required for plotting.
             eg: {{plot_table: False, fixed_axis: False}}
         visibility_key: str
             Visibility data to be used for calibration.
         export_gaintable: bool
-            Export intermediate gain solutions
+            Export intermediate gain solutions.
         _output_dir_ : str
             Directory path where the output file will be written.
 
@@ -146,8 +161,22 @@ def bandpass_calibration_stage(
     if call_count := upstream_output.get_call_count("bandpass"):
         call_counter_suffix = f"_{call_count}"
 
+    filtered_vis = vis
+    if uvdist is not None:
+        logger.info(f"Applying UV range filter: {uvdist}")
+        filtered_vis = vis.assign(
+            {
+                "flags": UVRangeFilter(uvdist)(
+                    vis.visibility_acc.u,
+                    vis.visibility_acc.v,
+                    vis.flags,
+                    vis.frequency,
+                )
+            }
+        )
+
     gaintable = run_solver(
-        vis=vis,
+        vis=filtered_vis,
         modelvis=modelvis,
         gaintable=initialtable,
         solver=solver,

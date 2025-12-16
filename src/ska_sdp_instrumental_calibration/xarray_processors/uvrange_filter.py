@@ -171,7 +171,9 @@ class UVRangeFilter:
 
         raise ValueError(f"Could not parse uvrange string: '{selection_str}'")
 
-    def __call__(self, u, v, flags, freq=None):
+    def __call__(
+        self, u: xr.DataArray, v: xr.DataArray, flags: xr.DataArray, freq=None
+    ):
         """
         Apply the UV range filter to update flag arrays.
 
@@ -181,11 +183,11 @@ class UVRangeFilter:
 
         Parameters
         ----------
-        u : array_like
+        u : xr.DataArray
             U coordinates in meters.
-        v : array_like
+        v : xr.DataArray
             V coordinates in meters.
-        flags : xarray.DataArray
+        flags : xr.DataArray
             The existing boolean flag array to update.
         freq : float or array_like, optional
             Frequency in Hz. Required if any range uses 'klambda' units.

@@ -17,6 +17,7 @@ def test_should_have_the_expected_default_configuration():
                 "normalise_gains": None,
                 "timeslice": None,
             },
+            "uvdist": None,
             "plot_config": {"plot_table": True, "fixed_axis": False},
             "visibility_key": "vis",
             "export_gaintable": True,
@@ -72,6 +73,7 @@ def test_should_perform_bandpass_calibration(
     actual_output = bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -158,6 +160,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -167,6 +170,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -262,6 +266,7 @@ def test_should_export_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
@@ -271,6 +276,7 @@ def test_should_export_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
@@ -344,6 +350,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     actual_output = bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
+        uvdist=None,
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
@@ -369,3 +376,83 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     )
 
     assert actual_output.gaintable == gaintable_mock
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
+    ".UVRangeFilter"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
+    ".parse_reference_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
+    ".run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
+    ".SolverFactory"
+)
+def test_should_apply_uvrange_filter_before_run_solver(
+    solver_factory_mock,
+    run_solver_mock,
+    parse_ref_ant_mock,
+    uvrange_filter_mock,
+):
+    upstream_output = UpstreamOutput()
+    mock_vis = Mock(name="vis")
+    mock_vis.assign.return_value = mock_vis
+
+    upstream_output["vis"] = mock_vis
+    upstream_output["corrected_vis"] = Mock(name="corrected_vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    initable = "initial_gaintable"
+    upstream_output["gaintable"] = initable
+    parse_ref_ant_mock.return_value = 3
+    solver_factory_mock.get_solver.return_value = "SOLVER"
+    run_solver_config = {
+        "solver": "solver",
+        "niter": 1,
+        "refant": 2,
+        "phase_only": False,
+        "tol": 1e-06,
+        "crosspol": False,
+        "normalise_gains": "mean",
+        "jones_type": "T",
+        "timeslice": None,
+    }
+    plot_config = {"plot_table": False, "fixed_axis": False}
+
+    gaintable_mock = Mock(name="gaintable")
+    run_solver_mock.return_value = gaintable_mock
+    uvrange_filter_mock.side_effect = [uvrange_filter_mock, "filtered_flags"]
+
+    bandpass_calibration_stage.stage_definition(
+        upstream_output,
+        run_solver_config=run_solver_config,
+        uvdist=">500m",
+        plot_config=plot_config,
+        visibility_key="vis",
+        export_gaintable=False,
+        _output_dir_="/output/path",
+    )
+
+    uvrange_filter_mock.assert_has_calls(
+        [
+            call(">500m"),
+            call(
+                upstream_output.vis.visibility_acc.u,
+                upstream_output.vis.visibility_acc.v,
+                upstream_output.vis.flags,
+                upstream_output.vis.frequency,
+            ),
+        ]
+    )
+    mock_vis.assign.assert_called_once_with({"flags": "filtered_flags"})
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output.vis,
+        modelvis=upstream_output.modelvis,
+        gaintable=initable,
+        solver="SOLVER",
+    )
