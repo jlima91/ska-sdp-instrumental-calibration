@@ -126,9 +126,9 @@ class TestDefaultScheduler:
         # Create mock tasks
 
         # Patch wait to return (done, not_done)
-        with pytest.raises(Exception) as error:
+        with pytest.raises(Exception) as _error:
             scheduler.wait_and_throw_on_failure((mock_delay1, mock_delay2))
-            assert error.value is error_task.result()
+        assert _error.value is error_task.result()
 
         mock_futures_of.assert_called_once_with((mock_delay1, mock_delay2))
         mock_as_completed.assert_called_once_with((mock_delay1, mock_delay2))
@@ -185,7 +185,7 @@ class TestDefaultScheduler:
         scheduler = DefaultScheduler()
         with pytest.raises(Exception) as excinfo:
             scheduler.schedule([dummy_stage])
-            assert excinfo.value is error
+        assert excinfo.value is error
 
         # Ensure persist called with correct arguments
         mock_persist.assert_called_once_with(mock_vis, optimize_graph=True)
