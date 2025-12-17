@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --exclusive
 #SBATCH --no-requeue
-#SBATCH --job-name=inst
+#SBATCH --job-name=inst-benchmark
 #SBATCH --output=slurm-%j-%x.out
 
 set -euo pipefail
@@ -58,38 +58,26 @@ cat <<EOF > $BATCHLET_CONFIG
     "$WORK_PATH",
     "--input",
     "$PRE_PROCESSED_CALIBRATOR",
-    "--no-unique-output-subdir",
-    "--with-report"
+    "--no-unique-output-subdir"
   ],
   "dask_params": {
     "threads_per_worker": 4,
-    "memory_per_worker": "48GB",
+    "memory_per_worker": "24GB",
     "resources_per_worker": "process=1",
     "worker_scratch_directory": "$WORK_PATH",
     "use_entry_node": true,
-    "dask_cli_option": "--dask-scheduler"
+    "dask_cli_option": "--dask-scheduler",
+    "dask_report_dir": "$REPORT_PATH"
   },
   "monitor": {
     "resources": {
       "level": 0,
       "save_dir": "$REPORT_PATH"
     }
-  }
+  },
+  "generate_reports_on_failure": false
 }
 EOF
 
-set +e
-
 # Run INST pipeline via batchlet
 time batchlet run $BATCHLET_CONFIG
-
-# Smoke test which removes monitor output if pipeline failed
-# TODO: Can be moved inside batchlet
-PIPELINE_EXIT_CODE=$?
-[[ $PIPELINE_EXIT_CODE -ne 0 ]] && \
-echo -e "\ninst.sh: Removing monitoring plots because the pipeline failed with exit code $PIPELINE_EXIT_CODE.\n" 1>&2 && \
-rm -rf $REPORT_PATH && \
-exit $PIPELINE_EXIT_CODE
-
-# Copy dask report to report path
-cp $OUTPUT_PATH/dask_report.html $REPORT_PATH
