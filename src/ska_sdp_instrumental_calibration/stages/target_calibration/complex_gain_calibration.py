@@ -171,7 +171,7 @@ def complex_gain_calibration_stage(
     run_solver_config["refant"] = parse_antenna(
         refant,
         initial_gaintable.configuration.names,
-        initial_gaintable.antenna1.size,
+        initial_gaintable.antenna.size,
     )
 
     solver = SolverFactory.get_solver(**run_solver_config)

@@ -13,6 +13,7 @@ from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
 from ..plot import PlotGaintableFrequency
 from ..xarray_processors._utils import parse_antenna
+from ..xarray_processors.baseline_filter import BaselineFilter
 from ..xarray_processors.solver import run_solver
 from ..xarray_processors.uvrange_filter import UVRangeFilter
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
@@ -69,8 +70,15 @@ logger = logging.getLogger()
         uvdist=ConfigParam(
             str,
             None,
-            description="CASA like uvrange strings"
+            description="CASA like uvrange strings to keep"
             ", separated by comma for multiple. E.g. '0~10klambda','100~500m'",
+            nullable=True,
+        ),
+        baselines=ConfigParam(
+            str,
+            None,
+            description="Baselines strings to ignore"
+            ", separated by comma for multiple. E.g. 'ANT1&ANT2,3&ANT4'",
             nullable=True,
         ),
         plot_config=NestedConfigParam(
@@ -106,6 +114,7 @@ def bandpass_calibration_stage(
     upstream_output,
     run_solver_config,
     uvdist,
+    baselines,
     plot_config,
     visibility_key,
     export_gaintable,
@@ -149,7 +158,7 @@ def bandpass_calibration_stage(
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_antenna(
-        refant, initialtable.configuration.names, initialtable.antenna1.size
+        refant, initialtable.configuration.names, initialtable.antenna.size
     )
 
     solver = SolverFactory.get_solver(**run_solver_config)
@@ -168,6 +177,21 @@ def bandpass_calibration_stage(
                     vis.visibility_acc.v,
                     vis.flags,
                     vis.frequency,
+                )
+            }
+        )
+
+    if baselines is not None:
+        logger.info(f"Applying Baseline filter: {baselines}")
+        filtered_vis = vis.assign(
+            {
+                "flags": BaselineFilter(
+                    baselines,
+                    initialtable.configuration.names,
+                    initialtable.antenna.size,
+                )(
+                    filtered_vis.baselines,
+                    filtered_vis.flags,
                 )
             }
         )

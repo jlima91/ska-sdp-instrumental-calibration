@@ -190,11 +190,11 @@ def generate_channel_rm_stage(
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_antenna(
-        refant, initialtable.configuration.names, initialtable.antenna1.size
+        refant, initialtable.configuration.names, initialtable.antenna.size
     )
     station = plot_rm_config["station"]
     plot_rm_config["station"] = parse_antenna(
-        station, initialtable.configuration.names, initialtable.antenna1.size
+        station, initialtable.configuration.names, initialtable.antenna.size
     )
 
     call_counter_suffix = ""
