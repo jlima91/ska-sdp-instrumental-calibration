@@ -17,16 +17,13 @@ from ..plot import (
     plot_bandpass_stages,
     plot_rm_station,
 )
+from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
 from ..xarray_processors.rotation_measures import model_rotations
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
-from ._utils import (
-    get_gaintables_path,
-    get_plots_path,
-    parse_reference_antenna,
-)
+from ._utils import get_gaintables_path, get_plots_path
 
 logger = logging.getLogger()
 
@@ -192,9 +189,13 @@ def generate_channel_rm_stage(
     beam_factory = upstream_output.beams_factory
 
     refant = run_solver_config["refant"]
-    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
+    run_solver_config["refant"] = parse_antenna(
+        refant, initialtable.configuration.names, initialtable.antenna1.size
+    )
     station = plot_rm_config["station"]
-    plot_rm_config["station"] = parse_reference_antenna(station, initialtable)
+    plot_rm_config["station"] = parse_antenna(
+        station, initialtable.configuration.names, initialtable.antenna1.size
+    )
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("channel_rm"):

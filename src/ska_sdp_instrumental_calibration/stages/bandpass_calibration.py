@@ -9,20 +9,14 @@ from ska_sdp_piper.piper.configurations import (
 )
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter import (
-    UVRangeFilter,
-)
-
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
 from ..plot import PlotGaintableFrequency
+from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
+from ..xarray_processors.uvrange_filter import UVRangeFilter
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
-from ._utils import (
-    get_gaintables_path,
-    get_plots_path,
-    parse_reference_antenna,
-)
+from ._utils import get_gaintables_path, get_plots_path
 
 logger = logging.getLogger()
 
@@ -154,7 +148,10 @@ def bandpass_calibration_stage(
     logger.info(f"Using {visibility_key} for calibration.")
 
     refant = run_solver_config["refant"]
-    run_solver_config["refant"] = parse_reference_antenna(refant, initialtable)
+    run_solver_config["refant"] = parse_antenna(
+        refant, initialtable.configuration.names, initialtable.antenna1.size
+    )
+
     solver = SolverFactory.get_solver(**run_solver_config)
 
     call_counter_suffix = ""

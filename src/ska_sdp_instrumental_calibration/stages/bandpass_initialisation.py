@@ -6,8 +6,9 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
+from ..xarray_processors import parse_antenna
 from ..xarray_processors.solver import run_solver
-from ._utils import get_gaintables_path, parse_reference_antenna
+from ._utils import get_gaintables_path
 
 logger = logging.getLogger()
 
@@ -77,7 +78,9 @@ def bandpass_initialisation_stage(
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
 
-    refant = parse_reference_antenna(refant, initialtable)
+    refant = parse_antenna(
+        refant, initialtable.configuration.names, initialtable.antenna1.size
+    )
     solver = SolverFactory.get_solver(refant=refant, niter=niter, tol=tol)
 
     gaintable = run_solver(

@@ -38,7 +38,7 @@ def run_solver_config():
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
-    ".complex_gain_calibration.parse_reference_antenna",
+    ".complex_gain_calibration.parse_antenna",
     return_value=3,
 )
 @patch(
@@ -74,7 +74,11 @@ def test_should_perform_complex_gain_calibration(
         _output_dir_="/out",
     )
 
-    parse_ref_ant_mock.assert_called_once_with(2, initial_gaintable)
+    parse_ref_ant_mock.assert_called_once_with(
+        2,
+        initial_gaintable.configuration.names,
+        initial_gaintable.antenna1.size,
+    )
     initial_gaintable.pipe.assert_called_once_with(
         with_chunks, upstream_output["chunks"]
     )
@@ -120,7 +124,7 @@ def test_should_perform_complex_gain_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
-    ".complex_gain_calibration.parse_reference_antenna"
+    ".complex_gain_calibration.parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"

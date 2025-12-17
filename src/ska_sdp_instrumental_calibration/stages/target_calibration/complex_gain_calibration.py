@@ -15,13 +15,9 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 from ...numpy_processors.solvers import SolverFactory
 from ...plot import PlotGaintableTime
 from ...scheduler import UpstreamOutput
-from ...xarray_processors import with_chunks
+from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
-from .._utils import (
-    get_gaintables_path,
-    get_plots_path,
-    parse_reference_antenna,
-)
+from .._utils import get_gaintables_path, get_plots_path
 
 logger = logging.getLogger()
 
@@ -172,8 +168,10 @@ def complex_gain_calibration_stage(
     initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
 
     refant = run_solver_config["refant"]
-    run_solver_config["refant"] = parse_reference_antenna(
-        refant, initial_gaintable
+    run_solver_config["refant"] = parse_antenna(
+        refant,
+        initial_gaintable.configuration.names,
+        initial_gaintable.antenna1.size,
     )
 
     solver = SolverFactory.get_solver(**run_solver_config)

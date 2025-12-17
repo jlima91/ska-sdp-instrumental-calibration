@@ -25,7 +25,7 @@ def test_bandpass_initialisation_stage_is_required():
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
@@ -41,7 +41,7 @@ def test_should_initialize_gains_for_bandpass(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    initial_gaintable = "initial_gaintable"
+    initial_gaintable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initial_gaintable
     parse_ref_ant_mock.return_value = 0
     tol = 1e-06
@@ -61,7 +61,11 @@ def test_should_initialize_gains_for_bandpass(
         _output_dir_="/output/path",
     )
 
-    parse_ref_ant_mock.assert_called_once_with(0, initial_gaintable)
+    parse_ref_ant_mock.assert_called_once_with(
+        0,
+        initial_gaintable.configuration.names,
+        initial_gaintable.antenna1.size,
+    )
 
     solver_factory_mock.get_solver.assert_called_once_with(
         refant=refant,
@@ -85,7 +89,7 @@ def test_should_initialize_gains_for_bandpass(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
@@ -114,7 +118,7 @@ def test_should_export_gaintable(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    initial_gaintable = "initial_gaintable"
+    initial_gaintable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initial_gaintable
     parse_ref_ant_mock.return_value = 0
     tol = 1e-06

@@ -33,7 +33,7 @@ def test_bandpass_calibration_stage_is_required():
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -50,7 +50,7 @@ def test_should_perform_bandpass_calibration(
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    initable = "initial_gaintable"
+    initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
     run_solver_config = {
@@ -80,7 +80,9 @@ def test_should_perform_bandpass_calibration(
         _output_dir_="/output/path",
     )
 
-    parse_ref_ant_mock.assert_called_once_with(2, initable)
+    parse_ref_ant_mock.assert_called_once_with(
+        2, initable.configuration.names, initable.antenna1.size
+    )
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="solver",
@@ -105,7 +107,7 @@ def test_should_perform_bandpass_calibration(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -206,7 +208,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -310,7 +312,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -327,7 +329,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    initable = "initial_gaintable"
+    initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
     solver_factory_mock.get_solver.return_value = "SOLVER"
@@ -384,7 +386,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -407,7 +409,7 @@ def test_should_apply_uvrange_filter_before_run_solver(
     upstream_output["vis"] = mock_vis
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    initable = "initial_gaintable"
+    initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
     solver_factory_mock.get_solver.return_value = "SOLVER"

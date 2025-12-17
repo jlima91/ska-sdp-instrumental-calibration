@@ -76,34 +76,3 @@ def get_plots_path(output_dir: str, file_prefix: str) -> str:
     plots_path = os.path.join(output_dir, "plots", file_prefix)
     _create_path_tree(plots_path)
     return plots_path
-
-
-def parse_reference_antenna(refant, gaintable):
-    """
-    Checks and converts station names
-
-    Parameters
-    ----------
-        refant: int or str
-            Reference antenna.
-        gaintable: Gaintable Dataset
-            Gaintable
-    Returns
-    -------
-        refant: Reference antenna index
-    """
-    if type(refant) is str:
-        station_names = gaintable.configuration.names
-        try:
-            station_index = station_names.where(
-                station_names == refant, drop=True
-            ).id.values[0]
-        except IndexError:
-            raise ValueError("Reference antenna name is not valid")
-        return station_index
-    elif type(refant) is int:
-        station_count = gaintable.antenna.size
-        if refant > station_count - 1 or refant < 0:
-            raise ValueError("Reference antenna index is not valid")
-        else:
-            return refant

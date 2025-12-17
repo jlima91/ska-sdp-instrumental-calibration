@@ -1,50 +1,11 @@
-import numpy as np
-import pytest
-import xarray as xr
-from mock import MagicMock, patch
+from mock import patch
 
 from ska_sdp_instrumental_calibration.stages._utils import (
     _create_path_tree,
     get_gaintables_path,
     get_plots_path,
     get_visibilities_path,
-    parse_reference_antenna,
 )
-
-
-def test_should_parse_reference_antenna():
-    refant = "LOWBD2_344"
-    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
-    dims = "id"
-    coords = {"id": np.arange(4)}
-    gaintable_mock = MagicMock(name="gaintable")
-    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
-    gaintable_mock.configuration.names = ant_names
-    output = parse_reference_antenna(refant, gaintable_mock)
-
-    assert output == 0
-
-
-def test_should_raise_error_when_ref_ant_is_invalid():
-    refant = "ANTENNA-1"
-    antennas = ["LOWBD2_344", "LOWBD2_345", "LOWBD2_346", "LOWBD2_347"]
-    dims = "id"
-    coords = {"id": np.arange(4)}
-    gaintable_mock = MagicMock(name="gaintable")
-    ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
-    gaintable_mock.configuration.names = ant_names
-    with pytest.raises(ValueError) as error:
-        parse_reference_antenna(refant, gaintable_mock)
-    assert str(error.value) == "Reference antenna name is not valid"
-
-
-def test_should_raise_error_when_antenna_index_is_invalid():
-    refant = 10
-    gaintable_mock = MagicMock(name="gaintable")
-    gaintable_mock.antenna.size = 5
-    with pytest.raises(ValueError) as error:
-        parse_reference_antenna(refant, gaintable_mock)
-    assert str(error.value) == "Reference antenna index is not valid"
 
 
 @patch("ska_sdp_instrumental_calibration.stages._utils.Path")

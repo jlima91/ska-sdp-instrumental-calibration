@@ -41,7 +41,7 @@ def test_generate_channel_rm_stage_is_optional():
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -134,8 +134,16 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 
     parse_ref_ant_mock.assert_has_calls(
         [
-            call(2, initial_table_mock),
-            call(1, initial_table_mock),
+            call(
+                2,
+                initial_table_mock.configuration.names,
+                initial_table_mock.antenna1.size,
+            ),
+            call(
+                1,
+                initial_table_mock.configuration.names,
+                initial_table_mock.antenna1.size,
+            ),
         ]
     )
 
@@ -186,7 +194,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -331,7 +339,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
@@ -559,7 +567,7 @@ def test_should_plot_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
@@ -708,7 +716,7 @@ def test_should_export_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".parse_reference_antenna"
+    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."

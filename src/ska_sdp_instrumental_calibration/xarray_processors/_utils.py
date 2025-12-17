@@ -77,3 +77,40 @@ def simplify_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
         return vis.swap_dims({"baselines": "baselineid"}).reset_coords(
             ("baselines", "antenna1", "antenna2")
         )
+
+
+def parse_antenna(refant, station_names: xr.DataArray, station_counts: int):
+    """
+    Checks and converts a reference antenna identifier (index or name) to its
+    corresponding index.
+
+    refant : int or str
+        Reference antenna, specified either as an integer index or as a string
+        name.
+    station_names : xr.DataArray
+        Array of station names, used to map string names to indices.
+    station_counts : int
+        Total number of stations.
+
+    int
+        The index of the reference antenna.
+
+    Raises
+    ------
+    ValueError
+        If the reference antenna name or index is not valid.
+    """
+
+    if type(refant) is str:
+        try:
+            station_index = station_names.where(
+                station_names == refant, drop=True
+            ).id.values[0]
+        except IndexError:
+            raise ValueError("Reference antenna name is not valid")
+        return station_index
+    elif type(refant) is int:
+        if refant > station_counts - 1 or refant < 0:
+            raise ValueError("Reference antenna index is not valid")
+        else:
+            return refant
