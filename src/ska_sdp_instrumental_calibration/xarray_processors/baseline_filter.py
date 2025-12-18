@@ -62,11 +62,26 @@ class BaselineFilter:
 
     def __parse_baseline(
         self,
-        antenna1,
-        antenna2,
+        antenna1: str | int,
+        antenna2: str | int,
         station_names: xr.DataArray,
         station_counts: int,
     ):
+        """
+        Parse a baseline composed of two antennas and return a tuple of
+        their indices.
+
+        Parameters
+        ----------
+        antenna1 : str | int
+            The first antenna in the baseline, specified by name or index.
+        antenna2 : str | int
+            The second antenna in the baseline, specified by name or index.
+        station_names : xr.DataArray
+            An xarray DataArray containing the names of the stations/antennas.
+        station_counts : int
+            The total number of stations/antennas.
+        """
         try:
             antenna1 = int(antenna1)
         except ValueError:
@@ -83,7 +98,7 @@ class BaselineFilter:
 
     def __call__(self, baselines: xr.DataArray, flags: xr.DataArray):
         """
-        Initialize the BaselineFilter with a comma-separated list of baselines.
+        Update the flags DataArray to ignore the specified baselines.
 
         Parameters
         ----------
