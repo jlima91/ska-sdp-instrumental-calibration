@@ -74,37 +74,35 @@ def prediction_central_beams(
         gaintable.frequency, name="frequency_xdr"
     ).pipe(with_chunks, gaintable.chunksizes)
 
-    response_across_solution_time = []
-    for val in gaintable.time.data:
-        response_per_soln: xr.DataArray = xr.apply_ufunc(
-            _prediction_central_beams_ufunc,
-            frequency_xdr,
-            input_core_dims=[[]],
-            output_core_dims=[("antenna", "receptor1", "receptor2")],
-            dask="parallelized",
-            output_dtypes=[
-                np.complex128,
-            ],
-            join="outer",
-            dataset_join="outer",
-            dask_gufunc_kwargs={
-                "output_sizes": {
-                    "antenna": gaintable.antenna.size,
-                    "receptor1": gaintable.receptor1.size,
-                    "receptor2": gaintable.receptor2.size,
-                }
-            },
-            kwargs={
-                "soln_time": val,
-                "beams_factory": beams_factory,
-            },
-        )
-        response_per_soln = response_per_soln.transpose(
-            "antenna", "frequency", "receptor1", "receptor2"
-        )
-        response_across_solution_time.append(response_per_soln)
-
-    response = xr.concat(response_across_solution_time, dim="time")
+    response = xr.concat(
+        [
+            xr.apply_ufunc(
+                _prediction_central_beams_ufunc,
+                frequency_xdr,
+                input_core_dims=[[]],
+                output_core_dims=[("antenna", "receptor1", "receptor2")],
+                dask="parallelized",
+                output_dtypes=[
+                    np.complex128,
+                ],
+                join="outer",
+                dataset_join="outer",
+                dask_gufunc_kwargs={
+                    "output_sizes": {
+                        "antenna": gaintable.antenna.size,
+                        "receptor1": gaintable.receptor1.size,
+                        "receptor2": gaintable.receptor2.size,
+                    }
+                },
+                kwargs={
+                    "soln_time": val,
+                    "beams_factory": beams_factory,
+                },
+            ).transpose("antenna", "frequency", "receptor1", "receptor2")
+            for val in gaintable.time.data
+        ],
+        dim="time",
+    )
 
     response = response.assign_coords(gaintable.gain.coords)
     response = response.assign_attrs(gaintable.gain.attrs)

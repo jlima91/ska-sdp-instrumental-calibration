@@ -114,3 +114,7 @@ def parse_antenna(refant, station_names: xr.DataArray, station_counts: int):
             raise ValueError("Reference antenna index is not valid")
         else:
             return refant
+
+    raise RuntimeError(
+        "Unsupported type for antenna. Only int or string supported"
+    )

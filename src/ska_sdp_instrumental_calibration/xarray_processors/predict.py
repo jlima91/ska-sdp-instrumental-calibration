@@ -117,9 +117,9 @@ def predict_vis(
         If the number of solution times does not match the number of interval
         slices.
     """
-    assert len(soln_interval_slices) == len(soln_time), (
-        "lengths of " "soln_interval_slices and soln_time do not match"
-    )
+    assert len(soln_interval_slices) == len(
+        soln_time
+    ), "lengths of soln_interval_slices and soln_time do not match"
 
     common_input_args = []
     common_input_core_dims = []
@@ -146,7 +146,7 @@ def predict_vis(
         # Ensure that it is not chunked across any dim
         # It can still be a dask array
 
-        if type(station_rm) is da.Array:
+        if isinstance(station_rm, da.Array):
             # "id" is a coordinate from Configuration dataset
             station_rm = xr.DataArray(
                 station_rm, coords={"id": np.arange(len(station_rm))}

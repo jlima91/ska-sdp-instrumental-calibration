@@ -78,12 +78,9 @@ def experimental(cli_args):
     cli_args: argparse.Namespace
         CLI arguments
     """
-    fixed_stages = []
 
     stage_mapping = {
-        stage.name: stage
-        for stage in ska_sdp_instrumental_calibration._stages
-        if stage.name not in fixed_stages
+        stage.name: stage for stage in ska_sdp_instrumental_calibration._stages
     }
 
     logger.warning("=========== INST Experimental ============")
@@ -102,12 +99,6 @@ def experimental(cli_args):
         new_parameters = {}
         for stage_dict in stage_order:
             stage_name, stage_config = list(stage_dict.items())[0]
-
-            if stage_name in fixed_stages:
-                raise RuntimeError(
-                    f"Mandatory stage {stage_name} included in the stage_order "
-                    "section"
-                )
 
             stage = stage_mapping[stage_name]
 

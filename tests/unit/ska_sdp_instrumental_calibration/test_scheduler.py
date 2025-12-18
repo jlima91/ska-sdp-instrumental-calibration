@@ -243,3 +243,10 @@ class TestDefaultScheduler:
             task2,
             task3,
         ]
+
+    def test_should_return_all_compute_tasks(self):
+        scheduler = DefaultScheduler()
+
+        scheduler.append("TASK")
+
+        assert scheduler.tasks == ["TASK"]

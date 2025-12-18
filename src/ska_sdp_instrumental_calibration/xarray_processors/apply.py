@@ -113,41 +113,37 @@ def apply_gaintable_to_dataset(
 
     soln_interval_slices = gaintable.soln_interval_slices
 
-    applied_vis_across_solutions = []
-    for idx, slc in enumerate(soln_interval_slices):
-        applied_vis_per_soln_interval = xr.apply_ufunc(
-            _apply_gaintable_to_dataset_ufunc,
-            vis.vis.isel(time=slc),
-            gains.isel(time=idx, drop=True),
-            input_core_dims=[
-                ["baselineid", "polarisation"],
-                ["antenna", "receptor1", "receptor2"],
-            ],
-            output_core_dims=[
-                ["baselineid", "polarisation"],
-            ],
-            dask="parallelized",
-            output_dtypes=[vis.vis.dtype],
-            dask_gufunc_kwargs=dict(
-                output_sizes={
-                    "baselineid": vis.baselineid.size,
-                    "polarisation": vis.polarisation.size,
-                }
-            ),
-            kwargs={
-                "antenna1": vis.antenna1,
-                "antenna2": vis.antenna2,
-                "inverse": inverse,
-            },
-        )
-        applied_vis_per_soln_interval = (
-            applied_vis_per_soln_interval.transpose(
-                "time", "baselineid", "frequency", "polarisation"
-            )
-        )
-        applied_vis_across_solutions.append(applied_vis_per_soln_interval)
-
-    applied: xr.DataArray = xr.concat(applied_vis_across_solutions, dim="time")
+    applied: xr.DataArray = xr.concat(
+        [
+            xr.apply_ufunc(
+                _apply_gaintable_to_dataset_ufunc,
+                vis.vis.isel(time=slc),
+                gains.isel(time=idx, drop=True),
+                input_core_dims=[
+                    ["baselineid", "polarisation"],
+                    ["antenna", "receptor1", "receptor2"],
+                ],
+                output_core_dims=[
+                    ["baselineid", "polarisation"],
+                ],
+                dask="parallelized",
+                output_dtypes=[vis.vis.dtype],
+                dask_gufunc_kwargs=dict(
+                    output_sizes={
+                        "baselineid": vis.baselineid.size,
+                        "polarisation": vis.polarisation.size,
+                    }
+                ),
+                kwargs={
+                    "antenna1": vis.antenna1,
+                    "antenna2": vis.antenna2,
+                    "inverse": inverse,
+                },
+            ).transpose("time", "baselineid", "frequency", "polarisation")
+            for idx, slc in enumerate(soln_interval_slices)
+        ],
+        dim="time",
+    )
 
     applied = applied.assign_attrs(vis.vis.attrs)
     return vis.assign({"vis": applied})

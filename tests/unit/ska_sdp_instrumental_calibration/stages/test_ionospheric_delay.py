@@ -165,7 +165,7 @@ def test_gaintable_export_is_triggered(
 
     ionospheric_delay_stage.stage_definition(
         mock_upstream_output,
-        cluster_indexes=[0, 1, 0, 1],
+        cluster_indexes=None,
         block_diagonal=True,
         niter=20,
         tol=1e-6,
