@@ -5,10 +5,10 @@ import xarray as xr
 from astropy import constants as const
 
 from ...data_managers.uv_range import UVRange
-from .vis_filter import AbstractVisibilityFilter
+from .vis_filter import VisibilityFilter
 
 
-class UVRangeFilter(AbstractVisibilityFilter):
+class UVRangeFilter(VisibilityFilter):
     """
     Parses and applies CASA-style UV range selection strings to UVW coordinates
 
@@ -39,7 +39,7 @@ class UVRangeFilter(AbstractVisibilityFilter):
     _re_ineq = re.compile(rf"^(!?)\s*(>|<)\s*({_num_re})\s*([a-z]*)$")
 
     @classmethod
-    def filter(cls, uvdist: str, vis: xr.Dataset):
+    def _filter(cls, uvdist: str, vis: xr.Dataset):
         uvrange_filter = UVRangeFilter(uvdist)
 
         return uvrange_filter(

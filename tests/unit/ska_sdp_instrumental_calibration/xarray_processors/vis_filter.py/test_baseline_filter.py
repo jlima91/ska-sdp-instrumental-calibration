@@ -39,18 +39,18 @@ def vis():
 
 
 def test_no_baselines_to_ignore_returns_flags_unchanged(vis):
-    result = BaselineFilter.filter("", vis)
+    result = BaselineFilter._filter("", vis)
     assert (result == vis.flags).all()
 
 
 def test_ingnore_single_baseline(vis):
-    result = BaselineFilter.filter("!ANT1&ANT2", vis)
+    result = BaselineFilter._filter("!ANT1&ANT2", vis)
 
     assert not result[:, 0, :, :].all()
     assert result[:, 1, :, :].all()
     assert not result[:, 2, :, :].all()
 
-    result = BaselineFilter.filter("!0&1", vis)
+    result = BaselineFilter._filter("!0&1", vis)
 
     assert not result[:, 0, :, :].all()
     assert result[:, 1, :, :].all()
@@ -73,13 +73,13 @@ def test_filter_baselines(vis):
 
 
 def test_filter_multiple_baselines(vis):
-    result = BaselineFilter.filter("ANT1&ANT2,ANT1&ANT1", vis)
+    result = BaselineFilter._filter("ANT1&ANT2,ANT1&ANT1", vis)
 
     assert not result[:, 0, :, :].all()
     assert not result[:, 1, :, :].all()
     assert result[:, 2, :, :].all()
 
-    result = BaselineFilter.filter("ANT1~ANT2&ANT2,ANT1&ANT1", vis)
+    result = BaselineFilter._filter("ANT1~ANT2&ANT2,ANT1&ANT1", vis)
 
     assert not result[:, 0, :, :].all()
     assert not result[:, 1, :, :].all()
@@ -90,4 +90,4 @@ def test_invalid_baseline_string_raises(vis):
     with pytest.raises(
         ValueError, match="Invalid baseline expression: ANT1-ANT2"
     ):
-        BaselineFilter.filter("ANT1-ANT2", vis)
+        BaselineFilter._filter("ANT1-ANT2", vis)

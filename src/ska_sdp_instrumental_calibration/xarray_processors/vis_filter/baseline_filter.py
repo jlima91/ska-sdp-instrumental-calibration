@@ -6,10 +6,10 @@ import xarray as xr
 
 from ...data_managers.baseline_expression import BaselinesExpression
 from .._utils import parse_antenna
-from .vis_filter import AbstractVisibilityFilter
+from .vis_filter import VisibilityFilter
 
 
-class BaselineFilter(AbstractVisibilityFilter):
+class BaselineFilter(VisibilityFilter):
     """
     Filters xarray datasets based on string-based baseline specifications.
 
@@ -41,7 +41,7 @@ class BaselineFilter(AbstractVisibilityFilter):
     _re_baseline = re.compile(_baseline_pattern)
 
     @classmethod
-    def filter(cls, baselines: str, vis: xr.Dataset):
+    def _filter(cls, baselines: str, vis: xr.Dataset):
         baseline_filter = BaselineFilter(baselines, vis.configuration.names)
 
         return baseline_filter(

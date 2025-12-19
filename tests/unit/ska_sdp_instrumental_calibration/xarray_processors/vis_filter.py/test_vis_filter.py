@@ -5,7 +5,6 @@ from ska_sdp_instrumental_calibration.xarray_processors.vis_filter import (
     BaselineFilter,
     UVRangeFilter,
     VisibilityFilter,
-    vis_filter,
 )
 
 
@@ -35,4 +34,4 @@ def test_should_not_filter_if_filter_expr_is_none():
 
 def test_should_raise_exception_for_not_implemented_filter_function():
     with pytest.raises(NotImplementedError):
-        vis_filter.AbstractVisibilityFilter.filter("filter", "vis")
+        VisibilityFilter._filter("filter", "vis")
