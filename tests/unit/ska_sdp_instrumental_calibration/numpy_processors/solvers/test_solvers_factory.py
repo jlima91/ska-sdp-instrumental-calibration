@@ -10,6 +10,7 @@ JonesSubtitution = alternative_solvers.JonesSubtitution
 NormalEquation = alternative_solvers.NormalEquation
 NormalEquationsPreSum = alternative_solvers.NormalEquationsPreSum
 GainSubstitution = gain_substitution_solver.GainSubstitution
+Solver = gain_substitution_solver.Solver
 SolverFactory = solvers_factory.SolverFactory
 
 
@@ -58,3 +59,20 @@ def test_get_solver_with_kwargs():
 def test_get_solver_raises_value_for_invalid_solver():
     with pytest.raises(ValueError):
         SolverFactory.get_solver("invalid_solver")
+
+
+def test_should_raise_not_implemented_exception():
+    solver = Solver()
+    with pytest.raises(NotImplementedError):
+        solver.solve(
+            "vis_vis",
+            "vis_flags",
+            "vis_weight",
+            "model_vis",
+            "model_flags",
+            "gain_gain",
+            "gain_weight",
+            "gain_residual",
+            "ant1",
+            "ant2",
+        )

@@ -317,6 +317,168 @@ def test_model_rotations_function(
     )
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.ModelRotationData"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.calculate_phi_raw"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.get_stn_masks"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.update_jones_with_masks"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.get_rm_spec"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.fit_curve"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.from_delayed"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.linalg.norm"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.abs"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.max"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.argmax"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.where"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.cos"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.sin"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.dask.array.hstack"
+)
+def test_model_rotations_function_without_fit(
+    mock_dask_hstack,
+    mock_dask_sin,
+    mock_dask_cos,
+    mock_dask_where,
+    mock_dask_argmax,
+    mock_dask_max,
+    mock_dask_abs,
+    mock_norm,
+    mock_from_delayed,
+    mock_fit_curve,
+    mock_get_rm_spec,
+    mock_update_jones_with_masks,
+    mock_get_stn_masks,
+    mock_calculate_phi_raw,
+    MockModelRotationData,
+):
+
+    mock_gaintable = MagicMock(spec=xr.Dataset)
+    mock_gaintable.weight = MagicMock(name="gaintable_weight")
+
+    mock_rotations_instance = MagicMock(spec=ModelRotationData)
+    mock_rotations_instance.nstations = 3
+    mock_rotations_instance.nfreq = 5
+
+    mock_rotations_instance.rm_vals = MagicMock(
+        spec=da.Array, name="mock_rm_vals"
+    )
+    mock_rotations_instance.phasor = MagicMock(
+        spec=da.Array, name="mock_phasor"
+    )
+    mock_rotations_instance.lambda_sq = MagicMock(
+        spec=da.Array, name="mock_lambda_sq"
+    )
+    mock_rotations_instance.J = MagicMock(
+        spec=da.Array, name="mock_J"
+    )  # noqa: E501
+    MockModelRotationData.return_value = mock_rotations_instance
+    mock_norms_dask_array = MagicMock(
+        spec=da.Array, name="mock_norms_dask_array"
+    )
+    mock_norms_dask_array.__getitem__.return_value = MagicMock(  # noqa: E501
+        spec=da.Array, name="mock_norms_slice"
+    )
+    mock_norms_dask_array.__getitem__.return_value.__gt__.return_value = (
+        MagicMock(spec=da.Array, name="mock_norms_gt_result")  # noqa: E501
+    )
+    mock_norm.return_value = mock_norms_dask_array
+    mock_mask_dask_array = MagicMock(
+        spec=da.Array, name="mock_mask_dask_array"
+    )
+    mock_rm_spec_dask_array = MagicMock(
+        spec=da.Array, name="mock_rm_spec_dask_array"
+    )
+    mock_fit_rm_dask_array = MagicMock(
+        spec=da.Array, name="mock_fit_rm_dask_array"
+    )
+
+    mock_phi_raw = MagicMock(spec=da.Array, name="mock_phi_raw")
+
+    mock_from_delayed.side_effect = [
+        mock_mask_dask_array,
+        mock_rotations_instance.J,
+        mock_phi_raw,
+        mock_rm_spec_dask_array,
+        mock_fit_rm_dask_array,
+    ]
+
+    mock_mask_dask_array.__and__.return_value = MagicMock(
+        spec=da.Array, name="final_mask_dask_array"
+    )
+
+    mock_fit_rm_dask_array.__getitem__.side_effect = lambda idx: MagicMock(
+        spec=da.Array
+    )  # noqa: E501
+
+    mock_get_stn_masks.return_value = np.ones((3, 5), dtype=bool)
+    mock_update_jones_with_masks.return_value = mock_rotations_instance.J
+    mock_get_rm_spec.return_value = np.random.random((3, 199))
+    mock_fit_curve.return_value = np.array([0.123, 0.456])
+
+    mock_dask_abs.return_value = MagicMock(spec=da.Array)
+    mock_dask_max_result = MagicMock(
+        spec=da.Array, name="mock_dask_max_result"
+    )
+
+    mock_dask_max_result.__gt__.return_value = MagicMock(
+        spec=da.Array, name="mock_dask_max_gt_result"
+    )
+    mock_dask_max.return_value = mock_dask_max_result
+    mock_dask_argmax.return_value = MagicMock(spec=da.Array)
+
+    mock_rotations_instance.rm_vals.__getitem__.return_value = MagicMock(
+        spec=da.Array, name="mock_rm_vals_indexed_result"
+    )
+
+    model_rotations(
+        mock_gaintable, peak_threshold=0.5, refine_fit=False, refant=1
+    )
+    mock_fit_curve.assert_not_called()
+
+
 def test_should_generate_rm_spec():
     phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=float)
 
