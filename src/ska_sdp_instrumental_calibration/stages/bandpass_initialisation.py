@@ -78,9 +78,7 @@ def bandpass_initialisation_stage(
     modelvis = upstream_output.modelvis
     initialtable = upstream_output.gaintable
 
-    refant = parse_antenna(
-        refant, initialtable.configuration.names, initialtable.antenna.size
-    )
+    refant = parse_antenna(refant, initialtable.configuration.names)
     solver = SolverFactory.get_solver(refant=refant, niter=niter, tol=tol)
 
     gaintable = run_solver(

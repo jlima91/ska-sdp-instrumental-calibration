@@ -2,10 +2,11 @@ import numpy as np
 import pytest
 import xarray as xr
 from astropy import constants as const
-from mock import ANY, call, patch
+from mock import ANY, MagicMock, call, patch
 
-from ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter import (
+from ska_sdp_instrumental_calibration.xarray_processors.vis_filter import (
     UVRangeFilter,
+    VisibilityFilter,
 )
 
 
@@ -83,7 +84,8 @@ from ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter import (
     ],
 )
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter.UVRange"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.UVRange"
 )
 def test_should_create_uvranges_for_the_given_uvrange_strings(
     uvrange_mock, uvrange, expected_uvrange
@@ -96,7 +98,8 @@ def test_should_create_uvranges_for_the_given_uvrange_strings(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter.UVRange"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.UVRange"
 )
 def test_should_not_uvdist_kl(uvrange_mock):
     uvrange_mock.return_value = uvrange_mock
@@ -140,7 +143,8 @@ def test_should_not_uvdist_kl(uvrange_mock):
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter.UVRange"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.UVRange"
 )
 def test_should_precompute_uvdist_kl(uvrange_mock):
     uvrange_mock.return_value = uvrange_mock
@@ -187,28 +191,28 @@ def test_should_precompute_uvdist_kl(uvrange_mock):
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter.UVRange"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.UVRange"
 )
 def test_should_update_flags(uvrange_mock):
     uvrange_mock.return_value = uvrange_mock
+    vis = MagicMock(name="vis")
 
-    uv_range_filter = UVRangeFilter("<10kl")
-
-    u = xr.DataArray(
+    vis.visibility_acc.u = xr.DataArray(
         np.array([[3, 4, 5, 6], [7, 8, 9, 10]]),
         dims=["time", "baseline"],
         coords={"time": np.arange(2), "baseline": np.arange(4)},
     )
 
-    v = xr.DataArray(
+    vis.visibility_acc.v = xr.DataArray(
         np.zeros((2, 4)),
         dims=["time", "baseline"],
         coords={"time": np.arange(2), "baseline": np.arange(4)},
     )
 
-    freq = xr.DataArray(np.arange(5), dims=["frequency"])
+    vis.frequency = xr.DataArray(np.arange(5), dims=["frequency"])
 
-    flags = xr.DataArray(
+    vis.flags = xr.DataArray(
         np.zeros((2, 4, 5, 4), dtype=bool),
         dims=["time", "baseline", "frequency", "pol"],
         coords={
@@ -219,9 +223,8 @@ def test_should_update_flags(uvrange_mock):
         },
     )
 
-    uvrange_mock.predicate.return_value = u > 6
-
-    actual = uv_range_filter(u, v, flags, freq)
+    uvrange_mock.predicate.return_value = vis.visibility_acc.u > 6
+    filtered_vis = VisibilityFilter.filter({"uvdist": "<10kl"}, vis)
 
     expected = np.zeros((2, 4, 5, 4), dtype=bool)
     expected[0, ...] = True
@@ -237,6 +240,13 @@ def test_should_update_flags(uvrange_mock):
         },
     )
 
+    vis.assign.assert_called_once_with({"flag": ANY})
+
+    called_args, _ = vis.assign.call_args
+
+    actual = called_args[0]["flag"]
+
+    assert filtered_vis == vis.assign.return_value
     assert actual.equals(expected_flags)
 
 
@@ -253,12 +263,12 @@ def test_should_raise_value_error_for_invalid_unit():
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter"
-    ".np.hypot"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.np.hypot"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.uvrange_filter"
-    ".UVRange"
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".vis_filter.uvrange_filter.UVRange"
 )
 def test_should_raise_freq_value_error_for_klambda_selection(_, __):
     with pytest.raises(

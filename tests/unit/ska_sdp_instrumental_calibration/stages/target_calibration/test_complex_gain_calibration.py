@@ -77,7 +77,6 @@ def test_should_perform_complex_gain_calibration(
     parse_ref_ant_mock.assert_called_once_with(
         2,
         initial_gaintable.configuration.names,
-        initial_gaintable.antenna.size,
     )
     initial_gaintable.pipe.assert_called_once_with(
         with_chunks, upstream_output["chunks"]
@@ -137,7 +136,7 @@ def test_should_perform_complex_gain_calibration(
 def test_should_export_gaintable_with_proper_suffix(
     solver_factory_mock,
     run_solver_mock,
-    parese_reference_antenna_mock,
+    parse_reference_antenna_mock,
     plot_gaintable_time_mock,
     export_gaintable_mock,
     get_gaintables_path_mock,

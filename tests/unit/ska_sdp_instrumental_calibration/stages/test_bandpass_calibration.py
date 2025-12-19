@@ -17,8 +17,7 @@ def test_should_have_the_expected_default_configuration():
                 "normalise_gains": None,
                 "timeslice": None,
             },
-            "uvdist": None,
-            "baselines": None,
+            "visibility_filters": {"uvdist": None, "baselines": None},
             "plot_config": {"plot_table": True, "fixed_axis": False},
             "visibility_key": "vis",
             "export_gaintable": True,
@@ -74,17 +73,14 @@ def test_should_perform_bandpass_calibration(
     actual_output = bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
         _output_dir_="/output/path",
     )
 
-    parse_ref_ant_mock.assert_called_once_with(
-        2, initable.configuration.names, initable.antenna.size
-    )
+    parse_ref_ant_mock.assert_called_once_with(2, initable.configuration.names)
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="solver",
@@ -164,8 +160,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -175,8 +170,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -272,8 +266,7 @@ def test_should_export_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
@@ -283,8 +276,7 @@ def test_should_export_gaintable_with_proper_suffix(
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
@@ -358,8 +350,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     actual_output = bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=None,
-        baselines=None,
+        visibility_filters=None,
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
@@ -389,11 +380,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".BaselineFilter"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".UVRangeFilter"
+    ".VisibilityFilter"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
@@ -411,8 +398,7 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     solver_factory_mock,
     run_solver_mock,
     parse_ref_ant_mock,
-    uvrange_filter_mock,
-    baseline_filter_mock,
+    visibility_filter_mock,
 ):
     upstream_output = UpstreamOutput()
     mock_vis = Mock(name="vis")
@@ -440,57 +426,23 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
 
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
-    uvrange_filter_mock.side_effect = [uvrange_filter_mock, "filtered_flags"]
-    baseline_filter_mock.side_effect = [
-        baseline_filter_mock,
-        "baseline_filtered_flags",
-    ]
 
     bandpass_calibration_stage.stage_definition(
         upstream_output,
         run_solver_config=run_solver_config,
-        uvdist=">500m",
-        baselines="ANT1&ANT2",
+        visibility_filters=dict(uvdist=">500m", baselines="ANT1&ANT2"),
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
         _output_dir_="/output/path",
     )
 
-    uvrange_filter_mock.assert_has_calls(
-        [
-            call(">500m"),
-            call(
-                upstream_output.vis.visibility_acc.u,
-                upstream_output.vis.visibility_acc.v,
-                upstream_output.vis.flags,
-                upstream_output.vis.frequency,
-            ),
-        ]
-    )
-
-    baseline_filter_mock.assert_has_calls(
-        [
-            call(
-                "ANT1&ANT2",
-                initable.configuration.names,
-                initable.antenna.size,
-            ),
-            call(
-                mock_vis.baselines,
-                mock_vis.flags,
-            ),
-        ]
-    )
-    mock_vis.assign.assert_has_calls(
-        [
-            call({"flags": "filtered_flags"}),
-            call({"flags": "baseline_filtered_flags"}),
-        ]
+    visibility_filter_mock.filter.assert_called_once_with(
+        dict(uvdist=">500m", baselines="ANT1&ANT2"), upstream_output.vis
     )
 
     run_solver_mock.assert_called_once_with(
-        vis=upstream_output.vis,
+        vis=visibility_filter_mock.filter.return_value,
         modelvis=upstream_output.modelvis,
         gaintable=initable,
         solver="SOLVER",

@@ -27,17 +27,19 @@ def test_should_parse_reference_antenna():
     coords = {"id": np.arange(4)}
     ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
 
-    output = parse_antenna(refant, ant_names, 4)
+    output = parse_antenna(refant, ant_names)
 
     assert output == 0
 
 
 def test_should_raise_exception_if_unsuported_type_for_antenna():
+    antnames_mock = MagicMock(name="gaintable")
+    antnames_mock.size = 5
     with pytest.raises(
-        RuntimeError,
-        match="Unsupported type for antenna. Only int or string supported",
+        ValueError,
+        match=r"Invalid antenna value \[1, 2, 3\]",
     ):
-        parse_antenna([1, 2, 3], "ant_names", 4)
+        parse_antenna([1, 2, 3], antnames_mock)
 
 
 def test_should_raise_error_when_ref_ant_is_invalid():
@@ -47,17 +49,18 @@ def test_should_raise_error_when_ref_ant_is_invalid():
     coords = {"id": np.arange(4)}
     ant_names = xr.DataArray(antennas, dims=dims, coords=coords)
 
-    with pytest.raises(ValueError) as error:
-        parse_antenna(refant, ant_names, 4)
-    assert str(error.value) == "Reference antenna name is not valid"
+    with pytest.raises(
+        ValueError, match="Reference antenna name is not valid"
+    ):
+        parse_antenna(refant, ant_names)
 
 
 def test_should_raise_error_when_antenna_index_is_invalid():
     refant = 10
     antnames_mock = MagicMock(name="gaintable")
-    with pytest.raises(ValueError) as error:
-        parse_antenna(refant, antnames_mock, 5)
-    assert str(error.value) == "Reference antenna index is not valid"
+    antnames_mock.size = 5
+    with pytest.raises(ValueError, match="Invalid antenna value 10"):
+        parse_antenna(refant, antnames_mock)
 
 
 @patch("ska_sdp_instrumental_calibration.xarray_processors._utils.logger")

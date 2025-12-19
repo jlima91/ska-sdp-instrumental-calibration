@@ -4,10 +4,11 @@ import numpy as np
 import xarray as xr
 from astropy import constants as const
 
-from ska_sdp_instrumental_calibration.data_managers.uv_range import UVRange
+from ...data_managers.uv_range import UVRange
+from .vis_filter import AbstractVisibilityFilter
 
 
-class UVRangeFilter:
+class UVRangeFilter(AbstractVisibilityFilter):
     """
     Parses and applies CASA-style UV range selection strings to UVW coordinates
 
@@ -25,6 +26,8 @@ class UVRangeFilter:
         Regex pattern for matching inequality strings (e.g., ">500m").
     """
 
+    _FILTER_NAME_ = "uvdist"
+
     _num_re = r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
 
     # Matches: "!0~10klambda"
@@ -34,6 +37,17 @@ class UVRangeFilter:
 
     # Matches: ">500m"
     _re_ineq = re.compile(rf"^(!?)\s*(>|<)\s*({_num_re})\s*([a-z]*)$")
+
+    @classmethod
+    def filter(cls, uvdist: str, vis: xr.Dataset):
+        uvrange_filter = UVRangeFilter(uvdist)
+
+        return uvrange_filter(
+            vis.visibility_acc.u,
+            vis.visibility_acc.v,
+            vis.flags,
+            vis.frequency,
+        )
 
     def __init__(self, uvranges):
         """

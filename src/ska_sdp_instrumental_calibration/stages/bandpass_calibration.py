@@ -13,9 +13,8 @@ from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import SolverFactory
 from ..plot import PlotGaintableFrequency
 from ..xarray_processors._utils import parse_antenna
-from ..xarray_processors.baseline_filter import BaselineFilter
 from ..xarray_processors.solver import run_solver
-from ..xarray_processors.uvrange_filter import UVRangeFilter
+from ..xarray_processors.vis_filter import VisibilityFilter
 from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
 from ._utils import get_gaintables_path, get_plots_path
 
@@ -67,19 +66,24 @@ logger = logging.getLogger()
                 ),
             },
         ),
-        uvdist=ConfigParam(
-            str,
-            None,
-            description="CASA like uvrange strings to keep"
-            ", separated by comma for multiple. E.g. '0~10klambda','100~500m'",
-            nullable=True,
-        ),
-        baselines=ConfigParam(
-            str,
-            None,
-            description="Baselines strings to ignore"
-            ", separated by comma for multiple. E.g. 'ANT1&ANT2,3&ANT4'",
-            nullable=True,
+        visibility_filters=NestedConfigParam(
+            "Visibility Filters",
+            uvdist=ConfigParam(
+                str,
+                None,
+                description="CASA like uvrange strings to keep"
+                ", separated by comma for multiple. "
+                "E.g. '0~10klambda','100~500m'",
+                nullable=True,
+            ),
+            baselines=ConfigParam(
+                str,
+                None,
+                description="CASA like baselines strings to keep"
+                ", separated by comma for multiple. "
+                "E.g. '!ANT1&ANT2,1~3&ANT4'",
+                nullable=True,
+            ),
         ),
         plot_config=NestedConfigParam(
             "Plot parameters",
@@ -113,8 +117,7 @@ logger = logging.getLogger()
 def bandpass_calibration_stage(
     upstream_output,
     run_solver_config,
-    uvdist,
-    baselines,
+    visibility_filters,
     plot_config,
     visibility_key,
     export_gaintable,
@@ -129,9 +132,8 @@ def bandpass_calibration_stage(
             Output from the upstream stage
         run_solver_config: dict
             {run_solver_docstring}
-        uvdist: str
-            CASA like uvrange strings, separated by comma for multiple.
-            E.g. '0~10klambda','100~500m'
+        visibility_filters: dict[str, str]
+            CASA style Visibility filters
         plot_config: dict
             Configuration required for plotting.
             eg: {{plot_table: False, fixed_axis: False}}
@@ -158,7 +160,7 @@ def bandpass_calibration_stage(
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_antenna(
-        refant, initialtable.configuration.names, initialtable.antenna.size
+        refant, initialtable.configuration.names
     )
 
     solver = SolverFactory.get_solver(**run_solver_config)
@@ -167,34 +169,7 @@ def bandpass_calibration_stage(
     if call_count := upstream_output.get_call_count("bandpass"):
         call_counter_suffix = f"_{call_count}"
 
-    filtered_vis = vis
-    if uvdist is not None:
-        logger.info(f"Applying UV range filter: {uvdist}")
-        filtered_vis = vis.assign(
-            {
-                "flags": UVRangeFilter(uvdist)(
-                    vis.visibility_acc.u,
-                    vis.visibility_acc.v,
-                    vis.flags,
-                    vis.frequency,
-                )
-            }
-        )
-
-    if baselines is not None:
-        logger.info(f"Applying Baseline filter: {baselines}")
-        filtered_vis = vis.assign(
-            {
-                "flags": BaselineFilter(
-                    baselines,
-                    initialtable.configuration.names,
-                    initialtable.antenna.size,
-                )(
-                    filtered_vis.baselines,
-                    filtered_vis.flags,
-                )
-            }
-        )
+    filtered_vis = VisibilityFilter.filter(visibility_filters, vis)
 
     gaintable = run_solver(
         vis=filtered_vis,
