@@ -215,21 +215,29 @@ def gain_substitution(
 
     mask = numpy.abs(xwt) > 0.0
     if numpy.sum(mask) > 0:
-        _solve_with_mask(
-            crosspol,
-            _gain,
-            _gain_weight,
-            _gain_residual,
-            mask,
-            niter,
-            phase_only,
-            0,
-            tol,
-            npol,
+        x_shape = x.shape
+        x[mask] = x[mask] / xwt[mask]
+        x[~mask] = 0.0
+        xwt[mask] = xwt[mask] / numpy.max(xwt[mask])
+        xwt[~mask] = 0.0
+        x = x.reshape(x_shape)
+
+        mask_solver = _get_mask_solver(crosspol, npol)
+
+        (
+            _gain[0, ...],
+            _gain_weight[0, ...],
+            _gain_residual[0, ...],
+        ) = mask_solver(
+            _gain[0, ...],
+            _gain_weight[0, ...],
             x,
             xwt,
-            refant,
-            refant_sort,
+            phase_only=phase_only,
+            niter=niter,
+            tol=tol,
+            refant=refant,
+            refant_sort=refant_sort,
         )
     else:
         _gain[...] = 1.0 + 0.0j
@@ -344,81 +352,14 @@ def create_point_vis(
     )
 
 
-def _solve_with_mask(
-    crosspol,
-    gaintable_gain: numpy.ndarray,
-    gaintable_weight: numpy.ndarray,
-    gaintable_residual: numpy.ndarray,
-    mask,
-    niter,
-    phase_only,
-    row,
-    tol,
-    npol,
-    x,
-    xwt,
-    refant,
-    refant_sort,
-):
-    """
-    Method extracted from solve_gaintable to decrease
-    complexity. Calculations when `numpy.sum(mask) > 0`
-    """
-    x_shape = x.shape
-    x[mask] = x[mask] / xwt[mask]
-    x[~mask] = 0.0
-    xwt[mask] = xwt[mask] / numpy.max(xwt[mask])
-    xwt[~mask] = 0.0
-    x = x.reshape(x_shape)
+def _get_mask_solver(crosspol, npol):
     if npol == 2 or (npol == 4 and not crosspol):
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_nocrossdata(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
-    elif npol == 4 and crosspol:
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_matrix(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
+        return _solve_antenna_gains_itsubs_nocrossdata
 
-    else:
-        (
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            gaintable_residual[row, ...],
-        ) = _solve_antenna_gains_itsubs_scalar(
-            gaintable_gain[row, ...],
-            gaintable_weight[row, ...],
-            x,
-            xwt,
-            phase_only=phase_only,
-            niter=niter,
-            tol=tol,
-            refant=refant,
-            refant_sort=refant_sort,
-        )
+    if npol == 4:
+        return _solve_antenna_gains_itsubs_matrix
+
+    return _solve_antenna_gains_itsubs_scalar
 
 
 def _apply_flag(x: numpy.ndarray, flags: numpy.ndarray):
