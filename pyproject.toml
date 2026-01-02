@@ -49,24 +49,18 @@ ska-sdp-func = ["ska-sdp-func"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 
 [tool.poetry.group.dev.dependencies]
-mock = "^5.1.0"
-pylint = "^3.3.1"
-pytest = "^8.3.3"
-pytest-mock = "^3.12.0"
-pytest-pylint = "^0.21.0"
-python-dotenv = ">=0.5.1"
-setuptools = "^70.0.0"
-pylint-junit = "^0.3.2"
-nbmake = "^1.4.1"
-nbqa = "^1.7.0"
 isort = "^5.6.4"
 flake8 = "^7.1.0"
 black = "^24.10.0"
+mock = "^5.1.0"
+pylint = "^3.3.1"
+pylint-junit = "^0.3.2"
+pytest = "^8.3.3"
+pytest-mock = "^3.12.0"
+pytest-pylint = "^0.21.0"
 pytest-json-report = "^1.5.0"
 pytest-cov = "^6.0.0"
 pytest-json = "^0.4.0"
-pylance = "^0.5.9"
-setuptools-scm = "^7.1.0"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = ">=8"
@@ -83,3 +77,15 @@ ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.instrumenta
 ska-sdp-instrumental-target-calibration = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_calibration"
 ska-sdp-instrumental-target-ionospheric = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_ionospheric_calibration"
 clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
+
+[tool.coverage.run]
+branch = true
+source = [
+    "src",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov --json-report --json-report-file=htmlcov/report.json --cov-report term --cov-report html --cov-report xml --pylint --pylint-error-types=EF --junitxml=./build/reports/unit-tests.xml"
+testpaths = [
+    "tests",
+]

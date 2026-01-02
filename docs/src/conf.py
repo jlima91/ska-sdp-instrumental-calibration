@@ -99,6 +99,9 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
+# For generating slugs for headings
+# See https://myst-parser.readthedocs.io/en/latest/syntax/optional.html#syntax-header-anchors
+myst_heading_anchors = 3
 
 # -- Options for HTML output ----------------------------------------------
 
