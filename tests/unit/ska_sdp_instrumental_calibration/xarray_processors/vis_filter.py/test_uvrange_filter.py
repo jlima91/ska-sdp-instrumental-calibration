@@ -198,56 +198,73 @@ def test_should_update_flags(uvrange_mock):
     uvrange_mock.return_value = uvrange_mock
     vis = MagicMock(name="vis")
 
-    vis.visibility_acc.u = xr.DataArray(
-        np.array([[3, 4, 5, 6], [7, 8, 9, 10]]),
-        dims=["time", "baseline"],
-        coords={"time": np.arange(2), "baseline": np.arange(4)},
+    vis.uvw = xr.DataArray(
+        np.array(
+            [
+                [
+                    [3.0, 0.0, 0.0],
+                    [4.0, 0.0, 0.0],
+                    [5.0, 0.0, 0.0],
+                    [6.0, 0.0, 0.0],
+                ],
+                [
+                    [7.0, 0.0, 0.0],
+                    [8.0, 0.0, 0.0],
+                    [9.0, 0.0, 0.0],
+                    [10.0, 0.0, 0.0],
+                ],
+            ]
+        ),
+        dims=["time", "baselineid", "spatial"],
+        coords={
+            "time": np.arange(2),
+            "baselineid": np.arange(4),
+            "spatial": "u v w".split(),
+        },
     )
 
-    vis.visibility_acc.v = xr.DataArray(
-        np.zeros((2, 4)),
-        dims=["time", "baseline"],
-        coords={"time": np.arange(2), "baseline": np.arange(4)},
+    # 'u > 6' must be selected
+    uvrange_mock.predicate.return_value = (
+        vis.uvw.sel(spatial="u", drop=True) > 6
+    )
+
+    # Since 'u > 6' is true only for time=1,
+    # all values for time=0 are flagged
+    expected = np.zeros((2, 4, 5, 4), dtype=bool)
+    expected[0, ...] = True
+    expected_flags = xr.DataArray(
+        expected,
+        dims=["time", "baselineid", "frequency", "pol"],
+        coords={
+            "time": np.arange(2),
+            "baselineid": np.arange(4),
+            "frequency": np.arange(5),
+            "pol": np.arange(4),
+        },
     )
 
     vis.frequency = xr.DataArray(np.arange(5), dims=["frequency"])
 
     vis.flags = xr.DataArray(
         np.zeros((2, 4, 5, 4), dtype=bool),
-        dims=["time", "baseline", "frequency", "pol"],
+        dims=["time", "baselineid", "frequency", "pol"],
         coords={
             "time": np.arange(2),
-            "baseline": np.arange(4),
+            "baselineid": np.arange(4),
             "frequency": np.arange(5),
             "pol": np.arange(4),
         },
     )
 
-    uvrange_mock.predicate.return_value = vis.visibility_acc.u > 6
     filtered_vis = VisibilityFilter.filter({"uvdist": "<10kl"}, vis)
-
-    expected = np.zeros((2, 4, 5, 4), dtype=bool)
-    expected[0, ...] = True
-
-    expected_flags = xr.DataArray(
-        expected,
-        dims=["time", "baseline", "frequency", "pol"],
-        coords={
-            "time": np.arange(2),
-            "baseline": np.arange(4),
-            "frequency": np.arange(5),
-            "pol": np.arange(4),
-        },
-    )
 
     vis.assign.assert_called_once_with({"flag": ANY})
 
     called_args, _ = vis.assign.call_args
-
-    actual = called_args[0]["flag"]
+    actual_flags = called_args[0]["flag"]
 
     assert filtered_vis == vis.assign.return_value
-    assert actual.equals(expected_flags)
+    assert actual_flags.equals(expected_flags)
 
 
 def test_should_raise_value_error_for_invalid_uvrange_string():

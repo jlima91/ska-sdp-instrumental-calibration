@@ -43,8 +43,8 @@ class UVRangeFilter(VisibilityFilter):
         uvrange_filter = UVRangeFilter(uvdist)
 
         return uvrange_filter(
-            vis.visibility_acc.u,
-            vis.visibility_acc.v,
+            vis.uvw.sel(spatial="u", drop=True),
+            vis.uvw.sel(spatial="v", drop=True),
             vis.flags,
             vis.frequency,
         )
