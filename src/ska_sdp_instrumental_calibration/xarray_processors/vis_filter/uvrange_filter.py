@@ -227,13 +227,19 @@ class UVRangeFilter(VisibilityFilter):
             uvdist_kl = (uvdist / _lambda) / 1000.0
 
         masks = [
-            xr.ones_like(flags).where(
-                uvrange.predicate(uvdist, uvdist_kl), other=0
-            )
-            for uvrange in self._uvranges
+            uvrange.predicate(uvdist, uvdist_kl) for uvrange in self._uvranges
         ]
 
-        if not masks:
+        if len(masks) == 0:
             return flags
 
-        return flags | (1 - np.logical_or.reduce(masks))
+        is_selected = masks[0]
+        # Looping for dask compatibility
+        for msk in masks[1:]:
+            is_selected = is_selected | msk
+
+        new_flags = xr.zeros_like(flags, dtype=bool).where(
+            is_selected, other=True
+        )
+
+        return flags | new_flags
