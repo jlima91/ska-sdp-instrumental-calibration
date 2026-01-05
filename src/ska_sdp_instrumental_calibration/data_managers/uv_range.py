@@ -11,30 +11,21 @@ class UVRange:
     including boundaries, units, inclusivity, and negation logic.
     It is typically instantiated by ``UVRangeFilter`` rather than directly
     by the user.
-
-    Attributes
-    ----------
-    uv_min : float
-        Minimum UV distance for the range.
-    uv_max : float
-        Maximum UV distance for the range.
-    unit : str
-        The unit of the range. Must be one of 'm', 'km', or 'kl'.
-    negate : bool
-        If True, the selection logic is inverted (i.e., select data *outside*
-        the specified range).
-    min_inclusive : bool
-        If True, use inclusive comparison (>=) for the lower bound.
-    max_inclusive : bool
-        If True, use inclusive comparison (<=) for the upper bound.
     """
 
     uv_min: float
+    "Minimum UV distance for the range."
     uv_max: float
+    "Maximum UV distance for the range."
     unit: str
+    """The unit of the range. Must be one of 'm', 'km', or 'kl'."""
     negate: bool
+    """If True, the selection logic is inverted (i.e., select data *outside*
+    the specified range)."""
     min_inclusive: bool
+    "If True, use inclusive comparison (>=) for the lower bound."
     max_inclusive: bool
+    "If True, use inclusive comparison (<=) for the upper bound."
 
     def __post_init__(self):
         """

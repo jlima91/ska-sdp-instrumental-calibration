@@ -1,4 +1,4 @@
-from abc import ABC, abstractclassmethod
+from abc import ABC, abstractmethod
 
 import xarray as xr
 
@@ -24,7 +24,8 @@ class VisibilityFilter(ABC):
         if hasattr(cls, "_FILTER_NAME_"):
             cls._data_filters[cls._FILTER_NAME_] = cls
 
-    @abstractclassmethod
+    @classmethod
+    @abstractmethod
     def _filter(cls, filters: str, vis: xr.Dataset):
         """
         Apply specific filtering logic to the dataset.
@@ -44,11 +45,6 @@ class VisibilityFilter(ABC):
         -------
         xr.DataArray
             The updated visibility flag.
-
-        Raises
-        ------
-        NotImplementedError
-            If the subclass does not implement this method.
         """
         raise NotImplementedError("Filter function not implemented")
 

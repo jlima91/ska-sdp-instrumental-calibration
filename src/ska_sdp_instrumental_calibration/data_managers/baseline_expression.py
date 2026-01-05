@@ -12,25 +12,18 @@ class BaselinesExpression:
 
     This class handles logic for selecting baselines based on string
     expressions representing antenna ranges.
-
-    Parameters
-    ----------
-    left : str
-        The left-hand side of the baseline expression (e.g., "1" or "1~5").
-    right : str
-        The right-hand side of the baseline expression.
-    negate : Union[bool, str]
-        Flag to indicate if the selection should be inverted. If passed as
-        "!", it is converted to True (exclusion).
-    antenna_parser : Callable, optional
-        Function to parse antenna strings into integers. Defaults to
-        ``lambda x: int(x)``.
     """
 
     left: str
+    """The left-hand side of the baseline expression (e.g., "1" or "1~5")."""
     right: str
+    "The right-hand side of the baseline expression."
     negate: Union[bool, str]
+    """Flag to indicate if the selection should be inverted. If passed as
+    "!", it is converted to True (exclusion)."""
     antenna_parser: Callable = lambda x: int(x)
+    """Function to parse antenna strings into integers. Defaults to
+    ``lambda x: int(x)``."""
 
     def __post_init__(self):
         """
@@ -48,12 +41,11 @@ class BaselinesExpression:
 
         Parameters
         ----------
-        expression : str
+        expression
             The string defining the range (e.g., "5" or "1~4").
 
         Returns
         -------
-        range
             A range object covering the specified start and end (inclusive).
         """
         start, *end = [self.antenna_parser(x) for x in expression.split("~")]
@@ -69,12 +61,11 @@ class BaselinesExpression:
 
         Parameters
         ----------
-        baselines : iterable of tuples
+        baselines
             A collection of baselines (tuples of antenna IDs) to evaluate.
 
         Returns
         -------
-        np.ndarray
             A boolean array of the same length as ``baselines``, where True
             indicates the baseline matches the expression.
         """
