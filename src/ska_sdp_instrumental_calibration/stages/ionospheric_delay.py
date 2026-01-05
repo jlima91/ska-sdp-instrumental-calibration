@@ -5,14 +5,11 @@ import numpy as np
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
-)
-
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..plot import PlotGaintableFrequency
 from ..xarray_processors import with_chunks
+from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.ionosphere_solvers import IonosphericSolver
 from ._utils import get_gaintables_path, get_plots_path
 

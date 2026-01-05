@@ -202,6 +202,8 @@ class IonosphericSolver:
         [self.param, self.coeff] = set_coeffs_and_params(
             self.xyz, self.cluster_indexes, self.zernike_limit
         )
+        # Need to convert list to numpy array
+        self.param = np.asarray(self.param)
 
         n_cluster = np.amax(self.cluster_indexes) + 1
         n_param = get_param_count(self.param)[0]
@@ -227,11 +229,17 @@ class IonosphericSolver:
                 len(self.param) - 1,
             )
 
-        param = self.get_updated_params(n_cluster, n_param)
+        # Pass each dask-backed dataarray as a seperate variable
         new_gain_data = da.from_delayed(
-            self.updated_gain_table(param, gaintable.gain),
-            gaintable.gain.shape,
-            gaintable.gain.dtype,
+            self._solve_gains(
+                gaintable.gain.data,
+                self.vis,
+                self.weight,
+                self.flags,
+                self.modelvis,
+            ),
+            shape=gaintable.gain.shape,
+            dtype=gaintable.gain.dtype,
         )
 
         new_gain = gaintable.gain.copy()
@@ -239,7 +247,37 @@ class IonosphericSolver:
 
         return gaintable.assign({"gain": new_gain})
 
-    def get_updated_params(self, n_cluster, n_param):
+    @dask.delayed
+    def _solve_gains(self, old_gain_data, vis, weight, flags, modelvis):
+        """
+        Docstring for process
+
+        Parameters
+        ----------
+        old_gain_data: numpy.ndarray
+        vis: xr.DataArray
+        weight: xr.DataArray
+        flags: xr.DataArray
+        modelvis: xr.DataArray
+
+        Returns
+        -------
+        numpy.ndarray
+            Solved gain data array, with same shape and dtype
+            as old_gain_data
+        """
+        # Reassign dataarrays
+        self.vis = vis
+        self.weight = weight
+        self.flags = flags
+        self.modelvis = modelvis
+
+        param = self.get_updated_params()
+        new_gain_data = self.updated_gain_table(param, old_gain_data)
+
+        return new_gain_data
+
+    def get_updated_params(self):
         """
         Iteratively update the screen parameters until convergence.
 
@@ -261,29 +299,17 @@ class IonosphericSolver:
             The final, converged screen parameters.
         """
         modelvis = self.modelvis
-        param = da.from_array(self.param, chunks="auto")
-        solve_function = dask.delayed(
+        param = self.param
+        solve_function = (
             self._solve_for_block_diagonal
             if self.block_diagonal
             else self._solve_for_non_block_diagonal
         )
 
         for it in range(self.niter):
-            param_update = da.from_delayed(
-                solve_function(modelvis, param, it),
-                (n_cluster, n_param),
-                np.float64,
-            )
-
+            param_update = solve_function(modelvis, param, it)
             param = param_update + param
-
-            modelvis = da.from_delayed(
-                dask.delayed(self._apply_phase_distortions)(
-                    modelvis, param_update
-                ),
-                modelvis.shape,
-                modelvis.dtype,
-            )
+            modelvis = self._apply_phase_distortions(modelvis, param_update)
 
         return param
 
@@ -388,7 +414,7 @@ class IonosphericSolver:
 
         [n_param, pidx0] = get_param_count(param)
 
-        A = np.zeros((n_param, *modelvis.shape), "complex_")
+        A = np.zeros((n_param, *modelvis.shape), np.complex128)
 
         for _cid in range(0, n_cluster):
             pid = np.arange(pidx0[_cid], pidx0[_cid] + len(param[_cid]))
@@ -432,7 +458,7 @@ class IonosphericSolver:
             The design matrix A for the specified cluster.
         """
         n_baselines = len(self.mask0)
-        A = np.zeros((n_param, *modelvis.shape), "complex_")
+        A = np.zeros((n_param, *modelvis.shape), np.complex128)
         wl_const = self.wl_const.reshape(1, *self.wl_const.shape, 1)
 
         blidx_all = np.arange(n_baselines)
@@ -455,8 +481,7 @@ class IonosphericSolver:
 
         return A
 
-    @dask.delayed
-    def updated_gain_table(self, param, gain):
+    def updated_gain_table(self, param, gain_data):
         """
         Construct the final gain table from the solved parameters.
 
@@ -467,7 +492,7 @@ class IonosphericSolver:
         ----------
         param : numpy.ndarray
             The final, converged screen parameters for all clusters.
-        gain : numpy.ndarray
+        gain_data : numpy.ndarray
             An empty or template gain data array to be filled.
 
         Returns
@@ -476,7 +501,7 @@ class IonosphericSolver:
             The populated gain table data array.
         """
         [n_cluster, cid2stn, _] = set_cluster_maps(self.cluster_indexes)
-        table_data = np.copy(gain.data)
+        table_data = np.copy(gain_data)
 
         for cid in range(0, n_cluster):
             # combine parmas for [n_station] phase terms and scale for [n_freq]
@@ -485,7 +510,7 @@ class IonosphericSolver:
                     "s,f->sf",
                     np.einsum(
                         "sp,p->s",
-                        np.vstack(self.coeff[cid2stn[cid]]).astype("float_"),
+                        np.vstack(self.coeff[cid2stn[cid]]).astype(np.float64),
                         param[cid],
                     ),
                     1j * self.wl_const,
@@ -615,10 +640,10 @@ class IonosphericSolver:
                 continue
 
             coeffs1 = np.vstack(self.coeff[self.antenna1[mask]]).astype(
-                "float_"
+                np.float64
             )
             coeffs2 = np.vstack(self.coeff[self.antenna2[mask]]).astype(
-                "float_"
+                np.float64
             )
 
             tec_effect1 = np.einsum("bp,p->b", coeffs1, param[cid1])
@@ -650,10 +675,10 @@ class IonosphericSolver:
         it : int
             The current iteration number.
         """
-        mask = np.abs(np.hstack(param).astype("float_")) > 0.0
+        mask = np.abs(np.hstack(param).astype(np.float64)) > 0.0
         self.change = np.max(
-            np.abs(np.hstack(param_update)[mask].astype("float_"))
-            / np.abs(np.hstack(param)[mask].astype("float_"))
+            np.abs(np.hstack(param_update)[mask].astype(np.float64))
+            / np.abs(np.hstack(param)[mask].astype(np.float64))
         )
 
         logger.info(
