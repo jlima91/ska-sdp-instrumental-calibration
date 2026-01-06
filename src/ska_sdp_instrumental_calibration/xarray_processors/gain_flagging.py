@@ -81,7 +81,8 @@ class GainFlagger:
     SOL_TYPE_FUNCS = {
         "amplitude": [np.absolute],
         "phase": [np.angle],
-        "both": [np.absolute, np.angle],
+        "amp-phase": [np.absolute, np.angle],
+        "real-imag": [np.real, np.imag],
     }
 
     def __init__(
@@ -207,14 +208,25 @@ class GainFlagger:
                 Amplitude fit
             phase_fits: xr.DataArray
                 Phase fit
+            real_fits: xr.DataArray
+                Real fit
+            imag_fits: xr.DataArray
+                Imaginary fit
         """
 
-        soltype = {"absolute": "amplitude", "angle": "phase"}
+        soltype = {
+            "absolute": "amplitude",
+            "angle": "phase",
+            "real": "real",
+            "imag": "imag",
+        }
 
         weights = np.array(weights, copy=True)
         flagged_weights = np.ones(weights.shape)
         amp_fit = np.zeros_like(gains, dtype=float)
         phase_fit = np.zeros_like(gains, dtype=float)
+        real_fit = np.zeros_like(gains, dtype=float)
+        imag_fit = np.zeros_like(gains, dtype=float)
 
         for sol_type_func in self.sol_type_funcs:
             rms = 0.0
@@ -234,6 +246,10 @@ class GainFlagger:
                     amp_fit = curve_fit
                 elif sol_type_func == np.angle:
                     phase_fit = curve_fit
+                elif sol_type_func == np.real:
+                    real_fit = curve_fit
+                elif sol_type_func == np.imag:
+                    imag_fit = curve_fit
 
                 deterend = sol_type_data - self.fit_curve(
                     sol_type_data, weights, self.order, self.frequencies
@@ -264,7 +280,7 @@ class GainFlagger:
                 f"MAD of {rms:.5f} and {percent_flagged:.2f}% gains flagged "
                 f"for {soltype[sol_type_func.__name__]}."
             )
-        return flagged_weights, amp_fit, phase_fit
+        return flagged_weights, amp_fit, phase_fit, real_fit, imag_fit
 
 
 def flag_on_gains(
@@ -289,7 +305,8 @@ def flag_on_gains(
         gaintable: Gaintable
             Gaintable from previous solution.
         soltype: str
-            Solution type to flag. Can be "phase", "amplitude" or "both".
+            Solution type to flag.
+            Can be "real-imag", "phase", "amplitude" or "amp-phase".
         mode: str
             Detrending/fitting algorithm: "smooth", "poly", by default smooth.
         order : int
@@ -317,6 +334,8 @@ def flag_on_gains(
     -------
         gaintable: Gaintable
             Updated gaintable with weights.
+        fits: dict
+            All fits generated.
     """
 
     original_chunk = gaintable.chunks
@@ -339,27 +358,44 @@ def flag_on_gains(
     nreceptor2 = len(gaintable.receptor2)
     all_flagged_weights = None
 
-    all_amp_fit = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
-    all_phase_fit = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+    fits = dict()
+    fits["amp_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+    fits["phase_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+    fits["real_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
+    fits["imag_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
 
     for receptor1, receptor2 in np.ndindex(nreceptor1, nreceptor2):
         if receptor1 != receptor2 and skip_cross_pol:
             continue
 
-        receptor_weight_flag, amp_fit, phase_fit = xr.apply_ufunc(
-            gain_flagger.flag_dimension,
-            gaintable.weight[0, :, :, receptor1, receptor2],
-            gaintable.gain[0, :, :, receptor1, receptor2],
-            gaintable.configuration.names.data,
-            input_core_dims=[["frequency"], ["frequency"], []],
-            output_core_dims=[["frequency"], ["frequency"], ["frequency"]],
-            vectorize=True,
-            dask="parallelized",
-            kwargs=dict(
-                receptor1=gaintable.receptor1[receptor1].data,
-                receptor2=gaintable.receptor2[receptor2].data,
-            ),
-            output_dtypes=[gaintable.weight.dtype, float, float],
+        receptor_weight_flag, amp_fit, phase_fit, real_fit, imag_fit = (
+            xr.apply_ufunc(
+                gain_flagger.flag_dimension,
+                gaintable.weight[0, :, :, receptor1, receptor2],
+                gaintable.gain[0, :, :, receptor1, receptor2],
+                gaintable.configuration.names.data,
+                input_core_dims=[["frequency"], ["frequency"], []],
+                output_core_dims=[
+                    ["frequency"],
+                    ["frequency"],
+                    ["frequency"],
+                    ["frequency"],
+                    ["frequency"],
+                ],
+                vectorize=True,
+                dask="parallelized",
+                kwargs=dict(
+                    receptor1=gaintable.receptor1[receptor1].data,
+                    receptor2=gaintable.receptor2[receptor2].data,
+                ),
+                output_dtypes=[
+                    gaintable.weight.dtype,
+                    float,
+                    float,
+                    float,
+                    float,
+                ],
+            )
         )
 
         all_flagged_weights = (
@@ -368,8 +404,10 @@ def flag_on_gains(
             else all_flagged_weights * receptor_weight_flag
         )
 
-        all_amp_fit[0, :, :, receptor1, receptor2] = amp_fit
-        all_phase_fit[0, :, :, receptor1, receptor2] = phase_fit
+        fits["amp_fit"][0, :, :, receptor1, receptor2] = amp_fit
+        fits["phase_fit"][0, :, :, receptor1, receptor2] = phase_fit
+        fits["real_fit"][0, :, :, receptor1, receptor2] = real_fit
+        fits["imag_fit"][0, :, :, receptor1, receptor2] = imag_fit
 
     flagged_weights_data = np.repeat(
         all_flagged_weights.data[:, :, np.newaxis], nreceptor1, axis=2
@@ -393,8 +431,7 @@ def flag_on_gains(
                     "weight": new_weights,
                 }
             ).chunk(original_chunk),
-            all_amp_fit,
-            all_phase_fit,
+            fits,
         )
 
     return (
@@ -403,6 +440,5 @@ def flag_on_gains(
                 "weight": new_weights,
             }
         ).chunk(original_chunk),
-        all_amp_fit,
-        all_phase_fit,
+        fits,
     )

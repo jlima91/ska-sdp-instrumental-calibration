@@ -7,7 +7,7 @@ from ska_sdp_instrumental_calibration.stages import flag_gain_stage
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "flag_gain": {
-            "soltype": "both",
+            "soltype": "amp-phase",
             "mode": "smooth",
             "order": 3,
             "apply_flag": True,
@@ -54,10 +54,18 @@ def test_should_perform_flagging_on_gains(
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
     phase_fit_mock = Mock(name="Phase fit")
+    real_fit_mock = Mock(name="Real fit")
+    imag_fit_mock = Mock(name="Imag fit")
+    fits = {
+        "amp_fit": amp_fit_mock,
+        "phase_fit": phase_fit_mock,
+        "real_fit": real_fit_mock,
+        "imag_fit": imag_fit_mock,
+    }
+
     flag_on_gains_mock.return_value = (
         gaintable_mock,
-        amp_fit_mock,
-        phase_fit_mock,
+        fits,
     )
 
     actual = flag_gain_stage.stage_definition(
@@ -138,10 +146,18 @@ def test_should_export_gaintable_with_proper_suffix(
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
     phase_fit_mock = Mock(name="Phase fit")
+    real_fit_mock = Mock(name="Real fit")
+    imag_fit_mock = Mock(name="Imag fit")
+    fits = {
+        "amp_fit": amp_fit_mock,
+        "phase_fit": phase_fit_mock,
+        "real_fit": real_fit_mock,
+        "imag_fit": imag_fit_mock,
+    }
+
     flag_on_gains_mock.return_value = (
         gaintable_mock,
-        amp_fit_mock,
-        phase_fit_mock,
+        fits,
     )
 
     flag_gain_stage.stage_definition(
@@ -245,12 +261,19 @@ def test_should_plot_flag_on_gain(
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
     phase_fit_mock = Mock(name="Phase fit")
+    real_fit_mock = Mock(name="Real fit")
+    imag_fit_mock = Mock(name="Imag fit")
+    fits = {
+        "amp_fit": amp_fit_mock,
+        "phase_fit": phase_fit_mock,
+        "real_fit": real_fit_mock,
+        "imag_fit": imag_fit_mock,
+    }
+
     flag_on_gains_mock.return_value = (
         gaintable_mock,
-        amp_fit_mock,
-        phase_fit_mock,
+        fits,
     )
-
     flag_gain_stage.stage_definition(
         upstream_output,
         soltype,
@@ -283,8 +306,8 @@ def test_should_plot_flag_on_gain(
 
     plot_curve_mock.assert_called_once_with(
         gaintable_mock,
-        amp_fit_mock,
-        phase_fit_mock,
+        fits,
+        soltype,
         "/output/path/plots/curve_fit_gain",
         normalize_gains,
         figure_title="Curve fit of Gain Flagging",

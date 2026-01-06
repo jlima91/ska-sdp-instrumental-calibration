@@ -20,13 +20,13 @@ from ._utils import get_gaintables_path, get_plots_path
     configuration=Configuration(
         soltype=ConfigParam(
             str,
-            "both",
+            "amp-phase",
             description=(
                 "Solution type. There is a potential edge case"
                 " where cyclic phases my get flagged as outliers. "
                 "eg -180 and 180"
             ),
-            allowed_values=["phase", "amplitude", "both"],
+            allowed_values=["phase", "amplitude", "amp-phase", "real-imag"],
         ),
         mode=ConfigParam(
             str,
@@ -124,7 +124,8 @@ def flag_gain_stage(
         upstream_output: dict
                 Output from the upstream stage.
         soltype: str
-            Solution type to flag. Can be "phase", "amplitude" or "both".
+            Solution type to flag.
+            Can be "real-imag", "phase", "amplitude" or "amp-phase".
             There is a potential edge case
             where cyclic phases my get flagged as outliers. eg -180 and 180
         mode: str, optional
@@ -171,7 +172,7 @@ def flag_gain_stage(
     if call_count := upstream_output.get_call_count("gain_flag"):
         call_counter_suffix = f"_{call_count}"
 
-    gaintable, amp_fit, phase_fits = flag_on_gains(
+    gaintable, fits = flag_on_gains(
         initialtable,
         soltype,
         mode,
@@ -213,8 +214,8 @@ def flag_gain_stage(
         upstream_output.add_compute_tasks(
             plot_curve_fit(
                 gaintable,
-                amp_fit,
-                phase_fits,
+                fits,
+                soltype,
                 path_prefix,
                 normalize_gains,
                 figure_title="Curve fit of Gain Flagging",

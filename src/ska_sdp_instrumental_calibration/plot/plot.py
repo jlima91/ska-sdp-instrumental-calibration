@@ -107,8 +107,8 @@ def plot_flag_gain(
 @safe
 def plot_curve_fit(
     gaintable,
-    amp_fits,
-    phase_fits,
+    fits,
+    soltype,
     path_prefix,
     normalize_gains=False,
     figure_title="",
@@ -120,10 +120,10 @@ def plot_curve_fit(
     ----------
         gaintable: xr.Dataset
             Gaintable to plot.
-        amp_fits: xr.DataArray.
-            Amplitude fits.
-        phase_fits: xr.DataArray.
-            Phase fits.
+        fits: dict.
+           All fits.
+        soltype: str.
+            Solution type used for flagging.
         path_prefix: str
             Path prefix to save the plots.
         figure_title: str
@@ -136,15 +136,11 @@ def plot_curve_fit(
 
     normalize_label = "(normalized)" if normalize_gains else ""
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
-    amp_fits = amp_fits.stack(pol=("receptor1", "receptor2"))
-    phase_fits = phase_fits.stack(pol=("receptor1", "receptor2"))
 
     # from SKB-1027. J_XX, J_YY, j_xy and j_yx
     polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
 
     gaintable = gaintable.assign_coords({"pol": polstrs})
-    amp_fits = amp_fits.assign_coords({"pol": polstrs})
-    phase_fits = phase_fits.assign_coords({"pol": polstrs})
     stations = gaintable.configuration.names
     n_rows = 2
     n_cols = 2
@@ -155,6 +151,32 @@ def plot_curve_fit(
     )
 
     gain = gaintable.gain.isel(time=0)
+    normalize_func = (
+        normalize_data
+        if (normalize_gains and soltype != "real-imag")
+        else lambda x: x
+    )
+
+    if soltype == "real-imag":
+        y1_fit = fits["real_fit"].stack(pol=("receptor1", "receptor2"))
+        y2_fit = fits["imag_fit"].stack(pol=("receptor1", "receptor2"))
+        y1_label = "Real"
+        y2_label = "Imaginary"
+        y_limit = None
+        path_suffix = "real-imag"
+        y1_data_func = np.real
+        y2_data_func = np.imag
+    else:
+        y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
+        y2_fit = np.rad2deg(
+            fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
+        )
+        y1_label = "Amplitude"
+        y2_label = "Phase (Degree)"
+        y_limit = [-180, 180]
+        path_suffix = "amp-phase"
+        y1_data_func = np.absolute
+        y2_data_func = lambda gain: np.angle(gain, deg=True)  # noqa: E731
 
     pol_labels = gaintable.pol.values
     frequency = gaintable.frequency / 1e6
@@ -163,7 +185,6 @@ def plot_curve_fit(
     pol_groups = np.array(polstrs)[[0, 3, 1, 2]].reshape(
         -1, 2
     )  # [['J_XX', 'J_YY'],['J_XY', 'J_YX']]
-    normalize_func = normalize_data if normalize_gains else lambda x: x
     plot_freq = PlotGaintableFrequency()
 
     for stations in plot_groups:
@@ -179,7 +200,7 @@ def plot_curve_fit(
         plot_kwargs = dict(lw=2)
 
         path = (
-            f"{path_prefix}-curve-amp-phase_freq-"
+            f"{path_prefix}-curve-{path_suffix}_freq-"
             f"{station_names[0]}-{station_names[-1]}.png"
         )
 
@@ -193,26 +214,23 @@ def plot_curve_fit(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            # gain = gaintable.gain.isel(time=0, antenna=stations.id[idx])
-            a_fit = amp_fits.isel(time=0, antenna=stations.id[idx])
-            p_fit = np.rad2deg(
-                phase_fits.isel(time=0, antenna=stations.id[idx])
-            )
+            y1_fit_data = y1_fit.isel(time=0, antenna=stations.id[idx])
+            y2_fit_data = y2_fit.isel(time=0, antenna=stations.id[idx])
 
-            amplitude = np.abs(gain.isel(antenna=stations.id[idx]))
-            phase = np.angle(gain.isel(antenna=stations.id[idx]), deg=True)
+            y1_data = y1_data_func(gain.isel(antenna=stations.id[idx]))
+            y2_data = y2_data_func(gain.isel(antenna=stations.id[idx]))
 
             axes = subfig.subplots(2, 2, sharex=True)
 
             for grp_idx, lbl_idx in np.ndindex(pol_groups.shape):
-                phase_ax = axes[0, grp_idx]
-                amp_ax = axes[1, grp_idx]
-                amp_ax.set_ylabel("Amplitude")
-                phase_ax.set_ylabel("Phase (degree)")
+                top_ax = axes[0, grp_idx]
+                bottom_ax = axes[1, grp_idx]
+                bottom_ax.set_ylabel(y1_label)
+                top_ax.set_ylabel(y2_label)
 
-                amp_ax.set_xlabel("Channel")
+                bottom_ax.set_xlabel("Channel")
 
-                phase_ax.secondary_xaxis(
+                top_ax.secondary_xaxis(
                     "top",
                     functions=(
                         plot_freq._primary_sec_ax_mapper(frequency, channel),
@@ -222,34 +240,36 @@ def plot_curve_fit(
                     ),
                 ).set_xlabel("Frequency [MHz]")
 
-                phase_ax.set_ylim([-180, 180])
+                if y_limit:
+                    top_ax.set_ylim(y_limit)
+
                 pol = pol_groups[grp_idx, lbl_idx]
                 if pol in pol_labels:
                     pol_idx = list(pol_labels).index(pol)
-                    h1 = phase_ax.scatter(
+                    h1 = top_ax.scatter(
                         channel,
-                        phase[:, pol_idx],
+                        y2_data[:, pol_idx],
                         color=pol_colors[pol],
                         label=pol,
                         **scatter_kwargs,
                     )
-                    amp_ax.scatter(
+                    bottom_ax.scatter(
                         channel,
-                        normalize_func(amplitude[:, pol_idx].values),
+                        normalize_func(y1_data[:, pol_idx].values),
                         color=pol_colors[pol],
                         label=pol,
                         **scatter_kwargs,
                     )
-                    phase_ax.plot(
+                    top_ax.plot(
                         channel,
-                        p_fit[:, pol_idx],
+                        y2_fit_data[:, pol_idx],
                         color=pol_colors[pol],
                         label=pol,
                         **plot_kwargs,
                     )
-                    amp_ax.plot(
+                    bottom_ax.plot(
                         channel,
-                        a_fit[:, pol_idx],
+                        y1_fit_data[:, pol_idx],
                         color=pol_colors[pol],
                         label=pol,
                         **plot_kwargs,

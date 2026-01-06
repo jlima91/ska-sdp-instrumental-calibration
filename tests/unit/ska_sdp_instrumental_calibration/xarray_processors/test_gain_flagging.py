@@ -52,6 +52,8 @@ def test_should_flag_gains_for_amplitude():
         2.1793903,
     ]
     phase_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    real_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    imag_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     flagged_weights = [
         1.0,
         1.0,
@@ -64,7 +66,7 @@ def test_should_flag_gains_for_amplitude():
         1.0,
         1.0,
     ]
-    expected = flagged_weights, amp_fit, phase_fit
+    expected = flagged_weights, amp_fit, phase_fit, real_fit, imag_fit
 
     np.testing.assert_allclose(updated_weights, expected)
 
@@ -98,6 +100,8 @@ def test_should_flag_gains_for_phase_with_polyfit():
         weights, gains, "a1", "X", "Y"
     )
     amp_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    real_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    imag_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     phase_fit = [
         0.11423973,
         0.12375971,
@@ -122,14 +126,14 @@ def test_should_flag_gains_for_phase_with_polyfit():
         1.0,
         1.0,
     ]
-    expected = flagged_weights, amp_fit, phase_fit
+    expected = flagged_weights, amp_fit, phase_fit, real_fit, imag_fit
 
     np.testing.assert_allclose(updated_weights, expected)
 
 
 def test_should_flag_gains_for_both_phase_and_amplitude():
 
-    soltype = "both"
+    soltype = "amp-phase"
     mode = "poly"
     order = 2
     n_sigma = None
@@ -153,9 +157,13 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         frequencies,
         normalize_gains=True,
     )
-    (updated_weights, updated_amp_fit, updated_phase_fit) = (
-        flagger_obj.flag_dimension(weights, gains, "a1", "X", "Y")
-    )
+    (
+        updated_weights,
+        updated_amp_fit,
+        updated_phase_fit,
+        updated_real_fit,
+        updated_imag_fit,
+    ) = flagger_obj.flag_dimension(weights, gains, "a1", "X", "Y")
     amp_fit = [
         -0.07013,
         0.048485,
@@ -180,6 +188,9 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         1.61839622e-01,
         -1.55431223e-15,
     ]
+    real_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    imag_fit = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
     flagged_weights = [
         1.0,
         1.0,
@@ -196,6 +207,82 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
     np.testing.assert_allclose(updated_weights, flagged_weights)
     np.testing.assert_allclose(updated_amp_fit, amp_fit, rtol=1e-5)
     np.testing.assert_allclose(updated_phase_fit, phase_fit)
+    np.testing.assert_allclose(updated_real_fit, real_fit)
+    np.testing.assert_allclose(updated_imag_fit, imag_fit)
+
+
+def test_should_flag_gains_for_real_imag():
+
+    soltype = "real-imag"
+    mode = "smooth"
+    order = 3
+    n_sigma = 5.0
+    max_ncycles = 1
+    n_sigma_rolling = 0.0
+    window_size = 3
+    frequencies = np.arange(0, 1, 0.1)
+    gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
+    gains[5] = 100 + 100j  # Outlier in both real and imaginary
+    weights = np.ones(10)
+
+    flagger_obj = GainFlagger(
+        soltype,
+        mode,
+        order,
+        max_ncycles,
+        n_sigma,
+        n_sigma_rolling,
+        window_size,
+        frequencies,
+        normalize_gains=False,
+    )
+    flagged_weights, amp_fit, phase_fit, real_fit, imag_fit = (
+        flagger_obj.flag_dimension(weights, gains, "a1", "X", "Y")
+    )
+
+    expected_flagged_weights = np.array(
+        [0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0]
+    )
+    expected_amp_fit = np.array(
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    )
+    expected_phase_fit = np.array(
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    )
+    expected_real_fit = np.array(
+        [
+            1.0500,
+            1.1000,
+            1.2000,
+            1.3000,
+            1.4000,
+            1.6000,
+            1.7000,
+            1.7000,
+            1.8000,
+            1.8500,
+        ]
+    )
+    expected_imag_fit = np.array(
+        [
+            1.9000,
+            1.8500,
+            1.8000,
+            1.7000,
+            1.6500,
+            1.6000,
+            1.3000,
+            1.2500,
+            1.2500,
+            1.2000,
+        ]
+    )
+
+    np.testing.assert_allclose(flagged_weights, expected_flagged_weights)
+    np.testing.assert_allclose(amp_fit, expected_amp_fit)
+    np.testing.assert_allclose(phase_fit, expected_phase_fit)
+    np.testing.assert_allclose(real_fit, expected_real_fit)
+    np.testing.assert_allclose(imag_fit, expected_imag_fit)
 
 
 def test_should_throw_exception_if_window_size_is_even():
@@ -307,6 +394,20 @@ def test_should_perform_gain_flagging(
         dims=dims,
         coords=coords,
     )
+    real_fit_1 = xr.DataArray(
+        np.array(
+            [[0.15, 0.15, 0.15, 0.0, 0.15], [0.15, 0.15, 0.15, 0.0, 0.15]]
+        ),
+        dims=dims,
+        coords=coords,
+    )
+    imag_fit_1 = xr.DataArray(
+        np.array(
+            [[0.25, 0.25, 0.25, 0.0, 0.25], [0.25, 0.25, 0.25, 0.0, 0.25]]
+        ),
+        dims=dims,
+        coords=coords,
+    )
 
     weight_flag_2 = xr.DataArray(
         np.array([[1, 0, 1, 1, 1], [1, 0, 1, 1, 1]]), dims=dims, coords=coords
@@ -321,17 +422,31 @@ def test_should_perform_gain_flagging(
         dims=dims,
         coords=coords,
     )
+    real_fit_2 = xr.DataArray(
+        np.array(
+            [[0.35, 0.0, 0.35, 0.35, 0.35], [0.35, 0.0, 0.35, 0.35, 0.35]]
+        ),
+        dims=dims,
+        coords=coords,
+    )
+    imag_fit_2 = xr.DataArray(
+        np.array(
+            [[0.45, 0.0, 0.45, 0.45, 0.45], [0.45, 0.0, 0.45, 0.45, 0.45]]
+        ),
+        dims=dims,
+        coords=coords,
+    )
 
     apply_ufunc_mock.side_effect = [
-        (weight_flag_1, amp_fit_1, phase_fit_1),
-        (weight_flag_2, amp_fit_2, phase_fit_2),
+        (weight_flag_1, amp_fit_1, phase_fit_1, real_fit_1, imag_fit_1),
+        (weight_flag_2, amp_fit_2, phase_fit_2, real_fit_2, imag_fit_2),
     ]
 
     gain_flagger_mock.return_value = gain_flagger_mock
 
     where_mock.return_value = "NEW_GAIN"
 
-    result_gaintable, all_amp_fit, all_phase_fit = flag_on_gains(
+    result_gaintable, fits = flag_on_gains(
         gaintable_mock,
         soltype,
         mode,
@@ -386,9 +501,10 @@ def test_should_perform_gain_flagging(
             ]
         ]
     )
+
     where_mock.assert_called_once()
     where_call_args = where_mock.call_args.args
-    assert np.all(where_call_args[0].data == expected_where_arg)
+    np.testing.assert_array_equal(where_call_args[0].data, expected_where_arg)
     assert where_call_args[1] == 0.0
     assert where_call_args[2] is gaintable_mock["gain"]
 
@@ -398,16 +514,27 @@ def test_should_perform_gain_flagging(
     assign_call_args = gaintable_mock.assign.call_args.args
     assign_dict = assign_call_args[0]
     assert assign_dict["gain"] == "NEW_GAIN"
-    assert np.all(assign_dict["weight"].data == expected_weights)
+    np.testing.assert_array_equal(assign_dict["weight"].data, expected_weights)
 
     gaintable_mock.chunk.assert_has_calls(
         [mock.call({"frequency": -1}), mock.call(gaintable_mock.chunks)]
     )
 
-    assert all_amp_fit.shape == (1, nstations, nfreq, 2, 2)
-    assert all_phase_fit.shape == (1, nstations, nfreq, 2, 2)
-    assert np.all(all_amp_fit[0, :, :, 0, 0] == amp_fit_1.data)
-    assert np.all(all_phase_fit[0, :, :, 0, 0] == phase_fit_1.data)
+    assert fits["amp_fit"].shape == (1, nstations, nfreq, 2, 2)
+    assert fits["phase_fit"].shape == (1, nstations, nfreq, 2, 2)
+    assert fits["real_fit"].shape == (1, nstations, nfreq, 2, 2)
+    assert fits["imag_fit"].shape == (1, nstations, nfreq, 2, 2)
+
+    np.testing.assert_allclose(fits["amp_fit"][0, :, :, 0, 0], amp_fit_1.data)
+    np.testing.assert_allclose(
+        fits["phase_fit"][0, :, :, 0, 0], phase_fit_1.data
+    )
+    np.testing.assert_allclose(
+        fits["real_fit"][0, :, :, 0, 0], real_fit_1.data
+    )
+    np.testing.assert_allclose(
+        fits["imag_fit"][0, :, :, 0, 0], imag_fit_1.data
+    )
 
 
 @patch(
@@ -421,7 +548,7 @@ def test_should_perform_gain_flagging(
 def test_should_perform_gain_flagging_without_apply(
     apply_ufunc_mock, gain_flagger_mock
 ):
-    soltype = "amplitude"
+    soltype = "real-imag"
     mode = "smooth"
     order = 1
     n_sigma = 0.0
@@ -484,10 +611,30 @@ def test_should_perform_gain_flagging_without_apply(
                 dims=dims_flag,
                 coords=coords_flag,
             ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
         ),
         (
             xr.DataArray(
                 np.array([[1, 0, 1, 1, 1], [1, 0, 1, 1, 1]]),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
@@ -518,10 +665,30 @@ def test_should_perform_gain_flagging_without_apply(
                 dims=dims_flag,
                 coords=coords_flag,
             ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
         ),
         (
             xr.DataArray(
                 np.array([[1, 1, 1, 0, 1], [1, 1, 1, 0, 1]]),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
@@ -540,7 +707,7 @@ def test_should_perform_gain_flagging_without_apply(
 
     gain_flagger_mock.return_value = gain_flagger_mock
 
-    gaintable, all_amp_fit, all_phase_fit = flag_on_gains(
+    gaintable, fits = flag_on_gains(
         gaintable_mock,
         soltype,
         mode,
@@ -582,8 +749,10 @@ def test_should_perform_gain_flagging_without_apply(
     )
     assert np.all(assign_dict["weight"].data == expected_weights)
 
-    assert all_amp_fit.shape == gaintable_mock.gain.shape
-    assert all_phase_fit.shape == gaintable_mock.gain.shape
+    assert fits["amp_fit"].shape == gaintable_mock.gain.shape
+    assert fits["phase_fit"].shape == gaintable_mock.gain.shape
+    assert fits["real_fit"].shape == gaintable_mock.gain.shape
+    assert fits["imag_fit"].shape == gaintable_mock.gain.shape
 
     gaintable.chunk.assert_has_calls(
         [mock.call({"frequency": -1}), mock.call(gaintable.chunks)]
