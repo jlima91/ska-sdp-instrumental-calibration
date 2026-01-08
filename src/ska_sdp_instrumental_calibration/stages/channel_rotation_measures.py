@@ -34,8 +34,9 @@ logger = logging.getLogger()
         oversample=ConfigParam(
             int,
             5,
-            description="""Oversampling value used in the rotation
-            calculatiosn. Note that setting this value to some higher
+            description="""Oversampling value used in the RM
+            calculation. This determines the resolution of phasor.
+            Note that setting this value to some higher
             integer may result in high memory usage.""",
         ),
         peak_threshold=ConfigParam(

@@ -1,5 +1,6 @@
 import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 from mock import ANY, MagicMock, Mock, call, patch
 
@@ -110,6 +111,10 @@ def test_model_rotation_data_value_error():
     assert exception_caught, "ValueError was not raised when expected"
 
 
+@pytest.mark.skip(
+    """This has too many mocks. An integration test already exists
+    for the same function. Remove this once team agrees."""
+)
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors."
     "rotation_measures.ModelRotationData"
@@ -480,18 +485,16 @@ def test_model_rotations_function_without_fit(
 
 
 def test_should_generate_rm_spec():
-    phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=float)
-
     phi_raw = np.zeros((2, 3))
-
     mask = np.array([[True, True, False], [False, True, True]])
+    phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
 
     expected = np.array(
-        [[1.5, 4.5], [2.5, 5.5]], dtype=float
+        [[1.5, 4.5], [2.5, 5.5]], dtype=np.float64
     )  # pylint: disable=no-member
 
     out = get_rm_spec(  # pylint: disable=no-member
-        phi_raw, phasor, mask, nstations=2
+        phi_raw, mask, phasor
     ).compute()  # pylint: disable=no-member
     np.testing.assert_allclose(out, expected)
 

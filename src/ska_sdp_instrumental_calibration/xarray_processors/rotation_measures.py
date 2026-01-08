@@ -15,6 +15,33 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 logger = setup_logger("processing_tasks.post_processing")
 
 
+@dask.delayed
+def compute_J(gain: np.ndarray, refant: int) -> np.ndarray:
+    """
+    Compute rotation matrix from gain values
+    w.r.t. a reference antenna
+
+    Parameters
+    ----------
+    gain
+        gain values of shape (time, station, frequency, p, q)
+    refant
+        Refernce antenna
+
+    Returns
+    -------
+        Rotation matrix (J) of shape (station, frequency, p, q)
+    """
+    # TODO: Validate: Do we only always compute this for time=0,
+    # or this logic assumes that time axis must be of length 1?
+    return np.einsum(
+        "fpx,sfqx->sfpq",
+        gain[0, refant].conj(),
+        gain[0, :],
+        dtype=gain.dtype,
+    )
+
+
 class ModelRotationData:
     """
     Create Model Rotation Data
@@ -22,7 +49,8 @@ class ModelRotationData:
     Parameters
     ----------
     gaintable
-        Calibrated gaintable
+        Calibrated gaintable of shape
+        (time, stations, frequency, 2, 2)
     refant
         Reference antenna.
     oversample
@@ -35,11 +63,11 @@ class ModelRotationData:
         if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
             raise ValueError("gaintable must contain Jones matrices")
 
-        self.gaintable = gaintable
         self.refant = refant
         self.nstations = len(gaintable.antenna)
         self.nfreq = len(gaintable.frequency)
-        self.lambda_sq = (
+
+        lambda_sq_npa = (
             (
                 const.c.value  # pylint: disable=no-member
                 / gaintable.frequency.data
@@ -48,26 +76,35 @@ class ModelRotationData:
         ).astype(np.float32)
 
         self.rm_res = (
-            1 / oversample / (da.max(self.lambda_sq) - da.min(self.lambda_sq))
+            1 / oversample / (np.max(lambda_sq_npa) - np.min(lambda_sq_npa))
         )
-        self.rm_max = 1 / (self.lambda_sq[-2] - self.lambda_sq[-1])
-        self.rm_max = da.ceil(self.rm_max / self.rm_res) * self.rm_res
+        self.rm_max = 1 / (lambda_sq_npa[-2] - lambda_sq_npa[-1])
+        self.rm_max = np.ceil(self.rm_max / self.rm_res) * self.rm_res
+
         self.rm_vals = da.arange(
-            -self.rm_max, self.rm_max, self.rm_res, dtype=np.float32
+            -self.rm_max,
+            self.rm_max,
+            self.rm_res,
+            dtype=np.float32,
         )
+        self.lambda_sq = da.from_array(lambda_sq_npa)
+
         self.phasor = da.exp(
             da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
         )
-        self.rm_spec = None
 
+        self.rm_spec = None
         self.rm_est = da.zeros(self.nstations, dtype=np.float32)
         self.rm_peak = da.zeros(self.nstations, dtype=np.float32)
         self.const_rot = da.zeros(self.nstations, dtype=np.float32)
-        self.J = da.einsum(
-            "fpx,sfqx->sfpq",
-            gaintable.gain[0, refant].conj(),
-            gaintable.gain[0, :],
-            dtype=np.complex64,
+
+        # Ensure that J calculations happens as a single task
+        # else numpy einsum blows up the number of tasks
+        self.J = da.from_delayed(
+            compute_J(gaintable.gain.data, refant),
+            (gaintable.gain.shape[1:]),
+            gaintable.gain.dtype,
+            name="rm_J",
         )
 
     def get_plot_params_for_station(self, stn=None):
@@ -99,7 +136,7 @@ class ModelRotationData:
             stn: int
                 Station number.
         """
-        stn = stn if stn is not None else len(self.gaintable.antenna) - 1
+        stn = stn if stn is not None else (self.nstations - 1)
 
         return {
             "rm_vals": self.rm_vals,
@@ -122,30 +159,45 @@ def model_rotations(
     oversample: int = 5,
 ) -> ModelRotationData:
     """
-    Estimate a Rotation Measure value for each station, modelling the
-    relative station polarisation rotations that increase linearly with
-    wavelength squared.
+    Fit a rotation measure for each station Jones matrix.
+
+    For each station, the approach discussed in appendix B of de Gasperin et
+    al. (2019) A&A 622, A5, is used to estimate the angle of rotation in each
+    Jones matrix as a function of frequency. The result is expressed as a
+    spectrum of complex numbers and Fourier transformed with respect to
+    wavelength squared. The peak of this RM spectrum is taken as the rotation
+    measure for the station, and optionally improved upon using a secondary
+    nonlinear fit to the original spectrum.
+
+    In the current form, each matrix is first multiplied by the Hermitian
+    transpose of the matrix of a reference station at the same frequency, and
+    the product is normalised by the L2 norm. This will likely be updated as
+    actual data are processed.
 
     Parameters
     ----------
-        gaintable
-            Bandpass calibrated gaintable
-        peak_threshold
-            Peak threshold.
-        refine_fit
-            Refine the fit.
-        refant
-            Reference antenna.
-        oversample
-            Oversampling value used in the rotation
-            calculatiosn. Note that setting this value to some higher
-            integer may result in high memory usage.
+    gaintable
+        Bandpass calibrated gainTable dataset to be to modelled.
+    peak_threshold
+        Height of peak in the RM spectrum required for a
+        rotation detection.
+    refine_fit
+        Whether or not to refine the RM spectrum peak locations
+        with a nonlinear optimisation of the station RM values.
+    refant
+        Reference antenna
+    oversample
+        Oversampling value used in the rotation
+        calculation. This determines the resolution of phasor.
+        Note that setting this value to some higher
+        integer may result in high memory usage.
 
     Returns
     -------
-        rotations.
+        A container whose rm_est attribute contains
+        the estimated rotations. It also contains other
+        data useful for plots.
     """
-
     rotations = ModelRotationData(gaintable, refant, oversample)
 
     norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
@@ -172,15 +224,13 @@ def model_rotations(
         np.float32,
     )
 
-    rotations.rm_spec = da.from_delayed(
-        get_rm_spec(phi_raw, rotations.phasor, mask, rotations.nstations),
-        (rotations.nstations, rotations.phasor.shape[0]),
-        np.float32,
-    )
+    rotations.rm_spec = get_rm_spec(phi_raw, mask, rotations.phasor)
+
+    abs_rm_spec = da.abs(rotations.rm_spec)
 
     rotations.rm_est = da.where(
-        da.max(da.abs(rotations.rm_spec), axis=1) > peak_threshold,
-        rotations.rm_vals[da.argmax(da.abs(rotations.rm_spec), axis=1)],
+        da.max(abs_rm_spec, axis=1) > peak_threshold,
+        rotations.rm_vals[da.argmax(abs_rm_spec, axis=1)],
         0,
     )
 
@@ -199,7 +249,10 @@ def model_rotations(
             np.float32,
         )
         rotations.rm_est = fit_rm[0]
-        rotations.rm_const = fit_rm[1]
+        rotations.const_rot = fit_rm[1]
+
+    # further stages expects this to not be chunked
+    rotations.rm_est = rotations.rm_est.rechunk(-1)
 
     return rotations
 
@@ -268,39 +321,38 @@ def get_stn_masks(weight, refant):
     )
 
 
-@dask.delayed
-def get_rm_spec(phi_raw, phasor, mask, nstations):
+def get_rm_spec(
+    phi_raw: da.Array, mask: da.Array, phasor: da.Array
+) -> da.Array:
     """
-    Gets RM spec
+    Calculate RM spec.
 
     Parameters
     ----------
-        phi_raw: np.array
-            Phi raw value
-        phasor: np.array
-            Phasor
-        mask: np.array
-            Mask
-        nstations: int
-            Number of stations.
+    phi_raw
+        Phi raw value. Shape: ``(nstations, nchannels)``
+    mask
+        Mask. Shape: ``(nstations, nchannels)``
+    phasor
+        Phasor. Shape: ``(resolution, nchannels)``
+
     Returns
     -------
-        Array of RM spec.
+        Array of RM spec. Shape: ``(nstations, resolution)``
     """
-    return np.array(
-        [
-            (
-                1
-                / sum(mask[stn])
-                * np.einsum(
-                    "rf,f->r",
-                    phasor[:, mask[stn]],
-                    np.exp(1j * phi_raw[stn, mask[stn]]),
-                )
-            )
-            for stn in range(nstations)
-        ]
-    )
+    # Compute the complex exponential for all stations and frequencies at once
+    phi_exp = da.exp(1j * phi_raw)
+
+    # Keep values where mask is True, 0 elsewhere
+    masked_phi = da.where(mask, phi_exp, 0).astype(np.complex64)
+
+    # (stn, f) @ (f, r) -> (stn, r)
+    result = masked_phi @ phasor.T
+
+    # counts shape: (stn, 1) to allow broadcasting
+    counts = mask.sum(axis=1, dtype=np.float32)[:, None]
+
+    return (result / counts).astype(np.complex64)
 
 
 @dask.delayed
