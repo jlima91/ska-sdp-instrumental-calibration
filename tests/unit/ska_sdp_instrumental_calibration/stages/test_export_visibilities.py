@@ -90,9 +90,7 @@ def test_should_export_model_vis(
     export_mock,
     get_visibilities_path_mock,
 ):
-    get_visibilities_path_mock.return_value = (
-        "./visibilities/corrected_modelvis.ms"
-    )
+    get_visibilities_path_mock.return_value = "./visibilities/modelvis.ms"
     upstream_output = UpstreamOutput()
     model_vis = Mock(name="model vis")
     vis_mock = Mock(name="vis")
@@ -104,11 +102,9 @@ def test_should_export_model_vis(
     export_visibilities_stage.stage_definition(
         upstream_output, "modelvis", False, "./"
     )
-    get_visibilities_path_mock.assert_called_once_with(
-        "./", "corrected_modelvis.ms"
-    )
+    get_visibilities_path_mock.assert_called_once_with("./", "modelvis.ms")
     export_mock.assert_called_once_with(
-        "./visibilities/corrected_modelvis.ms", [model_vis]
+        "./visibilities/modelvis.ms", [model_vis]
     )
     apply_gaintable_to_dataset_mock.assert_not_called()
 
@@ -137,8 +133,8 @@ def test_should_export_both_vis_and_model_vis(
     get_visibilities_path_mock,
 ):
     get_visibilities_path_mock.side_effect = [
-        "./visibilities/corrected_vis.ms",
-        "./visibilities/corrected_modelvis.ms",
+        "./visibilities/raw_vis.ms",
+        "./visibilities/modelvis.ms",
     ]
     upstream_output = UpstreamOutput()
     model_vis = Mock(name="model vis")
@@ -154,15 +150,15 @@ def test_should_export_both_vis_and_model_vis(
 
     get_visibilities_path_mock.assert_has_calls(
         [
-            call("./", "corrected_vis.ms"),
-            call("./", "corrected_modelvis.ms"),
+            call("./", "raw_vis.ms"),
+            call("./", "modelvis.ms"),
         ]
     )
     export_mock.assert_has_calls(
         [
-            call("./visibilities/corrected_vis.ms", [upstream_output["vis"]]),
+            call("./visibilities/raw_vis.ms", [upstream_output["vis"]]),
             call(
-                "./visibilities/corrected_modelvis.ms",
+                "./visibilities/modelvis.ms",
                 [upstream_output["modelvis"]],
             ),
         ]
@@ -194,10 +190,10 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
     get_visibilities_path_mock,
 ):
     get_visibilities_path_mock.side_effect = [
-        "./visibilities/corrected_vis.ms",
-        "./visibilities/corrected_modelvis.ms",
-        "./visibilities/corrected_vis_1.ms",
-        "./visibilities/corrected_modelvis_1.ms",
+        "./visibilities/raw_vis.ms",
+        "./visibilities/modelvis.ms",
+        "./visibilities/raw_vis_1.ms",
+        "./visibilities/modelvis_1.ms",
     ]
     upstream_output = UpstreamOutput()
     model_vis = Mock(name="model vis")
@@ -216,25 +212,23 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
 
     get_visibilities_path_mock.assert_has_calls(
         [
-            call("./", "corrected_vis.ms"),
-            call("./", "corrected_modelvis.ms"),
-            call("./", "corrected_vis_1.ms"),
-            call("./", "corrected_modelvis_1.ms"),
+            call("./", "raw_vis.ms"),
+            call("./", "modelvis.ms"),
+            call("./", "raw_vis_1.ms"),
+            call("./", "modelvis_1.ms"),
         ]
     )
 
     export_mock.assert_has_calls(
         [
-            call("./visibilities/corrected_vis.ms", [upstream_output["vis"]]),
+            call("./visibilities/raw_vis.ms", [upstream_output["vis"]]),
             call(
-                "./visibilities/corrected_modelvis.ms",
+                "./visibilities/modelvis.ms",
                 [upstream_output["modelvis"]],
             ),
+            call("./visibilities/raw_vis_1.ms", [upstream_output["vis"]]),
             call(
-                "./visibilities/corrected_vis_1.ms", [upstream_output["vis"]]
-            ),
-            call(
-                "./visibilities/corrected_modelvis_1.ms",
+                "./visibilities/modelvis_1.ms",
                 [upstream_output["modelvis"]],
             ),
         ]
