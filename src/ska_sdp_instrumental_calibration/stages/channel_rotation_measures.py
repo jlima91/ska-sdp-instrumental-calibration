@@ -140,7 +140,9 @@ def generate_channel_rm_stage(
     _output_dir_,
 ):
     """
-    Generates channel rotation measures
+    Estimate a Rotation Measure value for each station, re-predict
+    model visibilities based on RM values, and run gaintable solver using
+    input calibrator visibility and re-predicted model visibilities.
 
     Parameters
     ----------

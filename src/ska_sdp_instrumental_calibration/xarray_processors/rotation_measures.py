@@ -122,7 +122,9 @@ def model_rotations(
     oversample: int = 5,
 ) -> ModelRotationData:
     """
-    Performs Model Rotations
+    Estimate a Rotation Measure value for each station, modelling the
+    relative station polarisation rotations that increase linearly with
+    wavelength squared.
 
     Parameters
     ----------
