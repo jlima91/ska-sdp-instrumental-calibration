@@ -18,7 +18,6 @@ def predict_visibilities(
     beam_type,
     normalise_at_beam_centre,
     eb_ms,
-    eb_coeffs,
     gleamfile,
     lsm_csv_path,
     element_response_model,
@@ -44,9 +43,6 @@ def predict_visibilities(
         not have all of the metadata required by everybeam, this parameter
         is used to specify a separate dataset to use when setting up
         the beam models.
-    eb_coeffs: str
-        Path to everybeam coefficients directory.
-        Required when beam_type is 'everybeam'.
     gleamfile: str
         Path to the GLEAM catalog file.
     lsm_csv_path: str

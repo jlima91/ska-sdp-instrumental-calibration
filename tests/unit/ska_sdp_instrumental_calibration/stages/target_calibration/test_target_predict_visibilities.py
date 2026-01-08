@@ -10,7 +10,6 @@ def test_should_predict_visibilities():
         "beam_type",
         "normalise_at_beam_centre",
         "eb_ms",
-        "eb_coeffs",
         "gleamfile",
         "lsm_csv_path",
         "element_response_model",

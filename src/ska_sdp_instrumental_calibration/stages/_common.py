@@ -161,12 +161,6 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
             is used to specify a separate dataset to use when setting up
             the beam models.""",
     ),
-    eb_coeffs=ConfigParam(
-        str,
-        None,
-        description="""Everybeam coeffs datadir containing beam
-            coefficients. Required if beam_type is 'everybeam'.""",
-    ),
     gleamfile=ConfigParam(
         str,
         None,
