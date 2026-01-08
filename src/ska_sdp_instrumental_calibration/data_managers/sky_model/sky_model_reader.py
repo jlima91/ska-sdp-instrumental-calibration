@@ -1,3 +1,4 @@
+import functools
 import logging
 from pathlib import Path
 
@@ -8,6 +9,75 @@ from astropy.coordinates import SkyCoord
 from .component import Component
 
 logger = logging.getLogger(__name__)
+
+
+SKY_MODEL_CSV_HEADER = [
+    "RA (deg)",
+    "Dec (deg)",
+    "I (Jy)",
+    "Q (Jy)",
+    "U (Jy)",
+    "V (Jy)",
+    "Ref. freq. (Hz)",
+    "Spectral index",
+    "Rotation measure (rad/m^2)",
+    "FWHM major (arcsec)",
+    "FWHM minor (arcsec)",
+    "Position angle (deg)",
+]
+
+
+class ComponentConverters:
+    __headers_to_fields_map = {
+        "RA (deg)": "RAdeg",
+        "Dec (deg)": "DEdeg",
+        "I (Jy)": "flux",
+        "Q (Jy)": "doesnotexist",
+        "U (Jy)": "doesnotexist",
+        "V (Jy)": "doesnotexist",
+        "Ref. freq. (Hz)": "ref_freq",
+        "Spectral index": "alpha",
+        "Rotation measure (rad/m^2)": "doesnotexist",
+        "FWHM major (arcsec)": "major",
+        "FWHM minor (arcsec)": "minor",
+        "Position angle (deg)": "pa",
+    }
+
+    __exponent_str = functools.partial(lambda value: format(value, "e"))
+    __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
+
+    __headers_formatter = {
+        "RA (deg)": str,
+        "Dec (deg)": str,
+        "I (Jy)": __exponent_str,
+        "Q (Jy)": __exponent_str,
+        "U (Jy)": __exponent_str,
+        "V (Jy)": __exponent_str,
+        "Ref. freq. (Hz)": __exponent_str,
+        "Spectral index": __exponent_str,
+        "Rotation measure (rad/m^2)": __exponent_str,
+        "FWHM major (arcsec)": __exponent_str,
+        "FWHM minor (arcsec)": __exponent_str,
+        "Position angle (deg)": __six_decimal_str,
+    }
+
+    __non_existing_field_default = 0.0
+
+    @classmethod
+    def to_csv_row(cls, component: Component) -> list[str]:
+        row = []
+        for header in SKY_MODEL_CSV_HEADER:
+            formatter = cls.__headers_formatter[header]
+            row.append(
+                formatter(
+                    getattr(
+                        component,
+                        cls.__headers_to_fields_map[header],
+                        cls.__non_existing_field_default,
+                    )
+                )
+            )
+        return row
 
 
 def generate_lsm_from_csv(
@@ -66,20 +136,7 @@ def generate_lsm_from_csv(
     cosdec0 = np.cos(dec0)
     sindec0 = np.sin(dec0)
 
-    headers = [
-        "RA (deg)",
-        "Dec (deg)",
-        "I (Jy)",
-        "Q (Jy)",
-        "U (Jy)",
-        "V (Jy)",
-        "Ref. freq. (Hz)",
-        "Spectral index",
-        "Rotation measure (rad/m^2)",
-        "FWHM major (arcsec)",
-        "FWHM minor (arcsec)",
-        "Position angle (deg)",
-    ]
+    headers = SKY_MODEL_CSV_HEADER
 
     lsm_df = pd.read_csv(
         csvfile, sep=",", comment="#", names=headers, dtype=float

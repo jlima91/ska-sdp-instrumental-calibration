@@ -16,6 +16,7 @@ def test_should_have_the_expected_default_configuration():
             "fov": 5.0,
             "flux_limit": 1.0,
             "alpha0": -0.78,
+            "export_sky_model": False,
         }
     }
 
@@ -55,6 +56,8 @@ def test_should_predict_visibilities(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
+        "export_sky_model": False,
+        "_output_dir_": "./output_dir",
     }
 
     result = predict_vis_stage.stage_definition(
@@ -113,6 +116,8 @@ def test_should_update_call_count(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
+        "export_sky_model": False,
+        "_output_dir_": "./output_dir",
     }
 
     upstream_output = predict_vis_stage.stage_definition(
@@ -179,6 +184,8 @@ def test_should_normalise_at_beam_centre(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
+        "export_sky_model": False,
+        "_output_dir_": "./output_dir",
     }
 
     result = predict_vis_stage.stage_definition(
@@ -230,6 +237,8 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
         "fov": 10.0,
         "flux_limit": 1.0,
         "alpha0": -0.78,
+        "export_sky_model": False,
+        "_output_dir_": "./output_dir",
     }
 
     result = predict_vis_stage.stage_definition(
@@ -253,3 +262,48 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
     )
 
     assert result.modelvis == [1, 2, 3]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    ".GlobalSkyModel"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+)
+def test_should_export_sky_model_used_for_prediction_to_csv_file(
+    predict_vis_mock,
+    global_sky_model_mock,
+):
+
+    global_sky_model_mock.return_value = global_sky_model_mock
+
+    upstream_output = UpstreamOutput()
+    upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
+    cli_args = {"input": "path/to/input/ms"}
+    predict_vis_mock.return_value = [1, 2, 3]
+
+    params = {
+        "beam_type": None,
+        "normalise_at_beam_centre": False,
+        "eb_ms": None,
+        "gleamfile": "/path/to/gleam.dat",
+        "lsm_csv_path": None,
+        "element_response_model": "dipole_model",
+        "fov": 10.0,
+        "flux_limit": 1.0,
+        "alpha0": -0.78,
+        "export_sky_model": True,
+    }
+
+    predict_vis_stage.stage_definition(
+        upstream_output,
+        **params,
+        _output_dir_="./output_dir",
+        _cli_args_=cli_args
+    )
+
+    global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
+        "./output_dir/sky_model.csv"
+    )

@@ -20,10 +20,12 @@ def predict_visibilities(
     eb_ms,
     gleamfile,
     lsm_csv_path,
+    export_sky_model,
     element_response_model,
     fov,
     flux_limit,
     alpha0,
+    _output_dir_,
     _cli_args_,
 ):
     """
@@ -48,6 +50,8 @@ def predict_visibilities(
     lsm_csv_path: str
         Specifies the location of CSV file containing the
         sky model. The CSV file should be in OSKAR CSV format.
+    export_sky_model: bool
+        Specifies whether to export the sky model to a CSV file.
     element_response_model: str
         type of element response model given to Everybeam.
         Defaulted oskar_dipole_cos.
@@ -62,6 +66,8 @@ def predict_visibilities(
     alpha0: float
         Nominal alpha value to use when fitted
         data are unspecified. Default is -0.78.
+    _output_dir_ : str
+        Directory path where the output file will be written.
     _cli_args_: dict
         Command line arguments.
 
@@ -82,6 +88,11 @@ def predict_visibilities(
         gleamfile,
         lsm_csv_path,
     )
+
+    if export_sky_model:
+        sky_model_csv_path = f"{_output_dir_}/sky_model.csv"
+        logger.info(f"Exporting sky model to CSV file at {sky_model_csv_path}")
+        upstream_output["lsm"].export_sky_model_csv(sky_model_csv_path)
 
     beams_factory = None
 

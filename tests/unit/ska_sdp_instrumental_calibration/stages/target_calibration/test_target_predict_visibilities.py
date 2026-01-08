@@ -12,10 +12,12 @@ def test_should_predict_visibilities():
         "eb_ms",
         "gleamfile",
         "lsm_csv_path",
+        "export_sky_model",
         "element_response_model",
         "fov",
         "flux_limit",
         "alpha0",
+        "_output_dir_",
         "_cli_args_",
     ]
 

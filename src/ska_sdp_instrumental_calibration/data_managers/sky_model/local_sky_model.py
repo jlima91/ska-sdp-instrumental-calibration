@@ -12,7 +12,13 @@ from ...numpy_processors.rotation_matrix import generate_rotation_matrices
 from ..beams import BeamsFactory
 from .component import Component
 from .local_sky_component import LocalSkyComponent
-from .sky_model_reader import generate_lsm_from_csv, generate_lsm_from_gleamegc
+from .sky_model_reader import (
+    SKY_MODEL_CSV_HEADER,
+    ComponentConverters,
+    generate_lsm_from_csv,
+    generate_lsm_from_gleamegc,
+)
+from .utils import write_csv
 
 logger = logging.getLogger()
 
@@ -227,6 +233,17 @@ class GlobalSkyModel:
         logger.info(f"GSM: found {len(lsm)} components")
 
         self.components = lsm
+
+    def export_sky_model_csv(self, output_csv_path: str):
+        rows = [SKY_MODEL_CSV_HEADER]
+        rows.extend(
+            [
+                ComponentConverters.to_csv_row(component)
+                for component in self.components
+            ]
+        )
+
+        write_csv(output_csv_path, rows)
 
     def get_local_sky_model(
         self, solution_time: float, array_location: EarthLocation

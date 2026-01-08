@@ -1,70 +1,124 @@
 import numpy as np
 from astropy.coordinates import SkyCoord
-from mock import Mock
+from mock import Mock, call, patch
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     Component,
-    LocalSkyComponent,
+    local_sky_model,
+    sky_model_reader,
 )
 
+GlobalSkyModel = local_sky_model.GlobalSkyModel
+LocalSkyComponent = local_sky_model.LocalSkyComponent
 
-def test_create_skycomponent_from_component():
-    component = Component(
-        name="J12345",
-        RAdeg=260,
-        DEdeg=-85,
-        flux=4.0,
-        ref_freq=200,
-        alpha=2.0,
+
+SKY_MODEL_CSV_HEADER = sky_model_reader.SKY_MODEL_CSV_HEADER
+
+
+class TestLocalSkyComponent:
+    def test_create_skycomponent_from_component(self):
+        component = Component(
+            name="J12345",
+            RAdeg=260,
+            DEdeg=-85,
+            flux=4.0,
+            ref_freq=200,
+            alpha=2.0,
+        )
+
+        component.deconvolve_gaussian = Mock(
+            name="deconvolve_gaussian", return_value=(7200, 9000, 5.0)
+        )
+
+        actual_component = LocalSkyComponent.create_from_component(
+            component, [400, 800]
+        )
+
+        component.deconvolve_gaussian.assert_called_once()
+
+        assert actual_component.direction == SkyCoord(
+            ra=260, dec=-85, unit="deg"
+        )
+        assert actual_component.name == "J12345"
+        assert actual_component.polarisation_frame == PolarisationFrame(
+            "linear"
+        )
+        assert actual_component.shape == "GAUSSIAN"
+        assert actual_component.params == {
+            "bmaj": 2.0,
+            "bmin": 2.5,
+            "bpa": 5.0,
+        }
+        np.testing.assert_allclose(
+            actual_component.frequency, np.array([400, 800])
+        )
+        np.testing.assert_allclose(
+            actual_component.flux, np.array([[16, 0, 0, 16], [64, 0, 0, 64]])
+        )
+
+    def test_create_skycomponent_from_point_source(self):
+        component = Component(
+            name="J12345",
+            RAdeg=260,
+            DEdeg=-85,
+            flux=4.0,
+            ref_freq=200,
+            alpha=2.0,
+        )
+
+        component.deconvolve_gaussian = Mock(
+            name="deconvolve_gaussian", return_value=(0, 0, 0)
+        )
+
+        actual_component = LocalSkyComponent.create_from_component(
+            component, [400, 800]
+        )
+
+        component.deconvolve_gaussian.assert_called_once()
+
+        assert actual_component.shape == "POINT"
+        assert actual_component.params == {}
+
+
+class TestGlobalSkyModel:
+    @patch(
+        "ska_sdp_instrumental_calibration.data_managers.sky_model"
+        ".local_sky_model.write_csv"
     )
-
-    component.deconvolve_gaussian = Mock(
-        name="deconvolve_gaussian", return_value=(7200, 9000, 5.0)
+    @patch(
+        "ska_sdp_instrumental_calibration.data_managers.sky_model"
+        ".local_sky_model.ComponentConverters.to_csv_row"
     )
-
-    actual_component = LocalSkyComponent.create_from_component(
-        component, [400, 800]
+    @patch(
+        "ska_sdp_instrumental_calibration.data_managers.sky_model"
+        ".local_sky_model.generate_lsm_from_csv"
     )
+    def test_should_export_sky_model_components_to_csv(
+        self, mock_generate_lsm, mock_to_csv_row, write_csv_mock
+    ):
+        mock_generate_lsm.return_value = [
+            "component1",
+            "component2",
+        ]
 
-    component.deconvolve_gaussian.assert_called_once()
+        rows = [
+            ["row1_col1", "row1_col2"],
+            ["row2_col1", "row2_col2"],
+        ]
 
-    assert actual_component.direction == SkyCoord(ra=260, dec=-85, unit="deg")
-    assert actual_component.name == "J12345"
-    assert actual_component.polarisation_frame == PolarisationFrame("linear")
-    assert actual_component.shape == "GAUSSIAN"
-    assert actual_component.params == {
-        "bmaj": 2.0,
-        "bmin": 2.5,
-        "bpa": 5.0,
-    }
-    np.testing.assert_allclose(
-        actual_component.frequency, np.array([400, 800])
-    )
-    np.testing.assert_allclose(
-        actual_component.flux, np.array([[16, 0, 0, 16], [64, 0, 0, 64]])
-    )
+        mock_to_csv_row.side_effect = rows
 
+        gsm = GlobalSkyModel(
+            phasecentre=SkyCoord(ra=0, dec=-30, unit="deg"),
+            lsm_csv_path="lsm.csv",
+        )
 
-def test_create_skycomponent_from_point_source():
-    component = Component(
-        name="J12345",
-        RAdeg=260,
-        DEdeg=-85,
-        flux=4.0,
-        ref_freq=200,
-        alpha=2.0,
-    )
+        gsm.export_sky_model_csv("output.csv")
+        mock_to_csv_row.assert_has_calls(
+            [call("component1"), call("component2")]
+        )
 
-    component.deconvolve_gaussian = Mock(
-        name="deconvolve_gaussian", return_value=(0, 0, 0)
-    )
-
-    actual_component = LocalSkyComponent.create_from_component(
-        component, [400, 800]
-    )
-
-    component.deconvolve_gaussian.assert_called_once()
-
-    assert actual_component.shape == "POINT"
-    assert actual_component.params == {}
+        write_csv_mock.assert_called_once_with(
+            "output.csv", [SKY_MODEL_CSV_HEADER, *rows]
+        )

@@ -173,6 +173,12 @@ PREDICT_VISIBILITIES_COMMON_CONFIG = dict(
         description="""Specifies the location of CSV file containing the
             sky model. The CSV file should be in OSKAR CSV format.""",
     ),
+    export_sky_model=ConfigParam(
+        bool,
+        False,
+        description="""Specifies whether to export the sky model
+            to a CSV file.""",
+    ),
     element_response_model=ConfigParam(
         str,
         "oskar_dipole_cos",
