@@ -32,7 +32,7 @@ All above dependencies are installed along with the pipeline using [standard ins
 
 For prediction of model visibilities, here are the pre-requisites:
 
- * The GLEAM extragalactic catalogue or a csv file. This and other catalogues will
+ * The GLEAM extragalactic catalogue or a [OSKAR](https://ska-telescope.gitlab.io/sim/oskar/sky_model/sky_model.html#sky-model-file-fixed-format) csv file. This and other catalogues will
    soon be available via
    [global-sky-model](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/),
    but at present a hard copy is needed for prediction of model visibilities. The
@@ -279,7 +279,8 @@ Please note that the `pipeline` section is intentionally left blank and would be
 
 ## Using the CLI for Target Calibration pipeline
 
-You can run target calibration pipeline with `ska-sdp-instrumental-target-calibration` command. 
+Instrumental Calibration Pipeline for Target has two CLIs `ska-sdp-instrumental-target-calibration` and `ska-sdp-instrumental-target-ionospheric` commands which performs complex gain and ionospheric delay correction on Target respectively.
+
 Running `ska-sdp-instrumental-target-calibration --help` should show following output:
 
 ```bash
@@ -294,4 +295,27 @@ options:
   -h, --help            show this help message and exit
 ```
 
+Running `ska-sdp-instrumental-target-ionospheric --help` should show following output:
+
+```bash
+usage: ska-sdp-instrumental-target-ionospheric [-h] {run,install-config} ...
+
+positional arguments:
+  {run,install-config}
+    run                 Run the pipeline
+    install-config      Installs the default config at --config-install-path
+
+options:
+  -h, --help            show this help message and exit
+```
+
 > Generating YAML config of the pipeline and running the pipeline is same as instrumental calibration pipeline. Target calibration pipeline doesn't provide experimental configuration.
+
+## Calibation Strategy for Calibrator
+
+We came up with the current execution strategy for INST from the script used by CommSci team to validate the read AA0.5 data.
+
+![INST Strategy for calibrator](<./docs/src/img/INST_Calibrator.png>)
+
+> Note:
+> The other additional stages are currently turned off. You can toggle those on at any time based on user's preference.
