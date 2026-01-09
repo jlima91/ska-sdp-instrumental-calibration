@@ -259,3 +259,68 @@ def compare_arrays(
 #         )
 #     }
 # assert np.all(vis.time.sel(time_slice).data == vis.time.data)
+
+
+def identify_max_min_baselineid(uvw):
+    """
+    Identify the baseline IDs with the maximum and minimum baseline
+    lengths.
+    """
+    bl_len = np.sqrt(
+        uvw.sel(spatial="u") ** 2
+        + uvw.sel(spatial="v") ** 2
+        + uvw.sel(spatial="w") ** 2
+    )
+
+    bl_len_max = bl_len.max(dim="time")
+    bl_len_min = bl_len.min(dim="time")
+
+    valid = bl_len_max > 1.0
+    bl_len_max = bl_len_max.where(valid)
+    bl_len_min = bl_len_min.where(valid)
+
+    return (
+        bl_len_max.argmax(dim="baselineid").values,
+        bl_len_min.argmin(dim="baselineid").values,
+    )
+
+
+def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path):
+    """
+    Plot phase vs time for a given channel and baseline.
+    """
+    fig = plt.figure(layout="constrained", figsize=(10, 5))
+    fig.suptitle("Phase vs Time", fontsize=16)
+    xx_ax, yy_ax = fig.subplots(1, 2)
+
+    xx_ax.set_title("Input")
+    xx_ax.set_xlabel("Time")
+    xx_ax.set_ylabel("Phase")
+    xx_ax.set_ylim([-180, 180])
+
+    yy_ax.set_title("Corrected")
+    yy_ax.set_xlabel("Time")
+    yy_ax.set_ylabel("Phase")
+    yy_ax.set_ylim([-180, 180])
+
+    xx_ax.scatter(
+        input_vis.time,
+        np.angle(
+            input_vis.vis.isel(frequency=channel, baselineid=baseline, polarisation=0),
+            deg=True,
+        ),
+    )
+    yy_ax.scatter(
+        corrected_vis.time,
+        np.angle(
+            corrected_vis.vis.isel(
+                frequency=channel, baselineid=baseline, polarisation=0
+            ),
+            deg=True,
+        ),
+    )
+
+    handles, labels = xx_ax.get_legend_handles_labels()
+    fig.savefig(f"{prefix_path}/phase-time-{channel}-{baseline}.png")
+
+    plt.close(fig)
