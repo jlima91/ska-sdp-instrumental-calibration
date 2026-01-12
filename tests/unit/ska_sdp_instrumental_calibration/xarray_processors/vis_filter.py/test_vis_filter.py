@@ -10,7 +10,9 @@ from ska_sdp_instrumental_calibration.xarray_processors.vis_filter import (
 
 def test_should_have_registered_the_filters():
     assert VisibilityFilter._data_filters["uvdist"] == UVRangeFilter
-    assert VisibilityFilter._data_filters["baselines"] == BaselineFilter
+    assert (
+        VisibilityFilter._data_filters["exclude_baselines"] == BaselineFilter
+    )
 
 
 def test_should_raise_exception_for_unsupported_filter():

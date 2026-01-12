@@ -32,7 +32,7 @@ class BaselineFilter(VisibilityFilter):
         Regex pattern to identify negation, left, and right operands.
     """
 
-    _FILTER_NAME_ = "baselines"
+    _FILTER_NAME_ = "exclude_baselines"
 
     _baseline_pattern = (
         r"^(?P<negate>!?)(?P<left>[a-zA-Z0-9~*]+)"
@@ -123,7 +123,7 @@ class BaselineFilter(VisibilityFilter):
             return flags
 
         is_selected = xr.ones_like(baselines, dtype=bool).where(
-            np.logical_or.reduce(masks), other=False
+            np.logical_and.reduce(masks), other=False
         )
 
         new_flags = xr.zeros_like(flags, dtype=bool).where(

@@ -58,7 +58,9 @@ def test_ingnore_single_baseline(vis):
 
 
 def test_filter_baselines(vis):
-    filtered_vis = VisibilityFilter.filter({"baselines": "!ANT1&ANT2"}, vis)
+    filtered_vis = VisibilityFilter.filter(
+        {"exclude_baselines": "!ANT1&ANT2"}, vis
+    )
 
     vis.assign.assert_called_once_with({"flag": ANY})
 
@@ -73,17 +75,17 @@ def test_filter_baselines(vis):
 
 
 def test_filter_multiple_baselines(vis):
-    result = BaselineFilter._filter("ANT1&ANT2,ANT1&ANT1", vis)
+    result = BaselineFilter._filter("!ANT1&ANT2,ANT1&ANT1", vis)
 
     assert not result[:, 0, :, :].all()
-    assert not result[:, 1, :, :].all()
+    assert result[:, 1, :, :].all()
     assert result[:, 2, :, :].all()
 
     result = BaselineFilter._filter("ANT1~ANT2&ANT2,ANT1&ANT1", vis)
 
-    assert not result[:, 0, :, :].all()
-    assert not result[:, 1, :, :].all()
-    assert not result[:, 2, :, :].all()
+    assert result[:, 0, :, :].all()
+    assert result[:, 1, :, :].all()
+    assert result[:, 2, :, :].all()
 
 
 def test_invalid_baseline_string_raises(vis):

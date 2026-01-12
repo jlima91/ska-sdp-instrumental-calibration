@@ -76,7 +76,7 @@ logger = logging.getLogger()
                 "E.g. '0~10klambda','100~500m'",
                 nullable=True,
             ),
-            baselines=ConfigParam(
+            exclude_baselines=ConfigParam(
                 str,
                 None,
                 description="CASA like baselines strings to keep"
