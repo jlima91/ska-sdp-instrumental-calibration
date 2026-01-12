@@ -11,7 +11,7 @@ processing functions to prepare, model and calibrate a visibility dataset, data
 handling functions for parallel processing, and high level workflow scripts and
 notebooks.
 
-If you wish to contribute to this repository, please refer [Developer Guide](./DEVELOPMENT.md)
+If you wish to contribute to this repository, please refer [Developer Guide](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/DEVELOPMENT.html)
 
 ## Requirements for running the pipeline
 
@@ -313,9 +313,6 @@ options:
 
 ## Calibation Strategy for Calibrator
 
-We came up with the current execution strategy for INST from the script used by CommSci team to validate the read AA0.5 data.
+Refer this page for [calibration strategy](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_strategy.html)
 
-![INST Strategy for calibrator](<./docs/src/img/INST_Calibrator.png>)
 
-> Note:
-> The other additional stages are currently turned off. You can toggle those on at any time based on user's preference.
