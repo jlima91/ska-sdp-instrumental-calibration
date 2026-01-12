@@ -67,21 +67,33 @@ logger = logging.getLogger()
             },
         ),
         visibility_filters=NestedConfigParam(
-            "Visibility Filters",
+            """Visibility Filters which are used to flag the visibility
+            data before calibration. These flags are not carry forwarded
+            to the next stages.""",
             uvdist=ConfigParam(
                 str,
                 None,
-                description="CASA like uvrange strings to keep"
-                ", separated by comma for multiple. "
-                "E.g. '0~10klambda','100~500m'",
+                description="""
+                CASA like strings which determine
+                which uv ranges to keep in the filtered data.
+                Separated by comma for multiple.
+                Default unit is set to be meter.
+                For e.g. '0~10klambda' ; '>10m,<100m'
+                """,
                 nullable=True,
             ),
             exclude_baselines=ConfigParam(
                 str,
                 None,
-                description="CASA like baselines strings to keep"
-                ", separated by comma for multiple. "
-                "E.g. '!ANT1&ANT2,1~3&ANT4'",
+                description="""
+                CASA like strings which determine which baselines to exclude
+                in the filtered data.
+                A baseline is formed using antenna indices or antenna names,
+                where a pair is joined using '&'.
+                Each baseline must be seperated by comma.
+                For e.g. 'ANT1&ANT2,1~3&ANT4' will exclude following
+                baselines: ant1&ant2, ant1&ant4, ant2&ant4, ant3&ant4
+                """,
                 nullable=True,
             ),
         ),

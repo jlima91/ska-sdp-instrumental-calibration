@@ -44,13 +44,13 @@ def test_no_baselines_to_ignore_returns_flags_unchanged(vis):
 
 
 def test_ingnore_single_baseline(vis):
-    result = BaselineFilter._filter("!ANT1&ANT2", vis)
+    result = BaselineFilter._filter("ANT1&ANT2", vis)
 
     assert not result[:, 0, :, :].all()
     assert result[:, 1, :, :].all()
     assert not result[:, 2, :, :].all()
 
-    result = BaselineFilter._filter("!0&1", vis)
+    result = BaselineFilter._filter("0&1", vis)
 
     assert not result[:, 0, :, :].all()
     assert result[:, 1, :, :].all()
@@ -59,7 +59,7 @@ def test_ingnore_single_baseline(vis):
 
 def test_filter_baselines(vis):
     filtered_vis = VisibilityFilter.filter(
-        {"exclude_baselines": "!ANT1&ANT2"}, vis
+        {"exclude_baselines": "ANT1&ANT2"}, vis
     )
 
     vis.assign.assert_called_once_with({"flag": ANY})
@@ -75,7 +75,7 @@ def test_filter_baselines(vis):
 
 
 def test_filter_multiple_baselines(vis):
-    result = BaselineFilter._filter("!ANT1&ANT2,ANT1&ANT1", vis)
+    result = BaselineFilter._filter("0&1,1&1", vis)
 
     assert not result[:, 0, :, :].all()
     assert result[:, 1, :, :].all()

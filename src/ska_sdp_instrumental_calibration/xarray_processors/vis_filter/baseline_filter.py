@@ -35,8 +35,7 @@ class BaselineFilter(VisibilityFilter):
     _FILTER_NAME_ = "exclude_baselines"
 
     _baseline_pattern = (
-        r"^(?P<negate>!?)(?P<left>[a-zA-Z0-9~*]+)"
-        r"(?:\s*&\s*(?P<right>[a-zA-Z0-9~*]+))?$"
+        r"^(?P<left>[a-zA-Z0-9~*]+)" r"(?:\s*&\s*(?P<right>[a-zA-Z0-9~*]+))?$"
     )
     _re_baseline = re.compile(_baseline_pattern)
 
@@ -72,7 +71,7 @@ class BaselineFilter(VisibilityFilter):
         Parameters
         ----------
         baseline_expr : str
-            The raw string expression (e.g., "!1~3 & 5").
+            The raw string expression (e.g., "1~3 & 5").
 
         Returns
         -------

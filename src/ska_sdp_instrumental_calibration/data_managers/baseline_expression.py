@@ -1,6 +1,6 @@
 import itertools
 from dataclasses import dataclass
-from typing import Callable, Iterable, Tuple, Union
+from typing import Callable, Iterable, Tuple
 
 import numpy as np
 
@@ -10,7 +10,7 @@ class BaselinesExpression:
     """
     Parses and evaluates baseline selection expressions.
 
-    This class handles logic for selecting baselines based on string
+    This class handles logic for exluding the baselines based on string
     expressions representing antenna ranges.
     """
 
@@ -18,9 +18,6 @@ class BaselinesExpression:
     """The left-hand side of the baseline expression (e.g., "1" or "1~5")."""
     right: str
     "The right-hand side of the baseline expression."
-    negate: Union[bool, str]
-    """Flag to indicate if the selection should be inverted. If passed as
-    "!", it is converted to True (exclusion)."""
     antenna_parser: Callable = lambda x: int(x)
     """Function to parse antenna strings into integers. Defaults to
     ``lambda x: int(x)``."""
@@ -29,9 +26,6 @@ class BaselinesExpression:
         """
         Normalize the negation flag to a boolean after initialization.
         """
-        if isinstance(self.negate, str):
-            self.negate = self.negate == "!"
-
         self.left = self.__parse_range(self.left)
         self.right = self.__parse_range(self.right)
 
@@ -67,14 +61,11 @@ class BaselinesExpression:
         Returns
         -------
             A boolean array of the same length as ``baselines``, where True
-            indicates the baseline matches the expression.
+            indicates the baseline does not match the expression
         """
 
-        valid_set = set(itertools.product(self.left, self.right))
+        exclusion_set = set(itertools.product(self.left, self.right))
 
-        mask = np.array([b in valid_set for b in baselines], dtype=bool)
-
-        if self.negate:
-            return ~mask
-
-        return mask
+        return np.array(
+            [b not in exclusion_set for b in baselines], dtype=bool
+        )
