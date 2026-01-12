@@ -1,5 +1,50 @@
 # Changelog
 
+## Latest
+
+### New features
+
+1. Filtering of the visibility data based on baselines and uv distance values, before bandpass calibration starts
+
+2. Flagging based on real and imaginary parts of the gaintable
+
+3. Option to export the filtered sky model used for the prediction of visibilities, in a CSV file format.
+
+### Configuration Changes
+
+#### Stages
+
+1. INST pipeline's default stage order is updated as per the AA0.5 strategy. Some of the stages are turned off by default.
+
+2. A new `bandpass_initialisation` stage is added to initialize the gaintable before bandpass calibration.
+
+#### Additions
+
+1. `export_sky_model` in `predict_vis` : Option to export the filtered sky model
+
+2. `element_response_model` in `predict_vis` : An option from everybeam to select the desired element response model.
+
+3. `visibility_filters` in `bandpass_calibration` : Options to filter visibilities before bandpass calibration starts
+
+#### Removals
+
+1. `eb_coeffs` from `predict_vis`: It was used to pass path to [everybeam coefficients](https://git.astron.nl/RD/EveryBeam/-/tree/master/coeffs) to `everybeam` library. If coefficients must be passed, then the user must set `EVERYBEAM_DATADIR` environment variable before running the INST pipeline. If using spack package of `everybeam`, then `EVERYBEAM_DATADIR` is automatically set by spack after loading.
+
+2. `soltype` in `flag_gain` : Value "both" is removed from allowed values. New allowed values are: "phase", "amplitude", "amp-phase", "real-imag"
+
+3. `timeslice` from `run_solver_config` : For instrumental calibration, this parameters was unused. For complex gain calibration, the `timeslice` is passed via the `target_load_data` stage.
+
+
+### Refactoring / Improvements
+
+1. All functions have been re-organised into following packages:
+   1. "numpy_processors": Work on numpy arrays and return numpy arrays
+   2. "xarray_processors": Work on xarray dataarray/dataset instances (based on ska-sdp-datamodels).
+
+2. Made `predict_vis` stage parallelizable across both time and frequency chunks
+
+3. Distribute the rotation measure calculation across multiple dask tasks
+
 ## 0.6.0
 
 ### Added
