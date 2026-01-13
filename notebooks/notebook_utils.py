@@ -294,13 +294,13 @@ def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path)
     xx_ax, yy_ax = fig.subplots(1, 2)
 
     xx_ax.set_title("Input")
-    xx_ax.set_xlabel("Time")
-    xx_ax.set_ylabel("Phase")
+    xx_ax.set_xlabel("Time (sec)")
+    xx_ax.set_ylabel("Phase (deg)")
     xx_ax.set_ylim([-180, 180])
 
     yy_ax.set_title("Corrected")
-    yy_ax.set_xlabel("Time")
-    yy_ax.set_ylabel("Phase")
+    yy_ax.set_xlabel("Time (sec)")
+    yy_ax.set_ylabel("Phase (deg)")
     yy_ax.set_ylim([-180, 180])
 
     xx_ax.scatter(
@@ -320,7 +320,111 @@ def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path)
         ),
     )
 
-    handles, labels = xx_ax.get_legend_handles_labels()
     fig.savefig(f"{prefix_path}/phase-time-{channel}-{baseline}.png")
+
+    plt.close(fig)
+
+
+def plot_time_vs_freq_for_phase(input_vis, corrected_vis, baseline, prefix_path):
+    """
+    Plot waterfallplot for time vs frequency for phase for original and corrected visibilities for a given baseline.
+
+    Parameters
+    ----------
+    input_vis : xarray.Dataset
+        The input visibility dataset.
+    corrected_vis : xarray.Dataset
+        The corrected visibility dataset.
+    baseline : int
+        The baseline ID to plot.
+    prefix_path : str
+        The path prefix to save the plot.
+    """
+    _input_vis = input_vis.vis.isel(baselineid=baseline, polarisation=0)
+    input_x = _input_vis.time
+    input_y = _input_vis.frequency
+
+    input_X, input_Y = np.meshgrid(input_x, input_y)
+    input_Z = np.angle(_input_vis.T)
+
+    _corrected_vis = corrected_vis.vis.isel(baselineid=baseline, polarisation=0)
+    corrected_x = _corrected_vis.time
+    corrected_y = _corrected_vis.frequency
+
+    corrected_X, corrected_Y = np.meshgrid(corrected_x, corrected_y)
+    corrected_Z = np.angle(_corrected_vis.T, deg=True)
+
+    fig = plt.figure(layout="constrained", figsize=(10, 5))
+    fig.suptitle("Time Vs Freq for Phase", fontsize=16)
+
+    input_plt, corrected_plt = fig.subplots(1, 2)
+
+    input_plt.set_title("Input")
+    input_plt.set_xlabel("Time (sec)")
+    input_plt.set_ylabel("Freq (Hz)")
+    pcm = input_plt.pcolormesh(input_X, input_Y, input_Z)
+
+    corrected_plt.set_title("Corrected")
+    corrected_plt.set_xlabel("Time (sec)")
+    corrected_plt.set_ylabel("Freq (Hz)")
+    pcm = corrected_plt.pcolormesh(corrected_X, corrected_Y, corrected_Z)
+
+    plt.colorbar(pcm, label="Phase (deg)")
+
+    fig.savefig(f"{prefix_path}/phase-time-freq-phase-waterfall-{baseline}.png")
+
+    plt.close(fig)
+
+
+def plot_time_vs_freq_for_phase_multiple_baselines(
+    vis, baseline_start, baseline_end, title_suffix, prefix_path
+):
+    """
+    Plot waterfallplot for time vs frequency for phase for multiple baselines.
+
+    Parameters
+    ----------
+    vis : xarray.Dataset
+        The visibility dataset.
+    baseline_start : int
+        The starting baseline ID to plot.
+    baseline_end : int
+        The ending baseline ID to plot.
+    title_suffix : str
+        Suffix to add to the plot title and filename.
+    prefix_path : str
+        The path prefix to save the plot.
+    """
+    _vis = vis.vis.isel(polarisation=0)
+
+    time = _vis.time
+    freq = _vis.frequency
+    time_X, freq_Y = np.meshgrid(time, freq)
+
+    baselines = range(baseline_start, baseline_end + 1)
+
+    phases_list = [
+        np.angle(_vis.isel(baselineid=baseline).T, deg=True) for baseline in baselines
+    ]
+    baseline_counts = len(baselines)
+    cols = 5
+    rows = baseline_counts // cols + baseline_counts % cols
+
+    fig, axes = plt.subplots(
+        rows, cols, figsize=(18, 12), constrained_layout=True, sharex=True, sharey=True
+    )
+    fig.suptitle(f"Time Vs Freq for Phase {title_suffix}", fontsize=16)
+
+    for ax, phase in zip(axes.flat, phases_list):
+        pcm = ax.pcolormesh(time_X, freq_Y, phase, shading="auto")
+
+    fig.supxlabel("Time (sec)")
+    fig.supylabel("Freq (Hz)")
+
+    fig.colorbar(pcm, ax=axes, label="Phase (deg)", shrink=0.85)
+
+    fig.savefig(
+        f"{prefix_path}/phase-time-freq-phase-waterfall-{baseline_start}-{baseline_end}-{title_suffix}.png"
+    )
 
     plt.close(fig)
