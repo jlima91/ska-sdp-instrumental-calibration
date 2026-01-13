@@ -28,20 +28,21 @@ SKY_MODEL_CSV_HEADER = [
 
 
 class ComponentConverters:
-    __headers_to_fields_map = {
-        "RA (deg)": "RAdeg",
-        "Dec (deg)": "DEdeg",
-        "I (Jy)": "flux",
-        "Q (Jy)": "doesnotexist",
-        "U (Jy)": "doesnotexist",
-        "V (Jy)": "doesnotexist",
-        "Ref. freq. (Hz)": "ref_freq",
-        "Spectral index": "alpha",
-        "Rotation measure (rad/m^2)": "doesnotexist",
-        "FWHM major (arcsec)": "major",
-        "FWHM minor (arcsec)": "minor",
-        "Position angle (deg)": "pa",
-    }
+    __headers_to_fields_pairs = [
+        ("name", "comp_name"),
+        ("RAdeg", "RA (deg)"),
+        ("DEdeg", "Dec (deg)"),
+        ("flux", "I (Jy)"),
+        (None, "Q (Jy)"),
+        (None, "U (Jy)"),
+        (None, "V (Jy)"),
+        ("ref_freq", "Ref. freq. (Hz)"),
+        ("alpha", "Spectral index"),
+        (None, "Rotation measure (rad/m^2)"),
+        ("major", "FWHM major (arcsec)"),
+        ("minor", "FWHM minor (arcsec)"),
+        ("pa", "Position angle (deg)"),
+    ]
 
     __exponent_str = functools.partial(lambda value: format(value, "e"))
     __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
@@ -65,19 +66,59 @@ class ComponentConverters:
 
     @classmethod
     def to_csv_row(cls, component: Component) -> list[str]:
-        row = []
-        for header in SKY_MODEL_CSV_HEADER:
-            formatter = cls.__headers_formatter[header]
-            row.append(
-                formatter(
-                    getattr(
-                        component,
-                        cls.__headers_to_fields_map[header],
-                        cls.__non_existing_field_default,
-                    )
+        return [
+            cls.__headers_formatter[header](
+                getattr(
+                    component,
+                    obj_prop,
+                    cls.__non_existing_field_default,
                 )
+                if obj_prop
+                else cls.__non_existing_field_default
             )
-        return row
+            for obj_prop, header in cls.__headers_to_fields_pairs
+            if header in SKY_MODEL_CSV_HEADER
+        ]
+
+    @classmethod
+    def row_to_component(cls, row: pd.Series) -> Component:
+        """
+        Convert a pandas Series representing a row into a Component object.
+
+        Parameters
+        ----------
+        row : pd.Series
+            A series containing keys that match the CSV header names defined
+            in PROPERTY_PAIRS.
+
+        Returns
+        -------
+        Component
+            The instantiated component object.
+        """
+        kwargs = {
+            object_prop: row[csv_header]
+            for object_prop, csv_header in cls.__headers_to_fields_pairs
+            if csv_header in row and object_prop is not None
+        }
+        return Component(**kwargs)
+
+    @classmethod
+    def df_to_components(cls, df: pd.DataFrame) -> list[Component]:
+        """
+        Convert a pandas DataFrame into a list of Component objects.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The input dataframe where each row represents a component.
+
+        Returns
+        -------
+        list of Component
+            A list containing the converted Component instances.
+        """
+        return [cls.row_to_component(row) for _, row in df.iterrows()]
 
 
 def generate_lsm_from_csv(
@@ -154,20 +195,7 @@ def generate_lsm_from_csv(
 
     lsm_df = lsm_df[lsm_df["separation"] <= max_separation]
 
-    model = lsm_df.apply(
-        lambda row: Component(
-            name=row["comp_name"],
-            RAdeg=row["RA (deg)"],
-            DEdeg=row["Dec (deg)"],
-            flux=row["I (Jy)"],
-            ref_freq=row["Ref. freq. (Hz)"],
-            alpha=row["Spectral index"],
-            major=row["FWHM major (arcsec)"],
-            minor=row["FWHM minor (arcsec)"],
-            pa=row["Position angle (deg)"],
-        ),
-        axis=1,
-    ).tolist()
+    model = ComponentConverters.df_to_components(lsm_df)
 
     logger.info(f"extracted {len(model)} csv components")
     return model
