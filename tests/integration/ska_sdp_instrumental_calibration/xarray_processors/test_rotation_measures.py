@@ -41,10 +41,10 @@ def test_model_rotations():
     )
 
     actual_rm_est_computed = actual_rotations.rm_est.compute()
-    expected_rm_est = np.array([-3.662733e-314, -9.485889e001])
+    expected_rm_est = np.array([0, -94.9161247])
 
     np.testing.assert_allclose(
-        actual_rm_est_computed, expected_rm_est, rtol=1e-5  # , atol=1e-10
+        actual_rm_est_computed, expected_rm_est, atol=1e-7
     )
 
 

@@ -166,7 +166,7 @@ def test_generate_central_beams(mock_telescope, generate_vis):
     """Test that generate_central_beams matches predict_from_components."""
     # Get dataset but reinitialise vis to zero
     vis, _ = generate_vis
-    vis.vis = xr.zeros_like(vis.vis)
+    vis["vis"] = xr.zeros_like(vis.vis)
 
     skycomp = SkyComponent(
         direction=SkyCoord(ra=0, dec=-27, unit="deg"),
