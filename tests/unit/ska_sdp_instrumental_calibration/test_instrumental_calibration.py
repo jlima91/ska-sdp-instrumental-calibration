@@ -179,7 +179,10 @@ def test_should_use_initial_config_provided(
                 "bandpass_calibration": {"config_value": "updated_config"},
                 "bandpass_calibration_1": {"config_value": "initial_config"},
             },
-            "pipeline": {},
+            "pipeline": {
+                "bandpass_calibration": True,
+                "bandpass_calibration_1": True,
+            },
         },
     )
 

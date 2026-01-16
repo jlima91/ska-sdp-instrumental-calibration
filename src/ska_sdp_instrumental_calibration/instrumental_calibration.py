@@ -97,6 +97,7 @@ def experimental(cli_args):
         )
         parameters = config.get("parameters", {})
         new_parameters = {}
+        pipeline_state = {}
         for stage_dict in stage_order:
             stage_name, stage_config = list(stage_dict.items())[0]
 
@@ -117,6 +118,7 @@ def experimental(cli_args):
             elif stage_config := parameters.get(stage_name):
                 new_parameters[stage.name] = copy.deepcopy(stage_config)
 
+            pipeline_state[stage.name] = True
             reconfigured_stages.append(stage)
 
         if reconfigured_stages:
@@ -124,7 +126,7 @@ def experimental(cli_args):
 
             ska_sdp_instrumental_calibration._stages = stages
             config["parameters"] = new_parameters
-            config["pipeline"] = {}
+            config["pipeline"] = pipeline_state
             _, temp_config = tempfile.mkstemp(text=True, suffix=".yml")
             write_yml(temp_config, config)
             cli_args.config_path = temp_config
