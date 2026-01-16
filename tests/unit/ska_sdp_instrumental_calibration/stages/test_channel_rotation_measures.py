@@ -20,7 +20,6 @@ def test_should_have_the_expected_default_configuration():
                 "phase_only": False,
                 "tol": 0.001,
                 "crosspol": False,
-                "normalise_gains": None,
             },
             "export_gaintable": False,
         },
@@ -109,7 +108,6 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
         "refant": 2,
     }
     plot_rm_config = {
@@ -166,7 +164,6 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         phase_only=False,
         tol=1e-06,
         crosspol=False,
-        normalise_gains="mean",
     )
 
     run_solver_mock.assert_called_once_with(
@@ -261,7 +258,6 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_rm_config = {
         "plot_rm": False,
@@ -308,7 +304,6 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         phase_only=False,
         tol=1e-06,
         crosspol=False,
-        normalise_gains="mean",
     )
 
     run_solver_mock.assert_called_once_with(
@@ -432,7 +427,6 @@ def test_should_plot_with_proper_suffix(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_rm_config = {
         "plot_rm": True,
@@ -636,7 +630,6 @@ def test_should_export_gaintable_with_proper_suffix(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_rm_config = {
         "plot_rm": False,
@@ -768,7 +761,6 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_rm_config = {
         "plot_rm": False,

@@ -2,7 +2,6 @@ import logging
 from typing import Tuple
 
 import numpy as np
-import xarray as xr
 
 from .processing_functions import create_point_vis, gain_substitution
 from .solver import Solver
@@ -29,9 +28,6 @@ class GainSubstitution(Solver):
     crosspol : bool, optional
         If True, solve for cross-polarization terms (e.g., XY, YX, RL, LR)
         in addition to parallel hands. Default is False.
-    normalise_gains : str, optional
-        Method to normalize gain amplitudes. Options are 'mean', 'median',
-        or None. Default is None.
     **kwargs
         Additional keyword arguments passed to the base `Solver` class
         (e.g., `niter`, `tol`).
@@ -44,8 +40,6 @@ class GainSubstitution(Solver):
         Whether to solve for phase only.
     crosspol : bool
         Whether to solve for cross-polarization.
-    norm_method : str or None
-        Selected normalization method.
 
     Examples
     --------
@@ -65,14 +59,12 @@ class GainSubstitution(Solver):
         refant=0,
         phase_only=False,
         crosspol=False,
-        normalise_gains=None,
         **kwargs,
     ):
         super(GainSubstitution, self).__init__(**kwargs)
         self.refant = refant
         self.phase_only = phase_only
         self.crosspol = crosspol
-        self.norm_method = normalise_gains
 
     def solve(
         self,
@@ -164,39 +156,3 @@ class GainSubstitution(Solver):
             tol=self.tol,
             refant=self.refant,
         )
-
-    def normalise_gains(self, gain: xr.DataArray) -> xr.DataArray:
-        """
-        Normalize gain amplitudes using the configured method.
-
-        Parameters
-        ----------
-        gain : xarray.DataArray
-            The gain array to normalize.
-
-        Returns
-        -------
-        xarray.DataArray
-            The normalized gain array.
-
-        Raises
-        ------
-        ValueError
-            If the `normalise_gains` method specified in `__init__` is
-            not valid (i.e., not 'mean' or 'median').
-        """
-        if self.norm_method is None:
-            return gain
-
-        logger.info(f"Normalizing gains using {self.norm_method}")
-
-        if self.norm_method not in self._NORMALISER:
-            raise ValueError(
-                f"Undefined normalisation function {self.norm_method}"
-            )
-
-        norm_func = self._NORMALISER[self.norm_method]
-
-        gabs = norm_func(np.abs(gain))
-
-        return gain / gabs

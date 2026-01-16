@@ -23,10 +23,10 @@ if [[ $CHECK_FOR_ENV_FILE_CHANGE -eq 1 ]] ; then
     echo -e "\nChanges detected in \"$file\""
     echo -e "\nThis might be due to staged changes OR because you moved git's local HEAD.\n"
 
-    read -rp 'Have you updated your local conda environment? [y/n] ' response
+    read -rp 'Have you updated your local python environment? [y/n] ' response
     case "$response" in
         [Yy]*) ;;
-        [Nn]*) echo -e "\nPlease update the conda environment and reinstall the package using poetry.'\n" ; exit 1;;
+        [Nn]*) echo -e "\nPlease update the python environment and reinstall the package using poetry.'\n" ; exit 1;;
         *) echo -e "\nPlease answer yes or no. Exiting.\n"; exit 1 ;;
     esac
 fi

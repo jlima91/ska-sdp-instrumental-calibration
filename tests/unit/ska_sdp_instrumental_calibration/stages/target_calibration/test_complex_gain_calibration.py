@@ -31,7 +31,6 @@ def run_solver_config():
         "phase_only": True,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
         "timeslice": 0.5,
     }
 
@@ -88,7 +87,6 @@ def test_should_perform_complex_gain_calibration(
         phase_only=True,
         tol=1e-06,
         crosspol=False,
-        normalise_gains="mean",
         timeslice=1,
     )
     run_solver_mock.assert_called_once_with(

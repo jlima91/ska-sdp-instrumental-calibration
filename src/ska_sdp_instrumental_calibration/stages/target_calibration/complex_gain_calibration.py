@@ -80,17 +80,6 @@ logger = logging.getLogger()
                 Only used by "gain_substitution" solver.""",
                 nullable=False,
             ),
-            normalise_gains=ConfigParam(
-                str,
-                None,
-                description="""Normalises the gains.
-                Only available when solver is "gain_substitution".
-                Possible types of normalization are: "mean", "median".
-                To perform no normalization, set this to ``null``.
-                """,
-                allowed_values=[None, "mean", "median"],
-                nullable=True,
-            ),
         ),
         plot_config=NestedConfigParam(
             "Plot parameters",

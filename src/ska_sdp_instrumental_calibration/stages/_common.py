@@ -65,17 +65,6 @@ RUN_SOLVER_COMMON = dict(
                 Only used by "gain_substitution" solver.""",
         nullable=False,
     ),
-    normalise_gains=ConfigParam(
-        str,
-        None,
-        description="""Normalises the gains.
-                Only available when solver is "gain_substitution".
-                Possible types of normalization are: "mean", "median".
-                To perform no normalization, set this to ``null``.
-                """,
-        allowed_values=[None, "mean", "median"],
-        nullable=True,
-    ),
 )
 
 RUN_SOLVER_DOCSTRING = """
@@ -108,11 +97,6 @@ RUN_SOLVER_DOCSTRING = """
                 crosspol: bool
                     Do solutions including cross polarisations
                     i.e. XY, YX or RL, LR. Only used by the gain_substitution.
-                normalise_gains: str
-                    Normalises the gains.
-                    options are None, "mean", "median".
-                    None means no normalization.
-                    Only available with gain_substitution.
                 timeslice: float
                     Defines the time scale over which each gain solution is
                     valid. This is used to define time axis of the GainTable.

@@ -102,14 +102,7 @@ def test_should_calculate_gaintable_from_visibility_and_model_vis_b_type(
         solution_time="time"
     )
 
-    solver_mock.normalise_gains.assert_called_once_with(
-        combined_gaintable_mock.gain
-    )
-    combined_gaintable_mock.assign.assert_called_once_with(
-        {"gain": solver_mock.normalise_gains.return_value}
-    )
-
-    assert expected == combined_gaintable_mock.assign.return_value
+    assert expected == combined_gaintable_mock.rename.return_value
 
 
 @patch(
@@ -170,14 +163,7 @@ def test_should_calculate_gaintable_from_visibility_and_model_vis_non_b_type(
         [call(solution_time="time"), call(solution_frequency="frequency")]
     )
 
-    solver_mock.normalise_gains.assert_called_once_with(
-        combined_gaintable_mock.gain
-    )
-    combined_gaintable_mock.assign.assert_called_once_with(
-        {"gain": solver_mock.normalise_gains.return_value}
-    )
-
-    assert expected == combined_gaintable_mock.assign.return_value
+    assert expected == combined_gaintable_mock.rename.return_value
 
 
 @patch(

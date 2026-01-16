@@ -124,6 +124,4 @@ def run_solver(
             solution_frequency="frequency"
         )
 
-    norm_gain = solver.normalise_gains(combined_gaintable.gain)
-
-    return combined_gaintable.assign({"gain": norm_gain})
+    return combined_gaintable

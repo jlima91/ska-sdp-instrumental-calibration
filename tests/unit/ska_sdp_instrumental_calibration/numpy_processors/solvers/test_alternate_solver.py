@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import xarray as xr
 from mock import patch
 
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
@@ -205,37 +204,3 @@ class TestNormalEquationsPreSum:
         np.testing.assert_equal(gain, mock_data["gain_gain"])
         np.testing.assert_equal(weight, mock_data["gain_weight"])
         np.testing.assert_equal(residual, mock_data["gain_residual"])
-
-
-def test_should_return_gains_without_normalising():
-
-    solver = JonesSubtitution(normalise_gains="mean")
-    gain = xr.DataArray(np.array([0, 1, 2, 3, 4]), dims=["frequency"])
-
-    np.testing.assert_allclose(
-        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
-    )
-
-    solver = NormalEquation(normalise_gains="mean")
-
-    np.testing.assert_allclose(
-        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
-    )
-
-    solver = NormalEquationsPreSum(normalise_gains="mean")
-
-    np.testing.assert_allclose(
-        solver.normalise_gains(gain), np.array([0, 1, 2, 3, 4])
-    )
-
-
-def test_should_raise_exception_if_normal_method_is_defined():
-
-    solver = JonesSubtitution()
-    solver.norm_method = "mean"
-
-    with pytest.raises(
-        NotImplementedError,
-        match=("Normalise gains using mean not implemented"),
-    ):
-        solver.normalise_gains([0, 1, 2, 3, 4])

@@ -14,7 +14,6 @@ def test_should_have_the_expected_default_configuration():
                 "phase_only": False,
                 "tol": 1.0e-03,
                 "crosspol": False,
-                "normalise_gains": None,
             },
             "visibility_filters": {"uvdist": None, "exclude_baselines": None},
             "plot_config": {"plot_table": True, "fixed_axis": False},
@@ -59,7 +58,6 @@ def test_should_perform_bandpass_calibration(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_config = {"plot_table": False, "fixed_axis": False}
     solver_factory_mock.get_solver.return_value = "SOLVER"
@@ -86,7 +84,6 @@ def test_should_perform_bandpass_calibration(
         phase_only=False,
         tol=1e-06,
         crosspol=False,
-        normalise_gains="mean",
     )
     run_solver_mock.assert_called_once_with(
         vis=upstream_output.corrected_vis,
@@ -143,7 +140,6 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_config = {"plot_table": True, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
@@ -247,7 +243,6 @@ def test_should_export_gaintable_with_proper_suffix(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_config = {"plot_table": False, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
@@ -329,7 +324,6 @@ def test_should_not_use_corrected_vis_when_config_is_false(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_config = {"plot_table": False, "fixed_axis": False}
 
@@ -353,7 +347,6 @@ def test_should_not_use_corrected_vis_when_config_is_false(
         phase_only=False,
         tol=1e-06,
         crosspol=False,
-        normalise_gains="mean",
     )
     run_solver_mock.assert_called_once_with(
         vis=upstream_output.vis,
@@ -405,7 +398,6 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
         "phase_only": False,
         "tol": 1e-06,
         "crosspol": False,
-        "normalise_gains": "mean",
     }
     plot_config = {"plot_table": False, "fixed_axis": False}
 
