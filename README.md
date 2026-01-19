@@ -96,10 +96,10 @@ source .venv/bin/activate
 
 #### Stable release from SKAO pip index (recommended)
 
-Run the following command to install the latest stable release (0.7.0) of the pipeline from SKAO python artifact repository:
+Run the following command to install the latest stable release (0.7.1) of the pipeline from SKAO python artifact repository:
 
 ```bash
-INST_VERSION=0.7.0
+INST_VERSION=0.7.1
 
 # if using uv, use `uv pip install ...`
 pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]==$INST_VERSION"
@@ -121,7 +121,7 @@ pip install --extra-index-url "https://artefact.skao.int/repository/pypi-interna
 The INST pipeline is available as a [spack](https://spack.readthedocs.io/en/v0.23.1/) package, in the [ska-sdp-spack](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack) repository. Please follow the [README](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack/-/blob/main/README.md) to setup spack on your machine. Then install the e2e pipeline using this command:
 
 ```bash
-INST_VERSION=0.7.0
+INST_VERSION=0.7.1
 
 spack install "py-ska-sdp-instrumental-calibration@$INST_VERSION"
 ```
@@ -138,7 +138,7 @@ We also provide a OCI (docker) image which is hosted on the SKA Docker artifact 
 To pull the docker image for the latest stable release, please run:
 
 ```bash
-INST_VERSION=0.7.0
+INST_VERSION=0.7.1
 docker pull "artefact.skao.int/ska-sdp-instrumental-calibration:$INST_VERSION"
 ```
 

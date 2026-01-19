@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1
+
+1. Remove `normalise_gains` option from solver configuration
+
+2. Add support for numpy 2+
+
+3. Fix optional stages being disabled issue, for experimental subcommand
+
 ## 0.7.0
 
 ### New features
