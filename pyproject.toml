@@ -26,22 +26,22 @@ priority = "supplemental"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-astropy = "^6.1"
+astropy = ">=6.1"
 distributed = "^2024.11.2"
 xarray = "^2024.7"
 # Remove this when xarray is upgraded to 2025*. That should work with zarr 3.*
 zarr = "^2.18"
-everybeam = "^0.8.0"
-numpy = "^2.0"
-matplotlib = "^3.9.1"
-python-casacore = "^3.7.1"
+everybeam = ">=0.8"
+numpy = ">=1.26,<3"
+matplotlib = ">=3.9.1"
+python-casacore = ">=3.7.1"
 ska-sdp-datamodels = "^1.0.2"
 ska-sdp-func = "^1.2"
 ska-sdp-func-python = "^1.0.2"
 ska-sdp-exec-piper = "^1.1.0"
+ska-sdp-dataproduct-metadata = "^1.0"
 # This is a temporary fix. See issue: https://github.com/fastapi/typer/discussions/1215
 click = "8.1.*"
-ska-sdp-dataproduct-metadata = "^1.0.0.post1"
 
 [tool.poetry.extras]
 python-casacore = ["python-casacore"]
