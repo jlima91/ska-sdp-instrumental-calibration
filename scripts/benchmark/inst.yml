@@ -13,8 +13,9 @@ global_parameters:
         beam_type: everybeam
         normalise_at_beam_centre: true
         eb_ms: null
-        eb_coeffs: null
         lsm_csv_path: null
+        export_sky_model: true
+        element_response_model: oskar_dipole_cos
         fov: 10.0
         flux_limit: 1.0
         alpha0: -0.78
@@ -26,8 +27,6 @@ global_parameters:
           phase_only: false
           tol: 0.0001
           crosspol: false
-          normalise_gains: null
-          timeslice: null
         plot_config:
           plot_table: true
           fixed_axis: false
@@ -47,8 +46,6 @@ global_parameters:
           phase_only: false
           tol: 0.0001
           crosspol: false
-          normalise_gains: null
-          timeslice: null
         export_gaintable: true
     - bandpass_calibration:
         run_solver_config:
@@ -58,8 +55,6 @@ global_parameters:
           phase_only: false
           tol: 0.0001
           crosspol: false
-          normalise_gains: null
-          timeslice: null
         plot_config:
           plot_table: true
           fixed_axis: false
