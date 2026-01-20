@@ -312,7 +312,7 @@ def plot_station_delays(delaytable, path_prefix):
         sc = ax.scatter(
             longitude,
             latitude,
-            c=calibration_delay[..., idx],
+            c=calibration_delay[..., idx].reshape(-1),
             cmap="plasma",
             s=10,
         )
