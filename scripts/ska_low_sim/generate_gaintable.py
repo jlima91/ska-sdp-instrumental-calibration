@@ -642,14 +642,16 @@ def add_gain_outliers(gain, amp_range, n_stations, n_channels):
     n_time, n_channels, n_stations = gain.shape
     gain = gain.copy()
 
-    corrupt_stations = random.choice(n_stations, size=n_stations, replace=False)
+    np.random.seed(100)
+
+    corrupt_stations = np.random.choice(n_stations, size=n_stations, replace=False)
 
     for st in corrupt_stations:
-        corrupt_channels = random.choice(n_channels, size=n_channels, replace=False)
+        corrupt_channels = np.random.choice(n_channels, size=n_channels, replace=False)
         
         for ch in corrupt_channels:
-            amp_multiplier = random.uniform(*amp_range)
-            phase_offset = random.uniform(-180.0, 180.0)
+            amp_multiplier = np.random.uniform(*amp_range)
+            phase_offset = np.random.uniform(-180.0, 180.0)
             
             gain[:, ch, st] *= amp_multiplier * np.exp(1j * np.deg2rad(phase_offset))
 
@@ -809,14 +811,14 @@ def calculate_gains(cfg):
     gain_xpol = add_gain_outliers(
         gain_xpol,
         amp_range,
-        generate_gaintable_cfg["n_stations"],
-        generate_gaintable_cfg["n_channles"],
+        outlier_config["n_stations"],
+        outlier_config["n_channles"],
     )
     gain_ypol = add_gain_outliers(
         gain_ypol,
         amp_range,
-        generate_gaintable_cfg["n_stations"],
-        generate_gaintable_cfg["n_channles"],
+        outlier_config["n_stations"],
+        outlier_config["n_channles"],
     )
 
     if rfi:
