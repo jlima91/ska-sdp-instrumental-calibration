@@ -29,6 +29,12 @@ fields:
 generate_gaintable:
   output_gaintable: &gen_gaintable "./gain-tables/custom_gaintable.h5"
 
+  outlier_config:
+    amp_min: 2.0
+    amp_max: 5.0
+    n_stations: 20
+    n_channles: 100
+
   station_offset: true              # Apply per-station amplitude/phase offsets
   time_variant: true                # Apply time-dependent effects
 

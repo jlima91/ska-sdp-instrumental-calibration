@@ -615,6 +615,47 @@ def calculate_rfi(
     return RFI_complex, slice(rfi_start_freq_idx, rfi_end_freq_idx, None)
 
 
+############################## Add outliers to gains ##############################
+
+
+def add_gain_outliers(gain, amp_range, n_stations, n_channels):
+    """
+    Add complex gain outliers by corrupting random stations and channels.
+
+    Parameters
+    ----------
+    gain : np.ndarray
+        Complex gain array with shape (n_time, n_channels, n_stations)
+    amp_range: tuple(int, int)
+        Range of outlier amplitude
+    n_stations : int
+        Number of random stations to corrupt
+    n_channels : int
+        Number of random channels per station to corrupt
+
+    Returns
+    -------
+    gain_with_outliers : np.ndarray
+        Complex gain array with outliers injected
+    """
+
+    n_time, n_channels, n_stations = gain.shape
+    gain = gain.copy()
+
+    corrupt_stations = random.choice(n_stations, size=n_stations, replace=False)
+
+    for st in corrupt_stations:
+        corrupt_channels = random.choice(n_channels, size=n_channels, replace=False)
+        
+        for ch in corrupt_channels:
+            amp_multiplier = random.uniform(*amp_range)
+            phase_offset = random.uniform(-180.0, 180.0)
+            
+            gain[:, ch, st] *= amp_multiplier * np.exp(1j * np.deg2rad(phase_offset))
+
+    return gain
+
+
 ############################## Generate gaintables combining all effects ##############################
 
 
@@ -761,6 +802,22 @@ def calculate_gains(cfg):
     )
     gain_xpol = np.swapaxes(gain_xpol, 0, 1)
     gain_ypol = np.swapaxes(gain_ypol, 0, 1)
+
+    outlier_config = generate_gaintable_cfg["outlier_config"]
+    amp_range = (outlier_config["amp_min"],outlier_config["amp_max"])
+
+    gain_xpol = add_gain_outliers(
+        gain_xpol,
+        amp_range,
+        generate_gaintable_cfg["n_stations"],
+        generate_gaintable_cfg["n_channles"],
+    )
+    gain_ypol = add_gain_outliers(
+        gain_ypol,
+        amp_range,
+        generate_gaintable_cfg["n_stations"],
+        generate_gaintable_cfg["n_channles"],
+    )
 
     if rfi:
         RFI_complex, freq_slice = calculate_rfi(

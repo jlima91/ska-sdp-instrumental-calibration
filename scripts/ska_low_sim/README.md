@@ -38,6 +38,7 @@ This script can generate a gaintable with following effects:
 2. Time variant effects for bandpass
 3. Offsets in response per stations
 4. RFI corruptions for specific frequencies
+5. Gain outliers for stations and frequencies.
 
 The script takes `sim.yaml` file as input. User can modify the parameters in that file to enable/disable effects, change simulation size.
 
