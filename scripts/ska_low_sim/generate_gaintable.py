@@ -676,6 +676,10 @@ def calculate_gains(cfg):
 
     # generate_gaintable specific parameters
     generate_gaintable_cfg = cfg["generate_gaintable"]
+
+    outlier_config = generate_gaintable_cfg["outlier_config"]
+    outlier_enable = outlier_config["enable"]
+
     station_offset = generate_gaintable_cfg.get("station_offset", True)
     time_variant = generate_gaintable_cfg.get("time_variant", True)
 
@@ -805,9 +809,7 @@ def calculate_gains(cfg):
     gain_xpol = np.swapaxes(gain_xpol, 0, 1)
     gain_ypol = np.swapaxes(gain_ypol, 0, 1)
 
-    outlier_config = generate_gaintable_cfg["outlier_config"]
-
-    if(outlier_config["enable"]):
+    if outlier_enable:
         amp_range = (outlier_config["amp_min"],outlier_config["amp_max"])
         gain_xpol = add_gain_outliers(
             gain_xpol,
