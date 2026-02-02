@@ -32,8 +32,7 @@ def test_bandpass_initialisation_stage_is_required():
     ".run_solver"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
-    ".SolverFactory"
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation.Solver"
 )
 def test_should_initialize_gains_for_bandpass(
     solver_factory_mock, run_solver_mock, parse_ref_ant_mock
@@ -95,8 +94,7 @@ def test_should_initialize_gains_for_bandpass(
     ".run_solver"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
-    ".SolverFactory"
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation.Solver"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"

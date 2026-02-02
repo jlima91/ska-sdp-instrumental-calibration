@@ -46,7 +46,7 @@ def run_solver_config():
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
-    ".complex_gain_calibration.SolverFactory",
+    ".complex_gain_calibration.Solver",
 )
 @pytest.mark.parametrize("visibility_key_attr", ["vis", "corrected_vis"])
 def test_should_perform_complex_gain_calibration(
@@ -129,7 +129,7 @@ def test_should_perform_complex_gain_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
-    ".complex_gain_calibration.SolverFactory",
+    ".complex_gain_calibration.Solver",
 )
 def test_should_export_gaintable_with_proper_suffix(
     solver_factory_mock,

@@ -11,7 +11,7 @@ from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import reset_gaintable
-from ..numpy_processors.solvers import SolverFactory
+from ..numpy_processors.solvers import Solver
 from ..plot import (
     PlotGaintableFrequency,
     plot_bandpass_stages,
@@ -226,7 +226,7 @@ def generate_channel_rm_stage(
             modelvis, upstream_output["central_beams"], inverse=True
         )
 
-    solver = SolverFactory.get_solver(**run_solver_config)
+    solver = Solver.get_solver(**run_solver_config)
     empty_table = reset_gaintable(initialtable)
 
     gaintable = run_solver(

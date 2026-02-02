@@ -37,10 +37,7 @@ def test_bandpass_calibration_stage_is_required():
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".run_solver"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".SolverFactory"
-)
+@patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_perform_bandpass_calibration(
     solver_factory_mock, run_solver_mock, parse_ref_ant_mock
 ):
@@ -111,10 +108,7 @@ def test_should_perform_bandpass_calibration(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".run_solver"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".SolverFactory"
-)
+@patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_plot_bp_gaintable_with_proper_suffix(
     solver_factory_mock,
     run_solver_mock,
@@ -214,10 +208,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".run_solver"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".SolverFactory"
-)
+@patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_export_gaintable_with_proper_suffix(
     solver_factory_mock,
     run_solver_mock,
@@ -302,10 +293,7 @@ def test_should_export_gaintable_with_proper_suffix(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".run_solver"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".SolverFactory"
-)
+@patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_not_use_corrected_vis_when_config_is_false(
     solver_factory_mock, run_solver_mock, parse_ref_ant_mock
 ):
@@ -370,10 +358,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".run_solver"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".SolverFactory"
-)
+@patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     solver_factory_mock,
     run_solver_mock,

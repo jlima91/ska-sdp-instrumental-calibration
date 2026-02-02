@@ -12,7 +12,7 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
 )
 
-from ...numpy_processors.solvers import SolverFactory
+from ...numpy_processors.solvers import Solver
 from ...plot import PlotGaintableTime
 from ...scheduler import UpstreamOutput
 from ...xarray_processors import parse_antenna, with_chunks
@@ -161,7 +161,7 @@ def complex_gain_calibration_stage(
         refant, initial_gaintable.configuration.names
     )
 
-    solver = SolverFactory.get_solver(**run_solver_config)
+    solver = Solver.get_solver(**run_solver_config)
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,

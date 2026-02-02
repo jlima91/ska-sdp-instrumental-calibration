@@ -10,7 +10,7 @@ from ska_sdp_piper.piper.configurations import (
 from ska_sdp_piper.piper.stage import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
-from ..numpy_processors.solvers import SolverFactory
+from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
@@ -175,7 +175,7 @@ def bandpass_calibration_stage(
         refant, initialtable.configuration.names
     )
 
-    solver = SolverFactory.get_solver(**run_solver_config)
+    solver = Solver.get_solver(**run_solver_config)
 
     call_counter_suffix = ""
     if call_count := upstream_output.get_call_count("bandpass"):

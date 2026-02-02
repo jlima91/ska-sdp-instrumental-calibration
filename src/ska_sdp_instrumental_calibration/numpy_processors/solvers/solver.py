@@ -2,16 +2,16 @@ from typing import Tuple
 
 import numpy as np
 
-from .solvers_factory import SolverFactory
 
-
-class Solver(metaclass=SolverFactory):
+class Solver:
     """
     Base class for gain solvers.
 
     This class provides a common interface and shared configuration for
     calibration solvers. Subclasses should implement the `solve` method
-    for specific algorithms.
+    for specific algorithms. This class also acts as a central registry,
+    allowing for the dynamic retrieval and instantiation of solver classes
+    based on string identifiers.
 
     Parameters
     ----------
@@ -28,7 +28,63 @@ class Solver(metaclass=SolverFactory):
         Maximum number of iterations.
     tol : float
         Convergence tolerance.
+
+    Class Attributes
+    ----------
+    _solvers : dict
+        A registry dictionary mapping unique solver names (str) to their
+        corresponding classes (type).
+
+    Examples
+    --------
+    >>> # Assuming GainSubstitution is defined with _SOLVER_NAME_
+    >>> solver = Solver.get_solver("gain_substitution", niter=10)
+    >>> print(type(solver))
+    <class 'GainSubstitution'>
+
     """
+
+    _solvers = {}
+
+    def __init_subclass__(cls, **kwargs):
+        """
+        Hook that runs when a new subclass is defined.
+
+        Registers the subclass if it has a `_SOLVER_NAME_` attribute.
+        """
+        super().__init_subclass__(**kwargs)
+        if hasattr(cls, "_SOLVER_NAME_"):
+            cls._solvers[cls._SOLVER_NAME_] = cls
+
+    @classmethod
+    def get_solver(cls, solver="gain_substitution", **kwargs):
+        """
+        Retrieve and instantiate a solver by name.
+
+        Parameters
+        ----------
+        solver : str, optional
+            The unique identifier of the solver to instantiate.
+            Default is "gain_substitution".
+        **kwargs
+            Keyword arguments passed directly to the solver's constructor.
+
+        Returns
+        -------
+        object
+            An instance of the requested solver class.
+
+        Raises
+        ------
+        ValueError
+            If the requested solver name is not found in the registry.
+        """
+        if solver not in cls._solvers:
+            raise ValueError(
+                f"{solver} not definebd."
+                f" Supported solvers: {', '.join(cls._solvers)}"
+            )
+        return cls._solvers[solver](**kwargs)
 
     def __init__(self, niter=50, tol=1e-6, **_):
         self.niter = niter
