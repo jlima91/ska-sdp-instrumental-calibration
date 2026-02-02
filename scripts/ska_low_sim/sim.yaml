@@ -33,8 +33,8 @@ generate_gaintable:
     enable: true
     amp_min: 2.0
     amp_max: 5.0
-    n_stations: 20
-    n_channels: 100
+    n_stations_to_corrupt: 20
+    n_channels_to_corrupt: 100
 
   station_offset: true              # Apply per-station amplitude/phase offsets
   time_variant: true                # Apply time-dependent effects

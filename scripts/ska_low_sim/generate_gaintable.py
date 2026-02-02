@@ -33,9 +33,6 @@ import random
 
 import yaml
 
-# Setting seed to a fixed value in order to achieve repeatability of results.
-random.seed(100)
-
 import argparse
 import os
 import time
@@ -44,6 +41,10 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline
+
+# Setting seed to a fixed value in order to achieve repeatability of results.
+random.seed(100)
+np.random.seed(100)
 
 SPLINE_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
@@ -618,7 +619,7 @@ def calculate_rfi(
 ############################## Add outliers to gains ##############################
 
 
-def add_gain_outliers(gain, amp_range, n_stations, n_channels):
+def add_gain_outliers(gain, amp_range, n_stations_to_corrupt, n_channels_to_corrupt):
     """
     Add complex gain outliers by corrupting random stations and channels.
 
@@ -628,9 +629,9 @@ def add_gain_outliers(gain, amp_range, n_stations, n_channels):
         Complex gain array with shape (n_time, n_channels, n_stations)
     amp_range: tuple(int, int)
         Range of outlier amplitude
-    n_stations : int
+    n_stations_to_corrupt : int
         Number of random stations to corrupt
-    n_channels : int
+    n_channels_to_corrupt : int
         Number of random channels per station to corrupt
 
     Returns
@@ -641,12 +642,12 @@ def add_gain_outliers(gain, amp_range, n_stations, n_channels):
 
     gain = gain.copy()
 
-    np.random.seed(100)
+    _, n_channels, n_stations = gain.shape
 
-    corrupt_stations = np.random.choice(n_stations, size=n_stations, replace=False)
+    corrupt_stations = np.random.choice(n_stations, size=n_stations_to_corrupt, replace=False)
 
     for st in corrupt_stations:
-        corrupt_channels = np.random.choice(n_channels, size=n_channels, replace=False)
+        corrupt_channels = np.random.choice(n_channels, size=n_channels_to_corrupt, replace=False)
         
         for ch in corrupt_channels:
             amp_multiplier = np.random.uniform(*amp_range)
@@ -811,14 +812,14 @@ def calculate_gains(cfg):
         gain_xpol = add_gain_outliers(
             gain_xpol,
             amp_range,
-            outlier_config["n_stations"],
-            outlier_config["n_channels"],
+            outlier_config["n_stations_to_corrupt"],
+            outlier_config["n_channels_to_corrupt"],
         )
         gain_ypol = add_gain_outliers(
             gain_ypol,
             amp_range,
-            outlier_config["n_stations"],
-            outlier_config["n_channels"],
+            outlier_config["n_stations_to_corrupt"],
+            outlier_config["n_channels_to_corrupt"],
         )
 
     if rfi:
