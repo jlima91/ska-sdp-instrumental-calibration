@@ -25,3 +25,5 @@ include:
       - 'gitlab-ci/includes/docs.gitlab-ci.yml'
       # Finaliser job
       - 'gitlab-ci/includes/finaliser.gitlab-ci.yml'
+      # SonarQube Scan
+      - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
