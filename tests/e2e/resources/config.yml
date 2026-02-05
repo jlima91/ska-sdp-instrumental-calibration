@@ -1,0 +1,30 @@
+parameters:
+  predict_vis:
+    export_sky_model: True
+  delay_calibration:
+    plot_config:
+      plot_table: true
+  smooth_gain_solution:
+    plot_config:
+      plot_table: true
+  flag_gain:
+    export_gaintable: true
+  export_gain_table:
+    export_metadata: true
+  generate_channel_rm:
+    plot_rm_config:
+      plot_rm: true
+    plot_table: true
+    export_gaintable: true
+  ionospheric_delay:
+    niter: 10
+    plot_table: true
+    export_gaintable: true
+pipeline:
+  flag_gain: true
+  ionospheric_delay: true
+  generate_channel_rm: true
+  ionospheric_delay: true
+global_parameters:
+  experimental:
+    pipeline: []
