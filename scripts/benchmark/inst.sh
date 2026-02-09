@@ -21,6 +21,19 @@ PRE_PROCESSED_CALIBRATOR=`find "$INPUT_PATH/" -maxdepth 1 -name "*.ms" -print -q
 # Assumes that there's only one *.csv file in the INPUT_PATH
 CALIBRATOR_SKY_MODEL=`find "$INPUT_PATH/" -maxdepth 1 -name "*.csv" -print -quit`
 
+# set dask config
+export DASK_CONFIG=$(realpath 'dask_custom_config.yaml')
+
+cat <<EOF > $DASK_CONFIG
+distributed:
+  comm:
+    timeouts:
+      connect: '600s'
+      tcp: '900s'
+  scheduler:
+    worker-ttl: '15 minutes'
+EOF
+
 # Load relevent modules
 module load $META_MODULE
 INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-instrumental-calibration"

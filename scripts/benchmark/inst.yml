@@ -68,4 +68,3 @@ global_parameters:
     - export_gain_table:
         file_name: inst.gaintable
         export_format: h5parm
-
