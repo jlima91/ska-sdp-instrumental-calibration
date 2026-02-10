@@ -52,7 +52,7 @@ cat <<EOF > $BATCHLET_CONFIG
 {
   "command": [
     "ska-sdp-instrumental-calibration",
-    "experimental",
+    "run",
     "--config",
     "$INST_CONFIG",
     "--output",

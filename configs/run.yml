@@ -1,0 +1,117 @@
+parameters:
+  load_data:
+    nchannels_per_chunk: 32
+    ntimes_per_ms_chunk: 5
+    cache_directory: null
+    ack: false
+    datacolumn: DATA
+    field_id: 0
+    data_desc_id: 0
+  predict_vis:
+    beam_type: everybeam
+    normalise_at_beam_centre: true
+    eb_ms: null
+    gleamfile: null
+    lsm_csv_path: null
+    export_sky_model: false
+    element_response_model: oskar_dipole_cos
+    fov: 5.0
+    flux_limit: 1.0
+    alpha0: -0.78
+  bandpass_initialisation:
+    refant: 0
+    niter: 200
+    tol: 1.0e-06
+    export_gaintable: true
+  bandpass_calibration:
+    run_solver_config:
+      solver: jones_substitution
+      refant: 0
+      niter: 50
+      phase_only: false
+      tol: 0.001
+      crosspol: false
+    visibility_filters:
+      uvdist: null
+      exclude_baselines: null
+    plot_config:
+      plot_table: true
+      fixed_axis: false
+    visibility_key: vis
+    export_gaintable: true
+  delay_calibration:
+    oversample: 1
+    plot_config:
+      plot_table: true
+      fixed_axis: false
+    export_gaintable: true
+  flag_gain:
+    soltype: amp-phase
+    mode: smooth
+    order: 3
+    apply_flag: true
+    skip_cross_pol: true
+    max_ncycles: 5
+    n_sigma: 10.0
+    n_sigma_rolling: 10.0
+    window_size: 11
+    normalize_gains: true
+    export_gaintable: false
+    plot_config:
+      curve_fit_plot: true
+      gain_flag_plot: true
+  ionospheric_delay:
+    cluster_indexes: null
+    block_diagonal: true
+    niter: 500
+    tol: 1.0e-06
+    zernike_limit: null
+    plot_table: false
+    export_gaintable: false
+  generate_channel_rm:
+    oversample: 5
+    peak_threshold: 0.5
+    refine_fit: true
+    visibility_key: vis
+    plot_rm_config:
+      plot_rm: false
+      station: 0
+    plot_table: false
+    run_solver_config:
+      solver: jones_substitution
+      refant: 0
+      niter: 50
+      phase_only: false
+      tol: 0.001
+      crosspol: false
+    export_gaintable: false
+  smooth_gain_solution:
+    window_size: 1
+    mode: median
+    plot_config:
+      plot_table: false
+      plot_path_prefix: smoothed-gain
+      plot_title: Smoothed Gain
+    export_gaintable: false
+  export_visibilities:
+    data_to_export: all
+    apply_gaintable_to_vis: true
+  export_gain_table:
+    file_name: inst.gaintable
+    export_format: h5parm
+    export_metadata: false
+pipeline:
+  load_data: true
+  predict_vis: true
+  bandpass_initialisation: true
+  bandpass_calibration: true
+  delay_calibration: true
+  flag_gain: false
+  ionospheric_delay: false
+  generate_channel_rm: false
+  smooth_gain_solution: false
+  export_visibilities: false
+  export_gain_table: true
+global_parameters:
+  experimental:
+    pipeline: []
