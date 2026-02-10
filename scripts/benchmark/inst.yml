@@ -2,8 +2,8 @@ global_parameters:
   experimental:
     pipeline:
     - load_data:
-        nchannels_per_chunk: 32
-        ntimes_per_ms_chunk: 5
+        nchannels_per_chunk: 64
+        ntimes_per_ms_chunk: 20
         cache_directory: null
         ack: false
         datacolumn: DATA
