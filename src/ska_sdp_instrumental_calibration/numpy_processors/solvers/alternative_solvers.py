@@ -3,9 +3,9 @@ from typing import Tuple
 
 import numpy as np
 from ska_sdp_func_python.calibration.alternative_solvers import (
-    _jones_sub_solve,
-    _normal_equation_solve,
-    _normal_equation_solve_with_presumming,
+    jones_sub_solve,
+    normal_equation_solve,
+    normal_equation_solve_with_presumming,
 )
 
 from .solver import Solver
@@ -199,10 +199,10 @@ class JonesSubtitution(AlternativeSolver):
         """
         callable: The Jones substitution solver function.
 
-        Returns `_jones_sub_solve`, which implements the specific algebraic
+        Returns `jones_sub_solve`, which implements the specific algebraic
         substitution logic.
         """
-        return _jones_sub_solve
+        return jones_sub_solve
 
 
 class NormalEquation(AlternativeSolver):
@@ -227,10 +227,10 @@ class NormalEquation(AlternativeSolver):
         """
         callable: The Normal Equation solver function.
 
-        Returns `_normal_equation_solve`, which constructs and solves the
+        Returns `normal_equation_solve`, which constructs and solves the
         system of linear equations.
         """
-        return _normal_equation_solve
+        return normal_equation_solve
 
 
 class NormalEquationsPreSum(AlternativeSolver):
@@ -256,7 +256,7 @@ class NormalEquationsPreSum(AlternativeSolver):
         """
         callable: The Pre-summed Normal Equation solver function.
 
-        Returns `_normal_equation_solve_with_presumming`, which handles the
+        Returns `normal_equation_solve_with_presumming`, which handles the
         data reduction and subsequent solving steps.
         """
-        return _normal_equation_solve_with_presumming
+        return normal_equation_solve_with_presumming
