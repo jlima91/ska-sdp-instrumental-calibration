@@ -37,7 +37,7 @@ matplotlib = ">=3.9.1"
 python-casacore = ">=3.7.1"
 ska-sdp-datamodels = "^1.0.2"
 ska-sdp-func = "^1.2"
-ska-sdp-func-python = "^1.0.2"
+ska-sdp-func-python = {git = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python", branch = "main"}
 ska-sdp-exec-piper = "^1.1.0"
 ska-sdp-dataproduct-metadata = "^1.0"
 # This is a temporary fix. See issue: https://github.com/fastapi/typer/discussions/1215

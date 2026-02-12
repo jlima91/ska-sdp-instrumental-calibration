@@ -3365,24 +3365,22 @@ name = "ska-sdp-func-python"
 version = "1.0.2"
 description = "SKA SDP Python-Based Processing Functions"
 optional = false
-python-versions = ">=3.10,<4.0"
+python-versions = "^3.10"
 groups = ["main"]
-files = [
-    {file = "ska_sdp_func_python-1.0.2-py3-none-any.whl", hash = "sha256:7bc201a5fd8502b9b3eef8df2c2b35d2182f717503fbfb3801dd6848efcdd53b"},
-    {file = "ska_sdp_func_python-1.0.2.tar.gz", hash = "sha256:0b8f8dbc8b96bd18b8947b00d42fcc256ea010e6bd671a78876c39982f83dbd7"},
-]
+files = []
+develop = false
 
 [package.dependencies]
-astroplan = ">=0.10,<0.11"
-astropy = ">=6.1,<7.0"
-ducc0 = ">=0.36,<0.37"
-h5py = ">=3.12,<4.0"
+astroplan = "^0.10"
+astropy = "^6.1"
+ducc0 = "^0.36"
+h5py = "^3.12"
 numpy = ">=1.26"
-photutils = ">=1.12,<2.0"
-reproject = ">=0.14,<0.15"
-scipy = ">=1.15,<2.0"
-ska-sdp-datamodels = ">=1.0.2,<2.0.0"
-xarray = ">=2024.9,<2024.11"
+photutils = "^1.12"
+reproject = "^0.14"
+scipy = "^1.15"
+ska-sdp-datamodels = "^1.0.2"
+xarray = "^2024.9, <2024.11"
 
 [package.extras]
 dp3 = ["dp3 (==6.2)"]
@@ -3393,9 +3391,10 @@ ska-sdp-func = ["ska-sdp-func (>=1.2.2,<2.0.0)", "threadpoolctl (>=3.5.0,<4.0.0)
 xradio = ["xradio (==0.0.40) ; python_version >= \"3.10\" and python_version < \"3.12\""]
 
 [package.source]
-type = "legacy"
-url = "https://artefact.skao.int/repository/pypi-internal/simple"
-reference = "skao"
+type = "git"
+url = "https://gitlab.com/ska-telescope/sdp/ska-sdp-func-python"
+reference = "main"
+resolved_reference = "623d5b333390f9b60324417aff4b99f521fff99d"
 
 [[package]]
 name = "ska-ser-logging"
@@ -4065,4 +4064,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "05a9d9c31304088579d33b331046777053abb462260f741f4fefc78d2fb3dc11"
+content-hash = "e5650ade2ab7b2a5d1695e3da12707e7fbeb80812d6a5d9e5b2c1b70283a347b"

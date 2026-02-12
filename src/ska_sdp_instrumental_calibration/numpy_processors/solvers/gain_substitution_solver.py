@@ -2,8 +2,9 @@ import logging
 from typing import Tuple
 
 import numpy as np
+from ska_sdp_func_python.calibration import gain_substitution
+from ska_sdp_func_python.visibility import create_point_vis
 
-from .processing_functions import create_point_vis, gain_substitution
 from .solver import Solver
 
 logger = logging.getLogger(__name__)
