@@ -4,14 +4,13 @@ import dask
 import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
-
-from ._utils import normalize_data
+from scipy.optimize import curve_fit
 
 logger = logging.getLogger()
 
 
 @dask.delayed
-def log_flaging_statistics(weights, initial_weights, antenna_name):
+def log_flaging_statistics(weights, initial_weights):
     current_flagged = (
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
     ).sum(dim=["time", "frequency"])
@@ -32,57 +31,249 @@ def log_flaging_statistics(weights, initial_weights, antenna_name):
     )
 
 
-class FitCurve:
-    @staticmethod
-    def smooth(vals, weights, order, _):
+class SmoothingFit:
+    def __init__(self, order, component):
         """
-        Applies smoothing filter to gains.
+        Performs Smooth fit on the gains.
+
         Parameters
         ----------
-            vals: Array
-                Gains
-            weights: Array
-                Weights of gains
             order: int
-                Order of the function.
+                Order/size of the fitter.
+            component: dict
+                soltype function.
+        """
+        self.order = order
+        self.component = component
+
+    def fit(self, gains, weights):
+        """
+        Fits a smooth curve on the gains.
+
+        Parameters
+        ----------
+            gains: Array
+                Gains.
+            weights: Array
+                Weights of the gains.
         Returns
         -------
-            Fit of gains after applying smooth.
+            Dict of fits.
         """
-        vals_smooth = np.copy(vals)
-        np.putmask(vals_smooth, weights == 0, np.nan)
-        return generic_filter(
-            vals_smooth, np.nanmedian, size=order, mode="constant", cval=np.nan
+        fits = {}
+        components = self.component(gains)
+
+        for name, arr in components.items():
+            vals = np.copy(arr)
+            np.putmask(vals, weights == 0, np.nan)
+
+            fits[name] = generic_filter(
+                vals,
+                np.nanmedian,
+                size=self.order,
+                mode="constant",
+                cval=np.nan,
+            )
+
+        return fits
+
+
+class PhasorPolyFit:
+    def __init__(self, order, freq):
+        """
+        Performs poly fit on the gains.
+
+        Parameters
+        ----------
+            order: int
+                Order/size of the fitter.
+            freq: Array
+                Frequency.
+        """
+        self.order = order
+        self.freq = freq
+
+    def fit(self, gains, weights, freq_guess):
+        """
+        Fit a phasor model with polynomial envelope.
+
+        Parameters
+        ----------
+            gains: Array
+                Gains.
+            weights: Array
+                Weights of the gains.
+            freq_guess: float
+                Initial frequency to begin.
+
+        Returns
+        -------
+            Fitted model.
+        """
+        mask = weights != 0
+        if mask.sum() < self.order + 2:
+            return np.full_like(gains, np.nan, dtype=complex), freq_guess
+
+        x = self.freq[mask]
+        y = gains[mask]
+
+        if freq_guess is None:
+            dx = np.median(np.diff(x))
+            fft_freqs = np.fft.fftfreq(len(x), dx)
+            fft_power = np.abs(np.fft.fft(y - y.mean()))
+            freq_guess = np.abs(fft_freqs[fft_power.argmax()])
+
+        env_mean = np.mean(y * np.exp(-1j * 2 * np.pi * freq_guess * x))
+        p0 = [freq_guess, env_mean.real, env_mean.imag]
+
+        for _ in range(self.order):
+            p0.extend([0.0, 0.0])
+
+        y_real = np.concatenate([y.real, y.imag])
+
+        try:
+            params, _ = curve_fit(
+                self.real_wrapper,
+                x,
+                y_real,
+                p0=p0,
+                maxfev=5000,
+            )
+            model = self.phasor_envelope_model(self.freq, *params)
+            return model, freq_guess
+
+        except RuntimeError:
+            logger.warning("Phasor fit failed, returning NaNs")
+            return np.full_like(gains, np.nan, dtype=complex), freq_guess
+
+    def phasor_envelope_model(self, x_arr, freq, *params):
+        """
+        Phasor model with polynomial envelope.
+
+        Parameters
+        ----------
+            x_arr: Array
+                gains
+            freq: Array
+                Frequency
+            *params: (tuple[float])
+                Polynomial coefficients.
+        Returns
+        -------
+            Phasor model array.
+        """
+        n_coeffs = len(params) // 2
+        envelope = np.zeros_like(x_arr, dtype=complex)
+
+        for n in range(n_coeffs):
+            coeff = params[2 * n] + 1j * params[2 * n + 1]
+            envelope += coeff * x_arr**n
+
+        return envelope * np.exp(1j * 2 * np.pi * freq * x_arr)
+
+    def real_wrapper(self, x_arr, *params):
+        """
+        Wrapper for curve_fit to handle complex y_arr.
+
+        Parameters
+        ----------
+            x_arr: Array
+                gains
+            *params: (tuple[float])
+                Fitting parameters.
+        Returns
+        -------
+            A complex array disguised as a real-valued one.
+        """
+        result = self.phasor_envelope_model(x_arr, *params)
+        return np.concatenate([result.real, result.imag])
+
+
+class RMSFlagger:
+    def __init__(self, n_sigma):
+        """
+        Performs RMS flagging.
+
+        Parameters
+        ----------
+            n_sigma: float
+                Flag values greated than n_simga * sigma_hat.
+                Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
+        """
+        self.n_sigma = n_sigma
+
+    def flag(self, detrended, weights):
+        """
+        Does flagging using rms.
+
+        Parameters
+        ----------
+            deterend: Array
+                Diff of fit and gains.
+            weights: Array
+                Weights of gains.
+        Returns
+        -------
+            Array fo flags
+        """
+        valid = weights != 0
+        if not np.any(valid):
+            return np.zeros_like(weights, dtype=bool), np.nan
+
+        sigma = 1.4826 * np.nanmedian(np.abs(detrended[valid]))
+        flags = np.abs(detrended) > self.n_sigma * sigma
+        return flags, sigma
+
+
+class RollingRMSFlagger:
+    def __init__(self, n_sigma, window):
+        if window % 2 != 1:
+            raise ValueError("window_size must be odd")
+        self.n_sigma = n_sigma
+        self.window = window
+
+    def flag(self, detrended, weights):
+        """
+        Does flagging using rolling rms.
+
+        Parameters
+        ----------
+            deterend: Array
+                Diff of fit and gains.
+            weights: Array
+                Weights of gains.
+        Returns
+        -------
+            Array fo flags
+        """
+        valid = weights != 0
+        pad = np.pad(detrended, self.window // 2, mode="reflect")
+        rms = np.sqrt(
+            np.convolve(pad**2, np.ones(self.window), "valid") / self.window
         )
 
-    @staticmethod
-    def poly(vals, weights, order, freq_coord):
-        """
-        Fits polynominal to gains.
-
-        Parameters
-        ----------
-            vals: Array
-                Gains
-            weights: Array
-                Weights of gains
-            order: int
-                Order of the function.
-        Returns
-        -------
-            Fit of gains after applying poly fit.
-        """
-        coeff = np.polyfit(freq_coord, vals, order, w=np.sqrt(weights))
-        poly = np.poly1d(coeff)
-        return poly(freq_coord)
+        sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
+        flags = rms > self.n_sigma * sigma
+        return flags, sigma
 
 
 class GainFlagger:
-    SOL_TYPE_FUNCS = {
-        "amplitude": [np.absolute],
-        "phase": [np.angle],
-        "amp-phase": [np.absolute, np.angle],
-        "real-imag": [np.real, np.imag],
+    MODE = {
+        "poly": {"amplitude", "phase", "amp-phase"},
+        "smooth": {"real-imag"},
+    }
+
+    SOLTYPE = {
+        "amplitude": lambda a: {"amp_fit": np.abs(a)},
+        "phase": lambda a: {"phase_fit": np.angle(a)},
+        "amp-phase": lambda a: {
+            "amp_fit": np.abs(a),
+            "phase_fit": np.angle(a),
+        },
+        "real-imag": lambda a: {
+            "real_fit": a.real,
+            "imag_fit": a.imag,
+        },
     }
 
     def __init__(
@@ -94,8 +285,7 @@ class GainFlagger:
         n_sigma: float,
         n_sigma_rolling: float,
         window_size: int,
-        frequencies: list[float],
-        normalize_gains: bool,
+        freq: np.ndarray,
     ):
         """
         Generates gain flagger for given soltype and fitting parameters.
@@ -124,65 +314,33 @@ class GainFlagger:
                 Window size for the running rms, by default 11.
             frequencies: List
                 List of frequencies.
-            normalize_gains: bool
-                Normailize the amplitude and phase before flagging.
         """
-        self.fit_curve = getattr(FitCurve, mode)
+        if soltype not in self.MODE[mode]:
+            raise ValueError(f"Invalid soltype '{soltype}' for mode '{mode}'")
 
-        self.sol_type_funcs = self.SOL_TYPE_FUNCS[soltype]
+        self.freq = freq
+        self.mode = mode
         self.order = order
-        self.n_sigma = n_sigma
-        self.n_sigma_rolling = n_sigma_rolling
         self.max_ncycles = max_ncycles
-        self.window_size = window_size
-        self.frequencies = frequencies
-        self.normalize_gains = normalize_gains
+        self.soltype_name = soltype
+        self.soltype = self.SOLTYPE[soltype]
 
-    def __rms_flag_weights(self, vals_detrend, weights):
-        sigma_hat = 1.4826 * np.nanmedian(np.abs(vals_detrend[(weights != 0)]))
-
-        if np.isnan(sigma_hat):
-            flags = np.ones(weights.shape) == 1
-
-        flags = abs(vals_detrend) > self.n_sigma * sigma_hat
-
-        return flags, sigma_hat
-
-    def __rms_noise_flag_weights(self, vals_detrend, weights):
-        if self.window_size % 2 != 1:
-            raise Exception("Window size must be odd.")
-
-        detrend_pad = np.pad(
-            vals_detrend, self.window_size // 2, mode="reflect"
-        )
-        shape = detrend_pad.shape[:-1] + (
-            detrend_pad.shape[-1] - self.window_size + 1,
-            self.window_size,
-        )
-        strides = (
-            detrend_pad.strides
-            + (  # pylint: disable=unsubscriptable-object
-                detrend_pad.strides[
-                    -1
-                ],  # pylint: disable=unsubscriptable-object
+        self.flaggers = []
+        if n_sigma:
+            self.flaggers.append(RMSFlagger(n_sigma))
+        if n_sigma_rolling:
+            self.flaggers.append(
+                RollingRMSFlagger(n_sigma_rolling, window_size)
             )
-        )
-        rmses = np.sqrt(
-            np.var(
-                np.lib.stride_tricks.as_strided(
-                    detrend_pad, shape=shape, strides=strides
-                ),
-                -1,
-            )
-        )
 
-        sigma_hat = 1.4826 * np.nanmedian(abs(rmses))
-
-        flags = rmses > (self.n_sigma_rolling * sigma_hat)
-
-        return flags, sigma_hat
-
-    def flag_dimension(self, weights, gains, antenna, receptor1, receptor2):
+    def flag_dimension(
+        self,
+        gains,
+        weights,
+        antenna=None,
+        receptor1=None,
+        receptor2=None,
+    ):
         """
         Applies flagging to chunk of gaintable with detrending/fitting
         algorithm for the given gain and weight chunk.
@@ -204,83 +362,107 @@ class GainFlagger:
         -------
             weights: xr.DataArray
                 Updated weights.
-            amp_fits: xr.DataArray
-                Amplitude fit
-            phase_fits: xr.DataArray
-                Phase fit
-            real_fits: xr.DataArray
-                Real fit
-            imag_fits: xr.DataArray
-                Imaginary fit
+            last_fit_components: dict
+                Final fits of soltype.
         """
+        weights = weights.copy()
+        freq_guess = None
+        last_fit_components = None
 
-        soltype = {
-            "absolute": "amplitude",
-            "angle": "phase",
-            "real": "real",
-            "imag": "imag",
-        }
+        for cycle in range(self.max_ncycles):
+            if not np.any(weights):
+                break
 
-        weights = np.array(weights, copy=True)
-        flagged_weights = np.ones(weights.shape)
-        amp_fit = np.zeros_like(gains, dtype=float)
-        phase_fit = np.zeros_like(gains, dtype=float)
-        real_fit = np.zeros_like(gains, dtype=float)
-        imag_fit = np.zeros_like(gains, dtype=float)
+            cycle_flags = np.zeros_like(weights, dtype=bool)
+            cycle_sigma = None
+            components = {}
 
-        for sol_type_func in self.sol_type_funcs:
-            rms = 0.0
-            sol_type_data = sol_type_func(gains)
+            if self.mode == "poly":
+                fitter = PhasorPolyFit(self.order, self.freq)
+                fit, freq_guess = fitter.fit(gains, weights, freq_guess)
 
-            if self.normalize_gains and sol_type_func == np.absolute:
-                sol_type_data = normalize_data(sol_type_data)
+                data_components = self.soltype(gains)
+                fit_components = self.soltype(fit)
+                components = {
+                    key: data_components[key] - fit_components[key]
+                    for key in fit_components
+                }
 
-            for _ in range(self.max_ncycles):
-                if all(weights == 0):
-                    break
-                curve_fit = self.fit_curve(
-                    sol_type_data, weights, self.order, self.frequencies
-                )
+                last_fit_components = fit_components
 
-                if sol_type_func == np.absolute:
-                    amp_fit = curve_fit
-                elif sol_type_func == np.angle:
-                    phase_fit = curve_fit
-                elif sol_type_func == np.real:
-                    real_fit = curve_fit
-                elif sol_type_func == np.imag:
-                    imag_fit = curve_fit
+            elif self.mode == "smooth":
+                fitter = SmoothingFit(self.order, self.soltype)
+                fits = fitter.fit(gains, weights)
 
-                deterend = sol_type_data - self.fit_curve(
-                    sol_type_data, weights, self.order, self.frequencies
-                )
+                data_components = self.soltype(gains)
+                components = {k: data_components[k] - fits[k] for k in fits}
+                last_fit_components = fits
 
-                if self.n_sigma is not None and self.n_sigma > 0:
-                    flags, rms = self.__rms_flag_weights(deterend, weights)
-                    weights[flags] = 0
-                    flagged_weights[flags] = 0
+            for arr in components.values():
+                for flagger in self.flaggers:
+                    flags, sigma = flagger.flag(arr, weights)
+                    cycle_flags |= flags
+                    if sigma is not None and not np.isnan(sigma):
+                        cycle_sigma = sigma
 
-                if (
-                    self.n_sigma_rolling is not None
-                    and self.n_sigma_rolling > 0
-                ):
-                    flags, rms = self.__rms_noise_flag_weights(
-                        deterend, weights
-                    )
-                    weights[flags] = 0
-                    flagged_weights[flags] = 0
+            if not np.any(cycle_flags):
+                logger.debug("Converged at cycle %d", cycle + 1)
+                break
+
+            weights[cycle_flags] = 0
 
             percent_flagged = (
-                ((flagged_weights == 0).sum()) / (flagged_weights.size) * 100
+                100.0 * np.count_nonzero(weights == 0) / weights.size
             )
 
             logger.info(
-                f"Gain flagging: Antenna {antenna} "
-                f"receptors [{receptor1},{receptor2}] with "
-                f"MAD of {rms:.5f} and {percent_flagged:.2f}% gains flagged "
-                f"for {soltype[sol_type_func.__name__]}."
+                "Gain flagging cycle %d: antenna=%s receptors=[%s,%s] "
+                "MAD=%.5f flagged=%.2f%% soltype=%s mode=%s",
+                cycle + 1,
+                antenna,
+                receptor1,
+                receptor2,
+                cycle_sigma if cycle_sigma is not None else float("nan"),
+                percent_flagged,
+                self.soltype_name,
+                self.mode,
             )
-        return flagged_weights, amp_fit, phase_fit, real_fit, imag_fit
+
+        return weights, last_fit_components
+
+
+def _flag_wrapper(
+    gains,
+    weights,
+    antenna,
+    freq,
+    cfg,
+    receptor1,
+    receptor2,
+):
+    flagger = GainFlagger(freq=freq, **cfg)
+    new_weights, fits = flagger.flag_dimension(
+        gains,
+        weights,
+        antenna=antenna,
+        receptor1=receptor1,
+        receptor2=receptor2,
+    )
+
+    outputs = [new_weights]
+    for key in sorted(fits):
+        outputs.append(fits[key])
+
+    return tuple(outputs)
+
+
+def _fit_names(soltype: str):
+    return {
+        "amplitude": ["amp_fit"],
+        "phase": ["phase_fit"],
+        "amp-phase": ["amp_fit", "phase_fit"],
+        "real-imag": ["real_fit", "imag_fit"],
+    }[soltype]
 
 
 def flag_on_gains(
@@ -338,107 +520,72 @@ def flag_on_gains(
             All fits generated.
     """
 
-    original_chunk = gaintable.chunks
+    original_chunks = gaintable.chunks
     gaintable = gaintable.chunk({"frequency": -1})
 
-    frequencies = gaintable.gain.coords["frequency"]
-    logger.info(f"Gain flagging for mode: {soltype} started")
-    gain_flagger = GainFlagger(
-        soltype,
-        mode,
-        order,
-        max_ncycles,
-        n_sigma,
-        n_sigma_rolling,
-        window_size,
-        frequencies,
-        normalize_gains,
+    freq = gaintable.frequency.data
+    fit_names = _fit_names(soltype)
+
+    cfg = dict(
+        soltype=soltype,
+        mode=mode,
+        order=order,
+        max_ncycles=max_ncycles,
+        n_sigma=n_sigma,
+        n_sigma_rolling=n_sigma_rolling,
+        window_size=window_size,
     )
-    nreceptor1 = len(gaintable.receptor1)
-    nreceptor2 = len(gaintable.receptor2)
+
+    output_core_dims = [["frequency"]] * (1 + len(fit_names))
+    output_dtypes = [gaintable.weight.dtype] + [float] * len(fit_names)
+
+    fits = {
+        name: xr.zeros_like(gaintable.gain, dtype=float) for name in fit_names
+    }
+
     all_flagged_weights = None
 
-    fits = dict()
-    fits["amp_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
-    fits["phase_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
-    fits["real_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
-    fits["imag_fit"] = xr.full_like(gaintable.gain, fill_value=0, dtype=float)
-
-    for receptor1, receptor2 in np.ndindex(nreceptor1, nreceptor2):
-        if receptor1 != receptor2 and skip_cross_pol:
+    for receptor1, receptor2 in np.ndindex(
+        len(gaintable.receptor1), len(gaintable.receptor2)
+    ):
+        if skip_cross_pol and receptor1 != receptor2:
             continue
 
-        receptor_weight_flag, amp_fit, phase_fit, real_fit, imag_fit = (
-            xr.apply_ufunc(
-                gain_flagger.flag_dimension,
-                gaintable.weight[0, :, :, receptor1, receptor2],
-                gaintable.gain[0, :, :, receptor1, receptor2],
-                gaintable.configuration.names.data,
-                input_core_dims=[["frequency"], ["frequency"], []],
-                output_core_dims=[
-                    ["frequency"],
-                    ["frequency"],
-                    ["frequency"],
-                    ["frequency"],
-                    ["frequency"],
-                ],
-                vectorize=True,
-                dask="parallelized",
-                kwargs=dict(
-                    receptor1=gaintable.receptor1[receptor1].data,
-                    receptor2=gaintable.receptor2[receptor2].data,
-                ),
-                output_dtypes=[
-                    gaintable.weight.dtype,
-                    float,
-                    float,
-                    float,
-                    float,
-                ],
-            )
+        results = xr.apply_ufunc(
+            _flag_wrapper,
+            gaintable.gain[0, :, :, receptor1, receptor2],
+            gaintable.weight[0, :, :, receptor1, receptor2],
+            gaintable.configuration.names.data,
+            input_core_dims=[["frequency"], ["frequency"], []],
+            output_core_dims=output_core_dims,
+            output_dtypes=output_dtypes,
+            vectorize=True,
+            dask="parallelized",
+            kwargs=dict(
+                freq=freq,
+                cfg=cfg,
+                receptor1=gaintable.receptor1[receptor1].data,
+                receptor2=gaintable.receptor2[receptor2].data,
+            ),
         )
 
+        flagged = results[0]
         all_flagged_weights = (
-            receptor_weight_flag
+            flagged
             if all_flagged_weights is None
-            else all_flagged_weights * receptor_weight_flag
+            else all_flagged_weights * flagged
         )
 
-        fits["amp_fit"][0, :, :, receptor1, receptor2] = amp_fit
-        fits["phase_fit"][0, :, :, receptor1, receptor2] = phase_fit
-        fits["real_fit"][0, :, :, receptor1, receptor2] = real_fit
-        fits["imag_fit"][0, :, :, receptor1, receptor2] = imag_fit
+        for i, name in enumerate(fit_names, start=1):
+            fits[name][0, :, :, receptor1, receptor2] = results[i]
 
-    flagged_weights_data = np.repeat(
-        all_flagged_weights.data[:, :, np.newaxis], nreceptor1, axis=2
-    )
-    flagged_weights_data = np.repeat(
-        flagged_weights_data[:, :, :, np.newaxis], nreceptor2, axis=3
-    )
-    flagged_weights_data = flagged_weights_data.reshape(
-        -1, *flagged_weights_data.shape
-    )
-
-    new_weights = gaintable.weight.copy()
-    new_weights.data = gaintable.weight.data * flagged_weights_data
+    new_weights = gaintable.weight * all_flagged_weights
 
     if apply_flag:
-        new_gain = xr.where(new_weights == 0, 0.0, gaintable["gain"])
-        return (
-            gaintable.assign(
-                {
-                    "gain": new_gain,
-                    "weight": new_weights,
-                }
-            ).chunk(original_chunk),
-            fits,
-        )
+        new_gain = xr.where(new_weights == 0, 0.0, gaintable.gain)
+        gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(
-            {
-                "weight": new_weights,
-            }
-        ).chunk(original_chunk),
+        gaintable.assign(weight=new_weights).chunk(original_chunks),
         fits,
     )

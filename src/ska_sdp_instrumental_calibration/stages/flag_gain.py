@@ -190,7 +190,6 @@ def flag_gain_stage(
         log_flaging_statistics(
             gaintable.weight,
             initialtable.weight,
-            gaintable.configuration.names.data,
         )
     )
 
