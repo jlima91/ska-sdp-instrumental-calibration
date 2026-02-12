@@ -30,7 +30,7 @@ from ._utils import get_gaintables_path, get_plots_path
         ),
         mode=ConfigParam(
             str,
-            "smooth",
+            "poly",
             description="Detrending/fitting algorithm: smooth / poly",
             allowed_values=["smooth", "poly"],
         ),

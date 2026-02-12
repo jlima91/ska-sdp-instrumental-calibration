@@ -8,7 +8,7 @@ def test_should_have_the_expected_default_configuration():
     expected_config = {
         "flag_gain": {
             "soltype": "amp-phase",
-            "mode": "smooth",
+            "mode": "poly",
             "order": 3,
             "apply_flag": True,
             "skip_cross_pol": True,
@@ -131,7 +131,7 @@ def test_should_export_gaintable_with_proper_suffix(
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
-    mode = "smooth"
+    mode = "poly"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -246,7 +246,7 @@ def test_should_plot_flag_on_gain(
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
-    mode = "smooth"
+    mode = "poly"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
