@@ -3,9 +3,9 @@ from typing import Tuple
 import numpy
 import scipy
 from ska_sdp_func_python.calibration.solvers import (
-    _solve_antenna_gains_itsubs_matrix,
-    _solve_antenna_gains_itsubs_nocrossdata,
-    _solve_antenna_gains_itsubs_scalar,
+    solve_antenna_gains_itsubs_matrix,
+    solve_antenna_gains_itsubs_nocrossdata,
+    solve_antenna_gains_itsubs_scalar,
 )
 
 
@@ -354,12 +354,12 @@ def create_point_vis(
 
 def _get_mask_solver(crosspol, npol):
     if npol == 2 or (npol == 4 and not crosspol):
-        return _solve_antenna_gains_itsubs_nocrossdata
+        return solve_antenna_gains_itsubs_nocrossdata
 
     if npol == 4:
-        return _solve_antenna_gains_itsubs_matrix
+        return solve_antenna_gains_itsubs_matrix
 
-    return _solve_antenna_gains_itsubs_scalar
+    return solve_antenna_gains_itsubs_scalar
 
 
 def _apply_flag(x: numpy.ndarray, flags: numpy.ndarray):
