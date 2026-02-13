@@ -42,7 +42,7 @@ class TestJonesSubtitution:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._jones_sub_solve"
+        "alternative_solvers.jones_sub_solve"
     )
     def test_jones_substitution_initialization(self, jones_sub_solve_mock):
         solver = JonesSubtitution()
@@ -53,7 +53,7 @@ class TestJonesSubtitution:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._jones_sub_solve"
+        "alternative_solvers.jones_sub_solve"
     )
     def test_jones_substitution_solve(
         self, mock_jones_solve, generate_vis_mvis_gain_ndarray_data
@@ -98,7 +98,7 @@ class TestNormalEquation:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._normal_equation_solve"
+        "alternative_solvers.normal_equation_solve"
     )
     def test_normal_equation_initialization(self, normal_equation_solve_mock):
         solver = NormalEquation()
@@ -109,7 +109,7 @@ class TestNormalEquation:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._normal_equation_solve"
+        "alternative_solvers.normal_equation_solve"
     )
     def test_normal_equation_solve(
         self, mock_normal_solve, generate_vis_mvis_gain_ndarray_data
@@ -154,7 +154,7 @@ class TestNormalEquationsPreSum:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._normal_equation_solve_with_presumming"
+        "alternative_solvers.normal_equation_solve_with_presumming"
     )
     def test_normal_equations_presum_initialization(self, mock_presum_solve):
         solver = NormalEquationsPreSum()
@@ -165,7 +165,7 @@ class TestNormalEquationsPreSum:
 
     @patch(
         "ska_sdp_instrumental_calibration.numpy_processors.solvers."
-        "alternative_solvers._normal_equation_solve_with_presumming"
+        "alternative_solvers.normal_equation_solve_with_presumming"
     )
     def test_normal_equations_presum_solve(
         self, mock_presum_solve, generate_vis_mvis_gain_ndarray_data
