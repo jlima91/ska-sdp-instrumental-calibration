@@ -24,7 +24,7 @@ class TestLocalSkyComponent:
             DEdeg=-85,
             flux=4.0,
             ref_freq=200,
-            alpha=2.0,
+            alpha=[2.0],
         )
 
         component.deconvolve_gaussian = Mock(
@@ -64,7 +64,7 @@ class TestLocalSkyComponent:
             DEdeg=-85,
             flux=4.0,
             ref_freq=200,
-            alpha=2.0,
+            alpha=[2.0],
         )
 
         component.deconvolve_gaussian = Mock(

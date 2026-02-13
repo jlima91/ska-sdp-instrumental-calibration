@@ -7,11 +7,13 @@ connect to ska-sdp-global-sky-model functions.
 import logging
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Optional
 
 import numpy as np
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 
 from ..beams import convert_time_to_solution_time
+from .flux_utils import calculate_flux_for_spectral_indices
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class Component:
     "Flux density (Jy) at the reference frequency, ref_freq"
     ref_freq: float = 200e6
     "Reference frequency (Hz)"
-    alpha: float = 0.0
+    alpha: Optional[list] = None
     "Spectral index"
     major: float = 0.0
     "Fitted semi-major axis (arcsec)"
@@ -55,6 +57,9 @@ class Component:
     beam_pa: float = 0.0
     "Position angle of a beam that is still convolved into the "
     "main component shape (degrees). Default=0"
+    log_spec_idx: bool = True
+    "whether the spec_idx was calculated using the logarithmic or "
+    "linear model true: logarithmic false: linear"
 
     @cached_property
     def direction(self):
@@ -165,3 +170,16 @@ class Component:
             psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
 
         return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
+
+    def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
+        spec_idx = self.alpha
+        if spec_idx is None or spec_idx == []:
+            self.flux
+
+        return calculate_flux_for_spectral_indices(
+            flux=self.flux,
+            freq=freq,
+            ref_freq=self.ref_freq,
+            spec_idx=spec_idx,
+            log_spec_idx=self.log_spec_idx,
+        )

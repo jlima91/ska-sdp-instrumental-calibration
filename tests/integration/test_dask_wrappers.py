@@ -57,7 +57,7 @@ def test_predict_vis(generate_ms):
             DEdeg=vis.phasecentre.dec.degree + 1,
             flux=1.0,
             ref_freq=200e6,
-            alpha=-0.5,
+            alpha=[-0.5],
             major=0.2,
             minor=0.1,
             pa=10.0,
