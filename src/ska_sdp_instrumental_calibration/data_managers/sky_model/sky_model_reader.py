@@ -27,18 +27,6 @@ SKY_MODEL_CSV_HEADER = [
 
 
 class ComponentConverters:
-    __headers_to_fields_pairs = [
-        ("component_id", "component_id"),
-        ("ra", "ra"),
-        ("dec", "dec"),
-        ("i_pol", "i_pol"),
-        ("major_ax", "major_ax"),
-        ("minor_ax", "minor_ax"),
-        ("pos_ang", "pos_ang"),
-        ("ref_freq", "ref_freq"),
-        ("spec_idx", "spec_idx"),
-        ("log_spec_idx", "log_spec_idx"),
-    ]
 
     __exponent_str = functools.partial(lambda value: format(value, "e"))
     __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
@@ -67,14 +55,13 @@ class ComponentConverters:
             cls.__headers_formatter[header](
                 getattr(
                     component,
-                    obj_prop,
+                    header,
                     cls.__non_existing_field_default,
                 )
-                if obj_prop
+                if header
                 else cls.__non_existing_field_default
             )
-            for obj_prop, header in cls.__headers_to_fields_pairs
-            if header in SKY_MODEL_CSV_HEADER
+            for header in SKY_MODEL_CSV_HEADER
         ]
 
     @classmethod
@@ -94,9 +81,9 @@ class ComponentConverters:
             The instantiated component object.
         """
         kwargs = {
-            object_prop: row[csv_header]
-            for object_prop, csv_header in cls.__headers_to_fields_pairs
-            if csv_header in row and object_prop is not None
+            csv_header: row[csv_header]
+            for csv_header in SKY_MODEL_CSV_HEADER
+            if csv_header in row
         }
         return Component(**kwargs)
 
