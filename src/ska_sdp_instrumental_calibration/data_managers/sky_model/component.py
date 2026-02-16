@@ -37,11 +37,11 @@ class Component:
     DEdeg: float
     "Declination J2000 (degrees)"
     flux: float
-    "Flux density (Jy) at the reference frequency, ref_freq"
+    "I polarization - flux at reference frequency, ref_freq"
     ref_freq: float = 200e6
     "Reference frequency (Hz)"
     alpha: Optional[list] = None
-    "Spectral index"
+    "Spectral indices"
     major: float = 0.0
     "Fitted semi-major axis (arcsec)"
     minor: float = 0.0

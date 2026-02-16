@@ -18,10 +18,9 @@ GLEAM J235139-894114 -0.001036 0.026022 23 51 39.45 -89 41 14.30 357.914368   0.
 """.strip()  # noqa: E501
 
 
-# noqa: E501
 CSV_CONTENT = """# Number of sources: 1434
-# RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
- 357.914368, -89.687309, 2.71901e-01, 0.000000e+00, 0.000000e+00, 0.000000e+00, 2.000000e+08,-3.70882e-01, 0.000000, 2.19263e+02, 1.464811e+02, -4.158033e+00
+#(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
+GLEAM J000010-000001, 357.914368, -89.687309, 2.71901e-01,  2.19263e+02, 1.464811e+02, -4.158033e+00, 2.000000e+08, "[-0.7,0.01,0.123]", true
 """  # noqa: E501
 
 
@@ -78,7 +77,7 @@ def test_generate_lsm_from_gleam_catalogue_file(
             DEdeg=-89.687309,
             flux=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
+            alpha=[-0.370882],
             major=219.263,
             minor=146.4811,
             pa=-4.158033,
@@ -222,7 +221,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
             DEdeg=-89.687309,
             flux=0.248581,
             ref_freq=200000000.0,
-            alpha=-0.65,
+            alpha=[-0.65],
             major=219.263,
             minor=146.4811,
             pa=-4.158033,
@@ -301,15 +300,16 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
 
     assert lsm == [
         Component(
-            name="comp0",
+            name="GLEAM J000010-000001",
             RAdeg=357.914368,
             DEdeg=-89.687309,
             flux=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
+            alpha=[-0.7, 0.01, 0.123],
             major=219.263,
             minor=146.4811,
             pa=-4.158033,
+            log_spec_idx=True,
         )
     ]
 
@@ -374,27 +374,26 @@ class TestComponentConverts:
             DEdeg=-89.687309,
             flux=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
+            alpha=[-0.7, 0.01, 0.123],
             major=219.263,
             minor=146.4811,
             pa=-4.158033,
+            log_spec_idx=True,
         )
 
         csv_row = ComponentConverters.to_csv_row(component)
 
         expected_row = [
+            "comp0",
             "357.914368",
             "-89.687309",
             "2.719010e-01",
-            "0.000000e+00",
-            "0.000000e+00",
-            "0.000000e+00",
-            "2.000000e+08",
-            "-3.708820e-01",
-            "0.000000e+00",
             "2.192630e+02",
             "1.464811e+02",
             "-4.158033",
+            "2.000000e+08",
+            "[-0.7, 0.01, 0.123]",
+            "True",
         ]
 
         assert csv_row == expected_row

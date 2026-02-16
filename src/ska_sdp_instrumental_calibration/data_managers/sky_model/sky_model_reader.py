@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 from pathlib import Path
 
@@ -12,54 +13,50 @@ logger = logging.getLogger(__name__)
 
 
 SKY_MODEL_CSV_HEADER = [
-    "RA (deg)",
-    "Dec (deg)",
-    "I (Jy)",
-    "Q (Jy)",
-    "U (Jy)",
-    "V (Jy)",
-    "Ref. freq. (Hz)",
-    "Spectral index",
-    "Rotation measure (rad/m^2)",
-    "FWHM major (arcsec)",
-    "FWHM minor (arcsec)",
-    "Position angle (deg)",
+    "component_id",
+    "ra",
+    "dec",
+    "i_pol",
+    "major_ax",
+    "minor_ax",
+    "pos_ang",
+    "ref_freq",
+    "spec_idx",
+    "log_spec_idx",
 ]
 
 
 class ComponentConverters:
     __headers_to_fields_pairs = [
-        ("name", "comp_name"),
-        ("RAdeg", "RA (deg)"),
-        ("DEdeg", "Dec (deg)"),
-        ("flux", "I (Jy)"),
-        (None, "Q (Jy)"),
-        (None, "U (Jy)"),
-        (None, "V (Jy)"),
-        ("ref_freq", "Ref. freq. (Hz)"),
-        ("alpha", "Spectral index"),
-        (None, "Rotation measure (rad/m^2)"),
-        ("major", "FWHM major (arcsec)"),
-        ("minor", "FWHM minor (arcsec)"),
-        ("pa", "Position angle (deg)"),
+        ("name", "component_id"),
+        ("RAdeg", "ra"),
+        ("DEdeg", "dec"),
+        ("flux", "i_pol"),
+        ("major", "major_ax"),
+        ("minor", "minor_ax"),
+        ("pa", "pos_ang"),
+        ("ref_freq", "ref_freq"),
+        ("alpha", "spec_idx"),
+        ("log_spec_idx", "log_spec_idx"),
     ]
 
     __exponent_str = functools.partial(lambda value: format(value, "e"))
     __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
+    _list_str = functools.partial(
+        lambda value: json.dumps(value) if value is not None else '"[]"'
+    )
 
     __headers_formatter = {
-        "RA (deg)": str,
-        "Dec (deg)": str,
-        "I (Jy)": __exponent_str,
-        "Q (Jy)": __exponent_str,
-        "U (Jy)": __exponent_str,
-        "V (Jy)": __exponent_str,
-        "Ref. freq. (Hz)": __exponent_str,
-        "Spectral index": __exponent_str,
-        "Rotation measure (rad/m^2)": __exponent_str,
-        "FWHM major (arcsec)": __exponent_str,
-        "FWHM minor (arcsec)": __exponent_str,
-        "Position angle (deg)": __six_decimal_str,
+        "component_id": str,
+        "ra": str,
+        "dec": str,
+        "i_pol": __exponent_str,
+        "major_ax": __exponent_str,
+        "minor_ax": __exponent_str,
+        "pos_ang": __six_decimal_str,
+        "ref_freq": __exponent_str,
+        "spec_idx": _list_str,
+        "log_spec_idx": str,
     }
 
     __non_existing_field_default = 0.0
@@ -130,18 +127,22 @@ def generate_lsm_from_csv(
     """
     Generate a local sky model using a CSV file.
 
-    This function reads a CSV file formatted for OSKAR simulations and converts
-    it into a list of :class:`~Component` objects. If the CSV file cannot be
-    found, the function raises a ValueError.
+    This function reads a CSV file and converts it into a list of
+    :class:`~Component` objects. If the CSV file cannot be found, the function
+    raises a ValueError.
 
-    The CSV file is expected to have a mandatory header row and the following
-    12 columns in order:
-    RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz),
-    Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec),
-    FWHM minor (arcsec), Position angle (deg).
+    The CSV file is expected to have a commented line header and the following
+    10 columns in order:
+    component_id, ra, dec, i_pol, major_ax, minor_ax, pos_ang, ref_freq,
+    spec_idx, log_spec_idx.
 
-    Frequency parameters (Q, U, V, and RM) are ignored. All components are
-    treated as Gaussians, though many may default to point sources.
+    The spec_idx column should contain a JSON array of spectral indices
+    (e.g., "[-0.7,0.01,0.123]"). The log_spec_idx column is a boolean
+    indicating whether the spectral index was calculated using a logarithmic
+    (true) or linear (false) model.
+
+    All components are treated as Gaussians, though many may default to point
+    sources.
 
     Parameters
     ----------
@@ -180,17 +181,26 @@ def generate_lsm_from_csv(
     headers = SKY_MODEL_CSV_HEADER
 
     lsm_df = pd.read_csv(
-        csvfile, sep=",", comment="#", names=headers, dtype=float
+        csvfile,
+        sep=",",
+        comment="#",
+        names=headers,
+        skipinitialspace=True,
+        converters={
+            "spec_idx": lambda x: json.loads(x) if x else None,
+            "log_spec_idx": lambda x: x.lower() == "true" if x else True,
+        },
     )
 
-    lsm_df["comp_name"] = "comp" + lsm_df.index.astype("str")
+    lsm_df = lsm_df[lsm_df["i_pol"] >= flux_limit]
 
-    lsm_df = lsm_df[lsm_df["I (Jy)"] >= flux_limit]
-    lsm_df["ra"] = deg2rad * lsm_df["RA (deg)"]
-    lsm_df["dec"] = deg2rad * lsm_df["Dec (deg)"]
+    lsm_df["ra_radian"] = deg2rad * lsm_df["ra"]
+    lsm_df["dec_radian"] = deg2rad * lsm_df["dec"]
     lsm_df["separation"] = np.arccos(
-        np.sin(lsm_df["dec"]) * sindec0
-        + np.cos(lsm_df["dec"]) * cosdec0 * np.cos(lsm_df["ra"] - ra0)
+        np.sin(lsm_df["dec_radian"]) * sindec0
+        + np.cos(lsm_df["dec_radian"])
+        * cosdec0
+        * np.cos(lsm_df["ra_radian"] - ra0)
     )
 
     lsm_df = lsm_df[lsm_df["separation"] <= max_separation]
@@ -300,7 +310,7 @@ def generate_lsm_from_gleamegc(
                         name=name,
                         flux=flux,
                         ref_freq=200e6,
-                        alpha=alpha,
+                        alpha=[alpha],
                         RAdeg=float(line[65:75]),
                         DEdeg=float(line[87:97]),
                         major=float(line[153:165]),
