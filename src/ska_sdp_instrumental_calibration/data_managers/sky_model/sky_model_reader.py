@@ -31,7 +31,7 @@ class ComponentConverters:
     __exponent_str = functools.partial(lambda value: format(value, "e"))
     __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
     _list_str = functools.partial(
-        lambda value: json.dumps(value) if value is not None else '"[]"'
+        lambda value: f'"{json.dumps(value)}"' if value is not None else '"[]"'
     )
 
     __headers_formatter = {
