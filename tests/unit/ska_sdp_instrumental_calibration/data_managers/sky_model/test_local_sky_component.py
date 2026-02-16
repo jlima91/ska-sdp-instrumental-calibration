@@ -19,12 +19,12 @@ SKY_MODEL_CSV_HEADER = sky_model_reader.SKY_MODEL_CSV_HEADER
 class TestLocalSkyComponent:
     def test_create_skycomponent_from_component(self):
         component = Component(
-            name="J12345",
-            RAdeg=260,
-            DEdeg=-85,
-            flux=4.0,
+            component_id="J12345",
+            ra=260,
+            dec=-85,
+            i_pol=4.0,
             ref_freq=200,
-            alpha=[2.0],
+            spec_idx=[2.0],
         )
 
         component.deconvolve_gaussian = Mock(
@@ -59,12 +59,12 @@ class TestLocalSkyComponent:
 
     def test_create_skycomponent_from_point_source(self):
         component = Component(
-            name="J12345",
-            RAdeg=260,
-            DEdeg=-85,
-            flux=4.0,
+            component_id="J12345",
+            ra=260,
+            dec=-85,
+            i_pol=4.0,
             ref_freq=200,
-            alpha=[2.0],
+            spec_idx=[2.0],
         )
 
         component.deconvolve_gaussian = Mock(

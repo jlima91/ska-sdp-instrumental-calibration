@@ -30,24 +30,24 @@ class Component:
     parameters should be left at zero.
     """
 
-    name: str
+    component_id: str
     "Name of the component"
-    RAdeg: float
+    ra: float
     "Right Ascension J2000 (degrees)"
-    DEdeg: float
+    dec: float
     "Declination J2000 (degrees)"
-    flux: float
+    i_pol: float
     "I polarization - flux at reference frequency, ref_freq"
     ref_freq: float = 200e6
     "Reference frequency (Hz)"
-    alpha: Optional[list] = None
-    "Spectral indices"
-    major: float = 0.0
-    "Fitted semi-major axis (arcsec)"
-    minor: float = 0.0
-    "Fitted semi-minor axis (arcsec)"
-    pa: float = 0.0
-    "Fitted position angle (degrees)"
+    spec_idx: Optional[list] = None
+    "Spectral index polynomial coefficients (up to 5 terms)."
+    major_ax: float = 0.0
+    "Fitted semi-major axis (arcsec) at reference frequency"
+    minor_ax: float = 0.0
+    "Fitted semi-minor axis (arcsec) at reference frequency"
+    pos_ang: float = 0.0
+    "Fitted position angle (degrees) at reference frequency"
     beam_major: float = 0.0
     "Semi-major axis of a beam that is still convolved into the "
     "main component shape (arcsec). Default=0 (no beam present)"
@@ -58,15 +58,14 @@ class Component:
     "Position angle of a beam that is still convolved into the "
     "main component shape (degrees). Default=0"
     log_spec_idx: bool = True
-    "whether the spec_idx was calculated using the logarithmic or "
-    "linear model true: logarithmic false: linear"
+    "True if logarithmic spectral model, False if linear. Default=True"
 
     @cached_property
     def direction(self):
         """
         Return the SkyCoord direction of the component.
         """
-        return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
+        return SkyCoord(ra=self.ra, dec=self.dec, unit="deg")
 
     def get_altaz(
         self, solution_time: float, array_location: EarthLocation
@@ -136,10 +135,10 @@ class Component:
         """
 
         # fitted data on source
-        fmajsq = self.major * self.major
-        fminsq = self.minor * self.minor
+        fmajsq = self.major_ax * self.major_ax
+        fminsq = self.minor_ax * self.minor_ax
         fdiff = fmajsq - fminsq
-        fphi = 2.0 * self.pa * np.pi / 180.0
+        fphi = 2.0 * self.pos_ang * np.pi / 180.0
 
         # beam data at source location
         bmajsq = self.beam_major * self.beam_major
@@ -172,12 +171,12 @@ class Component:
         return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
 
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
-        spec_idx = self.alpha
+        spec_idx = self.spec_idx
         if spec_idx is None or spec_idx == []:
-            self.flux
+            self.i_pol
 
         return calculate_flux_for_spectral_indices(
-            flux=self.flux,
+            flux=self.i_pol,
             freq=freq,
             ref_freq=self.ref_freq,
             spec_idx=spec_idx,

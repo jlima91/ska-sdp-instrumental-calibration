@@ -28,15 +28,15 @@ SKY_MODEL_CSV_HEADER = [
 
 class ComponentConverters:
     __headers_to_fields_pairs = [
-        ("name", "component_id"),
-        ("RAdeg", "ra"),
-        ("DEdeg", "dec"),
-        ("flux", "i_pol"),
-        ("major", "major_ax"),
-        ("minor", "minor_ax"),
-        ("pa", "pos_ang"),
+        ("component_id", "component_id"),
+        ("ra", "ra"),
+        ("dec", "dec"),
+        ("i_pol", "i_pol"),
+        ("major_ax", "major_ax"),
+        ("minor_ax", "minor_ax"),
+        ("pos_ang", "pos_ang"),
         ("ref_freq", "ref_freq"),
-        ("alpha", "spec_idx"),
+        ("spec_idx", "spec_idx"),
         ("log_spec_idx", "log_spec_idx"),
     ]
 
@@ -258,10 +258,10 @@ def generate_lsm_from_gleamegc(
         )
         return [
             Component(
-                name="default",
-                RAdeg=phasecentre.ra.degree,
-                DEdeg=phasecentre.dec.degree,
-                flux=1.0,
+                component_id="default",
+                ra=phasecentre.ra.degree,
+                dec=phasecentre.dec.degree,
+                i_pol=1.0,
             )
         ]
 
@@ -307,15 +307,15 @@ def generate_lsm_from_gleamegc(
 
                 model.append(
                     Component(
-                        name=name,
-                        flux=flux,
+                        component_id=name,
+                        i_pol=flux,
                         ref_freq=200e6,
-                        alpha=[alpha],
-                        RAdeg=float(line[65:75]),
-                        DEdeg=float(line[87:97]),
-                        major=float(line[153:165]),
-                        minor=float(line[179:187]),
-                        pa=float(line[200:210]),
+                        spec_idx=[alpha],
+                        ra=float(line[65:75]),
+                        dec=float(line[87:97]),
+                        major_ax=float(line[153:165]),
+                        minor_ax=float(line[179:187]),
+                        pos_ang=float(line[200:210]),
                         beam_major=float(line[247:254]),
                         beam_minor=float(line[255:262]),
                         beam_pa=float(line[263:273]),

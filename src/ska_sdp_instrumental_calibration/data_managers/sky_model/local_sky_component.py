@@ -61,7 +61,7 @@ class LocalSkyComponent(SkyComponent):
         return LocalSkyComponent(
             direction=comp.direction,
             frequency=freq,
-            name=comp.name,
+            name=comp.component_id,
             flux=flux,
             polarisation_frame=PolarisationFrame("linear"),
             shape=shape,
