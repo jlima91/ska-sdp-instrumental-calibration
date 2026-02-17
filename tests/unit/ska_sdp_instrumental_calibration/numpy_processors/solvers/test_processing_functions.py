@@ -82,7 +82,7 @@ def test_should_solve_with_mask_for_2_pol():
             True,
             2,
         )
-        == processing_functions._solve_antenna_gains_itsubs_nocrossdata
+        == processing_functions.solve_antenna_gains_itsubs_nocrossdata
     )
 
 
@@ -92,7 +92,7 @@ def test_should_solve_with_mask_for_4_pol_and_no_crosspol():
             False,
             4,
         )
-        == processing_functions._solve_antenna_gains_itsubs_nocrossdata
+        == processing_functions.solve_antenna_gains_itsubs_nocrossdata
     )
 
 
@@ -102,7 +102,7 @@ def test_should_solve_with_mask_for_4_pol_and_crosspol():
             True,
             4,
         )
-        == processing_functions._solve_antenna_gains_itsubs_matrix
+        == processing_functions.solve_antenna_gains_itsubs_matrix
     )
 
 
@@ -112,7 +112,7 @@ def test_should_solve_with_itsub_scalar_mask():
             False,
             3,
         )
-        == processing_functions._solve_antenna_gains_itsubs_scalar
+        == processing_functions.solve_antenna_gains_itsubs_scalar
     )
 
 
