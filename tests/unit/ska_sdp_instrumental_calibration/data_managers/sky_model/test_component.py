@@ -57,3 +57,22 @@ def test_deconvolve_circular_gaussian():
     expectd_params = np.array((beam_major, beam_minor, 90 + beam_pa))
 
     np.testing.assert_allclose(expectd_params, actual_params)
+
+
+def test_deconvolve_gaussian_if_major_minor_axes_are_none():
+    component = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=4.0,
+        ref_freq=200,
+        spec_idx=2.0,
+        major_ax=None,
+        minor_ax=None,
+        pos_ang=None,
+    )
+
+    actual_params = np.array(component.deconvolve_gaussian())
+    expectd_params = np.array((0.0, 0.0, 90.0))
+
+    np.testing.assert_allclose(expectd_params, actual_params)

@@ -28,8 +28,12 @@ SKY_MODEL_CSV_HEADER = [
 
 class ComponentConverters:
 
-    __exponent_str = functools.partial(lambda value: format(value, "e"))
-    __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
+    __exponent_str = functools.partial(
+        lambda value: format(value, "e") if value is not None else ""
+    )
+    __six_decimal_str = functools.partial(
+        lambda value: format(value, ".6f") if value is not None else ""
+    )
     _list_str = functools.partial(
         lambda value: f'"{json.dumps(value)}"' if value is not None else '"[]"'
     )
@@ -44,10 +48,10 @@ class ComponentConverters:
         "pos_ang": __six_decimal_str,
         "ref_freq": __exponent_str,
         "spec_idx": _list_str,
-        "log_spec_idx": str,
+        "log_spec_idx": lambda x: str(x).lower(),
     }
 
-    __non_existing_field_default = 0.0
+    __non_existing_field_default = None
 
     @classmethod
     def to_csv_row(cls, component: Component) -> list[str]:
@@ -164,7 +168,6 @@ def generate_lsm_from_csv(
     dec0 = phasecentre.dec.radian
     cosdec0 = np.cos(dec0)
     sindec0 = np.sin(dec0)
-
     headers = SKY_MODEL_CSV_HEADER
 
     lsm_df = pd.read_csv(
@@ -175,7 +178,10 @@ def generate_lsm_from_csv(
         skipinitialspace=True,
         converters={
             "spec_idx": lambda x: json.loads(x) if x else None,
-            "log_spec_idx": lambda x: x.lower() == "true" if x else True,
+            "log_spec_idx": lambda x: (x.lower() == "true" if x else True),
+            "major_ax": to_float,
+            "minor_ax": to_float,
+            "pos_ang": to_float,
         },
     )
 
@@ -319,3 +325,7 @@ def generate_lsm_from_gleamegc(
         )
 
     return model
+
+
+def to_float(x):
+    return float(x) if x and x.strip() else None

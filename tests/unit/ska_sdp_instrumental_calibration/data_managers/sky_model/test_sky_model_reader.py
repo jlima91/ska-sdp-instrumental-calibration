@@ -324,6 +324,78 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.sky_model_reader.logger"
 )
+def test_should_generate_lsm_from_csv_file_when_optional_fields_are_blank(
+    logger_mock, path_mock
+):
+    CSV_CONTENT = """
+    #(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
+    GLEAM J000010-000001, 357.914368 , -89.687309 , 2.71901e-01, , , , 2.000000e+08, ,
+    """  # noqa: E501
+
+    path_mock.return_value = path_mock
+    path_mock.is_file.return_value = True
+    csv_file = StringIO(CSV_CONTENT)
+
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
+
+    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
+
+    logger_mock.info.assert_called_once_with("extracted 1 csv components")
+
+    assert lsm == [
+        Component(
+            component_id="GLEAM J000010-000001",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
+            ref_freq=200000000.0,
+            spec_idx=None,
+            major_ax=None,
+            minor_ax=None,
+            pos_ang=None,
+            log_spec_idx=True,
+        )
+    ]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.Path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
+def test_should_generate_lsm_from_csv_file_with_log_spec_idx_as_false(
+    logger_mock, path_mock
+):
+    content = CSV_CONTENT.replace("true", "false")
+
+    path_mock.return_value = path_mock
+    path_mock.is_file.return_value = True
+    csv_file = StringIO(content)
+
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
+
+    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
+
+    logger_mock.info.assert_called_once_with("extracted 1 csv components")
+
+    assert lsm[0].log_spec_idx is False
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.Path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
 def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     logger_mock, path_mock
 ):
@@ -395,7 +467,38 @@ class TestComponentConverts:
             "-4.158033",
             "2.000000e+08",
             '"[-0.7, 0.01, 0.123]"',
-            "True",
+            "true",
+        ]
+
+        assert csv_row == expected_row
+
+    def test_should_convert_optional_fields_as_empty_str(self):
+        component = Component(
+            component_id="comp0",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
+            ref_freq=200000000.0,
+            spec_idx=None,
+            major_ax=None,
+            minor_ax=None,
+            pos_ang=None,
+            log_spec_idx=True,
+        )
+
+        csv_row = ComponentConverters.to_csv_row(component)
+
+        expected_row = [
+            "comp0",
+            "357.914368",
+            "-89.687309",
+            "2.719010e-01",
+            "",
+            "",
+            "",
+            "2.000000e+08",
+            '"[]"',
+            "true",
         ]
 
         assert csv_row == expected_row

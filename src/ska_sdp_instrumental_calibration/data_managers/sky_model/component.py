@@ -42,11 +42,11 @@ class Component:
     "Reference frequency (Hz)"
     spec_idx: Optional[list] = None
     "Spectral index polynomial coefficients (up to 5 terms)."
-    major_ax: float = 0.0
+    major_ax: Optional[float] = 0.0
     "Fitted semi-major axis (arcsec) at reference frequency"
-    minor_ax: float = 0.0
+    minor_ax: Optional[float] = 0.0
     "Fitted semi-minor axis (arcsec) at reference frequency"
-    pos_ang: float = 0.0
+    pos_ang: Optional[float] = 0.0
     "Fitted position angle (degrees) at reference frequency"
     beam_major: float = 0.0
     "Semi-major axis of a beam that is still convolved into the "
@@ -120,7 +120,7 @@ class Component:
         """
         return self.get_altaz(solution_time, array_location).alt.degree >= 0
 
-    def deconvolve_gaussian(self) -> tuple[float]:
+    def deconvolve_gaussian(self) -> tuple[float, float, float]:
         """
         Deconvolve MWA synthesised beam from Gaussian shape parameters.
 
@@ -133,6 +133,12 @@ class Component:
         -------
             Tuple of deconvolved parameters (same units as data in self)
         """
+        if (
+            self.major_ax is None
+            or self.minor_ax is None
+            or self.pos_ang is None
+        ):
+            return 0.0, 0.0, 90.0
 
         # fitted data on source
         fmajsq = self.major_ax * self.major_ax
