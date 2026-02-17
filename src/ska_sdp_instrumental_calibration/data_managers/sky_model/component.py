@@ -179,7 +179,7 @@ class Component:
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
         spec_idx = self.spec_idx
         if spec_idx is None or spec_idx == []:
-            self.i_pol
+            spec_idx = [0.0]
 
         return calculate_flux_for_spectral_indices(
             flux=self.i_pol,
