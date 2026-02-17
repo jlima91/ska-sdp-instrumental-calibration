@@ -13,7 +13,6 @@ from ska_sdp_instrumental_calibration.xarray_processors.gain_flagging import (
 
 def test_should_flag_gains_for_amplitude():
     soltype = "amplitude"
-    mode = "poly"
     order = 3
     n_sigma = 2.0
     max_ncycles = 1
@@ -27,7 +26,6 @@ def test_should_flag_gains_for_amplitude():
 
     flagger_obj = GainFlagger(
         soltype=soltype,
-        mode=mode,
         order=order,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
@@ -75,7 +73,6 @@ def test_should_flag_gains_for_amplitude():
 
 def test_should_flag_gains_for_both_phase_and_amplitude():
     soltype = "amp-phase"
-    mode = "poly"
     order = 3
     n_sigma = 3
     max_ncycles = 1
@@ -92,7 +89,6 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
 
     flagger_obj = GainFlagger(
         soltype=soltype,
-        mode=mode,
         order=order,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
@@ -160,7 +156,6 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
 def test_should_flag_gains_for_real_imag():
 
     soltype = "real-imag"
-    mode = "smooth"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -174,7 +169,6 @@ def test_should_flag_gains_for_real_imag():
 
     flagger_obj = GainFlagger(
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,
@@ -223,7 +217,6 @@ def test_should_flag_gains_for_real_imag():
 def test_should_throw_exception_if_window_size_is_even():
 
     soltype = "real-imag"
-    mode = "smooth"
     order = 1
     n_sigma = 0.0
     max_ncycles = 1
@@ -233,7 +226,6 @@ def test_should_throw_exception_if_window_size_is_even():
     with pytest.raises(ValueError, match="window_size must be odd"):
         GainFlagger(
             soltype,
-            mode,
             order,
             max_ncycles,
             n_sigma,
@@ -260,7 +252,6 @@ def test_should_perform_gain_flagging(
 ):
 
     soltype = "amplitude"
-    mode = "poly"
 
     order = 1
     n_sigma = 0.0
@@ -337,7 +328,6 @@ def test_should_perform_gain_flagging(
     result_gaintable, fits = flag_on_gains(
         gaintable_mock,
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,
@@ -377,7 +367,6 @@ def test_should_perform_gain_flagging_without_apply(
     apply_ufunc_mock, gain_flagger_mock
 ):
     soltype = "real-imag"
-    mode = "smooth"
     order = 1
     n_sigma = 0.0
     max_ncycles = 1
@@ -493,7 +482,6 @@ def test_should_perform_gain_flagging_without_apply(
     gaintable, fits = flag_on_gains(
         gaintable_mock,
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,
@@ -603,7 +591,6 @@ def test_phasor_polyfit_runtime_error_logged(curve_fit_mock, logger_mock):
 def test_gain_flagger_smooth_branch_executes():
 
     soltype = "real-imag"
-    mode = "smooth"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -615,7 +602,6 @@ def test_gain_flagger_smooth_branch_executes():
 
     flagger = GainFlagger(
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,

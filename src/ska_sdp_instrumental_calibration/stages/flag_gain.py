@@ -28,12 +28,6 @@ from ._utils import get_gaintables_path, get_plots_path
             ),
             allowed_values=["phase", "amplitude", "amp-phase", "real-imag"],
         ),
-        mode=ConfigParam(
-            str,
-            "poly",
-            description="Detrending/fitting algorithm: smooth / poly",
-            allowed_values=["smooth", "poly"],
-        ),
         order=ConfigParam(
             int,
             3,
@@ -103,7 +97,6 @@ from ._utils import get_gaintables_path, get_plots_path
 def flag_gain_stage(
     upstream_output,
     soltype,
-    mode,
     order,
     skip_cross_pol,
     export_gaintable,
@@ -128,9 +121,6 @@ def flag_gain_stage(
             Can be "real-imag", "phase", "amplitude" or "amp-phase".
             There is a potential edge case
             where cyclic phases my get flagged as outliers. eg -180 and 180
-        mode: str, optional
-            Detrending/fitting algorithm: "smooth", "poly".
-            By default smooth.
         order : int
             Order of the function fitted during detrending.
             If mode=smooth these are the window of the running
@@ -175,7 +165,6 @@ def flag_gain_stage(
     gaintable, fits = flag_on_gains(
         initialtable,
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,

@@ -259,8 +259,10 @@ class RollingRMSFlagger:
 
 class GainFlagger:
     MODE = {
-        "poly": {"amplitude", "phase", "amp-phase"},
-        "smooth": {"real-imag"},
+        "amplitude": "poly",
+        "phase": "poly",
+        "amp-phase": "poly",
+        "real-imag": "smooth",
     }
 
     SOLTYPE = {
@@ -279,7 +281,6 @@ class GainFlagger:
     def __init__(
         self,
         soltype: str,
-        mode: str,
         order: int,
         max_ncycles: int,
         n_sigma: float,
@@ -295,9 +296,6 @@ class GainFlagger:
             soltype: str
                 Solution type to flag. Can be "phase", "amplitude"
                 or "both".
-            mode: str
-                Detrending/fitting algorithm: "smooth", "poly".
-                By default smooth.
             order : int
                 Order of the function fitted during detrending.
                 If mode=smooth these are the window of the running
@@ -315,11 +313,9 @@ class GainFlagger:
             frequencies: List
                 List of frequencies.
         """
-        if soltype not in self.MODE[mode]:
-            raise ValueError(f"Invalid soltype '{soltype}' for mode '{mode}'")
 
         self.freq = freq
-        self.mode = mode
+        self.mode = self.MODE[soltype]
         self.order = order
         self.max_ncycles = max_ncycles
         self.soltype_name = soltype
@@ -468,7 +464,6 @@ def _fit_names(soltype: str):
 def flag_on_gains(
     gaintable: xr.Dataset,
     soltype: str,
-    mode: str,
     order: int,
     max_ncycles: int,
     n_sigma: float,
@@ -489,8 +484,6 @@ def flag_on_gains(
         soltype: str
             Solution type to flag.
             Can be "real-imag", "phase", "amplitude" or "amp-phase".
-        mode: str
-            Detrending/fitting algorithm: "smooth", "poly", by default smooth.
         order : int
             Order of the function fitted during detrending.
             If mode=smooth these are the window of the running
@@ -528,7 +521,6 @@ def flag_on_gains(
 
     cfg = dict(
         soltype=soltype,
-        mode=mode,
         order=order,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,

@@ -8,7 +8,6 @@ def test_should_have_the_expected_default_configuration():
     expected_config = {
         "flag_gain": {
             "soltype": "amp-phase",
-            "mode": "poly",
             "order": 3,
             "apply_flag": True,
             "skip_cross_pol": True,
@@ -39,7 +38,6 @@ def test_should_perform_flagging_on_gains(
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
-    mode = "smooth"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -71,7 +69,6 @@ def test_should_perform_flagging_on_gains(
     actual = flag_gain_stage.stage_definition(
         upstream_output,
         soltype,
-        mode,
         order,
         skip_cross_pol,
         export_gaintable,
@@ -88,7 +85,6 @@ def test_should_perform_flagging_on_gains(
     flag_on_gains_mock.assert_called_once_with(
         initialtable,
         soltype,
-        mode,
         order,
         max_ncycles,
         n_sigma,
@@ -131,7 +127,6 @@ def test_should_export_gaintable_with_proper_suffix(
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
-    mode = "poly"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -163,7 +158,6 @@ def test_should_export_gaintable_with_proper_suffix(
     flag_gain_stage.stage_definition(
         upstream_output,
         soltype,
-        mode,
         order,
         skip_cross_pol,
         export_gaintable,
@@ -180,7 +174,6 @@ def test_should_export_gaintable_with_proper_suffix(
     flag_gain_stage.stage_definition(
         upstream_output,
         soltype,
-        mode,
         order,
         skip_cross_pol,
         export_gaintable,
@@ -246,7 +239,6 @@ def test_should_plot_flag_on_gain(
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
-    mode = "poly"
     order = 3
     n_sigma = 5.0
     max_ncycles = 1
@@ -277,7 +269,6 @@ def test_should_plot_flag_on_gain(
     flag_gain_stage.stage_definition(
         upstream_output,
         soltype,
-        mode,
         order,
         skip_cross_pol,
         export_gaintable,
