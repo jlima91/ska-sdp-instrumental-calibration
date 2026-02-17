@@ -235,7 +235,8 @@ class GlobalSkyModel:
         self.components = lsm
 
     def export_sky_model_csv(self, output_csv_path: str):
-        rows = [SKY_MODEL_CSV_HEADER]
+        header_string = "#" + ",".join(SKY_MODEL_CSV_HEADER)
+        rows = [[header_string]]
         rows.extend(
             [
                 ComponentConverters.to_csv_row(component)

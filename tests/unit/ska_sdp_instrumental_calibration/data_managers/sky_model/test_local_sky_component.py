@@ -196,5 +196,12 @@ class TestGlobalSkyModel:
         )
 
         write_csv_mock.assert_called_once_with(
-            "output.csv", [SKY_MODEL_CSV_HEADER, *rows]
+            "output.csv",
+            [
+                [
+                    "#component_id,ra,dec,i_pol,major_ax,minor_ax,"
+                    "pos_ang,ref_freq,spec_idx,log_spec_idx"
+                ],
+                *rows,
+            ],
         )
