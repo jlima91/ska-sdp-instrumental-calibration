@@ -177,6 +177,29 @@ class Component:
         return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
 
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
+        """
+        Calculate the flux at given frequencies.
+
+        This method calculates the flux of the component at the
+        specified frequencies using a spectral model. The flux is calculated
+        based on the reference flux (`i_pol`), reference frequency
+        (`ref_freq`), and spectral index polynomial coefficients (`spec_idx`).
+
+        If no spectral indices are provided (`spec_idx` is None or empty), a
+        flat spectrum (spectral index = 0) is assumed.
+        visit https://ska-telescope.gitlab.io/sim/oskar/sky_model/
+        sky_model.html#spectral-profiles to know more about mathematics used.
+
+        Parameters
+        ----------
+        freq
+            Frequencies at which to calculate flux (Hz).
+
+        Returns
+        -------
+            Flux at the specified frequencies. Same shape as `freq`.
+        """
+
         spec_idx = self.spec_idx
         if spec_idx is None or spec_idx == []:
             spec_idx = [0.0]
