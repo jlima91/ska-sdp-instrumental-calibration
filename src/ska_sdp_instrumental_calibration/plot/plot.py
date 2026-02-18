@@ -2,6 +2,7 @@ import dask.delayed
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.processing_tasks.predict import (
@@ -167,10 +168,19 @@ def plot_curve_fit(
         y1_data_func = np.real
         y2_data_func = np.imag
     else:
-        y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
-        y2_fit = np.rad2deg(
-            fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
-        )
+        if soltype == "amplitude":
+            y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
+            y2_fit = xr.zeros_like(gaintable.gain, dtype=float)
+        elif soltype == "phase":
+            y1_fit = xr.zeros_like(gaintable.gain, dtype=float)
+            y2_fit = np.rad2deg(
+                fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
+            )
+        else:
+            y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
+            y2_fit = np.rad2deg(
+                fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
+            )
         y1_label = "Amplitude"
         y2_label = "Phase (Degree)"
         y_limit = [-180, 180]

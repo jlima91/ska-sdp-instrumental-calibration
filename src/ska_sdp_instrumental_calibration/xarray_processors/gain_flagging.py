@@ -446,7 +446,7 @@ def _flag_wrapper(
     )
 
     outputs = [new_weights]
-    for key in sorted(fits):
+    for key in fits:
         outputs.append(fits[key])
 
     return tuple(outputs)

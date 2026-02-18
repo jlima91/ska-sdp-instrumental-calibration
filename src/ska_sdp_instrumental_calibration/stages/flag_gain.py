@@ -50,7 +50,7 @@ from ._utils import get_gaintables_path, get_plots_path
         ),
         n_sigma=ConfigParam(
             float,
-            10.0,
+            3.0,
             description="""Flag values greated than n_simga * sigma_hat.
             Where sigma_hat is 1.4826 * MeanAbsoluteDeviation.""",
         ),
