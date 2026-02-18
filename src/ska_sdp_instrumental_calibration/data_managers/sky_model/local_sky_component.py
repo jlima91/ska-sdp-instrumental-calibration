@@ -36,16 +36,13 @@ class LocalSkyComponent(SkyComponent):
         """
         freq = np.array(freq)
 
-        flux0 = comp.flux
-        freq0 = comp.ref_freq
-        alpha = comp.alpha
-
         # assume 4 pols
         flux = np.zeros((len(freq), 4))
 
         # Convention as disscussed in "2025-09-23 Low G3 SDP Sync"
         # meeting on 23 Sept 2025 08:00 - 09:00 UTC.
-        flux[:, 0] = flux[:, 3] = flux0 * np.power((freq / freq0), alpha)
+
+        flux[:, 0] = flux[:, 3] = comp.calculate_flux(freq)
 
         # Deconvolve synthesised beam from fitted shape parameters.
         smaj, smin, spa = comp.deconvolve_gaussian()
@@ -64,7 +61,7 @@ class LocalSkyComponent(SkyComponent):
         return LocalSkyComponent(
             direction=comp.direction,
             frequency=freq,
-            name=comp.name,
+            name=comp.component_id,
             flux=flux,
             polarisation_frame=PolarisationFrame("linear"),
             shape=shape,

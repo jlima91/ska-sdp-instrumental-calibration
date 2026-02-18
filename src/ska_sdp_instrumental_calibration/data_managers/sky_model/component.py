@@ -7,11 +7,13 @@ connect to ska-sdp-global-sky-model functions.
 import logging
 from dataclasses import dataclass
 from functools import cached_property
+from typing import Optional
 
 import numpy as np
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 
 from ..beams import convert_time_to_solution_time
+from .flux_utils import calculate_flux_for_spectral_indices
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +30,24 @@ class Component:
     parameters should be left at zero.
     """
 
-    name: str
+    component_id: str
     "Name of the component"
-    RAdeg: float
+    ra: float
     "Right Ascension J2000 (degrees)"
-    DEdeg: float
+    dec: float
     "Declination J2000 (degrees)"
-    flux: float
-    "Flux density (Jy) at the reference frequency, ref_freq"
+    i_pol: float
+    "I polarization - flux at reference frequency, ref_freq"
     ref_freq: float = 200e6
     "Reference frequency (Hz)"
-    alpha: float = 0.0
-    "Spectral index"
-    major: float = 0.0
-    "Fitted semi-major axis (arcsec)"
-    minor: float = 0.0
-    "Fitted semi-minor axis (arcsec)"
-    pa: float = 0.0
-    "Fitted position angle (degrees)"
+    spec_idx: Optional[list] = None
+    "Spectral index polynomial coefficients (up to 5 terms)."
+    major_ax: Optional[float] = 0.0
+    "Fitted semi-major axis (arcsec) at reference frequency"
+    minor_ax: Optional[float] = 0.0
+    "Fitted semi-minor axis (arcsec) at reference frequency"
+    pos_ang: Optional[float] = 0.0
+    "Fitted position angle (degrees) at reference frequency"
     beam_major: float = 0.0
     "Semi-major axis of a beam that is still convolved into the "
     "main component shape (arcsec). Default=0 (no beam present)"
@@ -55,13 +57,15 @@ class Component:
     beam_pa: float = 0.0
     "Position angle of a beam that is still convolved into the "
     "main component shape (degrees). Default=0"
+    log_spec_idx: bool = True
+    "True if logarithmic spectral model, False if linear. Default=True"
 
     @cached_property
     def direction(self):
         """
         Return the SkyCoord direction of the component.
         """
-        return SkyCoord(ra=self.RAdeg, dec=self.DEdeg, unit="deg")
+        return SkyCoord(ra=self.ra, dec=self.dec, unit="deg")
 
     def get_altaz(
         self, solution_time: float, array_location: EarthLocation
@@ -116,7 +120,7 @@ class Component:
         """
         return self.get_altaz(solution_time, array_location).alt.degree >= 0
 
-    def deconvolve_gaussian(self) -> tuple[float]:
+    def deconvolve_gaussian(self) -> tuple[float, float, float]:
         """
         Deconvolve MWA synthesised beam from Gaussian shape parameters.
 
@@ -129,12 +133,18 @@ class Component:
         -------
             Tuple of deconvolved parameters (same units as data in self)
         """
+        if (
+            self.major_ax is None
+            or self.minor_ax is None
+            or self.pos_ang is None
+        ):
+            return 0.0, 0.0, 90.0
 
         # fitted data on source
-        fmajsq = self.major * self.major
-        fminsq = self.minor * self.minor
+        fmajsq = self.major_ax * self.major_ax
+        fminsq = self.minor_ax * self.minor_ax
         fdiff = fmajsq - fminsq
-        fphi = 2.0 * self.pa * np.pi / 180.0
+        fphi = 2.0 * self.pos_ang * np.pi / 180.0
 
         # beam data at source location
         bmajsq = self.beam_major * self.beam_major
@@ -165,3 +175,39 @@ class Component:
             psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
 
         return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
+
+    def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
+        """
+        Calculate the flux at given frequencies.
+
+        This method calculates the flux of the component at the
+        specified frequencies using a spectral model. The flux is calculated
+        based on the reference flux (`i_pol`), reference frequency
+        (`ref_freq`), and spectral index polynomial coefficients (`spec_idx`).
+
+        If no spectral indices are provided (`spec_idx` is None or empty), a
+        flat spectrum (spectral index = 0) is assumed.
+        visit https://ska-telescope.gitlab.io/sim/oskar/sky_model/
+        sky_model.html#spectral-profiles to know more about mathematics used.
+
+        Parameters
+        ----------
+        freq
+            Frequencies at which to calculate flux (Hz).
+
+        Returns
+        -------
+            Flux at the specified frequencies. Same shape as `freq`.
+        """
+
+        spec_idx = self.spec_idx
+        if spec_idx is None or spec_idx == []:
+            spec_idx = [0.0]
+
+        return calculate_flux_for_spectral_indices(
+            flux=self.i_pol,
+            freq=freq,
+            ref_freq=self.ref_freq,
+            spec_idx=spec_idx,
+            log_spec_idx=self.log_spec_idx,
+        )

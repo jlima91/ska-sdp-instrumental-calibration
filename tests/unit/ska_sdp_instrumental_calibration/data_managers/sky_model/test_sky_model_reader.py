@@ -18,10 +18,9 @@ GLEAM J235139-894114 -0.001036 0.026022 23 51 39.45 -89 41 14.30 357.914368   0.
 """.strip()  # noqa: E501
 
 
-# noqa: E501
 CSV_CONTENT = """# Number of sources: 1434
-# RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz), Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec), FWHM minor (arcsec), Position angle (deg)
- 357.914368, -89.687309, 2.71901e-01, 0.000000e+00, 0.000000e+00, 0.000000e+00, 2.000000e+08,-3.70882e-01, 0.000000, 2.19263e+02, 1.464811e+02, -4.158033e+00
+#(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
+GLEAM J000010-000001, 357.914368, -89.687309, 2.71901e-01,  2.19263e+02, 1.464811e+02, -4.158033e+00, 2.000000e+08, "[-0.7,0.01,0.123]", true
 """  # noqa: E501
 
 
@@ -73,15 +72,15 @@ def test_generate_lsm_from_gleam_catalogue_file(
 
     assert lsm == [
         Component(
-            name="J235139-894114",
-            RAdeg=357.914368,
-            DEdeg=-89.687309,
-            flux=0.271901,
+            component_id="J235139-894114",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
-            major=219.263,
-            minor=146.4811,
-            pa=-4.158033,
+            spec_idx=[-0.370882],
+            major_ax=219.263,
+            minor_ax=146.4811,
+            pos_ang=-4.158033,
             beam_major=221.397,
             beam_minor=152.189,
             beam_pa=22.430508,
@@ -119,7 +118,9 @@ def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
         "Returning point source with unit flux at phase centre."
     )
 
-    assert lsm == [Component(name="default", RAdeg=2.0, DEdeg=5.0, flux=1.0)]
+    assert lsm == [
+        Component(component_id="default", ra=2.0, dec=5.0, i_pol=1.0)
+    ]
 
 
 @patch("builtins.open")
@@ -217,15 +218,15 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     # flux and alpha are set to Fintwide and alpha0 respectively
     assert lsm == [
         Component(
-            name="J235139-894114",
-            RAdeg=357.914368,
-            DEdeg=-89.687309,
-            flux=0.248581,
+            component_id="J235139-894114",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.248581,
             ref_freq=200000000.0,
-            alpha=-0.65,
-            major=219.263,
-            minor=146.4811,
-            pa=-4.158033,
+            spec_idx=[-0.65],
+            major_ax=219.263,
+            minor_ax=146.4811,
+            pos_ang=-4.158033,
             beam_major=221.397,
             beam_minor=152.189,
             beam_pa=22.430508,
@@ -301,17 +302,90 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
 
     assert lsm == [
         Component(
-            name="comp0",
-            RAdeg=357.914368,
-            DEdeg=-89.687309,
-            flux=0.271901,
+            component_id="GLEAM J000010-000001",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
-            major=219.263,
-            minor=146.4811,
-            pa=-4.158033,
+            spec_idx=[-0.7, 0.01, 0.123],
+            major_ax=219.263,
+            minor_ax=146.4811,
+            pos_ang=-4.158033,
+            log_spec_idx=True,
         )
     ]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.Path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
+def test_should_generate_lsm_from_csv_file_when_optional_fields_are_blank(
+    logger_mock, path_mock
+):
+    CSV_CONTENT = """
+    #(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
+    GLEAM J000010-000001, 357.914368 , -89.687309 , 2.71901e-01, , , , 2.000000e+08, ,
+    """  # noqa: E501
+
+    path_mock.return_value = path_mock
+    path_mock.is_file.return_value = True
+    csv_file = StringIO(CSV_CONTENT)
+
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
+
+    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
+
+    logger_mock.info.assert_called_once_with("extracted 1 csv components")
+
+    assert lsm == [
+        Component(
+            component_id="GLEAM J000010-000001",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
+            ref_freq=200000000.0,
+            spec_idx=None,
+            major_ax=None,
+            minor_ax=None,
+            pos_ang=None,
+            log_spec_idx=True,
+        )
+    ]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.Path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
+def test_should_generate_lsm_from_csv_file_with_log_spec_idx_as_false(
+    logger_mock, path_mock
+):
+    content = CSV_CONTENT.replace("true", "false")
+
+    path_mock.return_value = path_mock
+    path_mock.is_file.return_value = True
+    csv_file = StringIO(content)
+
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
+
+    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
+
+    logger_mock.info.assert_called_once_with("extracted 1 csv components")
+
+    assert lsm[0].log_spec_idx is False
 
 
 @patch(
@@ -369,32 +443,62 @@ def test_exclude_csv_comp_when_its_out_of_fov(logger_mock, path_mock):
 class TestComponentConverts:
     def test_should_convert_component_to_csv_row(self):
         component = Component(
-            name="comp0",
-            RAdeg=357.914368,
-            DEdeg=-89.687309,
-            flux=0.271901,
+            component_id="comp0",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
             ref_freq=200000000.0,
-            alpha=-0.370882,
-            major=219.263,
-            minor=146.4811,
-            pa=-4.158033,
+            spec_idx=[-0.7, 0.01, 0.123],
+            major_ax=219.263,
+            minor_ax=146.4811,
+            pos_ang=-4.158033,
+            log_spec_idx=True,
         )
 
         csv_row = ComponentConverters.to_csv_row(component)
 
         expected_row = [
+            "comp0",
             "357.914368",
             "-89.687309",
             "2.719010e-01",
-            "0.000000e+00",
-            "0.000000e+00",
-            "0.000000e+00",
-            "2.000000e+08",
-            "-3.708820e-01",
-            "0.000000e+00",
             "2.192630e+02",
             "1.464811e+02",
             "-4.158033",
+            "2.000000e+08",
+            '"[-0.7, 0.01, 0.123]"',
+            "true",
+        ]
+
+        assert csv_row == expected_row
+
+    def test_should_convert_optional_fields_as_empty_str(self):
+        component = Component(
+            component_id="comp0",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
+            ref_freq=200000000.0,
+            spec_idx=None,
+            major_ax=None,
+            minor_ax=None,
+            pos_ang=None,
+            log_spec_idx=True,
+        )
+
+        csv_row = ComponentConverters.to_csv_row(component)
+
+        expected_row = [
+            "comp0",
+            "357.914368",
+            "-89.687309",
+            "2.719010e-01",
+            "",
+            "",
+            "",
+            "2.000000e+08",
+            '"[]"',
+            "true",
         ]
 
         assert csv_row == expected_row

@@ -52,15 +52,15 @@ def test_predict_vis(generate_ms):
     modelvis = vis.assign({"vis": xr.zeros_like(vis.vis)})
     lsm = [
         Component(
-            name="testcomp",
-            RAdeg=vis.phasecentre.ra.degree - 0.3,
-            DEdeg=vis.phasecentre.dec.degree + 1,
-            flux=1.0,
+            component_id="testcomp",
+            ra=vis.phasecentre.ra.degree - 0.3,
+            dec=vis.phasecentre.dec.degree + 1,
+            i_pol=1.0,
             ref_freq=200e6,
-            alpha=-0.5,
-            major=0.2,
-            minor=0.1,
-            pa=10.0,
+            spec_idx=[-0.5],
+            major_ax=0.2,
+            minor_ax=0.1,
+            pos_ang=10.0,
             beam_major=0.1,
             beam_minor=0.1,
             beam_pa=0.0,

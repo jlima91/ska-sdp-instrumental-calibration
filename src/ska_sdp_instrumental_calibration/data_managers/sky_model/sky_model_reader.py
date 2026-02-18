@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 from pathlib import Path
 
@@ -12,57 +13,45 @@ logger = logging.getLogger(__name__)
 
 
 SKY_MODEL_CSV_HEADER = [
-    "RA (deg)",
-    "Dec (deg)",
-    "I (Jy)",
-    "Q (Jy)",
-    "U (Jy)",
-    "V (Jy)",
-    "Ref. freq. (Hz)",
-    "Spectral index",
-    "Rotation measure (rad/m^2)",
-    "FWHM major (arcsec)",
-    "FWHM minor (arcsec)",
-    "Position angle (deg)",
+    "component_id",
+    "ra",
+    "dec",
+    "i_pol",
+    "major_ax",
+    "minor_ax",
+    "pos_ang",
+    "ref_freq",
+    "spec_idx",
+    "log_spec_idx",
 ]
 
 
 class ComponentConverters:
-    __headers_to_fields_pairs = [
-        ("name", "comp_name"),
-        ("RAdeg", "RA (deg)"),
-        ("DEdeg", "Dec (deg)"),
-        ("flux", "I (Jy)"),
-        (None, "Q (Jy)"),
-        (None, "U (Jy)"),
-        (None, "V (Jy)"),
-        ("ref_freq", "Ref. freq. (Hz)"),
-        ("alpha", "Spectral index"),
-        (None, "Rotation measure (rad/m^2)"),
-        ("major", "FWHM major (arcsec)"),
-        ("minor", "FWHM minor (arcsec)"),
-        ("pa", "Position angle (deg)"),
-    ]
 
-    __exponent_str = functools.partial(lambda value: format(value, "e"))
-    __six_decimal_str = functools.partial(lambda value: format(value, ".6f"))
+    __exponent_str = functools.partial(
+        lambda value: format(value, "e") if value is not None else ""
+    )
+    __six_decimal_str = functools.partial(
+        lambda value: format(value, ".6f") if value is not None else ""
+    )
+    _list_str = functools.partial(
+        lambda value: f'"{json.dumps(value)}"' if value is not None else '"[]"'
+    )
 
     __headers_formatter = {
-        "RA (deg)": str,
-        "Dec (deg)": str,
-        "I (Jy)": __exponent_str,
-        "Q (Jy)": __exponent_str,
-        "U (Jy)": __exponent_str,
-        "V (Jy)": __exponent_str,
-        "Ref. freq. (Hz)": __exponent_str,
-        "Spectral index": __exponent_str,
-        "Rotation measure (rad/m^2)": __exponent_str,
-        "FWHM major (arcsec)": __exponent_str,
-        "FWHM minor (arcsec)": __exponent_str,
-        "Position angle (deg)": __six_decimal_str,
+        "component_id": str,
+        "ra": str,
+        "dec": str,
+        "i_pol": __exponent_str,
+        "major_ax": __exponent_str,
+        "minor_ax": __exponent_str,
+        "pos_ang": __six_decimal_str,
+        "ref_freq": __exponent_str,
+        "spec_idx": _list_str,
+        "log_spec_idx": lambda x: str(x).lower(),
     }
 
-    __non_existing_field_default = 0.0
+    __non_existing_field_default = None
 
     @classmethod
     def to_csv_row(cls, component: Component) -> list[str]:
@@ -70,38 +59,12 @@ class ComponentConverters:
             cls.__headers_formatter[header](
                 getattr(
                     component,
-                    obj_prop,
+                    header,
                     cls.__non_existing_field_default,
                 )
-                if obj_prop
-                else cls.__non_existing_field_default
             )
-            for obj_prop, header in cls.__headers_to_fields_pairs
-            if header in SKY_MODEL_CSV_HEADER
+            for header in SKY_MODEL_CSV_HEADER
         ]
-
-    @classmethod
-    def row_to_component(cls, row: pd.Series) -> Component:
-        """
-        Convert a pandas Series representing a row into a Component object.
-
-        Parameters
-        ----------
-        row : pd.Series
-            A series containing keys that match the CSV header names defined
-            in PROPERTY_PAIRS.
-
-        Returns
-        -------
-        Component
-            The instantiated component object.
-        """
-        kwargs = {
-            object_prop: row[csv_header]
-            for object_prop, csv_header in cls.__headers_to_fields_pairs
-            if csv_header in row and object_prop is not None
-        }
-        return Component(**kwargs)
 
     @classmethod
     def df_to_components(cls, df: pd.DataFrame) -> list[Component]:
@@ -118,7 +81,7 @@ class ComponentConverters:
         list of Component
             A list containing the converted Component instances.
         """
-        return [cls.row_to_component(row) for _, row in df.iterrows()]
+        return [Component(**row) for row in df.to_dict("records")]
 
 
 def generate_lsm_from_csv(
@@ -130,18 +93,22 @@ def generate_lsm_from_csv(
     """
     Generate a local sky model using a CSV file.
 
-    This function reads a CSV file formatted for OSKAR simulations and converts
-    it into a list of :class:`~Component` objects. If the CSV file cannot be
-    found, the function raises a ValueError.
+    This function reads a CSV file and converts it into a list of
+    :class:`~Component` objects. If the CSV file cannot be found, the function
+    raises a ValueError.
 
-    The CSV file is expected to have a mandatory header row and the following
-    12 columns in order:
-    RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz),
-    Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec),
-    FWHM minor (arcsec), Position angle (deg).
+    The CSV file is expected to have a commented line header and the following
+    10 columns in order:
+    component_id, ra, dec, i_pol, major_ax, minor_ax, pos_ang, ref_freq,
+    spec_idx, log_spec_idx.
 
-    Frequency parameters (Q, U, V, and RM) are ignored. All components are
-    treated as Gaussians, though many may default to point sources.
+    The spec_idx column should contain a JSON array of spectral indices
+    (e.g., "[-0.7,0.01,0.123]"). The log_spec_idx column is a boolean
+    indicating whether the spectral index was calculated using a logarithmic
+    (true) or linear (false) model.
+
+    All components are treated as Gaussians, though many may default to point
+    sources.
 
     Parameters
     ----------
@@ -170,30 +137,22 @@ def generate_lsm_from_csv(
     if not Path(csvfile).is_file():
         raise ValueError(f"Cannot open csv file {csvfile}")
 
-    deg2rad = np.pi / 180.0
-    max_separation = fov / 2 * deg2rad
-    ra0 = phasecentre.ra.radian
-    dec0 = phasecentre.dec.radian
-    cosdec0 = np.cos(dec0)
-    sindec0 = np.sin(dec0)
-
-    headers = SKY_MODEL_CSV_HEADER
-
     lsm_df = pd.read_csv(
-        csvfile, sep=",", comment="#", names=headers, dtype=float
+        csvfile,
+        sep=",",
+        comment="#",
+        names=SKY_MODEL_CSV_HEADER,
+        skipinitialspace=True,
+        converters={
+            "spec_idx": lambda x: json.loads(x) if x else None,
+            "log_spec_idx": lambda x: (x.lower() == "true" if x else True),
+            "major_ax": _to_float,
+            "minor_ax": _to_float,
+            "pos_ang": _to_float,
+        },
     )
 
-    lsm_df["comp_name"] = "comp" + lsm_df.index.astype("str")
-
-    lsm_df = lsm_df[lsm_df["I (Jy)"] >= flux_limit]
-    lsm_df["ra"] = deg2rad * lsm_df["RA (deg)"]
-    lsm_df["dec"] = deg2rad * lsm_df["Dec (deg)"]
-    lsm_df["separation"] = np.arccos(
-        np.sin(lsm_df["dec"]) * sindec0
-        + np.cos(lsm_df["dec"]) * cosdec0 * np.cos(lsm_df["ra"] - ra0)
-    )
-
-    lsm_df = lsm_df[lsm_df["separation"] <= max_separation]
+    lsm_df = _filter_by_fov_and_flux(lsm_df, phasecentre, fov, flux_limit)
 
     model = ComponentConverters.df_to_components(lsm_df)
 
@@ -248,10 +207,10 @@ def generate_lsm_from_gleamegc(
         )
         return [
             Component(
-                name="default",
-                RAdeg=phasecentre.ra.degree,
-                DEdeg=phasecentre.dec.degree,
-                flux=1.0,
+                component_id="default",
+                ra=phasecentre.ra.degree,
+                dec=phasecentre.dec.degree,
+                i_pol=1.0,
             )
         ]
 
@@ -297,15 +256,15 @@ def generate_lsm_from_gleamegc(
 
                 model.append(
                     Component(
-                        name=name,
-                        flux=flux,
+                        component_id=name,
+                        i_pol=flux,
                         ref_freq=200e6,
-                        alpha=alpha,
-                        RAdeg=float(line[65:75]),
-                        DEdeg=float(line[87:97]),
-                        major=float(line[153:165]),
-                        minor=float(line[179:187]),
-                        pa=float(line[200:210]),
+                        spec_idx=[alpha],
+                        ra=float(line[65:75]),
+                        dec=float(line[87:97]),
+                        major_ax=float(line[153:165]),
+                        minor_ax=float(line[179:187]),
+                        pos_ang=float(line[200:210]),
                         beam_major=float(line[247:254]),
                         beam_minor=float(line[255:262]),
                         beam_pa=float(line[263:273]),
@@ -322,3 +281,29 @@ def generate_lsm_from_gleamegc(
         )
 
     return model
+
+
+def _filter_by_fov_and_flux(df, phasecentre, fov, flux_limit):
+    deg2rad = np.pi / 180.0
+    max_separation = fov / 2 * deg2rad
+
+    df = df[df["i_pol"] >= flux_limit]
+
+    ra_rad = deg2rad * df["ra"]
+    dec_rad = deg2rad * df["dec"]
+    separation = _calculate_separation(
+        ra_rad, dec_rad, phasecentre.ra.radian, phasecentre.dec.radian
+    )
+
+    return df[separation <= max_separation]
+
+
+def _calculate_separation(ra, dec, ra0, dec0):
+    return np.arccos(
+        np.sin(dec) * np.sin(dec0)
+        + np.cos(dec) * np.cos(dec0) * np.cos(ra - ra0)
+    )
+
+
+def _to_float(x):
+    return float(x) if x and x.strip() else None
