@@ -37,12 +37,12 @@ def calculate_flux_for_spectral_indices(
         spec_idx = []
 
     if log_spec_idx:
-        return _logathmic_polynomial_method(flux, freq, ref_freq, spec_idx)
+        return _logarthmic_polynomial_method(flux, freq, ref_freq, spec_idx)
 
     return _linear_polynomial_method(flux, freq, ref_freq, spec_idx)
 
 
-def _logathmic_polynomial_method(flux, freq, ref_freq, spec_idx):
+def _logarthmic_polynomial_method(flux, freq, ref_freq, spec_idx):
     ratio = freq / ref_freq
     log_ratio = np.log10(ratio)
 

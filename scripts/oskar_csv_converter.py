@@ -50,7 +50,7 @@ def convert_oskar_to_new_format(
     input_file: str,
     output_file: str,
     component_prefix: str,
-) -> pd.DataFrame:
+):
     """
     Convert an OSKAR format CSV file to the new sky model format.
 
@@ -80,38 +80,29 @@ def convert_oskar_to_new_format(
         dtype=float,
     )
 
-    new_df = pd.DataFrame()
-
-    new_df["component_id"] = [
-        f"{component_prefix} {i:06d}" for i in range(len(df))
-    ]
-
-    # Map columns from old to new format
-    new_df["ra"] = df["RA (deg)"]
-    new_df["dec"] = df["Dec (deg)"]
-    new_df["i_pol"] = df["I (Jy)"]
-    new_df["major_ax"] = df["FWHM major (arcsec)"]
-    new_df["minor_ax"] = df["FWHM minor (arcsec)"]
-    new_df["pos_ang"] = df["Position angle (deg)"]
-    new_df["ref_freq"] = df["Ref. freq. (Hz)"]
-
-    new_df["spec_idx"] = df["Spectral index"].apply(
-        lambda x: [x] if pd.notna(x) else [0.0]
-    )
-
-    new_df["log_spec_idx"] = True
+    header_mapping = {
+        "RA (deg)": "ra",
+        "Dec (deg)": "dec",
+        "I (Jy)": "i_pol",
+        "FWHM major (arcsec)": "major_ax",
+        "FWHM minor (arcsec)": "minor_ax",
+        "Position angle (deg)": "pos_ang",
+        "Ref. freq. (Hz)": "ref_freq",
+        "Spectral index": "spec_idx",
+    }
+    df = df.rename(columns=header_mapping)[header_mapping.values()]
+    df["component_id"] = f"{component_prefix} " + df.index.astype(str).str.zfill(6)
+    df["spec_idx"] = df["spec_idx"].apply(lambda x: [x] if pd.notna(x) else [0.0])
+    df["log_spec_idx"] = True
 
     # Convert to components and write to CSV
-    components = ComponentConverters.df_to_components(new_df)
-    rows = [["#" + ",".join(SKY_MODEL_CSV_HEADER)]]
+    components = ComponentConverters.df_to_components(df)
+    rows = [[f"# ({','.join(SKY_MODEL_CSV_HEADER)}) = format"]]
 
-    rows.extend(
-        [ComponentConverters.to_csv_row(component) for component in components]
-    )
+    rows.extend([ComponentConverters.to_csv_row(component) for component in components])
 
     write_csv(output_file, rows)
-    print(f"Converted {len(new_df)} components from {input_file} to {output_file}")
-    return new_df
+    print(f"Converted {len(df)} components from {input_file} to {output_file}")
 
 
 def main():
@@ -138,7 +129,6 @@ def main():
         default="Component",
         help="Prefix for generating component IDs. Default: GLEAM",
     )
-   
 
     args = parser.parse_args()
 
