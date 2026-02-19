@@ -13,7 +13,6 @@ import numpy as np
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 
 from ..beams import convert_time_to_solution_time
-from .flux_utils import calculate_flux_for_spectral_indices
 
 logger = logging.getLogger(__name__)
 
@@ -178,36 +177,33 @@ class Component:
 
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
         """
-        Calculate the flux at given frequencies.
+        Calculate the flux density at given frequencies.
 
-        This method calculates the flux of the component at the
-        specified frequencies using a spectral model. The flux is calculated
-        based on the reference flux (`i_pol`), reference frequency
-        (`ref_freq`), and spectral index polynomial coefficients (`spec_idx`).
-
-        If no spectral indices are provided (`spec_idx` is None or empty), a
-        flat spectrum (spectral index = 0) is assumed.
-        visit https://ska-telescope.gitlab.io/sim/oskar/sky_model/
-        sky_model.html#spectral-profiles to know more about mathematics used.
+        Computes the flux using either a power-law with a frequency-dependent
+        spectral index (in log-log space) or a standard polynomial expansion
+        based on the `log_spec_idx` toggle.
 
         Parameters
         ----------
-        freq
-            Frequencies at which to calculate flux (Hz).
+        freq : np.ndarray
+            The frequencies at which to evaluate the flux.
 
         Returns
         -------
-            Flux at the specified frequencies. Same shape as `freq`.
+        np.ndarray
+            The calculated flux density values corresponding to the input
+            frequencies.
         """
-
         spec_idx = self.spec_idx
         if spec_idx is None or spec_idx == []:
             spec_idx = [0.0]
 
-        return calculate_flux_for_spectral_indices(
-            flux=self.i_pol,
-            freq=freq,
-            ref_freq=self.ref_freq,
-            spec_idx=spec_idx,
-            log_spec_idx=self.log_spec_idx,
-        )
+        ratio = freq / self.ref_freq
+
+        if self.log_spec_idx:
+            log_ratio = np.log10(ratio)
+            exponent = np.polyval(spec_idx[::-1], log_ratio)
+            return self.i_pol * (ratio**exponent)
+
+        full_coeffs = spec_idx[::-1] + [self.i_pol]
+        return np.polyval(full_coeffs, ratio - 1)

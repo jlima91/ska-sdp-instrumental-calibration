@@ -1,5 +1,4 @@
 import numpy as np
-from mock import patch
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
 
@@ -79,90 +78,134 @@ def test_deconvolve_gaussian_if_major_minor_axes_are_none():
     np.testing.assert_allclose(expectd_params, actual_params)
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers.sky_model.component."
-    "calculate_flux_for_spectral_indices"
-)
-def test_calculate_flux_with_spectral_index(mock_calc_flux):
-    mock_calc_flux.return_value = np.array([8.0, 10.0, 12.0])
-
+def test_log_model_constant_spectral_index_vectorised():
     component = Component(
         component_id="J12345",
         ra=260,
         dec=-85,
-        i_pol=10.0,
-        ref_freq=200e6,
-        spec_idx=[-0.8],
-        log_spec_idx=True,
+        i_pol=2.5,
+        ref_freq=1.0e8,
+        spec_idx=[-0.7],
     )
 
-    freq = np.array([150e6, 200e6, 250e6])
+    freq = np.array([0.5e8, 1.0e8, 2.0e8])
     result = component.calculate_flux(freq)
 
-    mock_calc_flux.assert_called_once_with(
-        flux=10.0,
-        freq=freq,
-        ref_freq=200e6,
-        spec_idx=[-0.8],
-        log_spec_idx=True,
-    )
-    np.testing.assert_array_equal(result, np.array([8.0, 10.0, 12.0]))
+    expected = component.i_pol * (freq / component.ref_freq) ** (-0.7)
+    assert np.allclose(result, expected)
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers.sky_model.component."
-    "calculate_flux_for_spectral_indices"
-)
-def test_calculate_flux_with_spectral_index_as_none(mock_calc_flux):
-    mock_calc_flux.return_value = np.array([5.0, 5.0, 5.0])
+def test_use_logarthmic_polynomial_method_when_log_spec_id_is_true():
+    flux = 1.0
+    ref_freq = 1.0e8
+    freq = np.array([0.5e8, 1.0e8, 2.0e8])
+
+    # spec_idx encodes exponent(log10(ratio)) = a0 + a1*log10(ratio)
+    a0, a1, a2, a3 = -0.2, 0.05, 0.6, 0.78
+    spec_idx = [a0, a1, a2, a3]
 
     component = Component(
         component_id="J12345",
         ra=260,
         dec=-85,
-        i_pol=5.0,
-        ref_freq=200e6,
+        i_pol=flux,
+        ref_freq=ref_freq,
+        spec_idx=spec_idx,
+    )
+
+    ratio = freq / ref_freq
+    log_ratio = np.log10(ratio)
+    exponent = a0 + a1 * log_ratio + a2 * log_ratio**2 + a3 * log_ratio**3
+    expected = flux * (ratio**exponent)
+
+    result = component.calculate_flux(freq)
+    assert np.allclose(result, expected)
+
+
+def test_use_linear_polynomial_method_when_log_spec_id_is_false():
+    flux = 10.0
+    ref_freq = 100.0
+    freq = np.array([50.0, 100.0, 200.0])
+    spec_idx = [-0.7]
+
+    component = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=flux,
+        ref_freq=ref_freq,
+        spec_idx=spec_idx,
+        log_spec_idx=False,
+    )
+
+    ratio = freq / ref_freq
+    expected = flux + (-0.7) * (ratio - 1.0)
+
+    result = component.calculate_flux(freq)
+    assert np.allclose(result, expected)
+
+
+def test_if_spec_idx_is_none_then_return_reference_flux_log_and_linear():
+    flux = 3.3
+    ref_freq = 1.0e8
+    freq = np.array([0.8e8, 1.0e8, 1.2e8])
+
+    component_false = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=flux,
+        ref_freq=ref_freq,
         spec_idx=None,
+        log_spec_idx=False,
     )
 
-    freq = np.array([150e6, 200e6, 250e6])
-    result = component.calculate_flux(freq)
-
-    mock_calc_flux.assert_called_once_with(
-        flux=5.0,
-        freq=freq,
-        ref_freq=200e6,
-        spec_idx=[0.0],
-        log_spec_idx=True,
-    )
-    np.testing.assert_array_equal(result, np.array([5.0, 5.0, 5.0]))
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers.sky_model.component."
-    "calculate_flux_for_spectral_indices"
-)
-def test_calculate_flux_with_empty_spectral_index(mock_calc_flux):
-    mock_calc_flux.return_value = np.array([5.0, 5.0, 5.0])
-
-    component = Component(
+    component_true = Component(
         component_id="J12345",
         ra=260,
         dec=-85,
-        i_pol=5.0,
-        ref_freq=200e6,
-        spec_idx=[],
+        i_pol=flux,
+        ref_freq=ref_freq,
+        spec_idx=None,
+        log_spec_idx=True,
+    )
+
+    out_log = component_true.calculate_flux(freq)
+    out_lin = component_false.calculate_flux(freq)
+    expected = np.full(shape=len(freq), fill_value=flux)
+
+    assert np.allclose(out_log, expected)
+    assert np.allclose(out_lin, expected)
+
+
+def test_if_spec_idx_is_empty_list_returns_reference_flux_log_and_linear():
+    flux = 3.3
+    ref_freq = 1.0e8
+    freq = np.array([0.8e8, 1.0e8, 1.2e8])
+
+    component_false = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=flux,
+        ref_freq=ref_freq,
+        spec_idx=None,
         log_spec_idx=False,
     )
 
-    freq = np.array([150e6, 200e6, 250e6])
-    result = component.calculate_flux(freq)
-
-    mock_calc_flux.assert_called_once_with(
-        flux=5.0,
-        freq=freq,
-        ref_freq=200e6,
-        spec_idx=[0.0],
-        log_spec_idx=False,
+    component_true = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=flux,
+        ref_freq=ref_freq,
+        spec_idx=None,
+        log_spec_idx=True,
     )
-    np.testing.assert_array_equal(result, np.array([5.0, 5.0, 5.0]))
+
+    out_log = component_true.calculate_flux(freq)
+    out_lin = component_false.calculate_flux(freq)
+
+    expected = np.full(shape=len(freq), fill_value=flux)
+    assert np.allclose(out_log, expected)
+    assert np.allclose(out_lin, expected)
