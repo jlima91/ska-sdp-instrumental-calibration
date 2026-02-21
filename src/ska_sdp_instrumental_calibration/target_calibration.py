@@ -1,3 +1,4 @@
+from ska_sdp_piper.piper.command import CLIArgument
 from ska_sdp_piper.piper.configurations import Configuration
 from ska_sdp_piper.piper.pipeline import Pipeline
 from ska_sdp_piper.piper.stage import Stages
@@ -23,6 +24,16 @@ ska_sdp_instrumental_target_calibration = Pipeline(
     ),
     scheduler=scheduler,
     global_config=Configuration(),
+    cli_args=[
+        CLIArgument(
+            "--input",
+            dest="input",
+            type=str,
+            required=True,
+            help="Input visibility path",
+        )
+    ],
+    include_input_opt=False,
 )
 
 ska_sdp_instrumental_target_ionospheric_calibration = Pipeline(
@@ -37,4 +48,14 @@ ska_sdp_instrumental_target_ionospheric_calibration = Pipeline(
     ),
     scheduler=scheduler,
     global_config=Configuration(),
+    cli_args=[
+        CLIArgument(
+            "--input",
+            dest="input",
+            type=str,
+            required=True,
+            help="Input visibility path",
+        )
+    ],
+    include_input_opt=False,
 )

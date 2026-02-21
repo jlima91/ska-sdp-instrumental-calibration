@@ -1,9 +1,8 @@
-# flake8: noqa: E501
 import copy
 import logging
 import tempfile
 
-import yaml
+from ska_sdp_piper.piper.command import CLIArgument
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
 from ska_sdp_piper.piper.pipeline import Pipeline
@@ -55,6 +54,16 @@ ska_sdp_instrumental_calibration = Pipeline(
             description="""Configurations for experimental sub command.""",
         )
     ),
+    cli_args=[
+        CLIArgument(
+            "--input",
+            dest="input",
+            type=str,
+            required=True,
+            help="Input visibility path",
+        )
+    ],
+    include_input_opt=False,
 )
 """
 This is the entrypoint for instrumental calibration pipeline.
