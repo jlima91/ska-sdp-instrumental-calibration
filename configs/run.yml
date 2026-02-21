@@ -47,7 +47,6 @@ parameters:
     export_gaintable: true
   flag_gain:
     soltype: amp-phase
-    mode: smooth
     order: 3
     apply_flag: true
     skip_cross_pol: true
