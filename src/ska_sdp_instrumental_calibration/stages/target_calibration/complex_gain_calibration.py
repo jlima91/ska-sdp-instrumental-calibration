@@ -27,31 +27,6 @@ logger = logging.getLogger()
     configuration=Configuration(
         run_solver_config=NestedConfigParam(
             "Run Solver parameters",
-            solver=ConfigParam(
-                str,
-                "gain_substitution",
-                description="""Calibration algorithm to use.
-                (default="gain_substitution")
-                Options are:
-                "gain_substitution" - original substitution algorithm
-                with separate solutions for each polarisation term.
-                "jones_substitution" - solve antenna-based Jones matrices
-                as a whole, with independent updates within each iteration.
-                "normal_equations" - solve normal equations within
-                each iteration formed from linearisation with respect to
-                antenna-based gain and leakage terms.
-                "normal_equations_presum" - same as normal_equations
-                option but with an initial accumulation of visibility
-                products over time and frequency for each solution
-                interval. This can be much faster for large datasets
-                and solution intervals.""",
-                allowed_values=[
-                    "gain_substitution",
-                    "jones_substitution",
-                    "normal_equations",
-                    "normal_equations_presum",
-                ],
-            ),
             refant=ConfigParam(
                 (int, str),
                 0,
@@ -161,7 +136,9 @@ def complex_gain_calibration_stage(
         refant, initial_gaintable.configuration.names
     )
 
-    solver = Solver.get_solver(**run_solver_config)
+    solver = Solver.get_solver(
+        **run_solver_config, solver="gain_substitution", phase_only=True
+    )
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,

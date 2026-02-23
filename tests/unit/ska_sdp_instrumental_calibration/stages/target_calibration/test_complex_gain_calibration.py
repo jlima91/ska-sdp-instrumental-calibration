@@ -25,10 +25,8 @@ def upstream_output():
 @pytest.fixture
 def run_solver_config():
     return {
-        "solver": "test_solver",
         "niter": 1,
         "refant": 2,
-        "phase_only": True,
         "tol": 1e-06,
         "crosspol": False,
         "timeslice": 0.5,
@@ -81,7 +79,7 @@ def test_should_perform_complex_gain_calibration(
         with_chunks, upstream_output["chunks"]
     )
     solver_factory_mock.get_solver.assert_called_once_with(
-        solver="test_solver",
+        solver="gain_substitution",
         niter=1,
         refant=3,
         phase_only=True,
