@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+1. Use GSM csv format instead of OSKAR csv format for creating sky model.
+
+2. Remove `mode` config parameter from `flag_gain` stage. fix the mode basis of soltype.
+
+3. Use AA0.5 strategy for benchmarking.
+
+4. Move processing and solver functions to ska-sdp-func-python library.
+
+5. Remove `solver` config parameter from complex_gain_calibration stage used for instrumental target calibration.
+ Use `gain_substitution` as default solver. 
+
+
 ## 0.7.1
 
 1. Remove `normalise_gains` option from solver configuration
