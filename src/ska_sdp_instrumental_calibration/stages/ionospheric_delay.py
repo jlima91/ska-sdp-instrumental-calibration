@@ -118,7 +118,7 @@ def ionospheric_delay_stage(
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
-    initialtable = create_gaintable_from_visibility(vis, "full", "B")
+    initialtable = create_gaintable_from_visibility(vis, "auto", "B")
 
     gaintable = IonosphericSolver.solve(
         vis,

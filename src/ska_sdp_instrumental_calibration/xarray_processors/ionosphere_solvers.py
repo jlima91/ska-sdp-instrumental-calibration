@@ -505,7 +505,7 @@ class IonosphericSolver:
 
         for cid in range(0, n_cluster):
             # combine parmas for [n_station] phase terms and scale for [n_freq]
-            table_data[0, cid2stn[cid], :, 0, 0] = np.exp(
+            table_data[0, cid2stn[cid]] = np.exp(
                 np.einsum(
                     "s,f->sf",
                     np.einsum(
@@ -515,7 +515,7 @@ class IonosphericSolver:
                     ),
                     1j * self.wl_const,
                 )
-            )
+            )[..., np.newaxis, np.newaxis]
 
         return table_data
 
@@ -551,7 +551,7 @@ class IonosphericSolver:
         [AA, Ab] = self.build_normal_equation(modelvis, param)
         soln_vec = np.linalg.lstsq(AA, Ab, rcond=None)[0]
 
-        nu = 0.5
+        nu = 1.0 - 0.5 * (it % 2)
         for cid in range(n_cluster):
             param_update[cid] = (
                 nu
@@ -654,7 +654,7 @@ class IonosphericSolver:
                 "b,f->bf", baseline_tec_diff, 1j * self.wl_const
             )
 
-            vis[mask, :, 0] *= np.exp(baseline_phase)
+            vis[mask, :, :] *= np.exp(baseline_phase)[..., np.newaxis]
 
         return vis
 
