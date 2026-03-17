@@ -1,10 +1,8 @@
+from typing import Annotated, Literal
+
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import BaseModel, Field
+from ska_sdp_piper.piper.v2.stage import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import PlotGaintableFrequency
@@ -12,105 +10,108 @@ from ..xarray_processors.gain_smoothing import sliding_window_smooth
 from ._utils import get_gaintables_path, get_plots_path
 
 
-@ConfigurableStage(
-    "smooth_gain_solution",
-    configuration=Configuration(
-        window_size=ConfigParam(
-            int, 1, description="Sliding window size.", nullable=False
+class PlotConfig(BaseModel):
+    """
+    A model describing the Plot Config config passed
+    to the Smooth Gain Solution stage
+    """
+
+    plot_table: Annotated[
+        bool,
+        Field(
+            description="""Plot the smoothed gaintable""",
         ),
-        mode=ConfigParam(
-            str,
-            "median",
-            description="Mode of smoothing",
-            allowed_values=["mean", "median"],
-            nullable=False,
+    ] = False
+    plot_path_prefix: Annotated[
+        str,
+        Field(
+            description="""Path prefix to store smoothed gain plots""",
         ),
-        plot_config=NestedConfigParam(
-            "Plot parameters",
-            plot_table=ConfigParam(
-                bool,
-                False,
-                description="Plot the smoothed gaintable",
-                nullable=False,
-            ),
-            plot_path_prefix=ConfigParam(
-                str,
-                "smoothed-gain",
-                description="Path prefix to store smoothed gain plots",
-                nullable=False,
-            ),
-            plot_title=ConfigParam(
-                str,
-                "Smoothed Gain",
-                description="Title for smoothed gain plots",
-                nullable=False,
-            ),
+    ] = "smoothed-gain"
+    plot_title: Annotated[
+        str,
+        Field(
+            description="""Title for smoothed gain plots""",
         ),
-        export_gaintable=ConfigParam(
-            bool,
-            False,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-    optional=True,
-)
+    ] = "Smoothed Gain"
+
+
+@ConfigurableStage(name="smooth_gain_solution", optional=True)
 def smooth_gain_solution_stage(
-    upstream_output,
-    window_size,
-    mode,
-    plot_config,
-    export_gaintable,
+    _upstream_output_,
     _output_dir_,
+    plot_config: Annotated[
+        PlotConfig,
+        Field(
+            description="""Plot parameters""",
+            default_factory=PlotConfig,
+        ),
+    ],
+    window_size: Annotated[
+        int,
+        Field(
+            description="""Sliding window size.""",
+        ),
+    ] = 1,
+    mode: Annotated[
+        Literal["mean", "median"],
+        Field(
+            description="""Mode of smoothing""",
+        ),
+    ] = "median",
+    export_gaintable: Annotated[
+        bool,
+        Field(
+            description="""Export intermediate gain solutions.""",
+        ),
+    ] = False,
 ):
     """
     Smooth the gain solution.
 
     Parameters
     ----------
-    upstream_output: dict
+     _upstream_output_: dict
         Output from the upstream stage
+    _output_dir_ : str
+        Directory path where the output file will be written.
+    plot_config: PlotConfig
+        Configuration required for plotting.
     window_size: int
         Size of the window for running window smoothing
     mode: str
         Mode of smoothing. [mean or median]
-    plot_config: dict
-        Configuration required for plotting.
-        {plot_table: False, plot_path_prefix: "smoothed-gain",
-        plot_title: "Smooth gain"}
     export_gaintable: bool
         Export intermediate gain solutions
-    _output_dir_ : str
-        Directory path where the output file will be written
 
     Returns
     -------
     dict
         Updated upstream_output with gaintable
     """
-    upstream_output.add_checkpoint_key("gaintable")
+    _upstream_output_.add_checkpoint_key("gaintable")
 
     call_counter_suffix = ""
-    if call_count := upstream_output.get_call_count("smooth"):
+    if call_count := _upstream_output_.get_call_count("smooth"):
         call_counter_suffix = f"_{call_count}"
 
-    upstream_output.gaintable = sliding_window_smooth(
-        upstream_output.gaintable, window_size, mode
+    _upstream_output_.gaintable = sliding_window_smooth(
+        _upstream_output_.gaintable, window_size, mode
     )
 
-    if plot_config["plot_table"]:
+    if plot_config.plot_table:
         path_prefix = get_plots_path(
             _output_dir_,
-            f"{plot_config['plot_path_prefix']}{call_counter_suffix}",
+            f"{plot_config.plot_path_prefix}{call_counter_suffix}",
         )
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
-                upstream_output.gaintable,
-                figure_title=plot_config["plot_title"],
+                _upstream_output_.gaintable,
+                figure_title=plot_config.plot_title,
             )
         )
 
@@ -118,12 +119,12 @@ def smooth_gain_solution_stage(
         gaintable_file_path = get_gaintables_path(
             _output_dir_, f"smooth_gain{call_counter_suffix}.gaintable.h5parm"
         )
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
-                upstream_output.gaintable, gaintable_file_path
+                _upstream_output_.gaintable, gaintable_file_path
             )
         )
 
-    upstream_output.increment_call_count("smooth")
+    _upstream_output_.increment_call_count("smooth")
 
-    return upstream_output
+    return _upstream_output_

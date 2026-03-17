@@ -1,9 +1,11 @@
 import logging
 import os
+from typing import Annotated, Literal, Optional
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper.command import CLIArgument
+from ska_sdp_piper.piper.v2.stage import ConfigurableStage
 
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...data_managers.visibility import (
@@ -15,87 +17,75 @@ from ...data_managers.visibility import (
 logger = logging.getLogger(__name__)
 
 
-@ConfigurableStage(
-    "target_load_data",
-    configuration=Configuration(
-        nchannels_per_chunk=ConfigParam(
-            int,
-            32,
-            nullable=False,
+@ConfigurableStage(name="target_load_data")
+def load_data_stage(
+    _upstream_output_,
+    _output_dir_,
+    input: Annotated[str, CLIArgument],
+    nchannels_per_chunk: Annotated[
+        int,
+        Field(
             description="""Number of frequency channels per chunk in the
             written zarr file.""",
         ),
-        ntimes_per_ms_chunk=ConfigParam(
-            int,
-            5,
-            nullable=False,
+    ] = 32,
+    ntimes_per_ms_chunk: Annotated[
+        int,
+        Field(
             description="""Number of time slots to include in each chunk
             while reading from measurement set and writing in zarr file.
             This is also the size of time chunk used across the pipeline.""",
         ),
-        cache_directory=ConfigParam(
-            str,
-            None,
-            nullable=True,
+    ] = 5,
+    cache_directory: Annotated[
+        Optional[str],
+        Field(
             description="""Cache directory containing previously stored
             visibility datasets as zarr files. The directory should contain
             a subdirectory with same name as the input target ms file name,
             which internally contains the zarr and pickle files.
+
             If None, the input ms will be converted to zarr file,
             and this zarr file will be stored in a new 'cache'
             subdirectory under the provided output directory.""",
         ),
-        timeslice=ConfigParam(
-            float,
-            3.0,
-            nullable=False,
+    ] = None,
+    timeslice: Annotated[
+        float,
+        Field(
             description="""Defines time scale over which each gain solution
             is valid. This is used to define time axis of the GainTable.
-            This parameter is interpreted as follows,
+
             float: this is a custom time interval in seconds.
-            Input timestamps are grouped by intervals of this duration,
-            and said groups are separately averaged to produce
-            the output time axis.""",
+            Input timestamps are grouped by intervals of this duration
+            and separately averaged to produce the output time axis.""",
         ),
-        ack=ConfigParam(
-            bool,
-            False,
-            nullable=False,
-            description="Ask casacore to acknowledge each table operation",
+    ] = 3.0,
+    ack: Annotated[
+        bool,
+        Field(
+            description="""Ask casacore to acknowledge each table operation""",
         ),
-        datacolumn=ConfigParam(
-            str,
-            "DATA",
-            nullable=False,
-            description="MS data column to read visibility data from.",
-            allowed_values=["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+    ] = False,
+    datacolumn: Annotated[
+        Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+        Field(
+            description="""MS data column to read visibility data from.""",
         ),
-        field_id=ConfigParam(
-            int,
-            0,
-            nullable=False,
-            description="Field ID of the data in measurement set",
+    ] = "DATA",
+    field_id: Annotated[
+        int,
+        Field(
+            description="""Field ID of the data in measurement set""",
         ),
-        data_desc_id=ConfigParam(
-            int,
-            0,
-            nullable=False,
-            description="Data Description ID of the data in measurement set",
+    ] = 0,
+    data_desc_id: Annotated[
+        int,
+        Field(
+            description="""Data Description ID of the data in
+            measurement set""",
         ),
-    ),
-)
-def load_data_stage(
-    upstream_output,
-    nchannels_per_chunk,
-    ntimes_per_ms_chunk,
-    cache_directory,
-    timeslice,
-    ack,
-    datacolumn,
-    field_id,
-    data_desc_id,
-    _cli_args_,
-    _output_dir_,
+    ] = 0,
 ):
     """
     This stage loads the target visibility data from either (in order of
@@ -109,8 +99,12 @@ def load_data_stage(
 
     Parameters
     ----------
-    upstream_output: dict
+    _upstream_output_: dict
         Output from the upstream stage
+    _output_dir_: str
+        Piper builtin. Stores the output directory path.
+    input: CLIArgument
+        Input measurementset.
     nchannels_per_chunk: int
         Number of frequency channels per chunk in the
         written zarr file.
@@ -127,8 +121,6 @@ def load_data_stage(
         If None, the input ms will be converted to zarr file,
         and this zarr file will be stored in a new 'cache'
         subdirectory under the provided output directory.
-    ack: bool
-        Ask casacore to acknowledge each table operation
     timeslice : float
         Defines time scale over which each gain solution is valid.
         This is used to define time axis of the GainTable. This
@@ -137,25 +129,21 @@ def load_data_stage(
         timestamps are grouped by intervals of this duration,
         and said groups are separately averaged to produce the
         output time axis.
+    ack: bool
+        Ask casacore to acknowledge each table operation
     datacolumn: str
         Measurement set data column name to read data from.
     field_id: int
         Field ID of the data in measurement set
     data_desc_id: int
         Data Description ID of the data in measurement set
-    _cli_args_: dict
-        Piper builtin. Contains all CLI Arguments.
-    _output_dir_: str
-        Piper builtin. Stores the output directory path.
 
     Returns
     -------
     dict
         Updated upstream_output with the loaded target visibility data
     """
-    input_ms = _cli_args_["input"]
-
-    input_ms = os.path.realpath(input_ms)
+    input_ms = os.path.realpath(input)
 
     # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {
@@ -173,7 +161,7 @@ def load_data_stage(
         "frequency": nchannels_per_chunk,
     }
 
-    upstream_output["chunks"] = vis_chunks
+    _upstream_output_["chunks"] = vis_chunks
 
     if cache_directory is None:
         logger.info(
@@ -210,8 +198,8 @@ def load_data_stage(
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
     gaintable = create_gaintable_from_visibility(vis, timeslice, "G")
 
-    upstream_output["timeslice"] = timeslice
-    upstream_output["vis"] = vis
-    upstream_output["gaintable"] = gaintable
-    upstream_output["central_beams"] = None
-    return upstream_output
+    _upstream_output_["timeslice"] = timeslice
+    _upstream_output_["vis"] = vis
+    _upstream_output_["gaintable"] = gaintable
+    _upstream_output_["central_beams"] = None
+    return _upstream_output_

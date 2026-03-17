@@ -19,7 +19,7 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert load_data_stage.config == expected_config
+    assert load_data_stage.__stage__.config == expected_config
 
 
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
@@ -55,8 +55,10 @@ def test_should_load_data_from_existing_cached_zarr_file(
 
     upstream_output = UpstreamOutput()
 
-    new_up_output = load_data_stage.stage_definition(
+    new_up_output = load_data_stage(
         upstream_output,
+        "/path/to/output/dir",
+        "/path/to/vis.ms/",
         frequency_per_chunk,
         times_per_ms_chunk,
         "/cache/dir/path",
@@ -64,8 +66,6 @@ def test_should_load_data_from_existing_cached_zarr_file(
         "ANOTHER_DATA",
         2,
         4,
-        {"input": "/path/to/vis.ms/"},
-        "/path/to/output/dir",
     )
 
     os_makedirs_mock.assert_called_once_with(
@@ -137,8 +137,10 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
 
     upstream_output = UpstreamOutput()
 
-    load_data_stage.stage_definition(
+    load_data_stage(
         upstream_output,
+        "/path/to/output/dir",
+        "/path/to/subdir/../vis.ms/",
         frequency_per_chunk,
         times_per_ms_chunk,
         None,
@@ -146,8 +148,6 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         "ANOTHER_DATA",
         10,
         5,
-        {"input": "/path/to/subdir/../vis.ms/"},
-        "/path/to/output/dir",
     )
 
     os_makedirs_mock.assert_called_once_with(

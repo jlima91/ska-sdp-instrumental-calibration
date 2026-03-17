@@ -31,11 +31,11 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert ionospheric_delay_stage.config == expected_config
+    assert ionospheric_delay_stage.__stage__.config == expected_config
 
 
 def test_ionospeheric_delay_stage_is_optional():
-    assert ionospheric_delay_stage.is_optional
+    assert ionospheric_delay_stage.__stage__.is_optional
 
 
 @patch(
@@ -64,8 +64,9 @@ def test_solver_runs_and_applies_correction(
     mock_gaintable.pipe.return_value = chunked_mock_gaintable
     mock_apply_gaintable.return_value = mock_corrected_vis
 
-    result = ionospheric_delay_stage.stage_definition(
+    result = ionospheric_delay_stage(
         mock_upstream_output,
+        _output_dir_="OUTPUT_DIR",
         cluster_indexes=[0, 1, 0, 1],
         block_diagonal=True,
         niter=20,
@@ -73,7 +74,6 @@ def test_solver_runs_and_applies_correction(
         zernike_limit=None,
         export_gaintable=False,
         plot_table=False,
-        _output_dir_="OUTPUT_DIR",
     )
 
     MockIonosphericSolver.solve.assert_called_once_with(
@@ -163,8 +163,9 @@ def test_gaintable_export_is_triggered(
     mock_gaintable.pipe.return_value = mock_gaintable
     mock_plot_freq_func.return_value = mock_plot_freq_func
 
-    ionospheric_delay_stage.stage_definition(
+    ionospheric_delay_stage(
         mock_upstream_output,
+        _output_dir_="/test/dir",
         cluster_indexes=None,
         block_diagonal=True,
         niter=20,
@@ -172,7 +173,6 @@ def test_gaintable_export_is_triggered(
         zernike_limit=None,
         export_gaintable=True,
         plot_table=True,
-        _output_dir_="/test/dir",
     )
 
     mock_get_gaintable_path.assert_called_once_with(

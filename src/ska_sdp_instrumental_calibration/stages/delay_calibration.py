@@ -1,10 +1,10 @@
+from typing import Annotated
+
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+
+from ska_sdp_instrumental_calibration.stages._common import PlotConfig
 
 from ..data_managers.data_export import (
     export_clock_to_h5parm,
@@ -15,64 +15,57 @@ from ..xarray_processors.delay import apply_delay, calculate_delay
 from ._utils import get_gaintables_path, get_plots_path
 
 
-@ConfigurableStage(
-    "delay_calibration",
-    configuration=Configuration(
-        oversample=ConfigParam(int, 1, description="Oversample rate"),
-        plot_config=NestedConfigParam(
-            "Plot parameters",
-            plot_table=ConfigParam(
-                bool, True, description="Plot the generated gaintable"
-            ),
-            fixed_axis=ConfigParam(
-                bool, False, description="Limit amplitude axis to [0-1]"
-            ),
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            True,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-)
+@ConfigurableStage(name="delay_calibration")
 def delay_calibration_stage(
-    upstream_output, oversample, plot_config, export_gaintable, _output_dir_
+    _upstream_output_,
+    _output_dir_,
+    plot_config: Annotated[
+        PlotConfig,
+        Field(description="Plot parameters", default_factory=PlotConfig),
+    ],
+    oversample: Annotated[
+        int,
+        Field(description="Oversample rate"),
+    ] = 1,
+    export_gaintable: Annotated[
+        bool,
+        Field(description="Export intermediate gain solutions."),
+    ] = True,
 ):
     """
     Performs delay calibration
 
     Parameters
     __________
-        upstream_output: dict
+         _upstream_output_: dict
             Output from the upstream stage
-        oversample: int
-            Oversample rate
-        plot_config: dict
-            Configuration required for plotting.
-            eg: {plot_table: False, fixed_axis: False}
-        export_gaintable: bool
-            Export intermediate gain solutions
         _output_dir_ : str
             Directory path where the output file will be written.
+        plot_config: PlotConfig
+            Configuration required for plotting.
+            eg: {plot_table: False, fixed_axis: False}
+        oversample: int
+            Oversample rate
+        export_gaintable: bool
+            Export intermediate gain solutions
     Returns
     -------
         dict
             Updated upstream_output with gaintable
     """
-    upstream_output.add_checkpoint_key("gaintable")
+    _upstream_output_.add_checkpoint_key("gaintable")
 
-    gaintable = upstream_output["gaintable"]
+    gaintable = _upstream_output_["gaintable"]
 
     call_counter_suffix = ""
-    if call_count := upstream_output.get_call_count("delay"):
+    if call_count := _upstream_output_.get_call_count("delay"):
         call_counter_suffix = f"_{call_count}"
 
     delaytable = calculate_delay(gaintable, oversample)
 
     gaintable = apply_delay(gaintable, delaytable)
 
-    if plot_config["plot_table"]:
+    if plot_config.plot_table:
         path_prefix = get_plots_path(
             _output_dir_, f"delay{call_counter_suffix}"
         )
@@ -81,15 +74,15 @@ def delay_calibration_stage(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
                 gaintable,
                 figure_title="Delay",
-                fixed_axis=plot_config["fixed_axis"],
+                fixed_axis=plot_config.fixed_axis,
             )
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             plot_station_delays(
                 delaytable,
                 path_prefix,
@@ -105,17 +98,17 @@ def delay_calibration_stage(
             _output_dir_, f"delay{call_counter_suffix}.clock.h5parm"
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
 
-    upstream_output["gaintable"] = gaintable
-    upstream_output.increment_call_count("delay")
+    _upstream_output_["gaintable"] = gaintable
+    _upstream_output_.increment_call_count("delay")
 
-    return upstream_output
+    return _upstream_output_

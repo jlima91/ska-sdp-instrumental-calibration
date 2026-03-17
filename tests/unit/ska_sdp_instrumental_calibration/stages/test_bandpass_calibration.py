@@ -1,7 +1,38 @@
+import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import bandpass_calibration_stage
+from ska_sdp_instrumental_calibration.stages._common import PlotConfig
+from ska_sdp_instrumental_calibration.stages.bandpass_calibration import (
+    BandpassRunSolverConfig,
+    VisibilityFilterConfig,
+    bandpass_calibration_stage,
+)
+
+
+@pytest.fixture
+def run_solver_config():
+    return BandpassRunSolverConfig(
+        solver="jones_substitution",
+        niter=1,
+        refant=2,
+        phase_only=False,
+        tol=1e-6,
+        crosspol=False,
+    )
+
+
+@pytest.fixture
+def plot_config():
+    return PlotConfig(
+        plot_table=False,
+        fixed_axis=False,
+    )
+
+
+@pytest.fixture
+def visibility_filters():
+    return VisibilityFilterConfig()
 
 
 def test_should_have_the_expected_default_configuration():
@@ -22,11 +53,11 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert bandpass_calibration_stage.config == expected_config
+    assert bandpass_calibration_stage.__stage__.config == expected_config
 
 
 def test_bandpass_calibration_stage_is_required():
-    assert bandpass_calibration_stage.is_required
+    assert bandpass_calibration_stage.__stage__.is_required
 
 
 @patch(
@@ -39,7 +70,12 @@ def test_bandpass_calibration_stage_is_required():
 )
 @patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_perform_bandpass_calibration(
-    solver_factory_mock, run_solver_mock, parse_ref_ant_mock
+    solver_factory_mock,
+    run_solver_mock,
+    parse_ref_ant_mock,
+    run_solver_config,
+    plot_config,
+    visibility_filters,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -48,24 +84,16 @@ def test_should_perform_bandpass_calibration(
     initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_config = {"plot_table": False, "fixed_axis": False}
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
 
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
 
-    actual_output = bandpass_calibration_stage.stage_definition(
+    actual_output = bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -75,7 +103,7 @@ def test_should_perform_bandpass_calibration(
     parse_ref_ant_mock.assert_called_once_with(2, initable.configuration.names)
 
     solver_factory_mock.get_solver.assert_called_once_with(
-        solver="solver",
+        solver="jones_substitution",
         niter=1,
         refant=parse_ref_ant_mock.return_value,
         phase_only=False,
@@ -86,7 +114,7 @@ def test_should_perform_bandpass_calibration(
         vis=upstream_output.corrected_vis,
         modelvis=upstream_output.modelvis,
         gaintable=initable,
-        solver="SOLVER",
+        solver="jones_substitution",
     )
 
     assert actual_output.gaintable == gaintable_mock
@@ -115,6 +143,9 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     plot_gaintable_freq_mock,
     get_plots_path_mock,
     parse_ref_ant_mock,
+    run_solver_config,
+    plot_config,
+    visibility_filters,
 ):
     get_plots_path_mock.side_effect = [
         "/output/path/plots/bandpass",
@@ -126,34 +157,28 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
 
-    solver_factory_mock.get_solver.return_value = "SOLVER"
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_config = {"plot_table": True, "fixed_axis": True}
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
-    bandpass_calibration_stage.stage_definition(
+    plot_config.plot_table = True
+    plot_config.fixed_axis = True
+
+    bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
         _output_dir_="/output/path",
     )
 
-    bandpass_calibration_stage.stage_definition(
+    bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
@@ -216,6 +241,9 @@ def test_should_export_gaintable_with_proper_suffix(
     get_gaintables_path_mock,
     delayed_mock,
     parse_ref_ant_mock,
+    run_solver_config,
+    plot_config,
+    visibility_filters,
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/bandpass.gaintable.h5parm",
@@ -225,35 +253,26 @@ def test_should_export_gaintable_with_proper_suffix(
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_config = {"plot_table": False, "fixed_axis": True}
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
     run_solver_mock.return_value = gaintable_mock
 
-    bandpass_calibration_stage.stage_definition(
+    bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
         _output_dir_="/output/path",
     )
 
-    bandpass_calibration_stage.stage_definition(
+    bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
@@ -295,7 +314,12 @@ def test_should_export_gaintable_with_proper_suffix(
 )
 @patch("ska_sdp_instrumental_calibration.stages.bandpass_calibration.Solver")
 def test_should_not_use_corrected_vis_when_config_is_false(
-    solver_factory_mock, run_solver_mock, parse_ref_ant_mock
+    solver_factory_mock,
+    run_solver_mock,
+    parse_ref_ant_mock,
+    run_solver_config,
+    plot_config,
+    visibility_filters,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -304,24 +328,15 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
-    solver_factory_mock.get_solver.return_value = "SOLVER"
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_config = {"plot_table": False, "fixed_axis": False}
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
 
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
 
-    actual_output = bandpass_calibration_stage.stage_definition(
+    actual_output = bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=None,
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
@@ -329,7 +344,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
-        solver="solver",
+        solver="jones_substitution",
         niter=1,
         refant=parse_ref_ant_mock.return_value,
         phase_only=False,
@@ -340,7 +355,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
         vis=upstream_output.vis,
         modelvis=upstream_output.modelvis,
         gaintable=initable,
-        solver="SOLVER",
+        solver="jones_substitution",
     )
 
     assert actual_output.gaintable == gaintable_mock
@@ -364,6 +379,9 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     run_solver_mock,
     parse_ref_ant_mock,
     visibility_filter_mock,
+    run_solver_config,
+    plot_config,
+    visibility_filters,
 ):
     upstream_output = UpstreamOutput()
     mock_vis = Mock(name="vis")
@@ -375,24 +393,18 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     initable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initable
     parse_ref_ant_mock.return_value = 3
-    solver_factory_mock.get_solver.return_value = "SOLVER"
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_config = {"plot_table": False, "fixed_axis": False}
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
 
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
 
-    bandpass_calibration_stage.stage_definition(
+    visibility_filters.uvdist = ">500m"
+    visibility_filters.exclude_baselines = "ANT1&ANT2"
+
+    bandpass_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_filters=dict(uvdist=">500m", baselines="ANT1&ANT2"),
+        visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
@@ -400,12 +412,13 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     )
 
     visibility_filter_mock.filter.assert_called_once_with(
-        dict(uvdist=">500m", baselines="ANT1&ANT2"), upstream_output.vis
+        dict(uvdist=">500m", exclude_baselines="ANT1&ANT2"),
+        upstream_output.vis,
     )
 
     run_solver_mock.assert_called_once_with(
         vis=visibility_filter_mock.filter.return_value,
         modelvis=upstream_output.modelvis,
         gaintable=initable,
-        solver="SOLVER",
+        solver="jones_substitution",
     )

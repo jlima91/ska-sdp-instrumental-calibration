@@ -6,8 +6,8 @@ from ska_sdp_piper.piper.command import CLIArgument
 from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
 from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
 from ska_sdp_piper.piper.pipeline import Pipeline
-from ska_sdp_piper.piper.stage import Stages
 from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
+from ska_sdp_piper.piper.v2.stage import Stages
 
 from ska_sdp_instrumental_calibration.scheduler import DefaultScheduler
 from ska_sdp_instrumental_calibration.stages import (

@@ -51,11 +51,11 @@ def test_should_run_pipeline_with_custom_order_of_stages(
     ]
 
     inst_pipeline_mock._stages = [
-        load_data_stage,
-        predict_vis_stage,
-        bandpass_calibration_stage,
-        generate_channel_rm_stage,
-        export_gaintable_stage,
+        load_data_stage.__stage__,
+        predict_vis_stage.__stage__,
+        bandpass_calibration_stage.__stage__,
+        generate_channel_rm_stage.__stage__,
+        export_gaintable_stage.__stage__,
     ]
 
     read_yml_mock.return_value = {
@@ -80,19 +80,19 @@ def test_should_run_pipeline_with_custom_order_of_stages(
 
     deepcopy_mock.assert_has_calls(
         [
-            call(bandpass_calibration_stage),
-            call(generate_channel_rm_stage),
-            call(bandpass_calibration_stage),
-            call(export_gaintable_stage),
+            call(bandpass_calibration_stage.__stage__),
+            call(generate_channel_rm_stage.__stage__),
+            call(bandpass_calibration_stage.__stage__),
+            call(export_gaintable_stage.__stage__),
         ]
     )
     stages_mock.assert_called_once_with(
         [
-            load_data_stage,
-            generate_channel_rm_stage,
-            bandpass_calibration_stage,
+            load_data_stage.__stage__,
+            generate_channel_rm_stage.__stage__,
+            bandpass_calibration_stage.__stage__,
             mock_bandpass_1,
-            export_gaintable_stage,
+            export_gaintable_stage.__stage__,
             mock_generate_rm_1,
             mock_bandpass_2,
             mock_export_gaintable_1,
@@ -129,11 +129,11 @@ def test_should_use_initial_config_provided(
     tempfile_mock.return_value = (1, "tmp/tempfile.yml")
 
     inst_pipeline_mock._stages = [
-        load_data_stage,
-        predict_vis_stage,
-        bandpass_calibration_stage,
-        generate_channel_rm_stage,
-        export_gaintable_stage,
+        load_data_stage.__stage__,
+        predict_vis_stage.__stage__,
+        bandpass_calibration_stage.__stage__,
+        generate_channel_rm_stage.__stage__,
+        export_gaintable_stage.__stage__,
     ]
 
     read_yml_mock.return_value = {

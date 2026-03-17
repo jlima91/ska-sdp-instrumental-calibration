@@ -16,11 +16,11 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert bandpass_initialisation_stage.config == expected_config
+    assert bandpass_initialisation_stage.__stage__.config == expected_config
 
 
 def test_bandpass_initialisation_stage_is_required():
-    assert bandpass_initialisation_stage.is_required
+    assert bandpass_initialisation_stage.__stage__.is_required
 
 
 @patch(
@@ -51,13 +51,13 @@ def test_should_initialize_gains_for_bandpass(
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
 
-    actual = bandpass_initialisation_stage.stage_definition(
+    actual = bandpass_initialisation_stage(
         upstream_output,
+        _output_dir_="/output/path",
         refant=refant,
         niter=niter,
         tol=tol,
         export_gaintable=False,
-        _output_dir_="/output/path",
     )
 
     parse_ref_ant_mock.assert_called_once_with(
@@ -129,13 +129,13 @@ def test_should_export_gaintable(
         "/output/path/gaintables/bandpass_initialisation.gaintable.h5parm"
     )
 
-    actual = bandpass_initialisation_stage.stage_definition(
+    actual = bandpass_initialisation_stage(
         upstream_output,
+        _output_dir_="/output/path",
         refant=refant,
         niter=niter,
         tol=tol,
         export_gaintable=True,
-        _output_dir_="/output/path",
     )
 
     get_gaintables_path_mock.assert_called_once_with(

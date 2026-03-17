@@ -33,11 +33,11 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert ionospheric_delay_stage.config == expected_config
+    assert ionospheric_delay_stage.__stage__.config == expected_config
 
 
 def test_ionospeheric_delay_stage_is_mandatory():
-    assert not ionospheric_delay_stage.is_optional
+    assert not ionospheric_delay_stage.__stage__.is_optional
 
 
 @patch(
@@ -61,7 +61,7 @@ def test_solver_runs_and_updates_gaintable(
     mock_initialtable.pipe.return_value = chunked_mock_gaintable
     mock_create_gaintable.return_value = mock_initialtable
 
-    result = ionospheric_delay_stage.stage_definition(
+    result = ionospheric_delay_stage(
         mock_upstream_output,
         cluster_indexes=[0, 1, 0, 1],
         block_diagonal=True,
@@ -133,7 +133,7 @@ def test_solver_runs_and_plots_gaintable(
     mock_create_gaintable.return_value = mock_initialtable
     plot_gain_target_iono_mock.return_value = plot_gain_target_iono_mock
 
-    ionospheric_delay_stage.stage_definition(
+    ionospheric_delay_stage(
         mock_upstream_output,
         cluster_indexes=None,
         block_diagonal=True,

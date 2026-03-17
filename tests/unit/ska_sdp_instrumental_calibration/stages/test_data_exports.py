@@ -18,11 +18,11 @@ def test_should_have_the_expected_default_configuration():
         },
     }
 
-    assert export_gaintable_stage.config == expected_config
+    assert export_gaintable_stage.__stage__.config == expected_config
 
 
 def test_export_gaintable_stage_is_required():
-    assert export_gaintable_stage.is_required
+    assert export_gaintable_stage.__stage__.is_required
 
 
 @patch(
@@ -41,12 +41,12 @@ def test_should_export_gaintable_as_h5parm(
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
-    actual_output = export_gaintable_stage.stage_definition(
+    actual_output = export_gaintable_stage(
         upstream_output_mock,
+        _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",
         export_metadata=False,
-        _output_dir_="dir/to/save",
     )
 
     expected_path = os.path.join("dir/to/save", "test_gains.h5parm")
@@ -76,12 +76,12 @@ def test_should_export_gaintable_as_hdf5(
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
-    actual_output = export_gaintable_stage.stage_definition(
+    actual_output = export_gaintable_stage(
         upstream_output_mock,
+        _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="hdf5",
         export_metadata=False,
-        _output_dir_="dir/to/save",
     )
 
     expected_path = os.path.join("dir/to/save", "test_gains.hdf5")
@@ -118,12 +118,12 @@ def test_should_export_metadata(
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
-    export_gaintable_stage.stage_definition(
+    export_gaintable_stage(
         upstream_output_mock,
+        _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",
         export_metadata=True,
-        _output_dir_="dir/to/save",
     )
 
     expected_path = os.path.join("dir/to/save", INST_METADATA_FILE)
@@ -156,12 +156,12 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
-    export_gaintable_stage.stage_definition(
+    export_gaintable_stage(
         upstream_output_mock,
+        _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",
         export_metadata=True,
-        _output_dir_="dir/to/save",
     )
 
     upstream_output_mock.add_compute_tasks.assert_called_once_with(

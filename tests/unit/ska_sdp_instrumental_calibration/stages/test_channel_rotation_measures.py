@@ -1,7 +1,32 @@
+import pytest
 from mock import MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import generate_channel_rm_stage
+from ska_sdp_instrumental_calibration.stages.channel_rotation_measures import (
+    ChannelRMRunSolverConfig,
+    PlotRMConfig,
+    generate_channel_rm_stage,
+)
+
+
+@pytest.fixture
+def run_solver_config():
+    return ChannelRMRunSolverConfig(
+        solver="jones_substitution",
+        niter=1,
+        refant=2,
+        phase_only=False,
+        tol=1e-6,
+        crosspol=False,
+    )
+
+
+@pytest.fixture
+def plot_rm_config():
+    return PlotRMConfig(
+        plot_rm=False,
+        station=1,
+    )
 
 
 def test_should_have_the_expected_default_configuration():
@@ -25,11 +50,11 @@ def test_should_have_the_expected_default_configuration():
         },
     }
 
-    assert generate_channel_rm_stage.config == expected_config
+    assert generate_channel_rm_stage.__stage__.config == expected_config
 
 
 def test_generate_channel_rm_stage_is_optional():
-    assert generate_channel_rm_stage.is_optional
+    assert generate_channel_rm_stage.__stage__.is_optional
 
 
 @patch(
@@ -74,6 +99,8 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     run_solver_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    run_solver_config,
+    plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -98,23 +125,10 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     upstream_output["gaintable"] = initial_table_mock
     reset_gaintable_mock.return_value = initial_table_mock
     predict_vis_mock.return_value = new_model_vis_mock
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-        "refant": 2,
-    }
-    plot_rm_config = {
-        "plot_rm": False,
-        "station": 1,
-    }
-    result = generate_channel_rm_stage.stage_definition(
+    result = generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -144,7 +158,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         initial_table_mock,
         peak_threshold=0.5,
         refine_fit=False,
-        refant=run_solver_config["refant"],
+        refant=run_solver_config.refant,
         oversample=9,
     )
 
@@ -158,7 +172,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
-        solver="solver",
+        solver="jones_substitution",
         niter=1,
         refant=3,
         phase_only=False,
@@ -170,7 +184,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         vis=upstream_output["corrected_vis"],
         modelvis=new_model_vis_mock,
         gaintable=reset_gaintable_mock.return_value,
-        solver="SOLVER",
+        solver="jones_substitution",
     )
 
     assert result["modelvis"] == new_model_vis_mock
@@ -219,6 +233,8 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     run_solver_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    run_solver_config,
+    plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -237,7 +253,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     new_model_vis_mock = Mock(name="new model vis")
     beam_model_vis = Mock(name="beam applied model vis")
 
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
     predict_vis_mock.return_value = new_model_vis_mock
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
@@ -251,19 +267,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": "ANT-3",
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_rm_config = {
-        "plot_rm": False,
-        "station": 1,
-    }
-    result = generate_channel_rm_stage.stage_definition(
+    result = generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -280,7 +284,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         initial_table_mock,
         peak_threshold=0.5,
         refine_fit=False,
-        refant=run_solver_config["refant"],
+        refant=run_solver_config.refant,
         oversample=9,
     )
 
@@ -298,7 +302,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
-        solver="solver",
+        solver="jones_substitution",
         niter=1,
         refant=3,
         phase_only=False,
@@ -310,7 +314,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         vis=upstream_output["corrected_vis"],
         modelvis=beam_model_vis,
         gaintable=reset_gaintable_mock.return_value,
-        solver="SOLVER",
+        solver="jones_substitution",
     )
     assert result["modelvis"] == beam_model_vis
     assert result["gaintable"] == solved_gaintable_mock
@@ -383,6 +387,8 @@ def test_should_plot_with_proper_suffix(
     get_plots_path_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    run_solver_config,
+    plot_rm_config,
 ):
     get_plots_path_mock.side_effect = [
         "/output/path/plots/channel_rm",
@@ -409,7 +415,9 @@ def test_should_plot_with_proper_suffix(
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
 
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = (
+        "test_should_apply_beam_to_model_vis_when_beam_is_not_none"
+    )
     rm_est_mock = Mock(name="rm est")
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_obj_mock.get_plot_params_for_station = Mock(
@@ -420,19 +428,10 @@ def test_should_plot_with_proper_suffix(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_rm_config = {
-        "plot_rm": True,
-        "station": 2,
-    }
-    generate_channel_rm_stage.stage_definition(
+    plot_rm_config.plot_rm = True
+    plot_rm_config.station = 2
+
+    generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -446,7 +445,7 @@ def test_should_plot_with_proper_suffix(
     )
 
     upstream_output["gaintable"] = initial_table_mock
-    generate_channel_rm_stage.stage_definition(
+    generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -593,6 +592,8 @@ def test_should_export_gaintable_with_proper_suffix(
     get_gaintables_path_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    run_solver_config,
+    plot_rm_config,
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/channel_rm.gaintable.h5parm",
@@ -615,7 +616,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
     model_rotations_obj_mock.rm_est = rm_est_mock
     model_rotations_mock.return_value = model_rotations_obj_mock
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
@@ -623,19 +624,7 @@ def test_should_export_gaintable_with_proper_suffix(
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_rm_config = {
-        "plot_rm": False,
-        "station": 1,
-    }
-    generate_channel_rm_stage.stage_definition(
+    generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -649,7 +638,7 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     upstream_output["gaintable"] = initial_table_mock
-    generate_channel_rm_stage.stage_definition(
+    generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -729,6 +718,8 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     run_solver_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    run_solver_config,
+    plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="vis")
@@ -749,24 +740,12 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     model_rotations_mock.return_value = model_rotations_obj_mock
     parse_ref_ant_mock.side_effect = [2, 2]
 
-    solver_factory_mock.get_solver.return_value = "SOLVER"
+    solver_factory_mock.get_solver.return_value = "jones_substitution"
     upstream_output["gaintable"] = initial_table_mock
     predict_vis_mock.return_value = new_model_vis_mock
     run_solver_mock.return_value = solved_gaintable_mock
 
-    run_solver_config = {
-        "solver": "solver",
-        "niter": 1,
-        "refant": 2,
-        "phase_only": False,
-        "tol": 1e-06,
-        "crosspol": False,
-    }
-    plot_rm_config = {
-        "plot_rm": False,
-        "station": 1,
-    }
-    result = generate_channel_rm_stage.stage_definition(
+    result = generate_channel_rm_stage(
         upstream_output,
         oversample=9,
         peak_threshold=0.5,
@@ -783,7 +762,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         initial_table_mock,
         peak_threshold=0.5,
         refine_fit=False,
-        refant=run_solver_config["refant"],
+        refant=run_solver_config.refant,
         oversample=9,
     )
 
@@ -800,7 +779,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         vis=upstream_output["vis"],
         modelvis=new_model_vis_mock,
         gaintable=reset_gaintable_mock.return_value,
-        solver="SOLVER",
+        solver="jones_substitution",
     )
 
     assert result["modelvis"] == new_model_vis_mock
