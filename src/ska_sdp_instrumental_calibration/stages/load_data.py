@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[str, CLIArgument],
+    input: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -119,7 +119,7 @@ def load_data_stage(
         Updated upstream_output with the loaded visibility data
     """
     _upstream_output_.add_checkpoint_key("gaintable")
-    input_ms = input
+    input_ms = input[0]
 
     input_ms = os.path.realpath(input_ms)
 

@@ -43,7 +43,7 @@ def test_should_predict_visibilities(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
-    input = "path/to/input/ms"
+    input = ["path/to/input/ms"]
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -77,6 +77,13 @@ def test_should_predict_visibilities(
         upstream_output.gaintable.time.data,
         upstream_output.gaintable.soln_interval_slices,
         beams_factory_mock.return_value,
+    )
+    beams_factory_mock.assert_called_once_with(
+        nstations=upstream_output.vis.configuration.id.size,
+        array_location=upstream_output.vis.configuration.location,
+        direction=upstream_output.vis.phasecentre,
+        ms_path=input[0],
+        element_response_model="dipole_model",
     )
 
     assert result.modelvis == [1, 2, 3]

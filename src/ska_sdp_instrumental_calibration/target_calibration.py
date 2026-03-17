@@ -26,10 +26,9 @@ ska_sdp_instrumental_target_calibration = Pipeline(
     global_config=Configuration(),
     cli_args=[
         CLIArgument(
-            "--input",
-            dest="input",
+            "input",
+            nargs="+",
             type=str,
-            required=True,
             help="Input visibility path",
         )
     ],
@@ -50,10 +49,9 @@ ska_sdp_instrumental_target_ionospheric_calibration = Pipeline(
     global_config=Configuration(),
     cli_args=[
         CLIArgument(
-            "--input",
-            dest="input",
+            "input",
+            nargs="+",
             type=str,
-            required=True,
             help="Input visibility path",
         )
     ],

@@ -58,12 +58,12 @@ def test_should_load_data_from_existing_cached_zarr_file(
     new_up_output = load_data_stage(
         upstream_output,
         "/path/to/output/dir",
-        "/path/to/vis.ms/",
+        ["/path/to/vis.ms/"],
         frequency_per_chunk,
         times_per_ms_chunk,
         "/cache/dir/path",
         True,
-        "ANOTHER_DATA",
+        "DATA",
         2,
         4,
     )
@@ -140,12 +140,12 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     load_data_stage(
         upstream_output,
         "/path/to/output/dir",
-        "/path/to/subdir/../vis.ms/",
+        ["/path/to/subdir/../vis.ms/"],
         frequency_per_chunk,
         times_per_ms_chunk,
         None,
         False,
-        "ANOTHER_DATA",
+        "DATA",
         10,
         5,
     )
@@ -169,7 +169,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "frequency": frequency_per_chunk,
         },
         ack=False,
-        datacolumn="ANOTHER_DATA",
+        datacolumn="DATA",
         field_id=10,
         data_desc_id=5,
     )

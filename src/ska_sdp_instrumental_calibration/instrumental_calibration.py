@@ -56,10 +56,9 @@ ska_sdp_instrumental_calibration = Pipeline(
     ),
     cli_args=[
         CLIArgument(
-            "--input",
-            dest="input",
+            "input",
+            nargs="+",
             type=str,
-            required=True,
             help="Input visibility path",
         )
     ],
@@ -70,6 +69,7 @@ This is the entrypoint for instrumental calibration pipeline.
 """
 
 
+# TODO: Update CLI ARGS to include array of input paths.
 @ska_sdp_instrumental_calibration.sub_command(
     "experimental",
     DEFAULT_CLI_ARGS,

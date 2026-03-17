@@ -12,6 +12,8 @@
 5. Remove `solver` config parameter from complex_gain_calibration stage used for instrumental target calibration.
  Use `gain_substitution` as default solver. 
 
+6. Pass input as positional argument instead of --input flag (for all pipelines). Multiple inputs
+ can be passed but only first one is used in pipelines.
 
 ## 0.7.1
 

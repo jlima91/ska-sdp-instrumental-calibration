@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[str, CLIArgument],
+    input: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -143,7 +143,7 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded target visibility data
     """
-    input_ms = os.path.realpath(input)
+    input_ms = os.path.realpath(input[0])
 
     # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {

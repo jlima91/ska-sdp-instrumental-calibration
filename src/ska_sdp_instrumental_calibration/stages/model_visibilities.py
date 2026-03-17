@@ -17,7 +17,7 @@ logger = logging.getLogger()
 def predict_visibilities(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[str, CLIArgument],
+    input: Annotated[list[str], CLIArgument],
     beam_type: Annotated[
         str,
         Field(description="Type of beam model to use."),
@@ -161,7 +161,7 @@ def predict_visibilities(
     beams_factory = None
 
     # Process beam related parameters
-    eb_ms = input if eb_ms is None else eb_ms
+    eb_ms = input[0] if eb_ms is None else eb_ms
 
     if beam_type == "everybeam":
         logger.info("Using EveryBeam model in predict")
