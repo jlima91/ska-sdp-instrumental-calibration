@@ -4,10 +4,11 @@ Common configuration elements shared between different stages.
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+from ska_sdp_piper.piper import PiperBaseModel
 
 
-class RunSolverCommon(BaseModel):
+class RunSolverCommon(PiperBaseModel):
     """
     A model describing the Runsolver config
     """
@@ -86,7 +87,7 @@ RUN_SOLVER_DOCSTRING = """
 """.strip()
 
 
-class PlotConfig(BaseModel):
+class PlotConfig(PiperBaseModel):
     plot_table: Annotated[
         bool,
         Field(description="Plot the generated gaintable"),

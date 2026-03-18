@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 
 import numpy as np
 from pydantic import Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere

@@ -1,9 +1,8 @@
 import logging
 
 import dask
-from dask.delayed import Delayed
 from distributed import as_completed, futures_of, get_client
-from ska_sdp_piper.piper.scheduler import PiperScheduler
+from ska_sdp_piper.piper.runners import DaskRunner
 
 logger = logging.getLogger()
 
@@ -175,54 +174,8 @@ class UpstreamOutput:
         self.checkpoint_keys.extend(args)
 
 
-class DefaultScheduler(PiperScheduler):
-    """
-    Schedules and executes Dask-wrapped functions for pipeline stages.
-
-    This scheduler manages the execution of a list of `Stage` objects. It
-    handles the chaining of outputs between stages (via `UpstreamOutput`),
-    manages Dask persistence for checkpoints, and coordinates execution
-    via a local or distributed Dask client.
-
-    Attributes
-    ----------
-    _stage_outputs : UpstreamOutput
-        Container for stage results, checkpoints, and pending tasks.
-    """
-
-    def __init__(self):
-        """
-        Initialize the default scheduler.
-        """
-        self._stage_outputs = UpstreamOutput()
-
-    @staticmethod
-    def wait_and_throw_on_failure(delayed_tasks: tuple[Delayed]):
-        """
-        Waits for a collection of persisted delayed tasks to complete
-        and raises an exception if any task failed.
-
-        Parameters
-        ----------
-        delayed_tasks : tuple of Delayed
-            A tuple containing Delayed task objects to wait for.
-
-        Returns
-        -------
-        None
-
-        Raises
-        ------
-        Exception
-            Re-raises the exception from any task that failed
-            (i.e., with status "error").
-        """
-
-        for task in as_completed(futures_of(delayed_tasks)):
-            if task.status == "error":
-                raise task.result()
-
-    def schedule(self, stages):
+class InstrumentalDaskRunner(DaskRunner):
+    def execute(self):
         """
         Execute the provided list of pipeline stages.
 
@@ -250,8 +203,8 @@ class DefaultScheduler(PiperScheduler):
         except Exception:
             pass
 
-        output = self._stage_outputs
-        for stage in stages:
+        output = UpstreamOutput()
+        for stage in self.pipeline.executable_stages:
             logger.info(
                 f"Starting {stage.name}",
                 extra={"tags": f"sdpPhase:{stage.name.upper()},state:START"},
@@ -272,7 +225,9 @@ class DefaultScheduler(PiperScheduler):
             ]
 
             if is_client_present:
-                self.wait_and_throw_on_failure(persisted_values)
+                for task in as_completed(futures_of(persisted_values)):
+                    if task.status == "error":
+                        raise task.result()
 
             output.checkpoint_keys = []
             output.stage_compute_tasks = []
@@ -283,35 +238,3 @@ class DefaultScheduler(PiperScheduler):
                     "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
                 },
             )
-
-        self._stage_outputs = output
-
-    def append(self, task):
-        """
-        Append a single Dask task to the current execution queue.
-
-        Parameters
-        ----------
-        task : dask.delayed.Delayed
-            The Dask delayed object representing the task.
-        """
-        self._stage_outputs.add_compute_tasks(task)
-
-    def extend(self, tasks):
-        """
-        Extend the execution queue with a list of Dask tasks.
-
-        Parameters
-        ----------
-        tasks : list of dask.delayed.Delayed
-            A list of Dask delayed objects to add.
-        """
-
-        self._stage_outputs.add_compute_tasks(*tasks)
-
-    @property
-    def tasks(self):
-        """
-        list of dask.delayed.Delayed: Get the list of pending compute tasks.
-        """
-        return self._stage_outputs.compute_tasks

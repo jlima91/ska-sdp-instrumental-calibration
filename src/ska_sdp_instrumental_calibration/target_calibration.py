@@ -1,59 +1,40 @@
-from ska_sdp_piper.piper.command import CLIArgument
-from ska_sdp_piper.piper.configurations import Configuration
-from ska_sdp_piper.piper.pipeline import Pipeline
-from ska_sdp_piper.piper.v2.stage import Stages
+from ska_sdp_piper.piper import CLIArgument, Pipeline
 
-from ska_sdp_instrumental_calibration.scheduler import DefaultScheduler
+from ska_sdp_instrumental_calibration.scheduler import InstrumentalDaskRunner
 from ska_sdp_instrumental_calibration.stages import (
     export_gaintable_stage,
     target_calibration,
 )
 
-scheduler = DefaultScheduler()
+from . import __version__
 
+input_arg = CLIArgument(
+    "input",
+    nargs="+",
+    type=str,
+    help="Input visibility path",
+)
 
 ska_sdp_instrumental_target_calibration = Pipeline(
     "ska_sdp_instrumental_target_calibration",
-    stages=Stages(
-        [
-            target_calibration.load_data_stage,
-            target_calibration.predict_vis_stage,
-            target_calibration.complex_gain_calibration_stage,
-            export_gaintable_stage,
-        ]
-    ),
-    scheduler=scheduler,
-    global_config=Configuration(),
-    cli_args=[
-        CLIArgument(
-            "input",
-            nargs="+",
-            type=str,
-            help="Input visibility path",
-        )
-    ],
-    include_input_opt=False,
+    target_calibration.load_data_stage,
+    target_calibration.predict_vis_stage,
+    target_calibration.complex_gain_calibration_stage,
+    export_gaintable_stage,
+    version=__version__,
+).overide_run(
+    input_arg,
+    runner=InstrumentalDaskRunner,
 )
 
 ska_sdp_instrumental_target_ionospheric_calibration = Pipeline(
     "ska_sdp_instrumental_target_ionospheric_calibration",
-    stages=Stages(
-        [
-            target_calibration.load_data_stage,
-            target_calibration.predict_vis_stage,
-            target_calibration.ionospheric_delay_stage,
-            export_gaintable_stage,
-        ]
-    ),
-    scheduler=scheduler,
-    global_config=Configuration(),
-    cli_args=[
-        CLIArgument(
-            "input",
-            nargs="+",
-            type=str,
-            help="Input visibility path",
-        )
-    ],
-    include_input_opt=False,
+    target_calibration.load_data_stage,
+    target_calibration.predict_vis_stage,
+    target_calibration.ionospheric_delay_stage,
+    export_gaintable_stage,
+    version=__version__,
+).overide_run(
+    input_arg,
+    runner=InstrumentalDaskRunner,
 )

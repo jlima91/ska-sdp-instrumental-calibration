@@ -2,8 +2,8 @@ import logging
 from typing import Annotated, Literal, Optional
 
 import dask
-from pydantic import BaseModel, Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
@@ -34,7 +34,7 @@ class BandpassRunSolverConfig(RunSolverCommon):
     tol: float = 1e-3
 
 
-class VisibilityFilterConfig(BaseModel):
+class VisibilityFilterConfig(PiperBaseModel):
     """
     A model describing the Visibility filter config passed
     to the Bandpass Calibration stage

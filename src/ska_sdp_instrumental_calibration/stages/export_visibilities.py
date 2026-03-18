@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 import dask
 from pydantic import Field
 from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ._utils import get_visibilities_path

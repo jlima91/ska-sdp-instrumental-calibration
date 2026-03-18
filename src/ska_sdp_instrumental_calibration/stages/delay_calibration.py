@@ -2,7 +2,7 @@ from typing import Annotated
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.stages._common import PlotConfig
 

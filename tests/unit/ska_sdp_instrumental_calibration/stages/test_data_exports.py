@@ -22,7 +22,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_export_gaintable_stage_is_required():
-    assert export_gaintable_stage.__stage__.is_required
+    assert export_gaintable_stage.__stage__.is_enabled
 
 
 @patch(

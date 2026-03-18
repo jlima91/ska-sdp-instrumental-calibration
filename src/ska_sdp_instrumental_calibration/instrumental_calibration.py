@@ -2,15 +2,15 @@ import copy
 import logging
 import tempfile
 
-from ska_sdp_piper.piper.command import CLIArgument
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.constants import DEFAULT_CLI_ARGS
-from ska_sdp_piper.piper.pipeline import Pipeline
+from pydantic import Field
+from ska_sdp_piper.piper import CLIArgument, Pipeline, PiperBaseModel
+from ska_sdp_piper.piper.constants import RUN_CLI_ARGS
+from ska_sdp_piper.piper.stage import Stages
 from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
-from ska_sdp_piper.piper.v2.stage import Stages
 
-from ska_sdp_instrumental_calibration.scheduler import DefaultScheduler
-from ska_sdp_instrumental_calibration.stages import (
+from . import __version__
+from .scheduler import InstrumentalDaskRunner
+from .stages import (
     bandpass_calibration_stage,
     bandpass_initialisation_stage,
     delay_calibration_stage,
@@ -24,58 +24,58 @@ from ska_sdp_instrumental_calibration.stages import (
     smooth_gain_solution_stage,
 )
 
+
+class ExperimentalConfig(PiperBaseModel):
+    pipeline: list = Field(default_factory=list)
+
+
+class GlobalConfig(PiperBaseModel):
+    experimental: ExperimentalConfig = Field(
+        default_factory=ExperimentalConfig
+    )
+
+
 logger = logging.getLogger()
 
-scheduler = DefaultScheduler()
-
-# Create the pipeline instance
-ska_sdp_instrumental_calibration = Pipeline(
-    "ska_sdp_instrumental_calibration",
-    stages=Stages(
-        [
-            load_data_stage,
-            predict_vis_stage,
-            bandpass_initialisation_stage,
-            bandpass_calibration_stage,
-            delay_calibration_stage,
-            flag_gain_stage,
-            ionospheric_delay_stage,
-            generate_channel_rm_stage,
-            smooth_gain_solution_stage,
-            export_visibilities_stage,
-            export_gaintable_stage,
-        ]
-    ),
-    scheduler=scheduler,
-    global_config=Configuration(
-        experimental=ConfigParam(
-            dict,
-            {"pipeline": []},
-            description="""Configurations for experimental sub command.""",
-        )
-    ),
-    cli_args=[
-        CLIArgument(
-            "input",
-            nargs="+",
-            type=str,
-            help="Input visibility path",
-        )
-    ],
-    include_input_opt=False,
+input_cli_arg = CLIArgument(
+    "input",
+    nargs="+",
+    type=str,
+    help="Input visibility path",
 )
+
 """
 This is the entrypoint for instrumental calibration pipeline.
 """
+ska_sdp_instrumental_calibration = Pipeline(
+    "ska_sdp_instrumental_calibration",
+    load_data_stage,
+    predict_vis_stage,
+    bandpass_initialisation_stage,
+    bandpass_calibration_stage,
+    delay_calibration_stage,
+    flag_gain_stage,
+    ionospheric_delay_stage,
+    generate_channel_rm_stage,
+    smooth_gain_solution_stage,
+    export_visibilities_stage,
+    export_gaintable_stage,
+    global_config_model=GlobalConfig,
+    version=__version__,
+).overide_run(
+    input_cli_arg,
+    runner=InstrumentalDaskRunner,
+)
 
 
 # TODO: Update CLI ARGS to include array of input paths.
 @ska_sdp_instrumental_calibration.sub_command(
     "experimental",
-    DEFAULT_CLI_ARGS,
+    *RUN_CLI_ARGS,
+    input_cli_arg,
     help="Allows reordering of stages via additional config section",
 )
-def experimental(cli_args):
+def experimental(**cli_args):
     """
     Reorder stages of INST pipeline. Use the config section
     global_parameters.experimental.stage_order to provide the order of
@@ -84,7 +84,7 @@ def experimental(cli_args):
 
     Parameters
     ----------
-    cli_args: argparse.Namespace
+    cli_args: varargs
         CLI arguments
     """
 
@@ -94,8 +94,8 @@ def experimental(cli_args):
 
     logger.warning("=========== INST Experimental ============")
 
-    if cli_args.config_path:
-        config = read_yml(cli_args.config_path)
+    if cli_args["config_path"]:
+        config = read_yml(cli_args["config_path"])
 
         reconfigured_stages = []
         duplicate_counter = {}
@@ -131,14 +131,14 @@ def experimental(cli_args):
             reconfigured_stages.append(stage)
 
         if reconfigured_stages:
-            stages = Stages(reconfigured_stages)
-
+            stages = Stages(*reconfigured_stages)
             ska_sdp_instrumental_calibration._stages = stages
+
             config["parameters"] = new_parameters
             config["pipeline"] = pipeline_state
             _, temp_config = tempfile.mkstemp(text=True, suffix=".yml")
             write_yml(temp_config, config)
-            cli_args.config_path = temp_config
+            cli_args["config_path"] = temp_config
             logger.info("Created temprory experimental config %s", temp_config)
         else:
             logger.warning(
@@ -148,4 +148,4 @@ def experimental(cli_args):
     else:
         logger.warning("No Config provided. Using the default stage order")
     logger.warning("==========================================")
-    ska_sdp_instrumental_calibration._run(cli_args)
+    ska_sdp_instrumental_calibration.run(**cli_args)

@@ -1,8 +1,8 @@
 from typing import Annotated, Literal
 
 import dask
-from pydantic import BaseModel, Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import PlotGaintableFrequency
@@ -10,7 +10,7 @@ from ..xarray_processors.gain_smoothing import sliding_window_smooth
 from ._utils import get_gaintables_path, get_plots_path
 
 
-class PlotConfig(BaseModel):
+class PlotConfig(PiperBaseModel):
     """
     A model describing the Plot Config config passed
     to the Smooth Gain Solution stage

@@ -7,7 +7,7 @@ from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import (
     INSTMetaData,

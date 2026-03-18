@@ -4,8 +4,7 @@ from typing import Annotated, Literal, Optional
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper.command import CLIArgument
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...data_managers.visibility import (

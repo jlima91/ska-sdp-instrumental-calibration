@@ -31,7 +31,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_smooth_gain_solution_stage_is_optional():
-    assert smooth_gain_solution_stage.__stage__.is_optional
+    assert not smooth_gain_solution_stage.__stage__.is_enabled
 
 
 @patch(
@@ -113,7 +113,7 @@ def test_should_plot_the_smoothed_gain_solution(
 
     upstream_output.gaintable = gaintable_mock
 
-    plot_config.plot_table = (True,)
+    plot_config.plot_table = True
     plot_config.plot_path_prefix = "some/path"
     plot_config.plot_title = "plot title"
 
@@ -160,7 +160,7 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
     upstream_output.gaintable = gaintable_mock
     sliding_window_smooth_mock.return_value = gaintable_mock
 
-    plot_config.plot_table = (True,)
+    plot_config.plot_table = True
     plot_config.plot_path_prefix = "some/path"
     plot_config.plot_title = "plot title"
 

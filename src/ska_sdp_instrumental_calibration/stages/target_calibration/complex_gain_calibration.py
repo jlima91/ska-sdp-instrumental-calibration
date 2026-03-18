@@ -2,8 +2,8 @@ import logging
 from typing import Annotated, Literal
 
 import dask
-from pydantic import BaseModel, Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
@@ -19,7 +19,7 @@ from .._utils import get_gaintables_path, get_plots_path
 logger = logging.getLogger()
 
 
-class RunSolverConfig(BaseModel):
+class RunSolverConfig(PiperBaseModel):
     """
     A model describing the Runsolver Configuration passed
     to the Complex Gain Calibration stage

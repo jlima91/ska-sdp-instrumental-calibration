@@ -1,4 +1,4 @@
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..model_visibilities import predict_visibilities
 

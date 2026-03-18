@@ -35,7 +35,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_ionospeheric_delay_stage_is_optional():
-    assert ionospheric_delay_stage.__stage__.is_optional
+    assert not ionospheric_delay_stage.__stage__.is_enabled
 
 
 @patch(

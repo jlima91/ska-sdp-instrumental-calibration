@@ -54,7 +54,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_generate_channel_rm_stage_is_optional():
-    assert generate_channel_rm_stage.__stage__.is_optional
+    assert not generate_channel_rm_stage.__stage__.is_enabled
 
 
 @patch(

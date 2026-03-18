@@ -2,8 +2,7 @@ import logging
 from typing import Annotated, Optional
 
 from pydantic import Field
-from ska_sdp_piper.piper.command import CLIArgument
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel

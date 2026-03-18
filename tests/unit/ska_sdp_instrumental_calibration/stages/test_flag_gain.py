@@ -34,7 +34,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_flag_gain_stage_is_optional():
-    assert flag_gain_stage.__stage__.is_optional
+    assert not flag_gain_stage.__stage__.is_enabled
 
 
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")

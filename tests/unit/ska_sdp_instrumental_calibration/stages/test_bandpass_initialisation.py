@@ -20,7 +20,7 @@ def test_should_have_the_expected_default_configuration():
 
 
 def test_bandpass_initialisation_stage_is_required():
-    assert bandpass_initialisation_stage.__stage__.is_required
+    assert bandpass_initialisation_stage.__stage__.is_enabled
 
 
 @patch(

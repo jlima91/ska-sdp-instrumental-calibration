@@ -2,8 +2,8 @@ import logging
 from typing import Annotated, Literal
 
 import dask
-from pydantic import BaseModel, Field
-from ska_sdp_piper.piper.v2.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import reset_gaintable
@@ -40,7 +40,7 @@ class ChannelRMRunSolverConfig(RunSolverCommon):
     tol: float = 1e-3
 
 
-class PlotRMConfig(BaseModel):
+class PlotRMConfig(PiperBaseModel):
     """
     A model describing the RM Plot config passed
     to the Generate Channel RM stage
