@@ -2,9 +2,9 @@ import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages._common import PlotConfig
 from ska_sdp_instrumental_calibration.stages.bandpass_calibration import (
-    BandpassRunSolverConfig,
+    PlotConfig,
+    RunSolverConfig,
     VisibilityFilterConfig,
     bandpass_calibration_stage,
 )
@@ -12,7 +12,7 @@ from ska_sdp_instrumental_calibration.stages.bandpass_calibration import (
 
 @pytest.fixture
 def run_solver_config():
-    return BandpassRunSolverConfig(
+    return RunSolverConfig(
         solver="jones_substitution",
         niter=1,
         refant=2,

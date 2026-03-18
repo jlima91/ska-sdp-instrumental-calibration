@@ -2,9 +2,9 @@ import pytest
 from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages._common import PlotConfig
 from ska_sdp_instrumental_calibration.stages.target_calibration.complex_gain_calibration import (  # noqa: E501
-    RunSolverConfig,
+    PlotConfig,
+    TargetRunSolverConfig,
     complex_gain_calibration_stage,
 )
 from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
@@ -24,7 +24,7 @@ def upstream_output():
 
 @pytest.fixture
 def run_solver_config():
-    return RunSolverConfig(
+    return TargetRunSolverConfig(
         refant=2,
         niter=1,
         tol=1e-6,

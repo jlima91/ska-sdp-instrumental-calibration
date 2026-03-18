@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
@@ -11,22 +11,7 @@ from ..xarray_processors.gain_flagging import (
     log_flaging_statistics,
 )
 from ._utils import get_gaintables_path, get_plots_path
-
-
-class PlotConfig(PiperBaseModel):
-    """
-    A model describing the Plot config passed
-    to the Flag Gain stage
-    """
-
-    curve_fit_plot: Annotated[
-        bool,
-        Field(description="Plot the fitted curve of gain flagging"),
-    ] = True
-    gain_flag_plot: Annotated[
-        bool,
-        Field(description="Plot the flagged weights"),
-    ] = True
+from .configuration_models import PlotFlagGainConfig
 
 
 @ConfigurableStage(name="flag_gain", optional=True)
@@ -34,8 +19,8 @@ def flag_gain_stage(
     _upstream_output_,
     _output_dir_,
     plot_config: Annotated[
-        PlotConfig,
-        Field(description="Plot options", default_factory=PlotConfig),
+        PlotFlagGainConfig,
+        Field(description="Plot options", default_factory=PlotFlagGainConfig),
     ],
     soltype: Annotated[
         Literal["phase", "amplitude", "amp-phase", "real-imag"],

@@ -2,38 +2,13 @@ from typing import Annotated, Literal
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import PlotGaintableFrequency
 from ..xarray_processors.gain_smoothing import sliding_window_smooth
 from ._utils import get_gaintables_path, get_plots_path
-
-
-class PlotConfig(PiperBaseModel):
-    """
-    A model describing the Plot Config config passed
-    to the Smooth Gain Solution stage
-    """
-
-    plot_table: Annotated[
-        bool,
-        Field(
-            description="""Plot the smoothed gaintable""",
-        ),
-    ] = False
-    plot_path_prefix: Annotated[
-        str,
-        Field(
-            description="""Path prefix to store smoothed gain plots""",
-        ),
-    ] = "smoothed-gain"
-    plot_title: Annotated[
-        str,
-        Field(
-            description="""Title for smoothed gain plots""",
-        ),
-    ] = "Smoothed Gain"
+from .configuration_models import PlotSmoothGainsConfig
 
 
 @ConfigurableStage(name="smooth_gain_solution", optional=True)
@@ -41,10 +16,10 @@ def smooth_gain_solution_stage(
     _upstream_output_,
     _output_dir_,
     plot_config: Annotated[
-        PlotConfig,
+        PlotSmoothGainsConfig,
         Field(
             description="""Plot parameters""",
-            default_factory=PlotConfig,
+            default_factory=PlotSmoothGainsConfig,
         ),
     ],
     window_size: Annotated[

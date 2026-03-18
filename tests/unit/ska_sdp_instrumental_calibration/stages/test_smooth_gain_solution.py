@@ -3,14 +3,14 @@ from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.smooth_gain_solution import (
-    PlotConfig,
+    PlotSmoothGainsConfig,
     smooth_gain_solution_stage,
 )
 
 
 @pytest.fixture
 def plot_config():
-    return PlotConfig()
+    return PlotSmoothGainsConfig()
 
 
 def test_should_have_the_expected_default_configuration():

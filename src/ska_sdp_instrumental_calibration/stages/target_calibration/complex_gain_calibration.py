@@ -3,44 +3,20 @@ from typing import Annotated, Literal
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
 )
-from ska_sdp_instrumental_calibration.stages._common import PlotConfig
 
 from ...numpy_processors.solvers import Solver
 from ...plot import PlotGaintableTime
 from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
 from .._utils import get_gaintables_path, get_plots_path
+from ..configuration_models import PlotConfig, TargetRunSolverConfig
 
 logger = logging.getLogger()
-
-
-class RunSolverConfig(PiperBaseModel):
-    """
-    A model describing the Runsolver Configuration passed
-    to the Complex Gain Calibration stage
-    """
-
-    refant: Annotated[
-        int | str,
-        Field(description="Reference antenna."),
-    ] = 0
-    niter: Annotated[
-        int,
-        Field(description="Number of solver iterations."),
-    ] = 50
-    tol: Annotated[
-        float,
-        Field(description="Tolerance for solver convergence."),
-    ] = 1e-6
-    crosspol: Annotated[
-        bool,
-        Field(description="Include cross polarisations."),
-    ] = False
 
 
 @ConfigurableStage(name="complex_gain_calibration")
@@ -48,10 +24,10 @@ def complex_gain_calibration_stage(
     _upstream_output_,
     _output_dir_,
     run_solver_config: Annotated[
-        RunSolverConfig,
+        TargetRunSolverConfig,
         Field(
             description="""Run solver parameters""",
-            default_factory=RunSolverConfig,
+            default_factory=TargetRunSolverConfig,
         ),
     ],
     plot_config: Annotated[

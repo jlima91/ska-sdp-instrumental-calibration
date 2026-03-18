@@ -3,14 +3,14 @@ from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.flag_gain import (
-    PlotConfig,
+    PlotFlagGainConfig,
     flag_gain_stage,
 )
 
 
 @pytest.fixture
 def plot_config():
-    return PlotConfig()
+    return PlotFlagGainConfig()
 
 
 def test_should_have_the_expected_default_configuration():

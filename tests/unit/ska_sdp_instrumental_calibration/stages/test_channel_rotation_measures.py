@@ -3,15 +3,15 @@ from mock import MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.channel_rotation_measures import (
-    ChannelRMRunSolverConfig,
     PlotRMConfig,
+    RunSolverConfig,
     generate_channel_rm_stage,
 )
 
 
 @pytest.fixture
 def run_solver_config():
-    return ChannelRMRunSolverConfig(
+    return RunSolverConfig(
         solver="jones_substitution",
         niter=1,
         refant=2,

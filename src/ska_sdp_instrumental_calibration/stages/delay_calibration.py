@@ -4,8 +4,6 @@ import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
-from ska_sdp_instrumental_calibration.stages._common import PlotConfig
-
 from ..data_managers.data_export import (
     export_clock_to_h5parm,
     export_gaintable_to_h5parm,
@@ -13,6 +11,7 @@ from ..data_managers.data_export import (
 from ..plot import PlotGaintableFrequency, plot_station_delays
 from ..xarray_processors.delay import apply_delay, calculate_delay
 from ._utils import get_gaintables_path, get_plots_path
+from .configuration_models import PlotConfig
 
 
 @ConfigurableStage(name="delay_calibration")

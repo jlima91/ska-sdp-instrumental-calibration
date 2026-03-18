@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 import dask
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage, PiperBaseModel
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import reset_gaintable
@@ -18,45 +18,11 @@ from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
 from ..xarray_processors.rotation_measures import model_rotations
 from ..xarray_processors.solver import run_solver
-from ._common import RUN_SOLVER_DOCSTRING, RunSolverCommon
+from ._common import RUN_SOLVER_DOCSTRING
 from ._utils import get_gaintables_path, get_plots_path
+from .configuration_models import PlotRMConfig, RunSolverConfig
 
 logger = logging.getLogger()
-
-
-class ChannelRMRunSolverConfig(RunSolverCommon):
-    """
-    A model describing the Runsolver config passed
-    to the Generate Channel RM stage
-    """
-
-    solver: Literal[
-        "gain_substitution",
-        "jones_substitution",
-        "normal_equations",
-        "normal_equations_presum",
-    ] = "jones_substitution"
-    niter: int = 50
-    tol: float = 1e-3
-
-
-class PlotRMConfig(PiperBaseModel):
-    """
-    A model describing the RM Plot config passed
-    to the Generate Channel RM stage
-    """
-
-    plot_rm: Annotated[
-        bool,
-        Field(
-            description="""Plot the estimated rotational measures
-            per station"""
-        ),
-    ] = False
-    station: Annotated[
-        int | str,
-        Field(description="Station number/name to be plotted"),
-    ] = 0
 
 
 @ConfigurableStage(name="generate_channel_rm", optional=True)
@@ -64,10 +30,10 @@ def generate_channel_rm_stage(
     _upstream_output_,
     _output_dir_,
     run_solver_config: Annotated[
-        ChannelRMRunSolverConfig,
+        RunSolverConfig,
         Field(
             description="""Run solver parameters""",
-            default_factory=ChannelRMRunSolverConfig,
+            default_factory=RunSolverConfig,
         ),
     ],
     plot_rm_config: Annotated[
@@ -129,7 +95,7 @@ def generate_channel_rm_stage(
             Output from the upstream stage
         _output_dir_ : str
             Directory path where the output file will be written.
-        run_solver_config: ChannelRMRunSolverConfig
+        run_solver_config: RunSolverConfig
             {run_solver_docstring}
         plot_rm_config: PlotRMConfig
             Configs required for RM plots.

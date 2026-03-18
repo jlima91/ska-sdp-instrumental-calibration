@@ -175,6 +175,8 @@ class UpstreamOutput:
 
 
 class InstrumentalDaskRunner(DaskRunner):
+    """DaskRunner implementation for Instrumental Calibration"""
+
     def execute(self):
         """
         Execute the provided list of pipeline stages.

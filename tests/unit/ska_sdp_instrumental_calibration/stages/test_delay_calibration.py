@@ -2,8 +2,10 @@ import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import delay_calibration_stage
-from ska_sdp_instrumental_calibration.stages._common import PlotConfig
+from ska_sdp_instrumental_calibration.stages.delay_calibration import (
+    PlotConfig,
+    delay_calibration_stage,
+)
 
 
 @pytest.fixture
