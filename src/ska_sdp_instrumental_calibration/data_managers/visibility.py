@@ -105,7 +105,7 @@ def create_template_vis_from_ms(
                                 f"and DATA_DESC_ID={dd}"
                             )
 
-                        otime = ms.getcol("TIME")
+                        time = ms.getcol("TIME")
                         antenna1 = ms.getcol("ANTENNA1")
                         antenna2 = ms.getcol("ANTENNA2")
                         integration_time = ms.getcol("INTERVAL")
@@ -115,7 +115,6 @@ def create_template_vis_from_ms(
                         weight_dtype = ms.getcol("WEIGHT", nrow=1).dtype
                         uvw_dtype = ms.getcol("UVW", nrow=1).dtype
 
-                    time = otime - integration_time / 2.0
                     start_time = np.min(time) / 86400.0
                     end_time = np.max(time) / 86400.0
 
