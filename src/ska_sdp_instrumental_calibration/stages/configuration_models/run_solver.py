@@ -20,7 +20,21 @@ class RunSolverConfig(PiperBaseModel):
             "normal_equations",
             "normal_equations_presum",
         ],
-        Field(description="Calibration algorithm to use."),
+        Field(
+            description="""Calibration algorithm to use. Options are:
+                "gain_substitution" - original substitution algorithm
+                with separate solutions for each polarisation term.
+                "jones_substitution" - solve antenna-based Jones matrices
+                as a whole, with independent updates within each iteration.
+                "normal_equations" - solve normal equations within
+                each iteration formed from linearisation with respect to
+                antenna-based gain and leakage terms.
+                "normal_equations_presum" - same as normal_equations
+                option but with an initial accumulation of visibility
+                products over time and frequency for each solution
+                interval. This can be much faster for large datasets
+                and solution intervals."""
+        ),
     ] = "jones_substitution"
     refant: Annotated[
         int | str,
