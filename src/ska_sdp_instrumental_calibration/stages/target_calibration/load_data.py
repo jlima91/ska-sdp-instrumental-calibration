@@ -43,7 +43,6 @@ def load_data_stage(
             visibility datasets as zarr files. The directory should contain
             a subdirectory with same name as the input target ms file name,
             which internally contains the zarr and pickle files.
-
             If None, the input ms will be converted to zarr file,
             and this zarr file will be stored in a new 'cache'
             subdirectory under the provided output directory.""",
@@ -54,10 +53,11 @@ def load_data_stage(
         Field(
             description="""Defines time scale over which each gain solution
             is valid. This is used to define time axis of the GainTable.
-
+            This parameter is interpreted as follows,
             float: this is a custom time interval in seconds.
-            Input timestamps are grouped by intervals of this duration
-            and separately averaged to produce the output time axis.""",
+            Input timestamps are grouped by intervals of this duration,
+            and said groups are separately averaged to produce
+            the output time axis.""",
         ),
     ] = 3.0,
     ack: Annotated[

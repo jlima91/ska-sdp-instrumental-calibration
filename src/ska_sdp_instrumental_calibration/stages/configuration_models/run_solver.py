@@ -38,7 +38,10 @@ class RunSolverConfig(PiperBaseModel):
     ] = "jones_substitution"
     refant: Annotated[
         int | str,
-        Field(description="Reference antenna."),
+        Field(
+            description="""Reference antenna.
+              Currently only activated for gain_substitution solver"""
+        ),
     ] = 0
     niter: Annotated[
         int,
@@ -46,15 +49,26 @@ class RunSolverConfig(PiperBaseModel):
     ] = 50
     phase_only: Annotated[
         bool,
-        Field(description="Solve only for phases."),
+        Field(
+            description="""Solve only for the phases. This can be set
+                to ``True`` when solver is "gain_substitution",
+                otherwise it must be ``False``."""
+        ),
     ] = False
     tol: Annotated[
         float,
-        Field(description="Tolerance for solver convergence."),
+        Field(
+            description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance."""
+        ),
     ] = 1e-3
     crosspol: Annotated[
         bool,
-        Field(description="Include cross polarisations."),
+        Field(
+            description="""Do solutions including cross polarisations
+                i.e. XY, YX or RL, LR.
+                Only used by "gain_substitution" solver."""
+        ),
     ] = False
 
 
@@ -66,7 +80,10 @@ class TargetRunSolverConfig(PiperBaseModel):
 
     refant: Annotated[
         int | str,
-        Field(description="Reference antenna."),
+        Field(
+            description="""Reference antenna.
+                Currently only activated for gain_substitution solver"""
+        ),
     ] = 0
     niter: Annotated[
         int,
@@ -74,9 +91,16 @@ class TargetRunSolverConfig(PiperBaseModel):
     ] = 50
     tol: Annotated[
         float,
-        Field(description="Tolerance for solver convergence."),
+        Field(
+            description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance."""
+        ),
     ] = 1e-6
     crosspol: Annotated[
         bool,
-        Field(description="Include cross polarisations."),
+        Field(
+            description="""Do solutions including cross polarisations
+                i.e. XY, YX or RL, LR.
+                Only used by "gain_substitution" solver."""
+        ),
     ] = False
