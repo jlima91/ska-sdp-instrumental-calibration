@@ -65,4 +65,4 @@ def test_visibility_write_and_read(tmp_path, generate_vis, generate_ms):
     np.testing.assert_allclose(
         (gen_vis.frequency.data), (zarred_dataset.frequency.data)
     )
-    np.testing.assert_allclose((gen_vis.time.data), (zarred_dataset.time.data))
+    np.testing.assert_equal((gen_vis.time.data), (zarred_dataset.time.data))
