@@ -73,6 +73,7 @@ ska_sdp_instrumental_calibration = Pipeline(
     "experimental",
     *RUN_CLI_ARGS,
     input_cli_arg,
+    *InstrumentalDaskRunner.cli_args(),
     help="Allows reordering of stages via additional config section",
 )
 def experimental(**cli_args):
