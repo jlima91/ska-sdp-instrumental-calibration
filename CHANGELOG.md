@@ -1,19 +1,20 @@
 # Changelog
 
-## Unreleased
-1. Use GSM csv format instead of OSKAR csv format for creating sky model.
+## Development
 
-2. Remove `mode` config parameter from `flag_gain` stage. fix the mode basis of soltype.
+### Breaking
 
-3. Use AA0.5 strategy for benchmarking.
-
-4. Move processing and solver functions to ska-sdp-func-python library.
-
-5. Remove `solver` config parameter from complex_gain_calibration stage used for instrumental target calibration.
+1. Pass input visibilities (MSv2) as positional argument to the CLI instead of `--input` flag. Multiple inputs
+ can be passed but only first one is used in pipelines. This change is made in all of the CLI pipelines.
+2. Use SKA LSM CSV format instead of OSKAR csv format as input sky model.
+3. Remove `mode` config parameter from `flag_gain` stage. Fix the mode basis of soltype.
+4. Remove `solver` config parameter from complex_gain_calibration stage used for instrumental target calibration.
  Use `gain_substitution` as default solver. 
 
-6. Pass input as positional argument instead of --input flag (for all pipelines). Multiple inputs
- can be passed but only first one is used in pipelines.
+### General
+
+1. Use AA0.5 strategy for benchmarking configuration.
+2. Move processing and solver functions to ska-sdp-func-python library.
 
 ## 0.7.1
 
