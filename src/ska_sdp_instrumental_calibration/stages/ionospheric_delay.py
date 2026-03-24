@@ -1,9 +1,10 @@
 import logging
+from typing import Annotated, Optional
 
 import dask
 import numpy as np
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import create_gaintable_from_visibility
@@ -16,73 +17,57 @@ from ._utils import get_gaintables_path, get_plots_path
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "ionospheric_delay",
-    configuration=Configuration(
-        cluster_indexes=ConfigParam(
-            list,
-            None,
+@ConfigurableStage(name="ionospheric_delay", optional=True)
+def ionospheric_delay_stage(
+    _upstream_output_,
+    _output_dir_,
+    cluster_indexes: Annotated[
+        Optional[list[int]],
+        Field(
             description=(
                 "Array of integers assigning each antenna to a cluster. "
                 "If None, all antennas are treated as a single cluster"
-            ),
+            )
         ),
-        block_diagonal=ConfigParam(
-            bool,
-            True,
+    ] = None,
+    block_diagonal: Annotated[
+        bool,
+        Field(
             description=(
                 "If True, solve for all clusters simultaneously assuming a "
-                "block-diagonal system. If False, solve for each"
-                " cluster sequentially"
-            ),
-            nullable=False,
+                "block-diagonal system. If False, solve for each "
+                "cluster sequentially"
+            )
         ),
-        niter=ConfigParam(
-            int,
-            500,
-            description="""Number of solver iterations.""",
-            nullable=False,
-        ),
-        tol=ConfigParam(
-            float,
-            1e-06,
+    ] = True,
+    niter: Annotated[
+        int,
+        Field(description="Number of solver iterations."),
+    ] = 500,
+    tol: Annotated[
+        float,
+        Field(
             description="""Iteration stops when the fractional change
-            in the gain solution is below this tolerance.""",
-            nullable=False,
+            in the gain solution is below this tolerance."""
         ),
-        zernike_limit=ConfigParam(
-            int,
-            None,
+    ] = 1e-06,
+    zernike_limit: Annotated[
+        Optional[int],
+        Field(
             description=(
                 "The maximum order of Zernike polynomials to use for the "
                 "screen model."
-            ),
+            )
         ),
-        plot_table=ConfigParam(
-            bool,
-            False,
-            description="Plot all station Phase vs Frequency",
-            nullable=False,
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            False,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-    optional=True,
-)
-def ionospheric_delay_stage(
-    upstream_output,
-    cluster_indexes,
-    block_diagonal,
-    niter,
-    tol,
-    zernike_limit,
-    plot_table,
-    export_gaintable,
-    _output_dir_,
+    ] = None,
+    plot_table: Annotated[
+        bool,
+        Field(description="Plot all station Phase vs Frequency"),
+    ] = False,
+    export_gaintable: Annotated[
+        bool,
+        Field(description="Export intermediate gain solutions."),
+    ] = False,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.
@@ -95,8 +80,10 @@ def ionospheric_delay_stage(
 
     Parameters
     ----------
-    upstream_output : UpstreamOutput
-        Output from upstream stage
+     _upstream_output_: dict
+        Output from the upstream stage
+    _output_dir_ : str
+        Directory path where the output file will be written.
     cluster_indexes : list or numpy.ndarray, optional
         An array of integers assigning each antenna to a specific cluster.
         If None, all antennas are treated as a single cluster (default: None).
@@ -117,8 +104,6 @@ def ionospheric_delay_stage(
     export_gaintable : bool, optional
         If True, the computed gain table is saved to an H5parm file in the
         specified output directory (default: False).
-    _output_dir_ : str, optional
-        Directory path where the output file will be written.
 
     Returns
     -------
@@ -129,10 +114,10 @@ def ionospheric_delay_stage(
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
-    upstream_output.add_checkpoint_key("vis")
-    vis = upstream_output.vis
-    modelvis = upstream_output.modelvis
-    vis_chunks = upstream_output.chunks
+    _upstream_output_.add_checkpoint_key("vis")
+    vis = _upstream_output_.vis
+    modelvis = _upstream_output_.modelvis
+    vis_chunks = _upstream_output_.chunks
     initialtable = create_gaintable_from_visibility(vis, "full", "B")
 
     gaintable = IonosphericSolver.solve(
@@ -149,7 +134,7 @@ def ionospheric_delay_stage(
     gaintable = gaintable.pipe(with_chunks, vis_chunks)
 
     vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
-    upstream_output["vis"] = vis
+    _upstream_output_["vis"] = vis
 
     if plot_table:
         path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
@@ -158,7 +143,7 @@ def ionospheric_delay_stage(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
                 gaintable, figure_title="Ionospheric Delay", phase_only=True
             )
@@ -169,10 +154,10 @@ def ionospheric_delay_stage(
             _output_dir_, "ionospheric_delay.gaintable.h5parm"
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
-    return upstream_output
+    return _upstream_output_

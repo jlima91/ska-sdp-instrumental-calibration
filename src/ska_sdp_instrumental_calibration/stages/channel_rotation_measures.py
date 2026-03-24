@@ -1,13 +1,9 @@
 import logging
-from copy import deepcopy
+from typing import Annotated, Literal
 
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import reset_gaintable
@@ -22,123 +18,71 @@ from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
 from ..xarray_processors.rotation_measures import model_rotations
 from ..xarray_processors.solver import run_solver
-from ._common import RUN_SOLVER_COMMON, RUN_SOLVER_DOCSTRING
+from ._common import RUN_SOLVER_DOCSTRING
 from ._utils import get_gaintables_path, get_plots_path
+from .configuration_models import PlotRMConfig, RunSolverConfig
 
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "generate_channel_rm",
-    configuration=Configuration(
-        oversample=ConfigParam(
-            int,
-            5,
-            description="""Oversampling value used in the RM
-            calculation. This determines the resolution of phasor.
-            Note that setting this value to some higher
-            integer may result in high memory usage.""",
+@ConfigurableStage(name="generate_channel_rm", optional=True)
+def generate_channel_rm_stage(
+    _upstream_output_,
+    _output_dir_,
+    run_solver_config: Annotated[
+        RunSolverConfig,
+        Field(
+            description="""Run solver parameters""",
+            default_factory=RunSolverConfig,
         ),
-        peak_threshold=ConfigParam(
-            float,
-            0.5,
+    ],
+    plot_rm_config: Annotated[
+        PlotRMConfig,
+        Field(
+            description="""Plot parameters for rotational measures""",
+            default_factory=PlotRMConfig,
+        ),
+    ],
+    oversample: Annotated[
+        int,
+        Field(
+            description="""Oversampling value used in the RM calculation.
+            This determines the resolution of the phasor. Setting this value
+            too high may result in high memory usage.""",
+        ),
+    ] = 5,
+    peak_threshold: Annotated[
+        float,
+        Field(
             description="""Height of peak in the RM spectrum required
             for a rotation detection.""",
         ),
-        refine_fit=ConfigParam(
-            bool,
-            True,
-            description="""Whether or not to refine the RM spectrum
-            peak locations with a nonlinear optimisation of
-            the station RM values.""",
+    ] = 0.5,
+    refine_fit: Annotated[
+        bool,
+        Field(
+            description="""Whether to refine RM spectrum peak locations
+            with a nonlinear optimisation of station RM values.""",
         ),
-        visibility_key=ConfigParam(
-            str,
-            "vis",
-            description="Visibility data to be used for calibration.",
-            allowed_values=["vis", "corrected_vis"],
+    ] = True,
+    visibility_key: Annotated[
+        Literal["vis", "corrected_vis"],
+        Field(
+            description="""Visibility data to be used for calibration.""",
         ),
-        plot_rm_config=NestedConfigParam(
-            "Plot Parameters for rotational measures",
-            plot_rm=ConfigParam(
-                bool,
-                False,
-                description="""Plot the estimated rotational measures
-                per station""",
-            ),
-            station=ConfigParam(
-                (int, str),
-                0,
-                description="""Station number/name to be plotted""",
-                nullable=True,
-            ),
+    ] = "vis",
+    plot_table: Annotated[
+        bool,
+        Field(
+            description="""Plot the generated gain table""",
         ),
-        plot_table=ConfigParam(
-            bool, False, description="Plot the generated gain table"
+    ] = False,
+    export_gaintable: Annotated[
+        bool,
+        Field(
+            description="""Export intermediate gain solutions.""",
         ),
-        run_solver_config=NestedConfigParam(
-            "Run Solver parameters",
-            **{
-                **(deepcopy(RUN_SOLVER_COMMON)),
-                "solver": ConfigParam(
-                    str,
-                    "jones_substitution",
-                    description="""Calibration algorithm to use.
-                Options are:
-                "gain_substitution" - original substitution algorithm
-                with separate solutions for each polarisation term.
-                "jones_substitution" - solve antenna-based Jones matrices
-                as a whole, with independent updates within each iteration.
-                "normal_equations" - solve normal equations within
-                each iteration formed from linearisation with respect to
-                antenna-based gain and leakage terms.
-                "normal_equations_presum" - same as normal_equations
-                option but with an initial accumulation of visibility
-                products over time and frequency for each solution
-                interval. This can be much faster for large datasets
-                and solution intervals.""",
-                    allowed_values=[
-                        "gain_substitution",
-                        "jones_substitution",
-                        "normal_equations",
-                        "normal_equations_presum",
-                    ],
-                ),
-                "niter": ConfigParam(
-                    int,
-                    50,
-                    description="""Number of solver iterations.""",
-                    nullable=False,
-                ),
-                "tol": ConfigParam(
-                    float,
-                    1e-03,
-                    description="""Iteration stops when the fractional change
-                in the gain solution is below this tolerance.""",
-                    nullable=False,
-                ),
-            },
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            False,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-    optional=True,
-)
-def generate_channel_rm_stage(
-    upstream_output,
-    oversample,
-    peak_threshold,
-    refine_fit,
-    visibility_key,
-    plot_rm_config,
-    plot_table,
-    run_solver_config,
-    export_gaintable,
-    _output_dir_,
+    ] = False,
 ):
     """
     Estimate a Rotation Measure value for each station, re-predict
@@ -147,8 +91,14 @@ def generate_channel_rm_stage(
 
     Parameters
     ----------
-        upstream_output: dict
+        _upstream_output_: dict
             Output from the upstream stage
+        _output_dir_ : str
+            Directory path where the output file will be written.
+        run_solver_config: RunSolverConfig
+            {run_solver_docstring}
+        plot_rm_config: PlotRMConfig
+            Configs required for RM plots.
         oversample: int
             Oversampling value used in the rotation
             calculatiosn. Note that setting this value to some higher
@@ -162,71 +112,62 @@ def generate_channel_rm_stage(
             of the station RM values.
         visibility_key: str
             Visibility data to be used for calibration.
-        plot_rm_config:
-            Configs required for RM plots.
-            eg: {{plot_rm: False, station: 0}}
-            per station.
         plot_table: bool
             Plot the gaintable.
-        run_solver_config: dict
-            {run_solver_docstring}
         export_gaintable: bool
             Export intermediate gain solutions
-        _output_dir_ : str
-            Directory path where the output file will be written.
-            Provided by piper.
 
     Returns
     -------
         dict
             Updated upstream_output with gaintable
     """
-    upstream_output.add_checkpoint_key("modelvis")
-    upstream_output.add_checkpoint_key("gaintable")
+    _upstream_output_.add_checkpoint_key("modelvis")
+    _upstream_output_.add_checkpoint_key("gaintable")
 
-    vis = upstream_output[visibility_key]
+    vis = _upstream_output_[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
 
-    modelvis = upstream_output.modelvis
-    initialtable = upstream_output.gaintable
-    beam_factory = upstream_output.beams_factory
+    modelvis = _upstream_output_.modelvis
+    initialtable = _upstream_output_.gaintable
+    beam_factory = _upstream_output_.beams_factory
 
-    refant = run_solver_config["refant"]
-    run_solver_config["refant"] = parse_antenna(
+    refant = run_solver_config.refant
+    run_solver_config.refant = parse_antenna(
         refant, initialtable.configuration.names
     )
-    station = plot_rm_config["station"]
-    plot_rm_config["station"] = parse_antenna(
+    station = plot_rm_config.station
+    plot_rm_config.station = parse_antenna(
         station, initialtable.configuration.names
     )
 
     call_counter_suffix = ""
-    if call_count := upstream_output.get_call_count("channel_rm"):
+    if call_count := _upstream_output_.get_call_count("channel_rm"):
         call_counter_suffix = f"_{call_count}"
 
     rotations = model_rotations(
         initialtable,
         peak_threshold=peak_threshold,
         refine_fit=refine_fit,
-        refant=run_solver_config["refant"],
+        refant=run_solver_config.refant,
         oversample=oversample,
     )
 
     modelvis = predict_vis(
         vis,
-        upstream_output["lsm"],
+        _upstream_output_["lsm"],
         initialtable.time.data,
         initialtable.soln_interval_slices,
         beam_factory,
         station_rm=rotations.rm_est,
     )
 
-    if upstream_output["central_beams"] is not None:
+    if _upstream_output_["central_beams"] is not None:
         modelvis = apply_gaintable_to_dataset(
-            modelvis, upstream_output["central_beams"], inverse=True
+            modelvis, _upstream_output_["central_beams"], inverse=True
         )
 
-    solver = Solver.get_solver(**run_solver_config)
+    solver = Solver.get_solver(**run_solver_config.model_dump())
     empty_table = reset_gaintable(initialtable)
 
     gaintable = run_solver(
@@ -236,22 +177,22 @@ def generate_channel_rm_stage(
         solver=solver,
     )
 
-    if plot_rm_config["plot_rm"]:
+    if plot_rm_config.plot_rm:
         path_prefix = get_plots_path(
             _output_dir_, f"channel_rm{call_counter_suffix}"
         )
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             plot_bandpass_stages(
                 gaintable,
                 initialtable,
                 rotations.rm_est,
-                run_solver_config["refant"],
+                run_solver_config.refant,
                 plot_path_prefix=path_prefix,
             ),
             plot_rm_station(
                 initialtable,
                 **rotations.get_plot_params_for_station(
-                    plot_rm_config["station"]
+                    plot_rm_config.station
                 ),
                 plot_path_prefix=path_prefix,
             ),
@@ -266,7 +207,7 @@ def generate_channel_rm_stage(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
                 gaintable,
                 figure_title="Channel Rotation Measure",
@@ -279,17 +220,17 @@ def generate_channel_rm_stage(
             _output_dir_, f"channel_rm{call_counter_suffix}.gaintable.h5parm"
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
-    upstream_output["modelvis"] = modelvis
-    upstream_output["gaintable"] = gaintable
-    upstream_output.increment_call_count("channel_rm")
+    _upstream_output_["modelvis"] = modelvis
+    _upstream_output_["gaintable"] = gaintable
+    _upstream_output_.increment_call_count("channel_rm")
 
-    return upstream_output
+    return _upstream_output_
 
 
 generate_channel_rm_stage.__doc__ = generate_channel_rm_stage.__doc__.format(

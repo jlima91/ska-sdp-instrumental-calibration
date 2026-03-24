@@ -1,8 +1,9 @@
 import logging
+from typing import Annotated, Optional
 
 import numpy as np
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere
@@ -13,65 +14,51 @@ from .._utils import get_plots_path
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "ionospheric_delay",
-    configuration=Configuration(
-        cluster_indexes=ConfigParam(
-            list,
-            None,
-            description=(
-                "Array of integers assigning each antenna to a cluster. "
-                "If None, all antennas are treated as a single cluster"
-            ),
-        ),
-        block_diagonal=ConfigParam(
-            bool,
-            True,
-            description=(
-                "If True, solve for all clusters simultaneously assuming a "
-                "block-diagonal system. If False, solve for each"
-                " cluster sequentially"
-            ),
-            nullable=False,
-        ),
-        niter=ConfigParam(
-            int,
-            10,
-            description="""Number of solver iterations.""",
-            nullable=False,
-        ),
-        tol=ConfigParam(
-            float,
-            1e-06,
-            description="""Iteration stops when the fractional change
-            in the gain solution is below this tolerance.""",
-            nullable=False,
-        ),
-        zernike_limit=ConfigParam(
-            int,
-            None,
-            description=(
-                "The maximum order of Zernike polynomials to use for the "
-                "screen model."
-            ),
-        ),
-        plot_table=ConfigParam(
-            bool,
-            False,
-            description="Plot all station Phase vs Frequency",
-            nullable=False,
-        ),
-    ),
-)
+@ConfigurableStage(name="ionospheric_delay")
 def ionospheric_delay_stage(
-    upstream_output,
-    cluster_indexes,
-    block_diagonal,
-    niter,
-    tol,
-    zernike_limit,
-    plot_table,
+    _upstream_output_,
     _output_dir_,
+    cluster_indexes: Annotated[
+        Optional[list[int]],
+        Field(
+            description="""Array of integers assigning each antenna to a
+            cluster. If None, all antennas are treated as a single cluster""",
+        ),
+    ] = None,
+    block_diagonal: Annotated[
+        bool,
+        Field(
+            description="""If True, solve for all clusters simultaneously
+            assuming a block-diagonal system. If False, solve for each cluster
+            sequentially""",
+        ),
+    ] = True,
+    niter: Annotated[
+        int,
+        Field(
+            description="""Number of solver iterations.""",
+        ),
+    ] = 10,
+    tol: Annotated[
+        float,
+        Field(
+            description="""Iteration stops when the fractional change in
+            the gain solution is below this tolerance.""",
+        ),
+    ] = 1e-6,
+    zernike_limit: Annotated[
+        Optional[int],
+        Field(
+            description="""The maximum order of Zernike polynomials to use
+            for the screen model.""",
+        ),
+    ] = None,
+    plot_table: Annotated[
+        bool,
+        Field(
+            description="""Plot all station Phase vs Frequency""",
+        ),
+    ] = False,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.
@@ -84,8 +71,10 @@ def ionospheric_delay_stage(
 
     Parameters
     ----------
-    upstream_output : UpstreamOutput
+    _upstream_output_ : UpstreamOutput
         Output from upstream stage
+    _output_dir_ : str, optional
+        Directory path where the output file will be written.
     cluster_indexes : list or numpy.ndarray, optional
         An array of integers assigning each antenna to a specific cluster.
         If None, all antennas are treated as a single cluster (default: None).
@@ -94,7 +83,7 @@ def ionospheric_delay_stage(
         clusters simultaneously. If False, it solves for each cluster
         sequentially (default: True).
     niter : int, optional
-        The maximum number of iterations for the solver (default: 500).
+        The maximum number of iterations for the solver (default: 10).
     tol : float, optional
         The tolerance for the fractional change in parameters that determines
         solver convergence (default: 1e-6).
@@ -103,9 +92,6 @@ def ionospheric_delay_stage(
         model. If None, a default is used by the solver (default: None).
     plot_table: bool, optional
         Plot all station Phase vs Frequency (default: False).
-    _output_dir_ : str, optional
-        Directory path where the output file will be written.
-
     Returns
     -------
     UpstreamOutput
@@ -116,11 +102,11 @@ def ionospheric_delay_stage(
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
-    upstream_output.add_checkpoint_key("gaintable")
-    vis = upstream_output.vis
-    modelvis = upstream_output.modelvis
-    vis_chunks = upstream_output.chunks
-    timeslice = upstream_output.timeslice
+    _upstream_output_.add_checkpoint_key("gaintable")
+    vis = _upstream_output_.vis
+    modelvis = _upstream_output_.modelvis
+    vis_chunks = _upstream_output_.chunks
+    timeslice = _upstream_output_.timeslice
 
     initialtable = create_gaintable_from_visibility(
         vis, timeslice, "B", skip_default_chunk=True
@@ -139,7 +125,7 @@ def ionospheric_delay_stage(
         zernike_limit,
     )
 
-    upstream_output["gaintable"] = gaintable
+    _upstream_output_["gaintable"] = gaintable
 
     if plot_table:
         path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
@@ -148,7 +134,7 @@ def ionospheric_delay_stage(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
                 gaintable,
                 figure_title="Ionospheric",
@@ -156,4 +142,4 @@ def ionospheric_delay_stage(
             )
         )
 
-    return upstream_output
+    return _upstream_output_

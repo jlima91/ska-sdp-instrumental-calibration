@@ -33,8 +33,6 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
             "--no-unique-output-subdir",
             "--config",
             test_resources.config,
-            "--input",
-            test_resources.ms_file,
             "--output",
             f"{temp_dir}/output",
             "--set",
@@ -43,6 +41,7 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
             "--set",
             "parameters.predict_vis.eb_ms",
             test_resources.eb_ms,
+            test_resources.ms_file,
         ]
 
         ska_sdp_instrumental_calibration()
@@ -129,12 +128,12 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
         assert os.path.exists(f"{temp_dir}/output/inst.gaintable.h5parm")
         assert any(
             Path(f"{temp_dir}/output/").glob(
-                "ska_sdp_instrumental_calibration*.cli.yml"
+                "ska_sdp_instrumental_calibration*.cli.yaml"
             )
         )
         assert any(
             Path(f"{temp_dir}/output/").glob(
-                "ska_sdp_instrumental_calibration*.config.yml"
+                "ska_sdp_instrumental_calibration*.config.yaml"
             )
         )
         assert any(

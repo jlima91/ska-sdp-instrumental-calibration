@@ -1,7 +1,16 @@
+import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import delay_calibration_stage
+from ska_sdp_instrumental_calibration.stages.delay_calibration import (
+    PlotConfig,
+    delay_calibration_stage,
+)
+
+
+@pytest.fixture
+def plot_config():
+    return PlotConfig(plot_table=False, fixed_axis=False)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -13,11 +22,11 @@ def test_should_have_the_expected_default_configuration():
         },
     }
 
-    assert delay_calibration_stage.config == expected_config
+    assert delay_calibration_stage.__stage__.config == expected_config
 
 
 def test_delay_calibration_stage_is_required():
-    assert delay_calibration_stage.is_required
+    assert delay_calibration_stage.__stage__.is_enabled
 
 
 @patch(
@@ -26,20 +35,19 @@ def test_delay_calibration_stage_is_required():
 )
 @patch("ska_sdp_instrumental_calibration.stages.delay_calibration.apply_delay")
 def test_should_perform_delay_calibration(
-    apply_delay_mock, calculate_delay_mock
+    apply_delay_mock, calculate_delay_mock, plot_config
 ):
     upstream_output = UpstreamOutput()
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
     oversample = 16
-    plot_config = {"plot_table": False, "fixed_axis": False}
 
-    actual_output = delay_calibration_stage.stage_definition(
+    actual_output = delay_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        _output_dir_="/output/path",
     )
 
     calculate_delay_mock.assert_called_once_with(gaintable_mock, oversample)
@@ -73,6 +81,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     plot_gaintable_freq_mock,
     plot_station_delays_mock,
     get_plots_path_mock,
+    plot_config,
 ):
     get_plots_path_mock.side_effect = [
         "/output/path/plots/delay",
@@ -82,23 +91,24 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
     oversample = 16
-    plot_config = {"plot_table": True, "fixed_axis": True}
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
+    plot_config.plot_table = True
+    plot_config.fixed_axis = True
 
-    delay_calibration_stage.stage_definition(
+    delay_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        _output_dir_="/output/path",
     )
 
-    delay_calibration_stage.stage_definition(
+    delay_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        _output_dir_="/output/path",
     )
 
     get_plots_path_mock.assert_has_calls(
@@ -167,6 +177,7 @@ def test_should_export_gaintable_with_proper_suffix(
     export_gaintable_mock,
     get_gaintables_path_mock,
     delay_mock,
+    plot_config,
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/delay.gaintable.h5parm",
@@ -178,22 +189,21 @@ def test_should_export_gaintable_with_proper_suffix(
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
     oversample = 16
-    plot_config = {"plot_table": False, "fixed_axis": True}
 
-    delay_calibration_stage.stage_definition(
+    delay_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        _output_dir_="/output/path",
     )
 
-    delay_calibration_stage.stage_definition(
+    delay_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        _output_dir_="/output/path",
     )
 
     get_gaintables_path_mock.assert_has_calls(

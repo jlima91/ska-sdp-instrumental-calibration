@@ -1,7 +1,16 @@
+import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import flag_gain_stage
+from ska_sdp_instrumental_calibration.stages.flag_gain import (
+    PlotFlagGainConfig,
+    flag_gain_stage,
+)
+
+
+@pytest.fixture
+def plot_config():
+    return PlotFlagGainConfig()
 
 
 def test_should_have_the_expected_default_configuration():
@@ -21,18 +30,23 @@ def test_should_have_the_expected_default_configuration():
         },
     }
 
-    assert flag_gain_stage.config == expected_config
+    assert flag_gain_stage.__stage__.config == expected_config
 
 
 def test_flag_gain_stage_is_optional():
-    assert flag_gain_stage.is_optional
+    assert not flag_gain_stage.__stage__.is_enabled
 
 
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.flag_on_gains")
+@patch("ska_sdp_instrumental_calibration.stages.flag_gain.get_gaintables_path")
 def test_should_perform_flagging_on_gains(
-    flag_on_gains_mock, plot_curve_mock, plot_flag_mock
+    get_gaintables_path_mock,
+    flag_on_gains_mock,
+    plot_curve_mock,
+    plot_flag_mock,
+    plot_config,
 ):
     upstream_output = UpstreamOutput()
     initialtable = Mock(name="initial_gaintable")
@@ -47,7 +61,8 @@ def test_should_perform_flagging_on_gains(
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = False
-    plot_config = {"curve_fit_plot": False, "gain_flag_plot": False}
+    plot_config.curve_fit_plot = False
+    plot_config.gain_flag_plot = False
 
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
@@ -66,20 +81,20 @@ def test_should_perform_flagging_on_gains(
         fits,
     )
 
-    actual = flag_gain_stage.stage_definition(
+    actual = flag_gain_stage(
         upstream_output,
-        soltype,
-        order,
-        skip_cross_pol,
-        export_gaintable,
-        max_ncycles,
-        n_sigma,
-        n_sigma_rolling,
-        window_size,
-        normalize_gains,
-        apply_flag,
-        plot_config,
-        _output_dir_="/output/path",
+        "/output/path",
+        plot_config=plot_config,
+        soltype=soltype,
+        order=order,
+        skip_cross_pol=skip_cross_pol,
+        export_gaintable=export_gaintable,
+        max_ncycles=max_ncycles,
+        n_sigma=n_sigma,
+        n_sigma_rolling=n_sigma_rolling,
+        window_size=window_size,
+        normalize_gains=normalize_gains,
+        apply_flag=apply_flag,
     )
 
     flag_on_gains_mock.assert_called_once_with(
@@ -117,6 +132,7 @@ def test_should_export_gaintable_with_proper_suffix(
     plot_flag_mock,
     get_gaintables_path_mock,
     delayed_mock,
+    plot_config,
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/gain_flag.gaintable.h5parm",
@@ -136,7 +152,8 @@ def test_should_export_gaintable_with_proper_suffix(
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = True
-    plot_config = {"curve_fit_plot": False, "gain_flag_plot": False}
+    plot_config.curve_fit_plot = False
+    plot_config.gain_flag_plot = False
 
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
@@ -155,36 +172,36 @@ def test_should_export_gaintable_with_proper_suffix(
         fits,
     )
 
-    flag_gain_stage.stage_definition(
+    flag_gain_stage(
         upstream_output,
-        soltype,
-        order,
-        skip_cross_pol,
-        export_gaintable,
-        max_ncycles,
-        n_sigma,
-        n_sigma_rolling,
-        window_size,
-        normalize_gains,
-        apply_flag,
-        plot_config,
-        _output_dir_="/output/path",
+        "/output/path",
+        plot_config=plot_config,
+        soltype=soltype,
+        order=order,
+        skip_cross_pol=skip_cross_pol,
+        export_gaintable=export_gaintable,
+        max_ncycles=max_ncycles,
+        n_sigma=n_sigma,
+        n_sigma_rolling=n_sigma_rolling,
+        window_size=window_size,
+        normalize_gains=normalize_gains,
+        apply_flag=apply_flag,
     )
 
-    flag_gain_stage.stage_definition(
+    flag_gain_stage(
         upstream_output,
-        soltype,
-        order,
-        skip_cross_pol,
-        export_gaintable,
-        max_ncycles,
-        n_sigma,
-        n_sigma_rolling,
-        window_size,
-        normalize_gains,
-        apply_flag,
-        plot_config,
-        _output_dir_="/output/path",
+        "/output/path",
+        plot_config=plot_config,
+        soltype=soltype,
+        order=order,
+        skip_cross_pol=skip_cross_pol,
+        export_gaintable=export_gaintable,
+        max_ncycles=max_ncycles,
+        n_sigma=n_sigma,
+        n_sigma_rolling=n_sigma_rolling,
+        window_size=window_size,
+        normalize_gains=normalize_gains,
+        apply_flag=apply_flag,
     )
 
     get_gaintables_path_mock.assert_has_calls(
@@ -230,6 +247,7 @@ def test_should_plot_flag_on_gain(
     plot_flag_mock,
     get_plots_path_mock,
     delayed_mock,
+    plot_config,
 ):
     get_plots_path_mock.side_effect = [
         "/output/path/plots/gain_flagging",
@@ -248,7 +266,6 @@ def test_should_plot_flag_on_gain(
     apply_flag = True
     skip_cross_pol = False
     export_gaintable = False
-    plot_config = {"curve_fit_plot": True, "gain_flag_plot": True}
 
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
@@ -266,20 +283,20 @@ def test_should_plot_flag_on_gain(
         gaintable_mock,
         fits,
     )
-    flag_gain_stage.stage_definition(
+    flag_gain_stage(
         upstream_output,
-        soltype,
-        order,
-        skip_cross_pol,
-        export_gaintable,
-        max_ncycles,
-        n_sigma,
-        n_sigma_rolling,
-        window_size,
-        normalize_gains,
-        apply_flag,
-        plot_config,
-        _output_dir_="/output/path",
+        "/output/path",
+        plot_config=plot_config,
+        soltype=soltype,
+        order=order,
+        skip_cross_pol=skip_cross_pol,
+        export_gaintable=export_gaintable,
+        max_ncycles=max_ncycles,
+        n_sigma=n_sigma,
+        n_sigma_rolling=n_sigma_rolling,
+        window_size=window_size,
+        normalize_gains=normalize_gains,
+        apply_flag=apply_flag,
     )
 
     get_plots_path_mock.assert_has_calls(

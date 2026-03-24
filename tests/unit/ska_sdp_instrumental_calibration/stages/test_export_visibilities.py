@@ -12,11 +12,11 @@ def test_should_have_the_expected_default_configuration():
         },
     }
 
-    assert export_visibilities_stage.config == expected_config
+    assert export_visibilities_stage.__stage__.config == expected_config
 
 
 def test_export_visibilities_stage_is_required():
-    assert export_visibilities_stage.is_required
+    assert export_visibilities_stage.__stage__.is_enabled
 
 
 @patch(
@@ -51,9 +51,7 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
     upstream_output["gaintable"] = gaintable_mock
     apply_gaintable_to_dataset_mock.return_value = corrected_vis_mock
 
-    result = export_visibilities_stage.stage_definition(
-        upstream_output, "vis", True, "./"
-    )
+    result = export_visibilities_stage(upstream_output, "./", "vis", True)
 
     apply_gaintable_to_dataset_mock.assert_called_once_with(
         vis_mock, upstream_output["gaintable"], inverse=True
@@ -99,9 +97,7 @@ def test_should_export_model_vis(
     upstream_output["modelvis"] = model_vis
     upstream_output["gaintable"] = gaintable_mock
 
-    export_visibilities_stage.stage_definition(
-        upstream_output, "modelvis", False, "./"
-    )
+    export_visibilities_stage(upstream_output, "./", "modelvis", False)
     get_visibilities_path_mock.assert_called_once_with("./", "modelvis.ms")
     export_mock.assert_called_once_with(
         "./visibilities/modelvis.ms", [model_vis]
@@ -144,9 +140,7 @@ def test_should_export_both_vis_and_model_vis(
     upstream_output["modelvis"] = model_vis
     upstream_output["gaintable"] = gaintable_mock
 
-    export_visibilities_stage.stage_definition(
-        upstream_output, "all", False, "./"
-    )
+    export_visibilities_stage(upstream_output, "./", "all", False)
 
     get_visibilities_path_mock.assert_has_calls(
         [
@@ -203,13 +197,13 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
     upstream_output["modelvis"] = model_vis
     upstream_output["gaintable"] = gaintable_mock
 
-    export_visibilities_stage.stage_definition(
-        upstream_output, "all", False, "./"
+    export_visibilities_stage(
+        upstream_output,
+        "./",
+        "all",
+        False,
     )
-    export_visibilities_stage.stage_definition(
-        upstream_output, "all", False, "./"
-    )
-
+    export_visibilities_stage(upstream_output, "./", "all", False)
     get_visibilities_path_mock.assert_has_calls(
         [
             call("./", "raw_vis.ms"),

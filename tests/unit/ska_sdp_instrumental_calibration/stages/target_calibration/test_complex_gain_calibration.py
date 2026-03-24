@@ -2,12 +2,12 @@ import pytest
 from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages import target_calibration
-from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
-
-complex_gain_calibration_stage = (
-    target_calibration.complex_gain_calibration_stage
+from ska_sdp_instrumental_calibration.stages.target_calibration.complex_gain_calibration import (  # noqa: E501
+    PlotConfig,
+    TargetRunSolverConfig,
+    complex_gain_calibration_stage,
 )
+from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 
 @pytest.fixture
@@ -24,13 +24,20 @@ def upstream_output():
 
 @pytest.fixture
 def run_solver_config():
-    return {
-        "niter": 1,
-        "refant": 2,
-        "tol": 1e-06,
-        "crosspol": False,
-        "timeslice": 0.5,
-    }
+    return TargetRunSolverConfig(
+        refant=2,
+        niter=1,
+        tol=1e-6,
+        crosspol=False,
+    )
+
+
+@pytest.fixture
+def plot_config():
+    return PlotConfig(
+        plot_table=False,
+        fixed_axis=False,
+    )
 
 
 @patch(
@@ -53,20 +60,20 @@ def test_should_perform_complex_gain_calibration(
     parse_ref_ant_mock,
     upstream_output,
     run_solver_config,
+    plot_config,
     visibility_key_attr,
 ):
     initial_gaintable = upstream_output.gaintable
     initial_gaintable.pipe.return_value = initial_gaintable
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
-    plot_config = {"plot_table": False, "fixed_axis": False}
     solver_factory_mock.get_solver.return_value = "SOLVER"
 
-    out = complex_gain_calibration_stage.stage_definition(
+    out = complex_gain_calibration_stage(
         upstream_output,
         run_solver_config=run_solver_config,
-        visibility_key=visibility_key_attr,
         plot_config=plot_config,
+        visibility_key=visibility_key_attr,
         export_gaintable=False,
         _output_dir_="/out",
     )
@@ -140,20 +147,22 @@ def test_should_export_gaintable_with_proper_suffix(
     delayed_mock,
     upstream_output,
     run_solver_config,
+    plot_config,
 ):
 
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
-    plot_config = {"plot_table": True, "fixed_axis": True}
     plot_gaintable_time_mock.return_value = plot_gaintable_time_mock
+    plot_config.plot_table = True
+    plot_config.fixed_axis = True
 
-    actual_output = complex_gain_calibration_stage.stage_definition(
+    actual_output = complex_gain_calibration_stage(
         upstream_output,
+        _output_dir_="/output/path",
         run_solver_config=run_solver_config,
         visibility_key="corrected_vis",
         plot_config=plot_config,
         export_gaintable=True,
-        _output_dir_="/output/path",
     )
 
     get_gaintables_path_mock.assert_called_once_with(

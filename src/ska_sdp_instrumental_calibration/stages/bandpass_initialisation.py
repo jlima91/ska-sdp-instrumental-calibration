@@ -1,8 +1,9 @@
 import logging
+from typing import Annotated
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
@@ -13,51 +14,34 @@ from ._utils import get_gaintables_path
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "bandpass_initialisation",
-    configuration=Configuration(
-        refant=ConfigParam(
-            (int, str),
-            0,
-            description="""Reference antenna""",
-            nullable=False,
-        ),
-        niter=ConfigParam(
-            int,
-            200,
-            description="""Number of solver iterations.""",
-            nullable=False,
-        ),
-        tol=ConfigParam(
-            float,
-            1e-06,
-            description="""Iteration stops when the fractional change
-                in the gain solution is below this tolerance.""",
-            nullable=False,
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            True,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-)
+@ConfigurableStage(name="bandpass_initialisation")
 def bandpass_initialisation_stage(
-    upstream_output,
-    refant,
-    niter,
-    tol,
-    export_gaintable,
+    _upstream_output_,
     _output_dir_,
+    refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
+    niter: Annotated[
+        int, Field(description="Number of solver iterations.")
+    ] = 200,
+    tol: Annotated[
+        float,
+        Field(
+            description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance."""
+        ),
+    ] = 1e-06,
+    export_gaintable: Annotated[
+        bool, Field(description="Export intermediate gain solutions.")
+    ] = True,
 ):
     """
     Initialises the gains for bandpass calibration
 
     Parameters
     ----------
-        upstream_output: dict
+        _upstream_output_: dict
             Output from the upstream stage
+        _output_dir_: str
+            Piper builtin. Stores the output directory path.
         refant: (int,str)
             Reference antenna
         niter: int
@@ -73,10 +57,10 @@ def bandpass_initialisation_stage(
             Updated upstream_output with gaintable
     """
 
-    upstream_output.add_checkpoint_key("gaintable")
-    vis = upstream_output.vis
-    modelvis = upstream_output.modelvis
-    initialtable = upstream_output.gaintable
+    _upstream_output_.add_checkpoint_key("gaintable")
+    vis = _upstream_output_.vis
+    modelvis = _upstream_output_.modelvis
+    initialtable = _upstream_output_.gaintable
 
     refant = parse_antenna(refant, initialtable.configuration.names)
     solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
@@ -93,12 +77,12 @@ def bandpass_initialisation_stage(
             _output_dir_, "bandpass_initialisation.gaintable.h5parm"
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
-    upstream_output["gaintable"] = gaintable
+    _upstream_output_["gaintable"] = gaintable
 
-    return upstream_output
+    return _upstream_output_

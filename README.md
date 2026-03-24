@@ -196,9 +196,9 @@ Example:
 
 ```bash
 ska-sdp-instrumental-calibration run \
---input /path/to/ms \
 --config /path/to/config \
---output /path/to/output/dir
+--output /path/to/output/dir \
+/path/to/ms
 ```
 
 Please run `ska-sdp-instrumental-calibration run --help` to see  all supported options of the `run` subcommand.\
@@ -211,9 +211,9 @@ Example:
 
 ```bash
 ska-sdp-instrumental-calibration experimental \
---input /path/to/ms \
 --config /path/to/config \
---output /path/to/output/dir
+--output /path/to/output/dir \
+/path/to/ms
 ```
 
 The configuration is used to control both the execution order and any additional settings for each stage. The `experimental` subcommand allows reuse of the same stage multiple times.

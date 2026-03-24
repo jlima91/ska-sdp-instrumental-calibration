@@ -2,7 +2,7 @@ import pytest
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import (
-    DefaultScheduler,
+    InstrumentalDaskRunner,
     UpstreamOutput,
 )
 
@@ -64,18 +64,20 @@ class TestUpstreamOutput:
         assert "key2" in upstream_output.checkpoint_keys
 
 
-class TestDefaultScheduler:
-    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
+class TestInstrumentalDaskRunner:
+    @patch(
+        "ska_sdp_instrumental_calibration.scheduler.get_client",
+        side_effect=Exception("No client"),
+    )
     @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    @patch.object(DefaultScheduler, "wait_and_throw_on_failure")
     def test_should_persist_checkpoints_and_computes(
-        self, mock_wait_and_throw, mock_persist, mock_get_client
+        self, mock_persist, mock_get_client
     ):
-        # Simulate client is present
-        mock_get_client.return_value = MagicMock()
+        pipeline = MagicMock(name="pipeline")
 
         dummy_stage = MagicMock()
         dummy_stage.name = "stage1"
+        pipeline.executable_stages = [dummy_stage]
 
         # Create output object and checkpoint keys
         output = MagicMock()
@@ -92,8 +94,8 @@ class TestDefaultScheduler:
         # Persist returns checkpoint and compute task values
         mock_persist.return_value = ["vis1_value", "task1"]
 
-        scheduler = DefaultScheduler()
-        scheduler.schedule([dummy_stage])
+        scheduler = InstrumentalDaskRunner(pipeline)
+        scheduler.execute()
 
         # Check persist called for both stages
         mock_persist.assert_any_call(
@@ -103,11 +105,34 @@ class TestDefaultScheduler:
         assert output.checkpoint_keys == []
         assert output.stage_compute_tasks == []
 
+    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
     @patch("ska_sdp_instrumental_calibration.scheduler.futures_of")
     @patch("ska_sdp_instrumental_calibration.scheduler.as_completed")
+    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
     def test_should_wait_and_throw_error_on_failure(
-        self, mock_as_completed, mock_futures_of
+        self, mock_persist, mock_as_completed, mock_futures_of, get_client_mock
     ):
+        pipeline = MagicMock(name="pipeline")
+
+        dummy_stage = MagicMock()
+        dummy_stage.name = "stage1"
+        pipeline.executable_stages = [dummy_stage]
+
+        # Create output object and checkpoint keys
+        output = MagicMock()
+        output.checkpoint_keys = ["vis1"]
+        output.compute_tasks = ["task1"]
+        output.__getitem__.return_value = "vis1_value"
+        output.__setitem__ = MagicMock()
+        output.compute_outputs = []
+        output.stage_compute_tasks = []
+        output.add_checkpoint_key = MagicMock()
+
+        dummy_stage.return_value = output
+
+        # Persist returns checkpoint and compute task values
+        mock_persist.return_value = ["vis1_value", "task1"]
+
         error = Exception("Task failed")
         error_task = MagicMock()
         error_task.status = "error"
@@ -122,23 +147,43 @@ class TestDefaultScheduler:
         mock_futures_of.return_value = (mock_delay1, mock_delay2)
         mock_as_completed.return_value = [error_task, success_task]
 
-        scheduler = DefaultScheduler()
+        scheduler = InstrumentalDaskRunner(pipeline)
         # Create mock tasks
 
         # Patch wait to return (done, not_done)
         with pytest.raises(Exception) as _error:
-            scheduler.wait_and_throw_on_failure((mock_delay1, mock_delay2))
+            scheduler.execute()
         assert _error.value is error_task.result()
 
-        mock_futures_of.assert_called_once_with((mock_delay1, mock_delay2))
+        mock_futures_of.assert_called_once_with(["vis1_value", "task1"])
         mock_as_completed.assert_called_once_with((mock_delay1, mock_delay2))
 
+    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
     @patch("ska_sdp_instrumental_calibration.scheduler.futures_of")
     @patch("ska_sdp_instrumental_calibration.scheduler.as_completed")
+    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
     def test_should_wait_and_not_throw_error_on_success(
-        self, mock_as_completed, mock_futures_of
+        self, mock_persist, mock_as_completed, mock_futures_of, get_client_mock
     ):
-        scheduler = DefaultScheduler()
+        pipeline = MagicMock(name="pipeline")
+
+        dummy_stage = MagicMock()
+        dummy_stage.name = "stage1"
+        pipeline.executable_stages = [dummy_stage]
+
+        # Create output object and checkpoint keys
+        output = MagicMock()
+        output.checkpoint_keys = ["vis1"]
+        output.compute_tasks = ["task1"]
+        output.__getitem__.return_value = "vis1_value"
+        output.__setitem__ = MagicMock()
+        output.compute_outputs = []
+        output.stage_compute_tasks = []
+        output.add_checkpoint_key = MagicMock()
+
+        dummy_stage.return_value = output
+
+        scheduler = InstrumentalDaskRunner(pipeline)
 
         success_task = MagicMock()
         success_task.status = "success"
@@ -149,104 +194,5 @@ class TestDefaultScheduler:
         delayed_task = MagicMock()
         mock_futures_of.return_value = (delayed_task,)
 
-        # Should not raise
-        scheduler.wait_and_throw_on_failure((delayed_task,))
+        scheduler.execute()
         mock_as_completed.assert_called_once_with((delayed_task,))
-
-    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
-    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    @patch.object(DefaultScheduler, "wait_and_throw_on_failure")
-    def test_should_wait_to_persist_when_client_present(
-        self, mock_wait_and_throw, mock_persist, mock_get_client
-    ):
-        # Simulate client is present
-        mock_get_client.return_value = MagicMock()
-        dummy_stage = MagicMock()
-        dummy_stage.name = "stage1"
-
-        mock_vis = MagicMock()
-
-        def side_effect(output):
-            output["vis"] = mock_vis
-            output.add_checkpoint_key("vis")
-            return output
-
-        dummy_stage.side_effect = side_effect
-
-        # Simulate persisted values (one failed task, one success)
-        failed_task = MagicMock()
-        success_task = MagicMock()
-        mock_persist.return_value = [failed_task, success_task]
-
-        # Simulate wait_and_throw_on_failure raises an exception
-        error = RuntimeError("Task failed")
-        mock_wait_and_throw.side_effect = error
-
-        scheduler = DefaultScheduler()
-        with pytest.raises(Exception) as excinfo:
-            scheduler.schedule([dummy_stage])
-        assert excinfo.value is error
-
-        # Ensure persist called with correct arguments
-        mock_persist.assert_called_once_with(mock_vis, optimize_graph=True)
-        # Ensure wait_and_throw_on_failure called with persisted values
-        mock_wait_and_throw.assert_called_once_with(
-            [failed_task, success_task]
-        )
-
-    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
-    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    @patch.object(DefaultScheduler, "wait_and_throw_on_failure")
-    def test_should_not_wait_to_persist_with_no_client(
-        self, mock_wait_and_throw, mock_persist, mock_get_client
-    ):
-        # Simulate client is not present
-        mock_get_client.side_effect = Exception("No client")
-        dummy_stage = MagicMock()
-        dummy_stage.name = "stage1"
-
-        mock_vis = MagicMock()
-
-        def side_effect(output):
-            output["vis"] = mock_vis
-            output.add_checkpoint_key("vis")
-            return output
-
-        dummy_stage.side_effect = side_effect
-
-        # Simulate persisted values (one failed task, one success)
-        failed_task = MagicMock()
-        success_task = MagicMock()
-        mock_persist.return_value = [failed_task, success_task]
-
-        scheduler = DefaultScheduler()
-        scheduler.schedule([dummy_stage])
-
-        # Ensure persist called with correct arguments
-        mock_persist.assert_called_once_with(mock_vis, optimize_graph=True)
-        # ensure wait is not called
-        mock_wait_and_throw.assert_not_called()
-
-    def test_should_append_and_extend_tasks(self):
-        scheduler = DefaultScheduler()
-
-        task1 = MagicMock()
-        task2 = MagicMock()
-        task3 = MagicMock()
-
-        scheduler.append(task1)
-        assert scheduler._stage_outputs.stage_compute_tasks == [task1]
-
-        scheduler.extend([task2, task3])
-        assert scheduler._stage_outputs.stage_compute_tasks == [
-            task1,
-            task2,
-            task3,
-        ]
-
-    def test_should_return_all_compute_tasks(self):
-        scheduler = DefaultScheduler()
-
-        scheduler.append("TASK")
-
-        assert scheduler.tasks == ["TASK"]

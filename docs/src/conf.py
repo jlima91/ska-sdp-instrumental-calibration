@@ -57,7 +57,6 @@ extensions = [
     "sphinx.ext.githubpages",
     "myst_parser",
     "sphinx_autodoc_typehints",
-    "ska_sdp_piper.extensions.sphinx_piper_stage",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
 ]
 

@@ -35,8 +35,7 @@ def test_should_run_pipeline_with_custom_order_of_stages(
     inst_pipeline_mock,
 ):
 
-    cli_args = Mock(name="cli_args")
-    cli_args.config_path = "path/to/config"
+    cli_args = dict(config_path="path/to/config")
 
     mock_bandpass_1 = Mock(name="bandpass_mock_stage_1")
     mock_bandpass_2 = Mock(name="bandpass_mock_stage_2")
@@ -51,11 +50,11 @@ def test_should_run_pipeline_with_custom_order_of_stages(
     ]
 
     inst_pipeline_mock._stages = [
-        load_data_stage,
-        predict_vis_stage,
-        bandpass_calibration_stage,
-        generate_channel_rm_stage,
-        export_gaintable_stage,
+        load_data_stage.__stage__,
+        predict_vis_stage.__stage__,
+        bandpass_calibration_stage.__stage__,
+        generate_channel_rm_stage.__stage__,
+        export_gaintable_stage.__stage__,
     ]
 
     read_yml_mock.return_value = {
@@ -76,33 +75,33 @@ def test_should_run_pipeline_with_custom_order_of_stages(
     }
     stages_mock.return_value = stages_mock
 
-    experimental(cli_args)
+    experimental(**cli_args)
 
     deepcopy_mock.assert_has_calls(
         [
-            call(bandpass_calibration_stage),
-            call(generate_channel_rm_stage),
-            call(bandpass_calibration_stage),
-            call(export_gaintable_stage),
+            call(bandpass_calibration_stage.__stage__),
+            call(generate_channel_rm_stage.__stage__),
+            call(bandpass_calibration_stage.__stage__),
+            call(export_gaintable_stage.__stage__),
         ]
     )
     stages_mock.assert_called_once_with(
-        [
-            load_data_stage,
-            generate_channel_rm_stage,
-            bandpass_calibration_stage,
-            mock_bandpass_1,
-            export_gaintable_stage,
-            mock_generate_rm_1,
-            mock_bandpass_2,
-            mock_export_gaintable_1,
-        ]
+        load_data_stage.__stage__,
+        generate_channel_rm_stage.__stage__,
+        bandpass_calibration_stage.__stage__,
+        mock_bandpass_1,
+        export_gaintable_stage.__stage__,
+        mock_generate_rm_1,
+        mock_bandpass_2,
+        mock_export_gaintable_1,
     )
     assert mock_bandpass_1.name == "bandpass_calibration_1"
     assert mock_bandpass_2.name == "bandpass_calibration_2"
     assert mock_generate_rm_1.name == "generate_channel_rm_1"
     assert mock_export_gaintable_1.name == "export_gain_table_1"
-    inst_pipeline_mock._run.assert_called_once_with(cli_args)
+    inst_pipeline_mock.run.assert_called_once_with(
+        config_path="tmp/tempfile.yml"
+    )
 
 
 @patch(
@@ -124,16 +123,14 @@ def test_should_use_initial_config_provided(
     inst_pipeline_mock,
 ):
 
-    cli_args = Mock(name="cli_args")
-    cli_args.config_path = "path/to/config"
     tempfile_mock.return_value = (1, "tmp/tempfile.yml")
 
     inst_pipeline_mock._stages = [
-        load_data_stage,
-        predict_vis_stage,
-        bandpass_calibration_stage,
-        generate_channel_rm_stage,
-        export_gaintable_stage,
+        load_data_stage.__stage__,
+        predict_vis_stage.__stage__,
+        bandpass_calibration_stage.__stage__,
+        generate_channel_rm_stage.__stage__,
+        export_gaintable_stage.__stage__,
     ]
 
     read_yml_mock.return_value = {
@@ -156,9 +153,11 @@ def test_should_use_initial_config_provided(
     }
     stages_mock.return_value = stages_mock
 
-    experimental(cli_args)
+    experimental(config_path="path/to/config")
     read_yml_mock.assert_called_once_with("path/to/config")
-    inst_pipeline_mock._run.assert_called_once_with(cli_args)
+    inst_pipeline_mock.run.assert_called_once_with(
+        config_path="tmp/tempfile.yml"
+    )
     tempfile_mock.assert_called_once_with(text=True, suffix=".yml")
     write_yml_mock.assert_called_once_with(
         "tmp/tempfile.yml",
@@ -186,8 +185,6 @@ def test_should_use_initial_config_provided(
         },
     )
 
-    assert cli_args.config_path == "tmp/tempfile.yml"
-
 
 @patch(
     "ska_sdp_instrumental_calibration.instrumental_calibration."
@@ -200,22 +197,19 @@ def test_should_warn_user_if_no_stage_section_is_provided_in_experimental(
     stages_mock, read_yml_mock, logger_mock, inst_pipeline_mock
 ):
 
-    cli_args = Mock(name="cli_args")
-    cli_args.config_path = "/some/path"
-
     stages_mock.return_value = stages_mock
 
     read_yml_mock.return_value = {
         "global_parameters": {"experimental": {"pipeline": []}}
     }
 
-    experimental(cli_args)
+    experimental(config_path="/some/path")
 
     logger_mock.warning.assert_has_calls(
         [call("No stage reordering provided. Using the default stage order")]
     )
 
-    inst_pipeline_mock._run.assert_called_once_with(cli_args)
+    inst_pipeline_mock.run.assert_called_once_with(config_path="/some/path")
 
 
 @patch(
@@ -227,13 +221,10 @@ def test_should_warn_user_if_no_config_is_provided_in_experimental(
     logger_mock, inst_pipeline_mock
 ):
 
-    cli_args = Mock(name="cli_args")
-    cli_args.config_path = None
-
-    experimental(cli_args)
+    experimental(config_path=None)
 
     logger_mock.warning.assert_has_calls(
         [call("No Config provided. Using the default stage order")]
     )
 
-    inst_pipeline_mock._run.assert_called_once_with(cli_args)
+    inst_pipeline_mock.run.assert_called_once_with(config_path=None)

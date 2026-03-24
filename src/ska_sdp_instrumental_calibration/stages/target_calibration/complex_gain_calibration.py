@@ -1,12 +1,9 @@
 import logging
+from typing import Annotated, Literal
 
 import dask
-from ska_sdp_piper.piper.configurations import (
-    ConfigParam,
-    Configuration,
-    NestedConfigParam,
-)
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import ConfigurableStage
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm as h5exp,
@@ -14,95 +11,57 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 
 from ...numpy_processors.solvers import Solver
 from ...plot import PlotGaintableTime
-from ...scheduler import UpstreamOutput
 from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
 from .._utils import get_gaintables_path, get_plots_path
+from ..configuration_models import PlotConfig, TargetRunSolverConfig
 
 logger = logging.getLogger()
 
 
-@ConfigurableStage(
-    "complex_gain_calibration",
-    configuration=Configuration(
-        run_solver_config=NestedConfigParam(
-            "Run Solver parameters",
-            refant=ConfigParam(
-                (int, str),
-                0,
-                description="""Reference antenna.
-                Currently only activated for gain_substitution solver""",
-                nullable=False,
-            ),
-            niter=ConfigParam(
-                int,
-                50,
-                description="""Number of solver iterations.""",
-                nullable=False,
-            ),
-            tol=ConfigParam(
-                float,
-                1e-06,
-                description="""Iteration stops when the fractional change
-                in the gain solution is below this tolerance.""",
-                nullable=False,
-            ),
-            crosspol=ConfigParam(
-                bool,
-                False,
-                description="""Do solutions including cross polarisations
-                i.e. XY, YX or RL, LR.
-                Only used by "gain_substitution" solver.""",
-                nullable=False,
-            ),
-        ),
-        plot_config=NestedConfigParam(
-            "Plot parameters",
-            plot_table=ConfigParam(
-                bool,
-                False,
-                description="Plot the generated gaintable",
-                nullable=False,
-            ),
-            fixed_axis=ConfigParam(
-                bool,
-                False,
-                description="Limit amplitude axis to [0-1]",
-                nullable=False,
-            ),
-        ),
-        visibility_key=ConfigParam(
-            str,
-            "vis",
-            description="Visibility data to be used for calibration.",
-            allowed_values=["vis", "corrected_vis"],
-        ),
-        export_gaintable=ConfigParam(
-            bool,
-            False,
-            description="Export intermediate gain solutions.",
-            nullable=False,
-        ),
-    ),
-)
+@ConfigurableStage(name="complex_gain_calibration")
 def complex_gain_calibration_stage(
-    upstream_output: UpstreamOutput,
-    run_solver_config,
-    plot_config,
-    visibility_key,
-    export_gaintable,
+    _upstream_output_,
     _output_dir_,
+    run_solver_config: Annotated[
+        TargetRunSolverConfig,
+        Field(
+            description="""Run solver parameters""",
+            default_factory=TargetRunSolverConfig,
+        ),
+    ],
+    plot_config: Annotated[
+        PlotConfig,
+        Field(
+            description="""Plot parameters""",
+            default_factory=PlotConfig,
+        ),
+    ],
+    visibility_key: Annotated[
+        Literal["vis", "corrected_vis"],
+        Field(
+            description="""Visibility data to be used for calibration.""",
+        ),
+    ] = "vis",
+    export_gaintable: Annotated[
+        bool,
+        Field(
+            description="""Export intermediate gain solutions.""",
+        ),
+    ] = False,
 ):
     """
     Performs Complex Gain Calibration
 
     Parameters
     ----------
-        upstream_output: dict
+        _upstream_output_: dict
             Output from the upstream stage. It should contain:
-              gaintable, modelvis and visibility data with key
-              same as visibility_key
-        run_solver_config: dict
+                gaintable, modelvis and visibility data with key
+                same as visibility_key
+        _output_dir_ : str
+            Directory path where the output file will be written.
+        run_solver_config: RunSolverConfig
             Run solver config for target calibration
         plot_config: dict
             Configuration required for plotting.
@@ -111,8 +70,6 @@ def complex_gain_calibration_stage(
             Visibility data to be used for calibration.
         export_gaintable: bool
             Export intermediate gain solutions
-        _output_dir_ : str
-            Directory path where the output file will be written.
 
     Returns
     -------
@@ -120,15 +77,16 @@ def complex_gain_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    upstream_output.add_checkpoint_key("gaintable")
-    modelvis = upstream_output.modelvis
-    vis_chunks = upstream_output.chunks
-    run_solver_config["timeslice"] = upstream_output.timeslice
+    _upstream_output_.add_checkpoint_key("gaintable")
+    modelvis = _upstream_output_.modelvis
+    vis_chunks = _upstream_output_.chunks
+    run_solver_config = run_solver_config.model_dump()
+    run_solver_config["timeslice"] = _upstream_output_.timeslice
 
-    vis = upstream_output[visibility_key]
+    vis = _upstream_output_[visibility_key]
     logger.info(f"Using {visibility_key} for complex gain calibration.")
 
-    initial_gaintable = upstream_output.gaintable
+    initial_gaintable = _upstream_output_.gaintable
     initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
 
     refant = run_solver_config["refant"]
@@ -146,18 +104,18 @@ def complex_gain_calibration_stage(
         solver=solver,
     )
 
-    if plot_config["plot_table"]:
+    if plot_config.plot_table:
         path_prefix = get_plots_path(_output_dir_, "complex_gain")
 
         freq_plotter = PlotGaintableTime(
             path_prefix=path_prefix,
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             freq_plotter.plot(
                 gaintable,
                 figure_title="Complex Gain",
-                fixed_axis=plot_config["fixed_axis"],
+                fixed_axis=plot_config.fixed_axis,
             )
         )
 
@@ -166,11 +124,11 @@ def complex_gain_calibration_stage(
             _output_dir_, "complex_gain.gaintable.h5parm"
         )
 
-        upstream_output.add_compute_tasks(
+        _upstream_output_.add_compute_tasks(
             dask.delayed(h5exp.export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
-    upstream_output["gaintable"] = gaintable
-    return upstream_output
+    _upstream_output_["gaintable"] = gaintable
+    return _upstream_output_

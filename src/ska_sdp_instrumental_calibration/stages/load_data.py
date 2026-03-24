@@ -1,9 +1,10 @@
 import logging
 import os
+from typing import Annotated, Literal, Optional
 
 import dask
-from ska_sdp_piper.piper.configurations import ConfigParam, Configuration
-from ska_sdp_piper.piper.stage import ConfigurableStage
+from pydantic import Field
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
@@ -15,74 +16,59 @@ from ..data_managers.visibility import (
 logger = logging.getLogger(__name__)
 
 
-@ConfigurableStage(
-    "load_data",
-    configuration=Configuration(
-        nchannels_per_chunk=ConfigParam(
-            int,
-            32,
-            nullable=False,
+@ConfigurableStage(name="load_data")
+def load_data_stage(
+    _upstream_output_,
+    _output_dir_,
+    input: Annotated[list[str], CLIArgument],
+    nchannels_per_chunk: Annotated[
+        int,
+        Field(
             description="""Number of frequency channels per chunk in the
             written zarr file. This is also the size of frequency chunk
-            used across the pipeline.""",
+            used across the pipeline."""
         ),
-        ntimes_per_ms_chunk=ConfigParam(
-            int,
-            5,
-            nullable=False,
-            description="""Number of time slots to include in each chunk
-            while reading from measurement set.""",
+    ] = 32,
+    ntimes_per_ms_chunk: Annotated[
+        int,
+        Field(
+            description="""Number of time dimension to include in each chunk
+            while reading from measurement set. This also sets
+            the number of times per chunk for zarr file."""
         ),
-        cache_directory=ConfigParam(
-            str,
-            None,
-            nullable=True,
+    ] = 5,
+    cache_directory: Annotated[
+        Optional[str],
+        Field(
             description="""Cache directory containing previously stored
             visibility datasets as zarr files. The directory should contain
             a subdirectory with same name as the input ms file name, which
             internally contains the zarr and pickle files.
             If None, the input ms will be converted to zarr file,
             and this zarr file will be stored in a new 'cache'
-            subdirectory under the provided output directory.""",
+            subdirectory under the provided output directory."""
         ),
-        ack=ConfigParam(
-            bool,
-            False,
-            nullable=False,
-            description="Ask casacore to acknowledge each table operation",
+    ] = None,
+    ack: Annotated[
+        bool,
+        Field(description="Ask casacore to acknowledge each table operation."),
+    ] = False,
+    datacolumn: Annotated[
+        Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+        Field(
+            description="Measurement set data column name to read data from."
         ),
-        datacolumn=ConfigParam(
-            str,
-            "DATA",
-            nullable=False,
-            description="MS data column to read visibility data from.",
-            allowed_values=["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+    ] = "DATA",
+    field_id: Annotated[
+        int,
+        Field(description="Field ID of the data in measurement set"),
+    ] = 0,
+    data_desc_id: Annotated[
+        int,
+        Field(
+            description="Data Description ID of the data in measurement set"
         ),
-        field_id=ConfigParam(
-            int,
-            0,
-            nullable=False,
-            description="Field ID of the data in measurement set",
-        ),
-        data_desc_id=ConfigParam(
-            int,
-            0,
-            nullable=False,
-            description="Data Description ID of the data in measurement set",
-        ),
-    ),
-)
-def load_data_stage(
-    upstream_output,
-    nchannels_per_chunk,
-    ntimes_per_ms_chunk,
-    cache_directory,
-    ack,
-    datacolumn,
-    field_id,
-    data_desc_id,
-    _cli_args_,
-    _output_dir_,
+    ] = 0,
 ):
     """
     This stage loads the visibility data from either (in order of preference):
@@ -95,8 +81,12 @@ def load_data_stage(
 
     Parameters
     ----------
-    upstream_output: dict
+    _upstream_output_: dict
         Output from the upstream stage
+    _output_dir_: str
+        Piper builtin. Stores the output directory path.
+    input: CLIArgument
+        Input measurementset.
     nchannels_per_chunk: int
         Number of frequency channels per chunk in the
         written zarr file. This value is used across the pipeline,
@@ -121,18 +111,14 @@ def load_data_stage(
         Field ID of the data in measurement set
     data_desc_id: int
         Data Description ID of the data in measurement set
-    _cli_args_: dict
-        Piper builtin. Contains all CLI Arguments.
-    _output_dir_: str
-        Piper builtin. Stores the output directory path.
 
     Returns
     -------
     dict
         Updated upstream_output with the loaded visibility data
     """
-    upstream_output.add_checkpoint_key("gaintable")
-    input_ms = _cli_args_["input"]
+    _upstream_output_.add_checkpoint_key("gaintable")
+    input_ms = input[0]
 
     input_ms = os.path.realpath(input_ms)
 
@@ -152,7 +138,7 @@ def load_data_stage(
         "time": ntimes_per_ms_chunk,
         "frequency": nchannels_per_chunk,
     }
-    upstream_output["chunks"] = vis_chunks
+    _upstream_output_["chunks"] = vis_chunks
 
     if cache_directory is None:
         logger.info(
@@ -188,11 +174,11 @@ def load_data_stage(
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
-    upstream_output["vis"] = vis
-    upstream_output["gaintable"] = create_gaintable_from_visibility(
+    _upstream_output_["vis"] = vis
+    _upstream_output_["gaintable"] = create_gaintable_from_visibility(
         vis, "full", "B"
     )
-    upstream_output["central_beams"] = None
-    upstream_output["beams_factory"] = None
+    _upstream_output_["central_beams"] = None
+    _upstream_output_["beams_factory"] = None
 
-    return upstream_output
+    return _upstream_output_

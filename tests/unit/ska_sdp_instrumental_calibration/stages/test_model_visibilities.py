@@ -20,7 +20,7 @@ def test_should_have_the_expected_default_configuration():
         }
     }
 
-    assert predict_vis_stage.config == expected_config
+    assert predict_vis_stage.__stage__.config == expected_config
 
 
 @patch(
@@ -43,7 +43,7 @@ def test_should_predict_visibilities(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
-    cli_args = {"input": "path/to/input/ms"}
+    input = ["path/to/input/ms"]
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -57,11 +57,10 @@ def test_should_predict_visibilities(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
+    result = predict_vis_stage(
+        upstream_output, input=input, _output_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
@@ -78,6 +77,13 @@ def test_should_predict_visibilities(
         upstream_output.gaintable.time.data,
         upstream_output.gaintable.soln_interval_slices,
         beams_factory_mock.return_value,
+    )
+    beams_factory_mock.assert_called_once_with(
+        nstations=upstream_output.vis.configuration.id.size,
+        array_location=upstream_output.vis.configuration.location,
+        direction=upstream_output.vis.phasecentre,
+        ms_path=input[0],
+        element_response_model="dipole_model",
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -103,7 +109,7 @@ def test_should_update_call_count(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
-    cli_args = {"input": "path/to/input/ms"}
+    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -120,13 +126,9 @@ def test_should_update_call_count(
         "_output_dir_": "./output_dir",
     }
 
-    upstream_output = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
-    )
+    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
 
-    upstream_output = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
-    )
+    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
 
     assert upstream_output.get_call_count("predict_vis") == 2
 
@@ -161,7 +163,7 @@ def test_should_normalise_at_beam_centre(
     upstream_output = UpstreamOutput()
 
     upstream_output["vis"] = vis
-    cli_args = {"input": "path/to/input/ms"}
+    input = "path/to/input/ms"
 
     model_vis = Mock(name="Model Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
@@ -188,8 +190,10 @@ def test_should_normalise_at_beam_centre(
         "_output_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
+    result = predict_vis_stage(
+        upstream_output,
+        input=input,
+        **params,
     )
 
     prediction_beams_mock.assert_called_once_with(
@@ -224,7 +228,7 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
-    cli_args = {"input": "path/to/input/ms"}
+    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -241,10 +245,7 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
         "_output_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage.stage_definition(
-        upstream_output, **params, _cli_args_=cli_args
-    )
-
+    result = predict_vis_stage(upstream_output, input=input, **params)
     global_sky_model_mock.assert_called_once_with(
         upstream_output.vis.phasecentre,
         10.0,
@@ -281,7 +282,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
-    cli_args = {"input": "path/to/input/ms"}
+    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -297,11 +298,8 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
         "export_sky_model": True,
     }
 
-    predict_vis_stage.stage_definition(
-        upstream_output,
-        **params,
-        _output_dir_="./output_dir",
-        _cli_args_=cli_args
+    predict_vis_stage(
+        upstream_output, **params, _output_dir_="./output_dir", input=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
