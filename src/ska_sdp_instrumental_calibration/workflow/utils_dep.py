@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 
 import dask.array as da
@@ -31,6 +32,14 @@ from ska_sdp_instrumental_calibration.processing_tasks.predict import (
 )
 
 logger = setup_logger(__name__)
+
+
+warnings.warn(
+    "The utils_dep module is deprecated, "
+    "and will be removed in a future release",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def convert_model_to_skycomponents(

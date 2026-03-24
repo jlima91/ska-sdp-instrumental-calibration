@@ -1,5 +1,7 @@
 """Module to initialise a pipeline from input parameters"""
 
+import warnings
+
 from astropy.coordinates import SkyCoord
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
@@ -10,6 +12,13 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.workflow.utils import create_demo_ms
 
 logger = setup_logger("workflow.pipeline_config")
+
+warnings.warn(
+    "The pipeline_config module is deprecated, "
+    "and will be removed in a future release",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class PipelineConfig:

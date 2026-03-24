@@ -2,6 +2,8 @@
 
 __all__ = ["model_rotations"]
 
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
@@ -12,6 +14,12 @@ from scipy.optimize import curve_fit
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("processing_tasks.post_processing")
+warnings.warn(
+    "The post_processing module is deprecated, "
+    "and will be removed in a future release",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def rm_func(

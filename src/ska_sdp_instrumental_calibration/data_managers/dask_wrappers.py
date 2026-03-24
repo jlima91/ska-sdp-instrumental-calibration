@@ -65,6 +65,12 @@ from ska_sdp_instrumental_calibration.workflow.utils import (
 
 logger = setup_logger("data_managers.dask_wrappers")
 
+warnings.warn(
+    "The dask_wrappers module is deprecated, and will be removed in a future release",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 def _load(
     vischunk: xr.Dataset,
