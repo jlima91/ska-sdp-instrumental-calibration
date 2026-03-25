@@ -27,12 +27,12 @@ priority = "supplemental"
 [tool.poetry.dependencies]
 python = "^3.10"
 astropy = ">=6.1"
-distributed = ">=2024.11"
+dask = { version = ">=2024.11", extras = ["distributed", "array"] }
 xarray = ">=2024.7"
 # Remove zarr<3 limit when xarray is upgraded to 2025*.
 zarr = ">=2.18,<3"
 everybeam = ">=0.8"
-numpy = ">=1.26,<3"
+numpy = ">=1.26"
 matplotlib = ">=3.9.1"
 python-casacore = ">=3.7.1"
 ska-sdp-datamodels = ">=1.1.1"
@@ -47,6 +47,7 @@ ska-sdp-func = ["ska-sdp-func"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 
 [tool.poetry.group.dev.dependencies]
+build = ">=1.4.1"
 isort = "^5.6.4"
 flake8 = "^7.1.0"
 black = "^24.10.0"
@@ -58,7 +59,7 @@ pytest-order = "^1.3.0"
 pytest-mock = "^3.12.0"
 pytest-pylint = "^0.21.0"
 pytest-json-report = "^1.5.0"
-pytest-cov = "^6.0.0"
+pytest-cov = ">=7.0.0"
 pytest-json = "^0.4.0"
 
 [tool.poetry.group.docs.dependencies]
