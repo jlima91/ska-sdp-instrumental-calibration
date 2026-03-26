@@ -83,13 +83,6 @@ branch = true
 source = [
     "src",
 ]
-omit = [
-    "*/**/workflow/pipelines/*",
-    "*/**/workflow/pipeline_config.py",
-    "*/**/workflow/utils_dep.py",
-    "*/**/processing_tasks/post_processing.py",
-    "*/**/data_managers/dask_wrappers.py"
-]
 
 [tool.coverage.report]
 fail_under = 85

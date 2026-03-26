@@ -4,9 +4,6 @@ from ska_sdp_datamodels.calibration.calibration_create import (
 )
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
-)
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     alternative_solvers,
 )
@@ -16,7 +13,9 @@ NormalEquation = alternative_solvers.NormalEquation
 NormalEquationsPreSum = alternative_solvers.NormalEquationsPreSum
 
 
-def test_should_solve_gain_using_jones_substitution(generate_ms):
+def test_should_solve_gain_using_jones_substitution(
+    generate_ms, apply_gaintable_to_dataset
+):
     ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]
@@ -62,7 +61,9 @@ def test_should_solve_gain_using_jones_substitution(generate_ms):
     )
 
 
-def test_should_solve_gain_using_normal_equations(generate_ms):
+def test_should_solve_gain_using_normal_equations(
+    generate_ms, apply_gaintable_to_dataset
+):
     ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]
@@ -108,7 +109,9 @@ def test_should_solve_gain_using_normal_equations(generate_ms):
     )
 
 
-def test_should_solve_gain_using_normal_equations_presum(generate_ms):
+def test_should_solve_gain_using_normal_equations_presum(
+    generate_ms, apply_gaintable_to_dataset
+):
     ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]

@@ -4,9 +4,6 @@ from ska_sdp_datamodels.calibration.calibration_create import (
 )
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    apply_gaintable_to_dataset,
-)
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     gain_substitution_solver,
 )
@@ -14,7 +11,9 @@ from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
 GainSubstitution = gain_substitution_solver.GainSubstitution
 
 
-def test_should_solve_gain_for_phase_only_disabled(generate_ms):
+def test_should_solve_gain_for_phase_only_disabled(
+    generate_ms, apply_gaintable_to_dataset
+):
     ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]
@@ -57,7 +56,9 @@ def test_should_solve_gain_for_phase_only_disabled(generate_ms):
     np.testing.assert_allclose(gain, gaintable.gain.values, atol=1e-6)
 
 
-def test_should_solve_gain_for_phase_only_enabled(generate_ms):
+def test_should_solve_gain_for_phase_only_enabled(
+    generate_ms, apply_gaintable_to_dataset
+):
     ms_name = generate_ms
     # Read in the Vis dataset directly and generate gains
     vis = create_visibility_from_ms(ms_name)[0]
