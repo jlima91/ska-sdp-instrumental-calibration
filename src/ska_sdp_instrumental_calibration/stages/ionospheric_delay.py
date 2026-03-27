@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional, Union
 
 import dask
 import numpy as np
@@ -60,6 +60,18 @@ def ionospheric_delay_stage(
             )
         ),
     ] = None,
+    timeslice: Annotated[
+        Union[float, Literal["auto", "full"]],
+        Field(
+            description="""Defines time scale over which each gain solution
+            is valid. This is used to define time axis of the GainTable.
+            This parameter is interpreted as follows,
+            float: this is a custom time interval in seconds.
+            Input timestamps are grouped by intervals of this duration,
+            and said groups are separately averaged to produce
+            the output time axis.""",
+        ),
+    ] = "full",
     plot_table: Annotated[
         bool,
         Field(description="Plot all station Phase vs Frequency"),
@@ -118,7 +130,9 @@ def ionospheric_delay_stage(
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
-    initialtable = create_gaintable_from_visibility(vis, "auto", "B")
+    initialtable = create_gaintable_from_visibility(
+        vis, timeslice, "B", skip_default_chunk=True
+    )
 
     gaintable = IonosphericSolver.solve(
         vis,
