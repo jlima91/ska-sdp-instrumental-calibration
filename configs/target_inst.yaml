@@ -1,0 +1,42 @@
+global_parameters: {}
+parameters:
+  target_load_data:
+    nchannels_per_chunk: 32
+    ntimes_per_ms_chunk: 5
+    cache_directory: null
+    timeslice: 3.0
+    ack: false
+    datacolumn: DATA
+    field_id: 0
+    data_desc_id: 0
+  predict_vis:
+    beam_type: everybeam
+    normalise_at_beam_centre: true
+    eb_ms: null
+    gleamfile: null
+    lsm_csv_path: null
+    export_sky_model: false
+    element_response_model: oskar_dipole_cos
+    fov: 5.0
+    flux_limit: 1.0
+    alpha0: -0.78
+  complex_gain_calibration:
+    run_solver_config:
+      refant: 0
+      niter: 50
+      tol: 1.0e-06
+      crosspol: false
+    plot_config:
+      plot_table: true
+      fixed_axis: false
+    visibility_key: vis
+    export_gaintable: false
+  export_gain_table:
+    file_name: inst.gaintable
+    export_format: h5parm
+    export_metadata: false
+pipeline:
+  target_load_data: true
+  predict_vis: true
+  complex_gain_calibration: true
+  export_gain_table: true

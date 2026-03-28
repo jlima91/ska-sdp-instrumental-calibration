@@ -2,8 +2,8 @@ global_parameters:
   experimental:
     pipeline:
     - load_data:
-        nchannels_per_chunk: 64
-        ntimes_per_ms_chunk: 20
+        nchannels_per_chunk: 32
+        ntimes_per_ms_chunk: 5
         cache_directory: null
         ack: false
         datacolumn: DATA
@@ -32,13 +32,6 @@ global_parameters:
           fixed_axis: false
         export_gaintable: true
     - generate_channel_rm:
-        oversample: 3
-        peak_threshold: 0.5
-        refine_fit: true
-        plot_rm_config:
-          plot_rm: true
-          station: 0
-        plot_table: true
         run_solver_config:
           solver: jones_substitution
           refant: 0
@@ -46,6 +39,13 @@ global_parameters:
           phase_only: false
           tol: 0.0001
           crosspol: false
+        plot_rm_config:
+          plot_rm: true
+          station: 0
+        oversample: 5
+        peak_threshold: 0.5
+        refine_fit: true
+        plot_table: true
         export_gaintable: true
     - bandpass_calibration:
         run_solver_config:
@@ -60,7 +60,7 @@ global_parameters:
           fixed_axis: false
         export_gaintable: true
     - delay_calibration:
-        oversample: 16
+        oversample: 1
         plot_config:
           plot_table: true
           fixed_axis: false

@@ -1,3 +1,6 @@
+global_parameters:
+  experimental:
+    pipeline: []
 parameters:
   load_data:
     nchannels_per_chunk: 64
@@ -31,16 +34,19 @@ parameters:
       phase_only: false
       tol: 0.0001
       crosspol: false
+    visibility_filters:
+      uvdist: null
+      exclude_baselines: null
     plot_config:
       plot_table: true
       fixed_axis: false
     visibility_key: vis
     export_gaintable: true
   delay_calibration:
-    oversample: 1
     plot_config:
       plot_table: true
       fixed_axis: false
+    oversample: 1
     export_gaintable: true
   export_gain_table:
     file_name: inst.gaintable
@@ -58,6 +64,3 @@ pipeline:
   smooth_gain_solution: false
   export_visibilities: false
   export_gain_table: true
-global_parameters:
-  experimental:
-    pipeline: []
