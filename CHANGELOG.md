@@ -1,6 +1,6 @@
 # Changelog
 
-## Development
+## 0.8.0
 
 ### Breaking
 
@@ -15,6 +15,12 @@
 
 1. Use AA0.5 strategy for benchmarking configuration.
 2. Move processing and solver functions to ska-sdp-func-python library.
+3. Add end-to-end integration test for INST CLI application
+
+### Fixes
+
+1. Fix issue with delay values being misinterpreted as RGB
+2. Fix phase wrapping in gain flagging stage. Solution type is internally mapped with mode.
 
 ## 0.7.1
 
