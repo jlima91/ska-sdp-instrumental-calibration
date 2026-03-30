@@ -1,6 +1,8 @@
-from io import StringIO
+import os
+import tempfile
 
 import numpy as np
+import pandas as pd
 import pytest
 from mock import MagicMock, patch
 
@@ -19,9 +21,18 @@ GLEAM J235139-894114 -0.001036 0.026022 23 51 39.45 -89 41 14.30 357.914368   0.
 
 
 CSV_CONTENT = """# Number of sources: 1434
-#(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
+# (component_id,ra_deg,dec_deg,i_pol_jy,a_arcsec,b_arcsec,pa_deg,ref_freq_hz,spec_idx,log_spec_idx) = format
 GLEAM J000010-000001, 357.914368, -89.687309, 2.71901e-01,  2.19263e+02, 1.464811e+02, -4.158033e+00, 2.000000e+08, "[-0.7,0.01,0.123]", true
 """  # noqa: E501
+
+
+@pytest.fixture
+def csv_file():
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(bytes(CSV_CONTENT, encoding="utf8"))
+
+    yield tmp.name
+    os.remove(tmp.name)
 
 
 @patch("builtins.open")
@@ -286,11 +297,10 @@ def test_should_raise_exception_for_invalid_csv_file(path_mock):
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.sky_model_reader.logger"
 )
-def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
+def test_should_generate_lsm_from_csv_file(logger_mock, path_mock, csv_file):
 
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
-    csv_file = StringIO(CSV_CONTENT)
 
     phasecentre = MagicMock(name="phasecentre")
     phasecentre.ra.radian = 350 * np.pi / 180
@@ -324,86 +334,13 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock):
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.sky_model_reader.logger"
 )
-def test_should_generate_lsm_from_csv_file_when_optional_fields_are_blank(
-    logger_mock, path_mock
-):
-    CSV_CONTENT = """
-    #(component_id,ra,dec,i_pol,major_ax,minor_ax,pos_ang,ref_freq,spec_idx,log_spec_idx) = format
-    GLEAM J000010-000001, 357.914368 , -89.687309 , 2.71901e-01, , , , 2.000000e+08, ,
-    """  # noqa: E501
-
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
-    csv_file = StringIO(CSV_CONTENT)
-
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
-
-    logger_mock.info.assert_called_once_with("extracted 1 csv components")
-
-    assert lsm == [
-        Component(
-            component_id="GLEAM J000010-000001",
-            ra=357.914368,
-            dec=-89.687309,
-            i_pol=0.271901,
-            ref_freq=200000000.0,
-            spec_idx=None,
-            major_ax=None,
-            minor_ax=None,
-            pos_ang=None,
-            log_spec_idx=True,
-        )
-    ]
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.logger"
-)
-def test_should_generate_lsm_from_csv_file_with_log_spec_idx_as_false(
-    logger_mock, path_mock
-):
-    content = CSV_CONTENT.replace("true", "false")
-
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
-    csv_file = StringIO(content)
-
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    lsm = generate_lsm_from_csv(csv_file, phasecentre, fov=10)
-
-    logger_mock.info.assert_called_once_with("extracted 1 csv components")
-
-    assert lsm[0].log_spec_idx is False
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.logger"
-)
 def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
-    logger_mock, path_mock
+    logger_mock, path_mock, csv_file
 ):
 
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
 
-    csv_file = StringIO(CSV_CONTENT)
     phasecentre = MagicMock(name="phasecentre")
     phasecentre.ra.radian = 350 * np.pi / 180
     phasecentre.dec.radian = -85.0 * np.pi / 180
@@ -423,11 +360,12 @@ def test_should_exclude_csv_comp_when_flux_is_less_than_min_flux(
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.sky_model_reader.logger"
 )
-def test_exclude_csv_comp_when_its_out_of_fov(logger_mock, path_mock):
+def test_exclude_csv_comp_when_its_out_of_fov(
+    logger_mock, path_mock, csv_file
+):
 
     path_mock.return_value = path_mock
     path_mock.is_file.return_value = True
-    csv_file = StringIO(CSV_CONTENT)
 
     phasecentre = MagicMock(name="phasecentre")
     phasecentre.ra.radian = 350 * np.pi / 180
@@ -502,3 +440,155 @@ class TestComponentConverts:
         ]
 
         assert csv_row == expected_row
+
+    def test_should_create_components_list_from_local_sky_model(self):
+        expected = pd.DataFrame(
+            [
+                [
+                    "comp0",
+                    357.914368,
+                    -89.687309,
+                    0.271901,
+                    200000000.0,
+                    [-0.7, 0.01, 0.123],
+                    219.263,
+                    146.4811,
+                    -4.158033,
+                    True,
+                ],
+                [
+                    "comp1",
+                    357.914368,
+                    -89.687309,
+                    0.271901,
+                    200000000.0,
+                    None,
+                    None,
+                    None,
+                    None,
+                    True,
+                ],
+            ],
+            columns=[
+                "component_id",
+                "ra",
+                "dec",
+                "i_pol",
+                "ref_freq",
+                "spec_idx",
+                "major_ax",
+                "minor_ax",
+                "pos_ang",
+                "log_spec_idx",
+            ],
+        )
+
+        local_sky_model = MagicMock(name="LocalSkyModel")
+        local_sky_model.__getitem__.side_effect = [
+            ["comp0", "comp1"],
+            [357.914368, 357.914368],
+            [-89.687309, -89.687309],
+            [0.271901, 0.271901],
+            [200000000.0, 200000000.0],
+            [[-0.7, 0.01, 0.123], None],
+            [219.263, None],
+            [146.4811, None],
+            [-4.158033, None],
+            [True, True],
+        ]
+        local_sky_model.column_names = [
+            "component_id",
+            "ra",
+            "dec",
+            "i_pol",
+            "ref_freq",
+            "spec_idx",
+            "major_ax",
+            "minor_ax",
+            "pos_ang",
+            "log_spec_idx",
+        ]
+        # LocalSkyModel()
+        actual = ComponentConverters.create_lsm_df(local_sky_model)
+
+        pd.testing.assert_frame_equal(actual, expected)
+
+    def test_should_create_components_from_local_sky_components_df(self):
+        columns = [
+            "component_id",
+            "ra_deg",
+            "dec_deg",
+            "i_pol_jy",
+            "a_arcsec",
+            "b_arcsec",
+            "pa_deg",
+            "ref_freq_hz",
+            "spec_idx",
+            "log_spec_idx",
+        ]
+
+        # Data provided as a list of lists
+        data = [
+            [
+                "Component 000000",
+                197.914612,
+                -22.277973,
+                45.91633,
+                0.0,
+                0.0,
+                0.0,
+                1.43e08,
+                [0.0],
+                True,
+            ],
+            [
+                "Component 000001",
+                198.034622,
+                -20.447077,
+                3.442318,
+                0.0,
+                0.0,
+                0.0,
+                1.43e08,
+                [-0.6756219],
+                True,
+            ],
+        ]
+
+        # Create the DataFrame
+        df = pd.DataFrame(data=data, columns=columns)
+        expected = [
+            Component(
+                component_id="Component 000000",
+                ra=197.914612,
+                dec=-22.277973,
+                i_pol=45.91633,
+                ref_freq=1.43e08,
+                spec_idx=[0.0],
+                major_ax=0.0,
+                minor_ax=0.0,
+                pos_ang=0.0,
+                log_spec_idx=True,
+                beam_major=0.0,
+                beam_minor=0.0,
+                beam_pa=0.0,
+            ),
+            Component(
+                component_id="Component 000001",
+                ra=198.034622,
+                dec=-20.447077,
+                i_pol=3.442318,
+                ref_freq=1.43e08,
+                spec_idx=[-0.6756219],
+                major_ax=0.0,
+                minor_ax=0.0,
+                pos_ang=0.0,
+                log_spec_idx=True,
+                beam_major=0.0,
+                beam_minor=0.0,
+                beam_pa=0.0,
+            ),
+        ]
+        # Display the result
+
+        assert expected == ComponentConverters.df_to_components(df)

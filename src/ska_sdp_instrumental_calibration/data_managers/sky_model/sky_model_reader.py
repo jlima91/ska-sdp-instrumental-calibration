@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from astropy.coordinates import SkyCoord
+from ska_sdp_datamodels.global_sky_model import LocalSkyModel, SkyComponent
 
 from .component import Component
 
@@ -81,7 +82,36 @@ class ComponentConverters:
         list of Component
             A list containing the converted Component instances.
         """
-        return [Component(**row) for row in df.to_dict("records")]
+
+        # Creation of components from sky_components (datamodel) can be removed
+        # when validation part goes to LocalSkyModel (datamodel)
+        # and maybe we will entirly use Component from datamodels.
+
+        sky_components = (SkyComponent(**row) for row in df.to_dict("records"))
+
+        return [
+            Component(
+                component_id=sky_comp.component_id,
+                ra=sky_comp.ra_deg,
+                dec=sky_comp.dec_deg,
+                i_pol=sky_comp.i_pol_jy,
+                ref_freq=sky_comp.ref_freq_hz,
+                spec_idx=list(sky_comp.spec_idx),
+                major_ax=sky_comp.a_arcsec,
+                minor_ax=sky_comp.b_arcsec,
+                pos_ang=sky_comp.pa_deg,
+                log_spec_idx=sky_comp.log_spec_idx,
+            )
+            for sky_comp in sky_components
+        ]
+
+    @staticmethod
+    def create_lsm_df(local_sky_model: LocalSkyModel) -> pd.DataFrame:
+        cols = local_sky_model.column_names
+
+        components_table = zip(*[local_sky_model[col] for col in cols])
+
+        return pd.DataFrame(components_table, columns=cols)
 
 
 def generate_lsm_from_csv(
@@ -137,20 +167,8 @@ def generate_lsm_from_csv(
     if not Path(csvfile).is_file():
         raise ValueError(f"Cannot open csv file {csvfile}")
 
-    lsm_df = pd.read_csv(
-        csvfile,
-        sep=",",
-        comment="#",
-        names=SKY_MODEL_CSV_HEADER,
-        skipinitialspace=True,
-        converters={
-            "spec_idx": lambda x: json.loads(x) if x else None,
-            "log_spec_idx": lambda x: (x.lower() == "true" if x else True),
-            "major_ax": _to_float,
-            "minor_ax": _to_float,
-            "pos_ang": _to_float,
-        },
-    )
+    local_sky_model = LocalSkyModel.load(csvfile)
+    lsm_df = ComponentConverters.create_lsm_df(local_sky_model)
 
     lsm_df = _filter_by_fov_and_flux(lsm_df, phasecentre, fov, flux_limit)
 
@@ -287,10 +305,10 @@ def _filter_by_fov_and_flux(df, phasecentre, fov, flux_limit):
     deg2rad = np.pi / 180.0
     max_separation = fov / 2 * deg2rad
 
-    df = df[df["i_pol"] >= flux_limit]
+    df = df[df["i_pol_jy"] >= flux_limit]
 
-    ra_rad = deg2rad * df["ra"]
-    dec_rad = deg2rad * df["dec"]
+    ra_rad = deg2rad * df["ra_deg"]
+    dec_rad = deg2rad * df["dec_deg"]
     separation = _calculate_separation(
         ra_rad, dec_rad, phasecentre.ra.radian, phasecentre.dec.radian
     )
