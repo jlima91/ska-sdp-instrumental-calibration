@@ -82,7 +82,7 @@ cat <<EOF > $BATCHLET_CONFIG
       "save_dir": "$REPORT_PATH"
     }
   },
-  "generate_reports_on_failure": false
+  "generate_reports_on_failure": true
 }
 EOF
 
