@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import xarray as xr
 from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.calibration.calibration_create import (
     create_gaintable_from_visibility,
@@ -130,3 +131,118 @@ def generate_vis_mvis_gain_ndarray_data(generate_vis):
         "ant2": ant2,
         "nchannels": nfreq,
     }
+
+
+# Apply gaintable functions. The tests consuming these functions should be
+# fixed to work with the actual apply_gaintable
+
+
+def _apply_gaintable(
+    vis: xr.Dataset,
+    gt: xr.Dataset,
+    inverse: bool = False,
+) -> xr.Dataset:
+    """Apply a GainTable to a Visibility.
+
+    This is a temporary local version of
+    ska-sdp-func-python.operations.apply_gaintable that avoids a bug in the
+    original. Will remove once the ska-sdp-func-python version is fixed. The
+    bug is that the function does not transpose the rightmost matrix.
+
+    Note: this is a temporary function and has not been made to robustly
+    handle all situations. For instance, it ignores flags and does not
+    properly handle sub-bands and partial solution intervals. It also assumes
+    that the matrices being applied are Jones matrices and the general
+    ska-sdp-datamodels xarrays are used.
+
+    :param vis: Visibility dataset to have gains applied.
+    :param gt: GainTable dataset to be applied.
+    :param inverse: Apply the inverse. This requires the gain matrices to be
+        square. (default=False)
+    :return: Input Visibility with gains applied.
+    """
+    if vis.vis.ndim != gt.gain.ndim - 1:
+        raise ValueError("incompatible shapes")
+    if vis.vis.shape[-1] != gt.gain.shape[-1] * gt.gain.shape[-1]:
+        raise ValueError("incompatible pol axis")
+    if inverse and gt.gain.shape[-1] != gt.gain.shape[-2]:
+        raise ValueError("gain inversion requires square matrices")
+
+    shape = vis.vis.shape
+
+    # inner pol dim for forward application (and inverse since square)
+    npol = gt.gain.shape[-1]
+
+    # need to know which dim has the antennas, so force the structure
+    if vis.vis.ndim != 4 or vis.vis.shape[-1] != 4:
+        raise ValueError("expecting ska-sdp-datamodels datasets")
+
+    if inverse:
+        # use pinv rather than inv to catch singular values
+        jones = np.linalg.pinv(gt.gain.data[..., :, :])
+    else:
+        jones = gt.gain.data
+
+    vis.vis.data = np.einsum(
+        "...pi,...ij,...qj->...pq",
+        jones[:, vis.antenna1.data],
+        vis.vis.data.reshape(shape[0], shape[1], shape[2], npol, npol),
+        jones[:, vis.antenna2.data].conj(),
+    ).reshape(shape)
+
+    return vis
+
+
+def _apply(
+    vischunk: xr.Dataset,
+    gainchunk: xr.Dataset,
+    inverse: bool,
+) -> xr.Dataset:
+    """Call apply_gaintable.
+
+    Set up to run with function apply_gaintable_to_dataset.
+
+    :param vis: Visibility dataset to receive calibration factors.
+    :param gaintable: GainTable dataset containing solutions to apply.
+    :param inverse: Whether or not to apply the inverse.
+    :return: Calibrated Visibility dataset
+    """
+    if len(vischunk.frequency) > 0:
+        if np.any(gainchunk.frequency.data != vischunk.frequency.data):
+            raise ValueError("Inconsistent frequencies")
+        # Switch back to standard variable names for the SDP call
+        gainchunk = gainchunk.rename({"soln_time": "time"})
+        # Call apply function
+        vischunk = _apply_gaintable(
+            vis=vischunk, gt=gainchunk, inverse=inverse
+        )
+    return vischunk
+
+
+def apply_gaintable_to_dataset_func(
+    vis: xr.Dataset,
+    gaintable: xr.Dataset,
+    inverse: bool = False,
+) -> xr.Dataset:
+    """Do the bandpass calibration.
+
+    :param vis: Chunked Visibility dataset to receive calibration factors.
+    :param gaintable: Chunked GainTable dataset containing solutions to apply.
+    :param inverse: Apply the inverse. This requires the gain matrices to be
+        square. (default=False)
+    :return: Calibrated Visibility dataset
+    """
+    # map_blocks won't accept dimensions that differ but have the same name
+    # So rename the gain time dimension (and coordinate)
+    gaintable = gaintable.rename({"time": "soln_time"})
+    return vis.map_blocks(_apply, args=[gaintable, inverse])
+
+
+@pytest.fixture
+def apply_gaintable_to_dataset():
+    return apply_gaintable_to_dataset_func
+
+
+@pytest.fixture
+def apply_gaintable():
+    return _apply_gaintable

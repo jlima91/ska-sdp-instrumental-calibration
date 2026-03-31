@@ -119,3 +119,24 @@ def parse_antenna(antenna, station_names: xr.DataArray):
             raise ValueError("Reference antenna name is not valid")
 
     raise ValueError(f"Invalid antenna value {antenna}")
+
+
+def restore_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
+    """Move the baselines data variable back to a coordinate.
+
+    Reverse of simplify_baselines_dim, needed for some SDP functions.
+
+    :param vis: Modified Visibility dataset
+    :return: Standard Visibility dataset
+    """
+    if vis.coords.get("baselineid") is None:
+        logger.warning("No baselineid coord in dataset. Returning unchanged")
+        return vis
+    elif vis.coords.get("baselines") is not None:
+        logger.warning("Coord baselines already exists. Returning unchanged")
+        return vis
+    else:
+        logger.debug("Restoring baselines MultiIndex coord")
+        return vis.swap_dims({"baselineid": "baselines"}).reset_coords(
+            "baselineid"
+        )

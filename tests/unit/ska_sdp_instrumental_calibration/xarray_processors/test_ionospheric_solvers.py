@@ -5,15 +5,12 @@ from mock import patch
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_instrumental_calibration.processing_tasks.calibration import (
-    apply_gaintable,
-)
 from ska_sdp_instrumental_calibration.xarray_processors import (
     ionosphere_solvers,
 )
 
 
-def test_solve_for_ionosphere(generate_vis):
+def test_solve_for_ionosphere(generate_vis, apply_gaintable):
     vis, jones = generate_vis
 
     jones.gain.data[..., 0, 1] *= 0

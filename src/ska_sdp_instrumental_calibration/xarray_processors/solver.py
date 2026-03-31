@@ -4,11 +4,8 @@ import xarray as xr
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.visibility import Visibility
 
-from ska_sdp_instrumental_calibration.data_managers.dask_wrappers import (
-    restore_baselines_dim,
-)
-
 from ..numpy_processors.solvers import Solver
+from ._utils import restore_baselines_dim
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,97 @@
+import numpy as np
 import pytest
 from mock import MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm,
 )
+
+
+def test_should_create_soltab_dataset():
+    soltab = MagicMock(name="soltab")
+    gaintable = MagicMock(name="gaintbale")
+    data_mock = MagicMock(name="data")
+    gaintable.__getitem__.return_value = data_mock
+    val_mock = MagicMock(name="val")
+    weight_mock = MagicMock(name="weight")
+    soltab.create_dataset.side_effect = ("A", "B", val_mock, weight_mock)
+
+    gaintable.gain.sizes = ["A", "B"]
+
+    val, weight = export_to_h5parm.create_soltab_datasets(soltab, gaintable)
+
+    soltab.create_dataset.assert_has_calls(
+        [
+            call("A", data=data_mock.data),
+            call("B", data=data_mock.data),
+            call("val", shape=gaintable.gain.shape, dtype=float),
+            call("weight", shape=gaintable.gain.shape, dtype=float),
+        ]
+    )
+
+    gaintable.__getitem__.assert_has_calls([call("A"), call("B")])
+    val_mock.attrs.__setitem__.assert_called_once_with(
+        "AXES", np.bytes_(b"A,B")
+    )
+
+    weight_mock.attrs.__setitem__.assert_called_once_with(
+        "AXES", np.bytes_(b"A,B")
+    )
+
+    assert val == val_mock
+    assert weight == weight_mock
+
+
+def test_should_create_clock_soltab_dataset():
+    soltab = MagicMock(name="soltab")
+    gaintable = MagicMock(name="gaintbale")
+    data_mock = MagicMock(name="data")
+    gaintable.__getitem__.return_value = data_mock
+    val_mock = MagicMock(name="val")
+    offset_mock = MagicMock(name="offset")
+    soltab.create_dataset.side_effect = ("A", "B", val_mock, offset_mock)
+
+    gaintable.delay.sizes = ["A", "B"]
+
+    val, offset = export_to_h5parm.create_clock_soltab_datasets(
+        soltab, gaintable
+    )
+
+    soltab.create_dataset.assert_has_calls(
+        [
+            call("A", data=data_mock.data),
+            call("B", data=data_mock.data),
+            call("val", shape=gaintable.delay.shape, dtype=float),
+            call("offset", shape=gaintable.delay.shape, dtype=float),
+        ]
+    )
+
+    gaintable.__getitem__.assert_has_calls([call("A"), call("B")])
+    val_mock.attrs.__setitem__.assert_called_once_with(
+        "AXES", np.bytes_(b"A,B")
+    )
+
+    offset_mock.attrs.__setitem__.assert_called_once_with(
+        "AXES", np.bytes_(b"A,B")
+    )
+
+    assert val == val_mock
+    assert offset == offset_mock
+
+
+def test_should_create_soltab_group():
+    soltab = MagicMock(name="soltab")
+    solset = MagicMock(name="solset")
+    solset.create_group.return_value = soltab
+
+    soltb = export_to_h5parm.create_soltab_group(solset, "phase")
+
+    solset.create_group.assert_called_once_with("phase000")
+    soltab.attrs.__setitem__.assert_called_once_with(
+        "TITLE", np.bytes_("phase")
+    )
+
+    assert soltb == soltab
 
 
 @patch(

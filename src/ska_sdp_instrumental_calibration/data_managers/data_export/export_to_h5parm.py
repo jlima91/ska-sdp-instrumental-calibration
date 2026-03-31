@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Literal
 
 import dask
 import h5py
@@ -7,14 +7,69 @@ import xarray as xr
 from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
-from ...logger import setup_logger
-from ...workflow.utils import (
-    create_clock_soltab_datasets,
-    create_soltab_datasets,
-    create_soltab_group,
-)
+from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("data_managers.data_export")
+
+
+def create_soltab_group(
+    solset: h5py.Group, solution_type: Literal["amplitude", "phase", "clock"]
+) -> h5py.Group:
+    """Create soltab group under given solset group.
+
+    :param solset: base-level HDF5 group to update
+    :param solution_type: only "amplitude" and "phase" are supported at present
+    :return: HDF5 group for the "solution_type" data
+    """
+    soltab = solset.create_group(f"{solution_type}000")
+    soltab.attrs["TITLE"] = np.bytes_(solution_type)
+    return soltab
+
+
+def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
+    """Add a dataset for each of the GainTable dimensions.
+
+    :param soltab: HDF5 table to update
+    :param gaintable: GainTable
+    """
+    # create a dataset for each dimension
+    for dim in list(gaintable.gain.sizes):
+        soltab.create_dataset(dim, data=gaintable[dim].data)
+
+    # create datasets for the data and weights
+    shape = gaintable.gain.shape
+    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
+
+    val = soltab.create_dataset("val", shape=shape, dtype=float)
+    val.attrs["AXES"] = axes
+
+    weight = soltab.create_dataset("weight", shape=shape, dtype=float)
+    weight.attrs["AXES"] = axes
+
+    return val, weight
+
+
+def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
+    """Add a dataset for each of the Delay dimensions.
+
+    :param soltab: HDF5 table to update
+    :param delaytable: xr.Dataset
+    """
+    # create a dataset for each dimension
+    for dim in list(delaytable.delay.sizes):
+        soltab.create_dataset(dim, data=delaytable[dim].data)
+
+    # create datasets for the data and weights
+    shape = delaytable.delay.shape
+    axes = np.bytes_(",".join(list(delaytable.delay.sizes)))
+
+    val = soltab.create_dataset("val", shape=shape, dtype=float)
+    val.attrs["AXES"] = axes
+
+    offset = soltab.create_dataset("offset", shape=shape, dtype=float)
+    offset.attrs["AXES"] = axes
+
+    return val, offset
 
 
 def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:

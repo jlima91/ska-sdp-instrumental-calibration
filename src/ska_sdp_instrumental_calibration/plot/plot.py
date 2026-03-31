@@ -5,7 +5,7 @@ import numpy as np
 import xarray as xr
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
-from ska_sdp_instrumental_calibration.processing_tasks.predict import (
+from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
     generate_rotation_matrices,
 )
 
