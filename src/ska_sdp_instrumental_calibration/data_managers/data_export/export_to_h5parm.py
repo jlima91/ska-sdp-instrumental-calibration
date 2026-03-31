@@ -7,7 +7,7 @@ import xarray as xr
 from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
+from ...logger import setup_logger
 
 logger = setup_logger("data_managers.data_export")
 
