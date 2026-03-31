@@ -12,15 +12,18 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
+from ..scheduler import UpstreamOutput
+from ._utils import fan_out
 
 logger = logging.getLogger(__name__)
 
 
 @ConfigurableStage(name="load_data")
+@fan_out("input")
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[list[str], CLIArgument],
+    input: Annotated[str, CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -117,10 +120,9 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded visibility data
     """
+    _upstream_output_ = UpstreamOutput()
     _upstream_output_.add_checkpoint_key("gaintable")
-    input_ms = input[0]
-
-    input_ms = os.path.realpath(input_ms)
+    input_ms = os.path.realpath(input)
 
     # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {

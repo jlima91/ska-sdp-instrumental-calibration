@@ -13,6 +13,7 @@ from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
+from ._utils import concat_gaintables, fan_in
 
 logger = logging.getLogger()
 
@@ -20,6 +21,7 @@ INST_METADATA_FILE = "ska-data-product.yaml"
 
 
 @ConfigurableStage(name="export_gain_table")
+@fan_in("_upstream_output_", concat_gaintables)
 def export_gaintable_stage(
     _upstream_output_,
     _output_dir_,

@@ -177,6 +177,52 @@ class UpstreamOutput:
 class InstrumentalDaskRunner(DaskRunner):
     """DaskRunner implementation for Instrumental Calibration"""
 
+    @classmethod
+    def _run_next_stage(cls, stage, output):
+        function_type = getattr(
+            stage.stage_definition, "__metadata__", {}
+        ).get("type")
+        if function_type == "fan_out":
+            assert not isinstance(output, list)
+            return stage(output)
+
+        outputs = output if isinstance(output, list) else [output]
+
+        if function_type == "fan_in":
+            return stage(outputs)
+
+        return [stage(output) for output in outputs]
+
+    @classmethod
+    def _process_upstream_output(cls, output, is_client_present):
+        outputs = output if isinstance(output, list) else [output]
+
+        processed_outputs = []
+        for output in outputs:
+            checkpoints = [output[key] for key in output.checkpoint_keys]
+            persisted_values = dask.persist(
+                *(checkpoints + output.compute_tasks), optimize_graph=True
+            )
+
+            for idx, key in enumerate(output.checkpoint_keys):
+                output[key] = persisted_values[idx]
+
+            output.compute_outputs += persisted_values[
+                len(output.checkpoint_keys) :  # noqa:E203
+            ]
+
+            if is_client_present:
+                for task in as_completed(futures_of(persisted_values)):
+                    if task.status == "error":
+                        raise task.result()
+
+            output.checkpoint_keys = []
+            output.stage_compute_tasks = []
+
+            processed_outputs.append(output)
+
+        return processed_outputs
+
     def execute(self):
         """
         Execute the provided list of pipeline stages.
@@ -212,27 +258,8 @@ class InstrumentalDaskRunner(DaskRunner):
                 extra={"tags": f"sdpPhase:{stage.name.upper()},state:START"},
             )
 
-            output = stage(output)
-
-            checkpoints = [output[key] for key in output.checkpoint_keys]
-            persisted_values = dask.persist(
-                *(checkpoints + output.compute_tasks), optimize_graph=True
-            )
-
-            for idx, key in enumerate(output.checkpoint_keys):
-                output[key] = persisted_values[idx]
-
-            output.compute_outputs += persisted_values[
-                len(output.checkpoint_keys) :  # noqa:E203
-            ]
-
-            if is_client_present:
-                for task in as_completed(futures_of(persisted_values)):
-                    if task.status == "error":
-                        raise task.result()
-
-            output.checkpoint_keys = []
-            output.stage_compute_tasks = []
+            output = self._run_next_stage(stage, output)
+            output = self._process_upstream_output(output, is_client_present)
 
             logger.info(
                 f"Finished {stage.name}",
