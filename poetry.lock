@@ -4093,4 +4093,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "ce4946a05ccfadff85a5685ae3b5456569b78b56f2e6e50ac32422d939315e6b"
+content-hash = "3057d5c8a056f6d8f70d96155bbe0fcd43be5036a802c9ae39bca32a31953eb8"
