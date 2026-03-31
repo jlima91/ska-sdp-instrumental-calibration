@@ -26,6 +26,7 @@ def test_should_have_the_expected_default_configuration():
             "niter": 500,
             "tol": 1.0e-06,
             "zernike_limit": None,
+            "timeslice": "full",
             "plot_table": False,
             "export_gaintable": False,
         }
@@ -88,7 +89,7 @@ def test_solver_runs_and_applies_correction(
     )
 
     mock_create_gaintable.assert_called_once_with(
-        mock_upstream_output.vis, "full", "B"
+        mock_upstream_output.vis, "full", "B", skip_default_chunk=True
     )
     called_args, _ = MockIonosphericSolver.solve.call_args
     np.testing.assert_array_equal(called_args[3], np.array([0, 1, 0, 1]))

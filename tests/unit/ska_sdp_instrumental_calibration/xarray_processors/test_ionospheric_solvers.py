@@ -10,31 +10,34 @@ from ska_sdp_instrumental_calibration.xarray_processors import (
 )
 
 
-def test_solve_for_ionosphere(generate_vis, apply_gaintable):
-    vis, jones = generate_vis
-
-    jones.gain.data[..., 0, 1] *= 0
-    jones.gain.data[..., 1, 0] *= 0
+def test_solve_for_ionosphere(generate_ionospehric_vis, apply_gaintable):
+    vis, corruptions = generate_ionospehric_vis
+    og_vis_data = np.copy(vis.vis.data)
+    modelvis = vis.copy(deep=True)
 
     assert np.all(vis.vis.data[..., :] == [1, 0, 0, 1])
-    vis = apply_gaintable(vis=vis, gt=jones, inverse=False)
 
-    modelvis = vis.copy(deep=True)
-    modelvis.vis.data[..., :] = [1, 0, 0, 1]
+    crpted_vis = apply_gaintable(vis=vis, gt=corruptions, inverse=False)
+
     gaintable = create_gaintable_from_visibility(
-        vis, jones_type="B", skip_default_chunk=True, timeslice="full"
+        crpted_vis, jones_type="B", skip_default_chunk=True, timeslice="auto"
     )
 
-    phases = ionosphere_solvers.IonosphericSolver.solve(
-        vis, modelvis, gaintable
+    gaintable = ionosphere_solvers.IonosphericSolver.solve(
+        crpted_vis, modelvis, gaintable
     ).compute()
-    assert phases.gain.shape == gaintable.gain.shape
 
-    np.testing.assert_allclose(np.median(np.angle(phases.gain.data)), 0)
+    corrected_vis = apply_gaintable(vis=crpted_vis, gt=gaintable)
+    np.testing.assert_allclose(
+        np.angle(og_vis_data),
+        np.angle(corrected_vis.vis.data),
+        rtol=1e-10,
+        atol=1e-7,
+    )
 
 
-def test_should_set_correct_polarization(generate_vis):
-    vis, jones = generate_vis
+def test_should_set_correct_polarization(generate_ionospehric_vis):
+    vis, jones = generate_ionospehric_vis
     modelvis = vis.copy(deep=True)
     modelvis.vis.data[..., :] = [1, 0, 0, 1]
 
@@ -57,8 +60,8 @@ def test_should_set_correct_polarization(generate_vis):
         solver = ionosphere_solvers.IonosphericSolver(vis, modelvis)
 
 
-def test_should_raise_exception_for_zero_model_vis(generate_vis):
-    vis, jones = generate_vis
+def test_should_raise_exception_for_zero_model_vis(generate_ionospehric_vis):
+    vis, jones = generate_ionospehric_vis
     modelvis = vis.copy(deep=True)
     modelvis.vis.data[..., :] = [0, 0, 0, 0]
 
@@ -68,8 +71,10 @@ def test_should_raise_exception_for_zero_model_vis(generate_vis):
         ionosphere_solvers.IonosphericSolver(vis, modelvis)
 
 
-def test_should_raise_exception_for_antenna_missmatch(generate_vis):
-    vis, jones = generate_vis
+def test_should_raise_exception_for_antenna_missmatch(
+    generate_ionospehric_vis,
+):
+    vis, jones = generate_ionospehric_vis
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="B", skip_default_chunk=True, timeslice="full"
     )

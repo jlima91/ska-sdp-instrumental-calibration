@@ -322,6 +322,50 @@ def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path)
 
     fig.savefig(f"{prefix_path}/phase-time-{channel}-{baseline}.png")
 
+    plt.show()
+
+    plt.close(fig)
+
+
+def plot_phase_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
+    """
+    Plot phase vs time for a given channel and baseline.
+    """
+    fig = plt.figure(layout="constrained", figsize=(10, 5))
+    fig.suptitle("Phase vs Frequency", fontsize=16)
+    xx_ax, yy_ax = fig.subplots(1, 2)
+
+    xx_ax.set_title("Input")
+    xx_ax.set_xlabel("Freq (Hz)")
+    xx_ax.set_ylabel("Phase (deg)")
+    xx_ax.set_ylim([-180, 180])
+
+    yy_ax.set_title("Corrected")
+    yy_ax.set_xlabel("Freq (Hz)")
+    yy_ax.set_ylabel("Phase (deg)")
+    yy_ax.set_ylim([-180, 180])
+
+    xx_ax.scatter(
+        input_vis.frequency,
+        np.angle(
+            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
+            deg=True,
+        ),
+    )
+    yy_ax.scatter(
+        corrected_vis.frequency,
+        np.angle(
+            corrected_vis.vis.isel(
+                time=time, baselineid=baseline, polarisation=0
+            ),
+            deg=True,
+        ),
+    )
+
+    fig.savefig(f"{prefix_path}/phase-freq-{time}-{baseline}.png")
+
+    plt.show()
+
     plt.close(fig)
 
 
