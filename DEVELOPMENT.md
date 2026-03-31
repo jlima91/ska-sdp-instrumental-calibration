@@ -5,7 +5,7 @@
 Please make sure to clone the submodules with:
 
 ```bash
-git clone --recurse-submodules git@gitlab.com:ska-telescope/sdp/science-pipeline-workflows/ska-sdp-e2e-batch-continuum-imaging.git
+git clone --recurse-submodules git@gitlab.com:ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git
 ```
 
 Also make sure to update submodules after every pull with:
@@ -16,10 +16,11 @@ git submodule update --init
 
 ## Setting up virtual environment using poetry
 
-To [install poetry with specific version](https://python-poetry.org/docs/#installing-with-the-official-installer), run
+It is recommended to use poetry for managing the python virtual environment required for developement.
+If you don't have poetry installed, you can run this command to [install poetry with specific version](https://python-poetry.org/docs/#installing-with-the-official-installer):
 
 ```bash
-curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.1.3 python3.10 -
+curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.3.3 python3.11 -
 ```
 
 This will install poetry in the default user path `$HOME/.local/bin`. To ensure that `poetry` is available, you need to add this path to the `PATH` environment variable.
@@ -37,13 +38,21 @@ echo "export PATH=\$PATH:\$HOME/.local/bin" >> $HOME/.bashrc
 Once poetry is in path, you need to run following command from the INST git repo's directory:
 
 ```bash
-poetry env use python3.10
+poetry env use python3.11
 
 poetry install
 ```
 
 This will create a new virtual environment (either in current working directory or in poetry's user specific path) and install all the depedencies required for development.
 For detailed package requirements, see `pyproject.toml` file.
+
+To activate the environment, please run:
+
+```bash
+poetry shell
+```
+
+Note that you might want to install the shell plugin via the instructions [over here](https://github.com/python-poetry/poetry-plugin-shell?tab=readme-ov-file#installation)
 
 ## Git hooks
 
