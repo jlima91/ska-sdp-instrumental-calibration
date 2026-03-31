@@ -22,11 +22,8 @@ import argparse
 import pandas as pd
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model.sky_model_reader import (
-    SKY_MODEL_CSV_HEADER,
     ComponentConverters,
-)
-from ska_sdp_instrumental_calibration.data_managers.sky_model.utils import (
-    write_csv,
+    export_lsm_to_csv,
 )
 
 # Old OSKAR CSV headers
@@ -81,13 +78,13 @@ def convert_oskar_to_new_format(
     )
 
     header_mapping = {
-        "RA (deg)": "ra",
-        "Dec (deg)": "dec",
-        "I (Jy)": "i_pol",
-        "FWHM major (arcsec)": "major_ax",
-        "FWHM minor (arcsec)": "minor_ax",
-        "Position angle (deg)": "pos_ang",
-        "Ref. freq. (Hz)": "ref_freq",
+        "RA (deg)": "ra_deg",
+        "Dec (deg)": "dec_deg",
+        "I (Jy)": "i_pol_jy",
+        "FWHM major (arcsec)": "a_arcsec",
+        "FWHM minor (arcsec)": "b_arcsec",
+        "Position angle (deg)": "pa_deg",
+        "Ref. freq. (Hz)": "ref_freq_hz",
         "Spectral index": "spec_idx",
     }
     df = df.rename(columns=header_mapping)[header_mapping.values()]
@@ -97,11 +94,8 @@ def convert_oskar_to_new_format(
 
     # Convert to components and write to CSV
     components = ComponentConverters.df_to_components(df)
-    rows = [[f"# ({','.join(SKY_MODEL_CSV_HEADER)}) = format"]]
+    export_lsm_to_csv(components, output_file)
 
-    rows.extend([ComponentConverters.to_csv_row(component) for component in components])
-
-    write_csv(output_file, rows)
     print(f"Converted {len(df)} components from {input_file} to {output_file}")
 
 

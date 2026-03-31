@@ -13,12 +13,10 @@ from ..beams import BeamsFactory
 from .component import Component
 from .local_sky_component import LocalSkyComponent
 from .sky_model_reader import (
-    SKY_MODEL_CSV_HEADER,
-    ComponentConverters,
+    export_lsm_to_csv,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
 )
-from .utils import write_csv
 
 logger = logging.getLogger()
 
@@ -235,16 +233,7 @@ class GlobalSkyModel:
         self.components = lsm
 
     def export_sky_model_csv(self, output_csv_path: str):
-        header_string = f"# ({','.join(SKY_MODEL_CSV_HEADER)}) = format"
-        rows = [[header_string]]
-        rows.extend(
-            [
-                ComponentConverters.to_csv_row(component)
-                for component in self.components
-            ]
-        )
-
-        write_csv(output_csv_path, rows)
+        export_lsm_to_csv(self.components, output_csv_path)
 
     def get_local_sky_model(
         self, solution_time: float, array_location: EarthLocation

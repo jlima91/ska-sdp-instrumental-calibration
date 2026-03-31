@@ -5,9 +5,11 @@ import numpy as np
 import pandas as pd
 import pytest
 from mock import MagicMock, patch
+from ska_sdp_datamodels.global_sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     Component,
+    export_lsm_to_csv,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
     sky_model_reader,
@@ -378,10 +380,15 @@ def test_exclude_csv_comp_when_its_out_of_fov(
     assert lsm == []
 
 
-class TestComponentConverts:
-    def test_should_convert_component_to_csv_row(self):
-        component = Component(
-            component_id="comp0",
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.LocalSkyModel"
+)
+def test_should_export_lsm_to_csv(local_skymodel_mock):
+    local_skymodel_mock.return_value = local_skymodel_mock
+    components = [
+        Component(
+            component_id="GLEAM J000010-000001",
             ra=357.914368,
             dec=-89.687309,
             i_pol=0.271901,
@@ -392,55 +399,43 @@ class TestComponentConverts:
             pos_ang=-4.158033,
             log_spec_idx=True,
         )
+    ]
+    export_lsm_to_csv(components, "./test.csv")
+    local_skymodel_mock.assert_called_once_with(
+        column_names=[
+            "component_id",
+            "ref_freq_hz",
+            "ra_deg",
+            "dec_deg",
+            "i_pol_jy",
+            "a_arcsec",
+            "b_arcsec",
+            "pa_deg",
+            "spec_idx",
+            "log_spec_idx",
+        ],
+        num_rows=1,
+        vector_columns=["spec_idx"],
+    )
+    local_skymodel_mock.set_row.assert_called_once_with(
+        0,
+        {
+            "component_id": "GLEAM J000010-000001",
+            "ref_freq_hz": 200000000.0,
+            "ra_deg": 357.914368,
+            "dec_deg": -89.687309,
+            "i_pol_jy": 0.271901,
+            "a_arcsec": 219.263,
+            "b_arcsec": 146.4811,
+            "pa_deg": -4.158033,
+            "spec_idx": [-0.7, 0.01, 0.123],
+            "log_spec_idx": True,
+        },
+    )
+    local_skymodel_mock.save.assert_called_once_with("./test.csv")
 
-        csv_row = ComponentConverters.to_csv_row(component)
 
-        expected_row = [
-            "comp0",
-            "357.914368",
-            "-89.687309",
-            "2.719010e-01",
-            "2.192630e+02",
-            "1.464811e+02",
-            "-4.158033",
-            "2.000000e+08",
-            '"[-0.7, 0.01, 0.123]"',
-            "true",
-        ]
-
-        assert csv_row == expected_row
-
-    def test_should_convert_optional_fields_as_empty_str(self):
-        component = Component(
-            component_id="comp0",
-            ra=357.914368,
-            dec=-89.687309,
-            i_pol=0.271901,
-            ref_freq=200000000.0,
-            spec_idx=None,
-            major_ax=None,
-            minor_ax=None,
-            pos_ang=None,
-            log_spec_idx=True,
-        )
-
-        csv_row = ComponentConverters.to_csv_row(component)
-
-        expected_row = [
-            "comp0",
-            "357.914368",
-            "-89.687309",
-            "2.719010e-01",
-            "",
-            "",
-            "",
-            "2.000000e+08",
-            '"[]"',
-            "true",
-        ]
-
-        assert csv_row == expected_row
-
+class TestComponentConverts:
     def test_should_create_components_list_from_local_sky_model(self):
         expected = pd.DataFrame(
             [
@@ -592,3 +587,107 @@ class TestComponentConverts:
         # Display the result
 
         assert expected == ComponentConverters.df_to_components(df)
+
+    def test_should_convert_sky_components_to_components(self):
+        expected = [
+            Component(
+                component_id="Component 000000",
+                ra=197.914612,
+                dec=-22.277973,
+                i_pol=45.91633,
+                ref_freq=1.43e08,
+                spec_idx=[0.0],
+                major_ax=0.0,
+                minor_ax=0.0,
+                pos_ang=0.0,
+                log_spec_idx=True,
+                beam_major=0.0,
+                beam_minor=0.0,
+                beam_pa=0.0,
+            )
+        ]
+
+        actual = ComponentConverters.sky_components_to_components(
+            [
+                SkyComponent(
+                    component_id="Component 000000",
+                    ra_deg=197.914612,
+                    dec_deg=-22.277973,
+                    i_pol_jy=45.91633,
+                    ref_freq_hz=1.43e08,
+                    a_arcsec=0.0,  # mapped from major_ax
+                    b_arcsec=0.0,  # mapped from minor_ax
+                    pa_deg=0.0,  # mapped from pos_ang
+                    spec_idx=[0.0],
+                    log_spec_idx=True,
+                )
+            ]
+        )
+
+        assert list(actual) == expected
+
+    def test_should_convert_components_to_sky_components(self):
+        expected = [
+            SkyComponent(
+                component_id="Component 000000",
+                ra_deg=197.914612,
+                dec_deg=-22.277973,
+                i_pol_jy=45.91633,
+                ref_freq_hz=1.43e08,
+                a_arcsec=0.0,
+                b_arcsec=0.0,
+                pa_deg=0.0,
+                spec_idx=[0.0],
+                log_spec_idx=True,
+            ),
+            SkyComponent(
+                component_id="Component 000001",
+                ra_deg=197.914612,
+                dec_deg=-22.277973,
+                i_pol_jy=45.91633,
+                ref_freq_hz=1.43e08,
+                a_arcsec=0.0,
+                b_arcsec=0.0,
+                pa_deg=0.0,
+                spec_idx=[0.0],
+                log_spec_idx=True,
+            ),
+        ]
+
+        # The input is the Component class instance
+        actual = ComponentConverters.components_to_sky_components(
+            [
+                Component(
+                    component_id="Component 000000",
+                    ra=197.914612,
+                    dec=-22.277973,
+                    i_pol=45.91633,
+                    ref_freq=1.43e08,
+                    spec_idx=[0.0],
+                    major_ax=0.0,
+                    minor_ax=0.0,
+                    pos_ang=0.0,
+                    log_spec_idx=True,
+                    beam_major=0.0,
+                    beam_minor=0.0,
+                    beam_pa=0.0,
+                ),
+                Component(
+                    component_id="Component 000001",
+                    ra=197.914612,
+                    dec=-22.277973,
+                    i_pol=45.91633,
+                    ref_freq=1.43e08,
+                    spec_idx=[0.0],
+                    major_ax=0.0,
+                    minor_ax=0.0,
+                    pos_ang=0.0,
+                    log_spec_idx=True,
+                    beam_major=0.0,
+                    beam_minor=0.0,
+                    beam_pa=0.0,
+                ),
+            ]
+        )
+
+        assert list(actual) == expected

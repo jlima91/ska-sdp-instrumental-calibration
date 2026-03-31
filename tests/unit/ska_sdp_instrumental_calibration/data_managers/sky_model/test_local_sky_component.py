@@ -1,19 +1,15 @@
 import numpy as np
 from astropy.coordinates import SkyCoord
-from mock import ANY, Mock, call, patch
+from mock import ANY, Mock, patch
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     Component,
     local_sky_model,
-    sky_model_reader,
 )
 
 GlobalSkyModel = local_sky_model.GlobalSkyModel
 LocalSkyComponent = local_sky_model.LocalSkyComponent
-
-
-SKY_MODEL_CSV_HEADER = sky_model_reader.SKY_MODEL_CSV_HEADER
 
 
 class TestLocalSkyComponent:
@@ -160,30 +156,19 @@ class TestLocalSkyComponent:
 class TestGlobalSkyModel:
     @patch(
         "ska_sdp_instrumental_calibration.data_managers.sky_model"
-        ".local_sky_model.write_csv"
-    )
-    @patch(
-        "ska_sdp_instrumental_calibration.data_managers.sky_model"
-        ".local_sky_model.ComponentConverters.to_csv_row"
+        ".local_sky_model.export_lsm_to_csv"
     )
     @patch(
         "ska_sdp_instrumental_calibration.data_managers.sky_model"
         ".local_sky_model.generate_lsm_from_csv"
     )
     def test_should_export_sky_model_components_to_csv(
-        self, mock_generate_lsm, mock_to_csv_row, write_csv_mock
+        self, mock_generate_lsm, mock_export_lsm_to_csv
     ):
         mock_generate_lsm.return_value = [
             "component1",
             "component2",
         ]
-
-        rows = [
-            ["row1_col1", "row1_col2"],
-            ["row2_col1", "row2_col2"],
-        ]
-
-        mock_to_csv_row.side_effect = rows
 
         gsm = GlobalSkyModel(
             phasecentre=SkyCoord(ra=0, dec=-30, unit="deg"),
@@ -191,17 +176,10 @@ class TestGlobalSkyModel:
         )
 
         gsm.export_sky_model_csv("output.csv")
-        mock_to_csv_row.assert_has_calls(
-            [call("component1"), call("component2")]
-        )
-
-        write_csv_mock.assert_called_once_with(
-            "output.csv",
+        mock_export_lsm_to_csv.assert_called_once_with(
             [
-                [
-                    "# (component_id,ra,dec,i_pol,major_ax,minor_ax,"
-                    "pos_ang,ref_freq,spec_idx,log_spec_idx) = format"
-                ],
-                *rows,
+                "component1",
+                "component2",
             ],
+            "output.csv",
         )

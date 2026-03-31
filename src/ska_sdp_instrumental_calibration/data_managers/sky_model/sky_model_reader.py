@@ -1,7 +1,7 @@
-import functools
-import json
 import logging
+from dataclasses import asdict, fields
 from pathlib import Path
+from typing import Iterable
 
 import numpy as np
 import pandas as pd
@@ -13,59 +13,29 @@ from .component import Component
 logger = logging.getLogger(__name__)
 
 
-SKY_MODEL_CSV_HEADER = [
-    "component_id",
-    "ra",
-    "dec",
-    "i_pol",
-    "major_ax",
-    "minor_ax",
-    "pos_ang",
-    "ref_freq",
-    "spec_idx",
-    "log_spec_idx",
-]
-
-
 class ComponentConverters:
+    @staticmethod
+    def create_lsm_df(local_sky_model: LocalSkyModel) -> pd.DataFrame:
+        """
+        Create a pandas DataFrame from a LocalSkyModel instance.
 
-    __exponent_str = functools.partial(
-        lambda value: format(value, "e") if value is not None else ""
-    )
-    __six_decimal_str = functools.partial(
-        lambda value: format(value, ".6f") if value is not None else ""
-    )
-    _list_str = functools.partial(
-        lambda value: f'"{json.dumps(value)}"' if value is not None else '"[]"'
-    )
+        Parameters
+        ----------
+        local_sky_model : LocalSkyModel
+            The local sky model object containing astronomical component
+            data.
 
-    __headers_formatter = {
-        "component_id": str,
-        "ra": str,
-        "dec": str,
-        "i_pol": __exponent_str,
-        "major_ax": __exponent_str,
-        "minor_ax": __exponent_str,
-        "pos_ang": __six_decimal_str,
-        "ref_freq": __exponent_str,
-        "spec_idx": _list_str,
-        "log_spec_idx": lambda x: str(x).lower(),
-    }
+        Returns
+        -------
+        :class:`pandas.DataFrame`
+            A DataFrame where columns correspond to the sky model's
+            defined fields and rows represent individual components.
+        """
+        cols = local_sky_model.column_names
 
-    __non_existing_field_default = None
+        components_table = zip(*[local_sky_model[col] for col in cols])
 
-    @classmethod
-    def to_csv_row(cls, component: Component) -> list[str]:
-        return [
-            cls.__headers_formatter[header](
-                getattr(
-                    component,
-                    header,
-                    cls.__non_existing_field_default,
-                )
-            )
-            for header in SKY_MODEL_CSV_HEADER
-        ]
+        return pd.DataFrame(components_table, columns=cols)
 
     @classmethod
     def df_to_components(cls, df: pd.DataFrame) -> list[Component]:
@@ -89,7 +59,29 @@ class ComponentConverters:
 
         sky_components = (SkyComponent(**row) for row in df.to_dict("records"))
 
-        return [
+        return list(
+            ComponentConverters.sky_components_to_components(sky_components)
+        )
+
+    @staticmethod
+    def sky_components_to_components(
+        sky_components: Iterable[SkyComponent],
+    ) -> Iterable[Component]:
+        """
+        Convert SkyComponent instances to external Component instances.
+
+        Parameters
+        ----------
+        sky_components : Iterable[SkyComponent]
+            An iterable of internal sky component dataclass instances.
+
+        Returns
+        -------
+        Iterable[Component]
+            An iterable of component objects compatible with the
+            external local sky model library.
+        """
+        return (
             Component(
                 component_id=sky_comp.component_id,
                 ra=sky_comp.ra_deg,
@@ -103,15 +95,75 @@ class ComponentConverters:
                 log_spec_idx=sky_comp.log_spec_idx,
             )
             for sky_comp in sky_components
-        ]
+        )
 
     @staticmethod
-    def create_lsm_df(local_sky_model: LocalSkyModel) -> pd.DataFrame:
-        cols = local_sky_model.column_names
+    def components_to_sky_components(
+        components: Iterable[Component],
+    ) -> Iterable[SkyComponent]:
+        """
+        Convert external Component instances to SkyComponent instances.
 
-        components_table = zip(*[local_sky_model[col] for col in cols])
+        Parameters
+        ----------
+        components : Iterable[Component]
+            An iterable of component objects from the external local sky
+            model library.
 
-        return pd.DataFrame(components_table, columns=cols)
+        Returns
+        -------
+        Iterable[SkyComponent]
+            An iterable of internal sky component dataclass instances with
+            explicit unit-suffixed fields.
+        """
+        return (
+            SkyComponent(
+                component_id=comp.component_id,
+                ra_deg=comp.ra,
+                dec_deg=comp.dec,
+                i_pol_jy=comp.i_pol,
+                ref_freq_hz=comp.ref_freq,
+                a_arcsec=comp.major_ax,
+                b_arcsec=comp.minor_ax,
+                pa_deg=comp.pos_ang,
+                spec_idx=comp.spec_idx,
+                log_spec_idx=comp.log_spec_idx,
+            )
+            for comp in components
+        )
+
+
+def export_lsm_to_csv(components: list[Component], csv_path: str) -> None:
+    """
+    Export a list of Component instances to a CSV file.
+
+    Parameters
+    ----------
+    components : list[Component]
+        A list of component objects from the external library.
+    csv_path : str
+        The destination path for the CSV file.
+
+    Returns
+    -------
+    None
+    """
+    column_names = [field.name for field in fields(SkyComponent)]
+    vector_columns = ["spec_idx"]
+
+    local_sky_model = LocalSkyModel(
+        column_names=column_names,
+        num_rows=len(components),
+        vector_columns=vector_columns,
+    )
+    for row, sky_com in enumerate(
+        ComponentConverters.components_to_sky_components(components)
+    ):
+        local_sky_model.set_row(row, asdict(sky_com))
+
+    # .save method will fail with provide just file name like "test.csv"
+    # it should be "./test.csv"
+    local_sky_model.save(csv_path)
 
 
 def generate_lsm_from_csv(
