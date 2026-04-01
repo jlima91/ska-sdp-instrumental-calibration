@@ -7,7 +7,7 @@ from ska_sdp_instrumental_calibration.stages import predict_vis_stage
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "predict_vis": {
-            "beam_type": "everybeam",
+            "use_everybeam": True,
             "normalise_at_beam_centre": True,
             "eb_ms": None,
             "element_response_model": "oskar_dipole_cos",
@@ -24,15 +24,15 @@ def test_should_have_the_expected_default_configuration():
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".GlobalSkyModel"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 def test_should_predict_visibilities(
     predict_vis_mock,
@@ -47,7 +47,7 @@ def test_should_predict_visibilities(
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
-        "beam_type": "everybeam",
+        "use_everybeam": True,
         "normalise_at_beam_centre": False,
         "eb_ms": None,
         "gleamfile": "/path/to/gleam.dat",
@@ -90,15 +90,15 @@ def test_should_predict_visibilities(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".GlobalSkyModel"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 def test_should_update_call_count(
     predict_vis_mock,
@@ -113,7 +113,7 @@ def test_should_update_call_count(
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
-        "beam_type": "everybeam",
+        "use_everybeam": True,
         "normalise_at_beam_centre": False,
         "eb_ms": "test.ms",
         "gleamfile": None,
@@ -134,22 +134,22 @@ def test_should_update_call_count(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".GlobalSkyModel"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".prediction_central_beams"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".apply_gaintable_to_dataset"
 )
 def test_should_normalise_at_beam_centre(
@@ -177,7 +177,7 @@ def test_should_normalise_at_beam_centre(
     apply_gaintable_mock.side_effect = [normalised_vis, normalised_modelvis]
 
     params = {
-        "beam_type": "everybeam",
+        "use_everybeam": True,
         "normalise_at_beam_centre": True,
         "eb_ms": None,
         "gleamfile": "/path/to/gleam.dat",
@@ -214,13 +214,13 @@ def test_should_normalise_at_beam_centre(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".GlobalSkyModel"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
-def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
+def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
     predict_vis_mock,
     global_sky_model_mock,
 ):
@@ -232,7 +232,7 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
-        "beam_type": None,
+        "use_everybeam": False,
         "normalise_at_beam_centre": False,
         "eb_ms": None,
         "gleamfile": "/path/to/gleam.dat",
@@ -266,11 +266,11 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".GlobalSkyModel"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.model_visibilities.predict_vis"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 def test_should_export_sky_model_used_for_prediction_to_csv_file(
     predict_vis_mock,
@@ -286,7 +286,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
-        "beam_type": None,
+        "use_everybeam": False,
         "normalise_at_beam_centre": False,
         "eb_ms": None,
         "gleamfile": "/path/to/gleam.dat",

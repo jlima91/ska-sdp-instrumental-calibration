@@ -226,7 +226,7 @@ global_parameters:
     pipeline:
       - load_data: {}
       - predict_vis:
-          beam_type: everybeam
+          use_everybeam: true
           flux_limit: 2.0
           fov: 5.0
       - bandpass_calibration: {}

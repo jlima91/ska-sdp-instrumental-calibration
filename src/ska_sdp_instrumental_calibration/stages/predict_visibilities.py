@@ -17,10 +17,10 @@ def predict_visibilities(
     _upstream_output_,
     _output_dir_,
     input: Annotated[list[str], CLIArgument],
-    beam_type: Annotated[
-        str,
-        Field(description="Type of beam model to use."),
-    ] = "everybeam",
+    use_everybeam: Annotated[
+        bool,
+        Field(description="Whether to use everybeam model."),
+    ] = True,
     normalise_at_beam_centre: Annotated[
         bool,
         Field(
@@ -32,7 +32,7 @@ def predict_visibilities(
     eb_ms: Annotated[
         Optional[str],
         Field(
-            description="""If beam_type is "everybeam" but input ms does
+            description="""If everybeam is being used but input ms does
             not have all of the metadata required by everybeam, this parameter
             is used to specify a separate dataset to use when setting up
             the beam models."""
@@ -63,7 +63,7 @@ def predict_visibilities(
         str,
         Field(
             description="""Type of element response model.
-            Required if beam_type is 'everybeam'.
+            Required if use_everybeam is True.
             Refer documentation for more details:
             https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
             """
@@ -102,13 +102,13 @@ def predict_visibilities(
         Directory path where the output file will be written.
     input: CLIArgument
         Input measurementset.
-    beam_type: str
-        Type of beam model to use (default: 'everybeam').
+    use_everybeam: bool
+        Whether to use everybeam model. It uses everybeam by default.
     normalise_at_beam_centre: bool
         If true, before running calibration, multiply vis and model vis by
-        the inverse of the beam response in the beam pointing direction
+        the inverse of the beam response in the beam pointing direction.
     eb_ms: str
-        If beam_type is "everybeam" but input ms does
+        If everybeam is being used but input ms does
         not have all of the metadata required by everybeam, this parameter
         is used to specify a separate dataset to use when setting up
         the beam models.
@@ -160,10 +160,10 @@ def predict_visibilities(
     beams_factory = None
 
     # Process beam related parameters
-    eb_ms = input[0] if eb_ms is None else eb_ms
 
-    if beam_type == "everybeam":
+    if use_everybeam:
         logger.info("Using EveryBeam model in predict")
+        eb_ms = input[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
             nstations=vis.configuration.id.size,
@@ -181,7 +181,7 @@ def predict_visibilities(
         beams_factory,
     )
 
-    if normalise_at_beam_centre and beam_type == "everybeam":
+    if normalise_at_beam_centre and use_everybeam:
         central_beams = prediction_central_beams(
             gaintable,
             beams_factory,

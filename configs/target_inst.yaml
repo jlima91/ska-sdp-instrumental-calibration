@@ -10,7 +10,7 @@ parameters:
     field_id: 0
     data_desc_id: 0
   predict_vis:
-    beam_type: everybeam
+    use_everybeam: true
     normalise_at_beam_centre: true
     eb_ms: null
     gleamfile: null

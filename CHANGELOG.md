@@ -1,5 +1,10 @@
 # Changelog
 
+## Development
+### Breaking
+1. predict visibility stage accepts config `use_everybeam` as boolean instead
+ of `beam_type` as string.
+
 ## 0.8.0
 
 ### Breaking

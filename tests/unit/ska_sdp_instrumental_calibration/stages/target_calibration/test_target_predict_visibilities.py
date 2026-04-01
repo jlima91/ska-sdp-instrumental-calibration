@@ -7,7 +7,7 @@ def test_should_predict_visibilities():
 
     expected_config = {
         "predict_vis": {
-            "beam_type": "everybeam",
+            "use_everybeam": True,
             "normalise_at_beam_centre": True,
             "eb_ms": None,
             "element_response_model": "oskar_dipole_cos",
