@@ -29,6 +29,16 @@ def predict_visibilities(
             beam pointing direction.""",
         ),
     ] = True,
+    element_response_model: Annotated[
+        str,
+        Field(
+            description="""Type of element response model.
+            Required if use_everybeam is True.
+            Refer documentation for more details:
+            https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
+            """
+        ),
+    ] = "oskar_dipole_cos",
     eb_ms: Annotated[
         Optional[str],
         Field(
@@ -59,16 +69,6 @@ def predict_visibilities(
             to a CSV file."""
         ),
     ] = False,
-    element_response_model: Annotated[
-        str,
-        Field(
-            description="""Type of element response model.
-            Required if use_everybeam is True.
-            Refer documentation for more details:
-            https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
-            """
-        ),
-    ] = "oskar_dipole_cos",
     fov: Annotated[
         float,
         Field(
@@ -107,6 +107,11 @@ def predict_visibilities(
     normalise_at_beam_centre: bool
         If true, before running calibration, multiply vis and model vis by
         the inverse of the beam response in the beam pointing direction.
+    element_response_model: str
+        type of element response model given to Everybeam.
+        Defaulted oskar_dipole_cos.
+        Refer documentation for more detials.
+        https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
     eb_ms: str
         If everybeam is being used but input ms does
         not have all of the metadata required by everybeam, this parameter
@@ -119,11 +124,6 @@ def predict_visibilities(
         sky model. The CSV file should be in OSKAR CSV format.
     export_sky_model: bool
         Specifies whether to export the sky model to a CSV file.
-    element_response_model: str
-        type of element response model given to Everybeam.
-        Defaulted oskar_dipole_cos.
-        Refer documentation for more detials.
-        https://everybeam.readthedocs.io/en/latest/tree/python/utils.html
     fov: float
         Field of view diameter in degrees for source selection
         (default: 10.0).
