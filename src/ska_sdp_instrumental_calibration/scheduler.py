@@ -4,6 +4,8 @@ import dask
 from distributed import as_completed, futures_of, get_client
 from ska_sdp_piper.piper.runners import DaskRunner
 
+from .prism import Prism
+
 logger = logging.getLogger()
 
 
@@ -178,17 +180,17 @@ class InstrumentalDaskRunner(DaskRunner):
     """DaskRunner implementation for Instrumental Calibration"""
 
     @classmethod
-    def _run_next_stage(cls, stage, output):
-        function_type = getattr(
-            stage.stage_definition, "__metadata__", {}
-        ).get("type")
-        if function_type == "fan_out":
-            assert not isinstance(output, list)
+    def _execute_stage(cls, stage, output):
+        if stage.stage_definition in Prism.BROADCASTER:
+            if isinstance(output, list):
+                raise RuntimeError(
+                    "Expected a single upstream output, but got list"
+                )
             return stage(output)
 
         outputs = output if isinstance(output, list) else [output]
 
-        if function_type == "fan_in":
+        if stage.stage_definition in Prism.AGGREGATOR:
             return stage(outputs)
 
         return [stage(output) for output in outputs]
@@ -197,31 +199,39 @@ class InstrumentalDaskRunner(DaskRunner):
     def _process_upstream_output(cls, output, is_client_present):
         outputs = output if isinstance(output, list) else [output]
 
-        processed_outputs = []
+        checkpoints = [
+            output[key] for output in outputs for key in output.checkpoint_keys
+        ]
+        compute_tasks = [
+            task for output in outputs for task in output.compute_tasks
+        ]
+
+        persisted_values = dask.persist(
+            *(checkpoints + compute_tasks), optimize_graph=True
+        )
+
+        idx = 0
         for output in outputs:
-            checkpoints = [output[key] for key in output.checkpoint_keys]
-            persisted_values = dask.persist(
-                *(checkpoints + output.compute_tasks), optimize_graph=True
-            )
-
-            for idx, key in enumerate(output.checkpoint_keys):
+            for key in output.checkpoint_keys:
                 output[key] = persisted_values[idx]
+                idx += 1
 
-            output.compute_outputs += persisted_values[
-                len(output.checkpoint_keys) :  # noqa:E203
+        computed_tasks = persisted_values[idx:]
+        slider = 0
+        for output in outputs:
+            output.compute_outputs += computed_tasks[
+                slider : slider + len(output.compute_tasks)
             ]
-
-            if is_client_present:
-                for task in as_completed(futures_of(persisted_values)):
-                    if task.status == "error":
-                        raise task.result()
-
+            slider += len(output.compute_tasks)
             output.checkpoint_keys = []
             output.stage_compute_tasks = []
 
-            processed_outputs.append(output)
+        if is_client_present:
+            for task in as_completed(futures_of(persisted_values)):
+                if task.status == "error":
+                    raise task.result()
 
-        return processed_outputs
+        return outputs
 
     def execute(self):
         """
@@ -258,7 +268,7 @@ class InstrumentalDaskRunner(DaskRunner):
                 extra={"tags": f"sdpPhase:{stage.name.upper()},state:START"},
             )
 
-            output = self._run_next_stage(stage, output)
+            output = self._execute_stage(stage, output)
             output = self._process_upstream_output(output, is_client_present)
 
             logger.info(

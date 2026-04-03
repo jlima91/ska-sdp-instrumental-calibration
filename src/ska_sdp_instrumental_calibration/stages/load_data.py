@@ -13,17 +13,17 @@ from ..data_managers.visibility import (
     write_ms_to_zarr,
 )
 from ..scheduler import UpstreamOutput
-from ._utils import fan_out
+from ..prism import Prism
 
 logger = logging.getLogger(__name__)
 
 
 @ConfigurableStage(name="load_data")
-@fan_out("input")
+@Prism.BROADCASTER
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[str, CLIArgument],
+    input: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -72,7 +72,7 @@ def load_data_stage(
             description="Data Description ID of the data in measurement set"
         ),
     ] = 0,
-):
+) -> list[UpstreamOutput]:
     """
     This stage loads the visibility data from either (in order of preference):
 
@@ -120,11 +120,36 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded visibility data
     """
+    return [
+        _load_data(
+            _output_dir_,
+            os.path.realpath(ms),
+            nchannels_per_chunk,
+            ntimes_per_ms_chunk,
+            cache_directory,
+            ack,
+            datacolumn,
+            field_id,
+            data_desc_id,
+        )
+        for ms in input
+    ]
+
+
+def _load_data(
+    _output_dir_,
+    input_ms: str,
+    nchannels_per_chunk: int,
+    ntimes_per_ms_chunk: int,
+    cache_directory: Optional[str],
+    ack: bool,
+    datacolumn: Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+    field_id: int,
+    data_desc_id: int,
+) -> UpstreamOutput:
+
     _upstream_output_ = UpstreamOutput()
     _upstream_output_.add_checkpoint_key("gaintable")
-    input_ms = os.path.realpath(input)
-
-    # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {
         dim: -1
         for dim in [
@@ -141,6 +166,7 @@ def load_data_stage(
         "frequency": nchannels_per_chunk,
     }
     _upstream_output_["chunks"] = vis_chunks
+    ms_file = os.path.basename(input_ms)
 
     if cache_directory is None:
         logger.info(
@@ -150,7 +176,7 @@ def load_data_stage(
 
     vis_cache_directory = os.path.join(
         cache_directory,
-        f"{os.path.basename(input_ms)}_fid{field_id}_ddid{data_desc_id}",
+        f"{ms_file}_fid{field_id}_ddid{data_desc_id}",
     )
     os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
@@ -176,6 +202,7 @@ def load_data_stage(
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
+    _upstream_output_["ms_prefix"] = os.path.splitext(ms_file)[0]
     _upstream_output_["vis"] = vis
     _upstream_output_["gaintable"] = create_gaintable_from_visibility(
         vis, "full", "B"

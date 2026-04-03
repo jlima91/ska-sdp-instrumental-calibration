@@ -127,6 +127,7 @@ def ionospheric_delay_stage(
         cluster_indexes = np.array(cluster_indexes)
 
     _upstream_output_.add_checkpoint_key("vis")
+    prefix = _upstream_output_.ms_prefix
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
@@ -151,7 +152,9 @@ def ionospheric_delay_stage(
     _upstream_output_["vis"] = vis
 
     if plot_table:
-        path_prefix = get_plots_path(_output_dir_, "ionospheric_delay")
+        path_prefix = get_plots_path(
+            _output_dir_, f"{prefix}_ionospheric_delay"
+        )
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
@@ -165,7 +168,7 @@ def ionospheric_delay_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, "ionospheric_delay.gaintable.h5parm"
+            _output_dir_, f"{prefix}_ionospheric_delay.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

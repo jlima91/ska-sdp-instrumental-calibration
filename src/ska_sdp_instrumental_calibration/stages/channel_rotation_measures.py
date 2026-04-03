@@ -126,6 +126,7 @@ def generate_channel_rm_stage(
     _upstream_output_.add_checkpoint_key("gaintable")
 
     vis = _upstream_output_[visibility_key]
+    prefix = _upstream_output_.ms_prefix
     logger.info(f"Using {visibility_key} for calibration.")
 
     modelvis = _upstream_output_.modelvis
@@ -179,7 +180,7 @@ def generate_channel_rm_stage(
 
     if plot_rm_config.plot_rm:
         path_prefix = get_plots_path(
-            _output_dir_, f"channel_rm{call_counter_suffix}"
+            _output_dir_, f"{prefix}_channel_rm{call_counter_suffix}"
         )
         _upstream_output_.add_compute_tasks(
             plot_bandpass_stages(
@@ -200,7 +201,7 @@ def generate_channel_rm_stage(
 
     if plot_table:
         path_prefix = get_plots_path(
-            _output_dir_, f"channel_rm{call_counter_suffix}"
+            _output_dir_, f"{prefix}_channel_rm{call_counter_suffix}"
         )
 
         freq_plotter = PlotGaintableFrequency(
@@ -217,7 +218,8 @@ def generate_channel_rm_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, f"channel_rm{call_counter_suffix}.gaintable.h5parm"
+            _output_dir_,
+            f"{prefix}_channel_rm{call_counter_suffix}.gaintable.h5parm",
         )
 
         _upstream_output_.add_compute_tasks(

@@ -65,6 +65,7 @@ def smooth_gain_solution_stage(
         Updated upstream_output with gaintable
     """
     _upstream_output_.add_checkpoint_key("gaintable")
+    prefix = _upstream_output_.ms_prefix
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("smooth"):
@@ -77,7 +78,7 @@ def smooth_gain_solution_stage(
     if plot_config.plot_table:
         path_prefix = get_plots_path(
             _output_dir_,
-            f"{plot_config.plot_path_prefix}{call_counter_suffix}",
+            f"{prefix}_{plot_config.plot_path_prefix}{call_counter_suffix}",
         )
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
@@ -92,7 +93,8 @@ def smooth_gain_solution_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, f"smooth_gain{call_counter_suffix}.gaintable.h5parm"
+            _output_dir_,
+            f"{prefix}_smooth_gain{call_counter_suffix}.gaintable.h5parm",
         )
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
