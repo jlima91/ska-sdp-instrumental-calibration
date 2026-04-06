@@ -14,7 +14,7 @@
 
 ### General
 
-1. The modules which were deprecated in v0.8.0 are not removed. This includes some unused code, pipelines from PI25 (and corresponding notebooks).
+1. The modules which were deprecated in v0.8.0 are now removed. This includes some unused code, pipelines from PI25 (and corresponding notebooks).
 
 ## 0.8.0
 
