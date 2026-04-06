@@ -1,4 +1,4 @@
-FROM artefact.skao.int/ska-build-python:0.4.1 AS build
+FROM artefact.skao.int/ska-build-python:0.4.0 AS build
 
 WORKDIR /build
 
