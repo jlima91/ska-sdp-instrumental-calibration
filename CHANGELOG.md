@@ -1,9 +1,20 @@
 # Changelog
 
 ## Development
+
+### Features
+
+1. Update ionospheric solver functions to solve based on solution intervals
+
 ### Breaking
-1. predict visibility stage accepts config `use_everybeam` as boolean instead
+
+1. The `predict_visibility` stage accepts config `use_everybeam` as boolean instead
  of `beam_type` as string.
+1. Use new LSM CSV Schema, adhereing to the data models from `ska-sdp-datamodels`.
+
+### General
+
+1. The modules which were deprecated in v0.8.0 are not removed. This includes some unused code, pipelines from PI25 (and corresponding notebooks).
 
 ## 0.8.0
 
