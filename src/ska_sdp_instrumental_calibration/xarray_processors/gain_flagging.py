@@ -221,7 +221,7 @@ class RMSFlagger:
             return np.zeros_like(weights, dtype=bool), np.nan
 
         sigma = 1.4826 * np.nanmedian(np.abs(detrended[valid]))
-        flags = np.abs(detrended) > self.n_sigma * sigma
+        flags = np.abs(detrended * weights) > (self.n_sigma * sigma)
         return flags, sigma
 
 
@@ -253,7 +253,7 @@ class RollingRMSFlagger:
         )
 
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
-        flags = rms > self.n_sigma * sigma
+        flags = (rms * weights) > (self.n_sigma * sigma)
         return flags, sigma
 
 
