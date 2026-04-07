@@ -8,6 +8,7 @@ parameters:
     plot_config:
       plot_table: true
   flag_gain:
+    max_ncycles: 1
     export_gaintable: true
   export_gain_table:
     export_metadata: true
