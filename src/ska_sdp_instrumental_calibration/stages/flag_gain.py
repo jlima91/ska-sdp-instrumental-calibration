@@ -54,7 +54,7 @@ def flag_gain_stage(
             description="""Flag values greated than n_simga * sigma_hat.
             Where sigma_hat is 1.4826 * MeanAbsoluteDeviation."""
         ),
-    ] = 3.0,
+    ] = 12.0,
     n_sigma_rolling: Annotated[
         float,
         Field(

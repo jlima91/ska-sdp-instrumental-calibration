@@ -202,7 +202,7 @@ class RMSFlagger:
         """
         self.n_sigma = n_sigma
 
-    def flag(self, arr, weights, detrend = True):
+    def flag(self, arr, weights, detrend=True):
         """
         Does flagging using rms.
 
@@ -227,7 +227,9 @@ class RMSFlagger:
             flags = np.abs(arr * weights) > (self.n_sigma * sigma)
         else:
             med = np.nanmedian(arr[valid])
-            sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med)) * 2             #Loose flagging without detrend
+            sigma = 1.4826 * np.nanmedian(
+                np.abs(arr[valid] - med)
+            )  # Loose flagging without detrend
             flags = np.abs((arr - med) * weights) > (self.n_sigma * sigma)
         return flags, sigma
 
@@ -264,7 +266,9 @@ class RollingRMSFlagger:
             flags = (rms * weights) > (self.n_sigma * sigma)
         else:
             med = np.nanmedian(rms[valid])
-            sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med)) * 2             #Loose flagging without detrend
+            sigma = 1.4826 * np.nanmedian(
+                np.abs(rms[valid] - med)
+            )  # Loose flagging without detrend
             flags = ((rms - med) * weights) > (self.n_sigma * sigma)
         return flags, sigma
 
@@ -379,10 +383,7 @@ class GainFlagger:
 
         components = {}
         data_components = self.soltype(gains)
-        components = {
-            key: data_components[key]
-            for key in data_components
-        }
+        components = {key: data_components[key] for key in data_components}
 
         pre_flags = np.zeros_like(weights, dtype=bool)
         for arr in components.values():
@@ -434,16 +435,16 @@ class GainFlagger:
 
             if not np.any(cycle_flags):
                 logger.info(
-                "Converged at cycle %d: antenna=%s receptors=[%s,%s] "
-                "MAD=%.5f flagged=%d soltype=%s mode=%s",
-                cycle + 1,
-                antenna,
-                receptor1,
-                receptor2,
-                cycle_sigma if cycle_sigma is not None else float("nan"),
-                total_flagged,
-                self.soltype_name,
-                self.mode,
+                    "Converged at cycle %d: antenna=%s receptors=[%s,%s] "
+                    "MAD=%.5f flagged=%d soltype=%s mode=%s",
+                    cycle + 1,
+                    antenna,
+                    receptor1,
+                    receptor2,
+                    cycle_sigma if cycle_sigma is not None else float("nan"),
+                    total_flagged,
+                    self.soltype_name,
+                    self.mode,
                 )
                 break
 

@@ -21,7 +21,7 @@ def test_should_flag_gains_for_amplitude():
 
     frequencies = np.arange(0, 1, 0.1)
     gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
-    init_gains=gains.copy()
+    init_gains = gains.copy()
     gains[5] = 0 + 100j
     weights = np.ones(10)
 
@@ -70,7 +70,7 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
     frequencies = np.arange(0, 1, 0.1)
 
     gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
-    init_gains=gains.copy()
+    init_gains = gains.copy()
     gains[5] = -200  # Outlier in both amp and phase
     gains[4] = -500j
 
