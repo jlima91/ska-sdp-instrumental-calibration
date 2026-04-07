@@ -22,7 +22,7 @@ def test_should_have_the_expected_default_configuration():
             "skip_cross_pol": True,
             "max_ncycles": 5,
             "n_sigma": 3.0,
-            "n_sigma_rolling": 10.0,
+            "n_sigma_rolling": 0.0,
             "window_size": 11,
             "normalize_gains": True,
             "export_gaintable": False,

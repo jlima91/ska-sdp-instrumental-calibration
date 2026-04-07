@@ -61,7 +61,7 @@ def flag_gain_stage(
             description="""Do a running rms and then flag those regions
             that have a rms higher than n_sigma_rolling*MAD(rmses)."""
         ),
-    ] = 10.0,
+    ] = 0.0,
     window_size: Annotated[
         int,
         Field(description="Window size for running rms"),
