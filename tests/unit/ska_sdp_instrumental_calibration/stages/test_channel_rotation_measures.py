@@ -103,6 +103,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -237,6 +238,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -398,6 +400,7 @@ def test_should_plot_with_proper_suffix(
     ]
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -479,9 +482,9 @@ def test_should_plot_with_proper_suffix(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("/output/path", "channel_rm"),
-            call("/output/path", "channel_rm"),
-            call("/output/path", "channel_rm_1"),
+            call("/output/path", "ms_prefix_channel_rm"),
+            call("/output/path", "ms_prefix_channel_rm"),
+            call("/output/path", "ms_prefix_channel_rm_1"),
         ]
     )
 
@@ -600,6 +603,7 @@ def test_should_export_gaintable_with_proper_suffix(
         "/output/path/gaintables/channel_rm_1.gaintable.h5parm",
     ]
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -653,8 +657,8 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "channel_rm.gaintable.h5parm"),
-            call("/output/path", "channel_rm_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_channel_rm.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_channel_rm_1.gaintable.h5parm"),
         ]
     )
 
@@ -722,6 +726,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     plot_rm_config,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")

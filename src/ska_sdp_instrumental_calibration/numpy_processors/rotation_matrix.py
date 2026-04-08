@@ -36,8 +36,8 @@ def generate_rotation_matrices(
 
     Notes
     -----
-    The rotation angle :math:`\phi` is calculated as
-    :math:`\phi = \text{RM} \cdot \lambda^2`.
+    The rotation angle :math: phi is calculated as
+    :math: `phi = RM . lambda^2`.
 
     """  # noqa: W605
     lambda_sq = np.power(

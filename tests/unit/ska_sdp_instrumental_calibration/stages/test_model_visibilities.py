@@ -41,6 +41,7 @@ def test_should_predict_visibilities(
 ):
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     input = ["path/to/input/ms"]
@@ -107,6 +108,7 @@ def test_should_update_call_count(
 ):
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     input = "path/to/input/ms"
@@ -161,6 +163,7 @@ def test_should_normalise_at_beam_centre(
 ):
     vis = Mock(name="Visibilities")
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
 
     upstream_output["vis"] = vis
     input = "path/to/input/ms"
@@ -226,6 +229,7 @@ def test_should_perform_only_model_prediction_when_beam_type_is_not_everybeam(
 ):
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     input = "path/to/input/ms"
@@ -280,6 +284,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     global_sky_model_mock.return_value = global_sky_model_mock
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     input = "path/to/input/ms"
@@ -303,5 +308,5 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
-        "./output_dir/sky_model.csv"
+        "./output_dir/ms_prefix_sky_model.csv"
     )

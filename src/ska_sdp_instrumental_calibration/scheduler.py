@@ -4,7 +4,7 @@ import dask
 from distributed import as_completed, futures_of, get_client
 from ska_sdp_piper.piper.runners import DaskRunner
 
-from .prism import Prism
+from .tagger import Tags
 
 logger = logging.getLogger()
 
@@ -181,16 +181,12 @@ class InstrumentalDaskRunner(DaskRunner):
 
     @classmethod
     def _execute_stage(cls, stage, output):
-        if stage.stage_definition in Prism.BROADCASTER:
-            if isinstance(output, list):
-                raise RuntimeError(
-                    "Expected a single upstream output, but got list"
-                )
+        if stage.stage_definition in Tags.BROADCASTER:
             return stage(output)
 
         outputs = output if isinstance(output, list) else [output]
 
-        if stage.stage_definition in Prism.AGGREGATOR:
+        if stage.stage_definition in Tags.AGGREGATOR:
             return stage(outputs)
 
         return [stage(output) for output in outputs]
@@ -220,7 +216,7 @@ class InstrumentalDaskRunner(DaskRunner):
         slider = 0
         for output in outputs:
             output.compute_outputs += computed_tasks[
-                slider : slider + len(output.compute_tasks)
+                slider : slider + len(output.compute_tasks)  # noqa E203
             ]
             slider += len(output.compute_tasks)
             output.checkpoint_keys = []

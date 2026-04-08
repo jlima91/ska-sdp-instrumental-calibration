@@ -1,4 +1,4 @@
-class _PrismTag:
+class Tagger:
     def __init__(self, tag):
         self._tag = tag
 
@@ -10,6 +10,6 @@ class _PrismTag:
         return func
 
 
-class Prism:
-    BROADCASTER = _PrismTag("prism:broadcast")
-    AGGREGATOR = _PrismTag("prism:aggregate")
+class Tags:
+    BROADCASTER = Tagger("vectorize:broadcast")
+    AGGREGATOR = Tagger("vectorize:aggregate")

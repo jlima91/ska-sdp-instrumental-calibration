@@ -13,13 +13,13 @@ from ..data_managers.visibility import (
     write_ms_to_zarr,
 )
 from ..scheduler import UpstreamOutput
-from ..prism import Prism
+from ..tagger import Tags
 
 logger = logging.getLogger(__name__)
 
 
 @ConfigurableStage(name="load_data")
-@Prism.BROADCASTER
+@Tags.BROADCASTER
 def load_data_stage(
     _upstream_output_,
     _output_dir_,

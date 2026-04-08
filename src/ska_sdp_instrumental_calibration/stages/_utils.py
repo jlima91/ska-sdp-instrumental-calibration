@@ -1,10 +1,5 @@
-import inspect
 import os
-from functools import wraps
 from pathlib import Path
-from typing import Callable
-
-import xarray as xr
 
 
 def _create_path_tree(path: str):

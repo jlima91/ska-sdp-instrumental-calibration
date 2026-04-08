@@ -12,6 +12,7 @@ def mock_upstream_output():
     mock_output.vis = MagicMock(name="original_vis")
     mock_output.modelvis = MagicMock(name="model_vis")
     mock_output.chunks = MagicMock(name="chunks")
+    mock_output.ms_prefix = "ms_prefix"
 
     mock_output.__setitem__ = MagicMock()
 
@@ -177,11 +178,11 @@ def test_gaintable_export_is_triggered(
     )
 
     mock_get_gaintable_path.assert_called_once_with(
-        "/test/dir", "ionospheric_delay.gaintable.h5parm"
+        "/test/dir", "ms_prefix_ionospheric_delay.gaintable.h5parm"
     )
 
     mock_get_plot_path.assert_called_once_with(
-        "/test/dir", "ionospheric_delay"
+        "/test/dir", "ms_prefix_ionospheric_delay"
     )
 
     mock_export_func.assert_called_once_with(

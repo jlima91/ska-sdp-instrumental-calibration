@@ -3,8 +3,10 @@ import os
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.stages.data_exports import (
+    concat_gaintables,
     export_gaintable_stage,
 )
+from ska_sdp_instrumental_calibration.tagger import Tags
 
 INST_METADATA_FILE = "ska-data-product.yaml"
 
@@ -25,24 +27,64 @@ def test_export_gaintable_stage_is_required():
     assert export_gaintable_stage.__stage__.is_enabled
 
 
+def test_export_gaintable_stage_is_an_aggregator():
+    assert export_gaintable_stage in Tags.AGGREGATOR
+
+
+def test_should_not_concat_gaintables_in_upstream_outputs():
+    upstream_output = Mock(name="upstream_output")
+    upstream_output.gaintable = "gaintable_1"
+
+    result = concat_gaintables([upstream_output])
+
+    assert result == upstream_output
+
+
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.xr")
+def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
+    upstream_output = Mock(name="upstream_output")
+    upstream_output.gaintable = "gaintable_1"
+
+    upstream_output_1 = Mock(name="ugpstream_output_1")
+    upstream_output_1.gaintable = "gaintable_2"
+
+    upstream_output_2 = Mock(name="upstream_output_2")
+    upstream_output_2.gaintable = "gaintable_3"
+
+    result = concat_gaintables(
+        [upstream_output, upstream_output_1, upstream_output_2]
+    )
+
+    xarray_mock.concat.assert_called_once_with(
+        ["gaintable_1", "gaintable_2", "gaintable_3"], dim="time"
+    )
+
+    assert result.gaintable == xarray_mock.concat.return_value
+    assert upstream_output.gaintable == xarray_mock.concat.return_value
+
+
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
 def test_should_export_gaintable_as_h5parm(
-    dask_mock, export_gaintable_h5parm_mock
+    dask_mock, concat_mock, export_gaintable_h5parm_mock
 ):
 
     upstream_output_mock = Mock(name="upstream output")
     upstream_output_mock.__setitem__ = Mock(name="upstream-output-setitem")
     upstream_output_mock["gaintable"] = Mock(name="gaintable")
+    concat_mock.return_value = upstream_output_mock
 
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
     actual_output = export_gaintable_stage(
-        upstream_output_mock,
+        [upstream_output_mock],
         _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",
@@ -64,20 +106,24 @@ def test_should_export_gaintable_as_h5parm(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_hdf5"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
 def test_should_export_gaintable_as_hdf5(
-    dask_mock, export_gaintable_hdf5_mock
+    dask_mock, concat_mock, export_gaintable_hdf5_mock
 ):
 
     upstream_output_mock = Mock(name="upstream output")
     upstream_output_mock.__setitem__ = Mock(name="upstream-output-setitem")
     upstream_output_mock["gaintable"] = Mock(name="gaintable")
+    concat_mock.return_value = upstream_output_mock
 
     delayed_mock = Mock(side_effect=lambda f: f)
     dask_mock.delayed = delayed_mock
 
     actual_output = export_gaintable_stage(
-        upstream_output_mock,
+        [upstream_output_mock],
         _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="hdf5",
@@ -100,16 +146,20 @@ def test_should_export_gaintable_as_hdf5(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".INSTMetaData")
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".dask")
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.INSTMetaData")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
 def test_should_export_metadata(
-    dask_mock, inst_metadata_mock, export_gaintable_h5parm_mock
+    dask_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
 ):
     inst_metadata_mock.return_value = inst_metadata_mock
     inst_metadata_mock.can_create_metadata.return_value = True
     upstream_output_mock = Mock(name="upstream output")
     upstream_output_mock.__setitem__ = Mock(name="upstream-output-setitem")
     upstream_output_mock["gaintable"] = Mock(name="gaintable")
+    concat_mock.return_value = upstream_output_mock
     dataproduct_mock = Mock(name="dataproducts")
     dataproduct_mock.return_value = [
         {"dp_path": "test_gains.h5parm", "description": "Gaintable"}
@@ -119,7 +169,7 @@ def test_should_export_metadata(
     dask_mock.delayed = delayed_mock
 
     export_gaintable_stage(
-        upstream_output_mock,
+        [upstream_output_mock],
         _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",
@@ -139,15 +189,19 @@ def test_should_export_metadata(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".INSTMetaData")
-@patch("ska_sdp_instrumental_calibration.stages.data_exports" ".dask")
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.INSTMetaData")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
 def test_should_not_export_metadata_if_prerequisites_are_not_met(
-    dask_mock, inst_metadata_mock, export_gaintable_h5parm_mock
+    dask_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
 ):
     inst_metadata_mock.can_create_metadata.return_value = False
     upstream_output_mock = Mock(name="upstream output")
     upstream_output_mock.__setitem__ = Mock(name="upstream-output-setitem")
     upstream_output_mock["gaintable"] = Mock(name="gaintable")
+    concat_mock.return_value = upstream_output_mock
     dataproduct_mock = Mock(name="dataproducts")
     dataproduct_mock.return_value = [
         {"dp_path": "test_gains.h5parm", "description": "Gaintable"}
@@ -157,7 +211,7 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
     dask_mock.delayed = delayed_mock
 
     export_gaintable_stage(
-        upstream_output_mock,
+        [upstream_output_mock],
         _output_dir_="dir/to/save",
         file_name="test_gains",
         export_format="h5parm",

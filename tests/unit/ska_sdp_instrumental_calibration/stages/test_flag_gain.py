@@ -49,6 +49,7 @@ def test_should_perform_flagging_on_gains(
     plot_config,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
@@ -140,6 +141,7 @@ def test_should_export_gaintable_with_proper_suffix(
     ]
 
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
@@ -206,8 +208,8 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "gain_flag.gaintable.h5parm"),
-            call("/output/path", "gain_flag_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_gain_flag.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_gain_flag_1.gaintable.h5parm"),
         ]
     )
     export_gaintable_mock.assert_has_calls(
@@ -254,6 +256,7 @@ def test_should_plot_flag_on_gain(
         "/output/path/plots/curve_fit_gain",
     ]
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
@@ -301,8 +304,8 @@ def test_should_plot_flag_on_gain(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("/output/path", "gain_flagging"),
-            call("/output/path", "curve_fit_gain"),
+            call("/output/path", "ms_prefix_gain_flagging"),
+            call("/output/path", "ms_prefix_curve_fit_gain"),
         ]
     )
 

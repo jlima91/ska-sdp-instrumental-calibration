@@ -78,6 +78,7 @@ def test_should_perform_bandpass_calibration(
     visibility_filters,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -153,6 +154,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     ]
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -186,7 +188,10 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     )
 
     get_plots_path_mock.assert_has_calls(
-        [call("/output/path", "bandpass"), call("/output/path", "bandpass_1")]
+        [
+            call("/output/path", "ms_prefix_bandpass"),
+            call("/output/path", "ms_prefix_bandpass_1"),
+        ]
     )
     plot_gaintable_freq_mock.assert_has_calls(
         [
@@ -250,6 +255,7 @@ def test_should_export_gaintable_with_proper_suffix(
         "/output/path/gaintables/bandpass_1.gaintable.h5parm",
     ]
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -281,8 +287,8 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "bandpass.gaintable.h5parm"),
-            call("/output/path", "bandpass_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_bandpass.gaintable.h5parm"),
+            call("/output/path", "ms_prefix_bandpass_1.gaintable.h5parm"),
         ]
     )
 
@@ -322,6 +328,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
     visibility_filters,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -384,6 +391,7 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
     visibility_filters,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     mock_vis = Mock(name="vis")
     mock_vis.assign.return_value = mock_vis
 
