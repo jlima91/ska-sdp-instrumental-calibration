@@ -202,7 +202,31 @@ class RMSFlagger:
         """
         self.n_sigma = n_sigma
 
-    def flag(self, arr, weights, detrend=True):
+    def pre_flag(self, arr, weights):
+        """
+        Flag outliers using Median Absolute Deviation (MAD).
+
+        Parameters
+        ----------
+            arr : ndarray
+                Input array containing the data to be flagged.
+            weights : ndarray
+                Weighting factors for each element in the input array.
+
+        Returns
+        -------
+            ndarray
+                Boolean mask where True indicates an outlier based on n_sigma.
+        """
+        valid = weights != 0
+        if not np.any(valid):
+            return np.zeros_like(weights, dtype=bool), np.nan
+
+        med = np.nanmedian(arr[valid])
+        sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med))
+        return np.abs((arr - med) * weights) > (self.n_sigma * sigma)
+
+    def flag(self, arr, weights):
         """
         Does flagging using rms.
 
@@ -222,15 +246,9 @@ class RMSFlagger:
         if not np.any(valid):
             return np.zeros_like(weights, dtype=bool), np.nan
 
-        if detrend:
-            sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
-            flags = np.abs(arr * weights) > (self.n_sigma * sigma)
-        else:
-            med = np.nanmedian(arr[valid])
-            sigma = 1.4826 * np.nanmedian(
-                np.abs(arr[valid] - med)
-            )  # Loose flagging without detrend
-            flags = np.abs((arr - med) * weights) > (self.n_sigma * sigma)
+        sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
+        flags = np.abs(arr * weights) > (self.n_sigma * sigma)
+
         return flags, sigma
 
 
@@ -241,7 +259,48 @@ class RollingRMSFlagger:
         self.n_sigma = n_sigma
         self.window = window
 
-    def flag(self, arr, weights, detrend=True):
+    def _rms(self, data):
+        """
+        Calculate the rolling Root Mean Square (RMS) of the input data.
+
+        Parameters
+        ----------
+            data : ndarray
+                The 1D input signal to process.
+
+        Returns
+        -------
+            The rolling RMS values, padded to match the original data length.
+        """
+        pad = np.pad(data, self.window // 2, mode="reflect")
+        return np.sqrt(
+            np.convolve(pad**2, np.ones(self.window), "valid") / self.window
+        )
+
+    def pre_flag(self, arr, weights):
+        """
+        Flag outliers based on the rolling RMS and MAD-derived threshold.
+
+        Parameters
+        ----------
+            arr : ndarray
+                Input array to be analyzed.
+            weights : ndarray
+                Weighting factors where zero indicates invalid data points.
+
+        Returns
+        -------
+            Boolean mask identifying elements exceeding the n_sigma threshold.
+        """
+        valid = weights != 0
+        rms = self._rms(arr)
+
+        med = np.nanmedian(rms[valid])
+        sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med))
+
+        return ((rms - med) * weights) > (self.n_sigma * sigma)
+
+    def flag(self, arr, weights):
         """
         Does flagging using rolling rms.
 
@@ -256,20 +315,11 @@ class RollingRMSFlagger:
             Array fo flags
         """
         valid = weights != 0
-        pad = np.pad(arr, self.window // 2, mode="reflect")
-        rms = np.sqrt(
-            np.convolve(pad**2, np.ones(self.window), "valid") / self.window
-        )
+        rms = self._rms(arr)
 
-        if detrend:
-            sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
-            flags = (rms * weights) > (self.n_sigma * sigma)
-        else:
-            med = np.nanmedian(rms[valid])
-            sigma = 1.4826 * np.nanmedian(
-                np.abs(rms[valid] - med)
-            )  # Loose flagging without detrend
-            flags = ((rms - med) * weights) > (self.n_sigma * sigma)
+        sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
+        flags = (rms * weights) > (self.n_sigma * sigma)
+
         return flags, sigma
 
 
@@ -388,7 +438,7 @@ class GainFlagger:
         pre_flags = np.zeros_like(weights, dtype=bool)
         for arr in components.values():
             for flagger in self.flaggers:
-                flags, sigma = flagger.flag(arr, weights, detrend=False)
+                flags = flagger.pre_flag(arr, weights)
                 pre_flags |= flags
 
         weights[pre_flags] = 0
