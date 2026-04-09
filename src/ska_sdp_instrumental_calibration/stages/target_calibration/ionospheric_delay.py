@@ -47,10 +47,11 @@ def ionospheric_delay_stage(
         ),
     ] = 1e-6,
     zernike_limit: Annotated[
-        Optional[int],
+        Optional[list[int]],
         Field(
-            description="""The maximum order of Zernike polynomials to use
-            for the screen model.""",
+            description="""list of Zernike index limits:
+            Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+            If None, a default is used by the solver.""",
         ),
     ] = None,
     plot_table: Annotated[
@@ -87,9 +88,10 @@ def ionospheric_delay_stage(
     tol : float, optional
         The tolerance for the fractional change in parameters that determines
         solver convergence (default: 1e-6).
-    zernike_limit : int, optional
-        The maximum order of Zernike polynomials to use for the phase screen
-        model. If None, a default is used by the solver (default: None).
+    zernike_limit : list[int], optional
+        list of Zernike index limits:
+        Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+        If None, a default is used by the solver.
     plot_table: bool, optional
         Plot all station Phase vs Frequency (default: False).
     Returns

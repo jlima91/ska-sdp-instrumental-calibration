@@ -41,9 +41,10 @@ class IonosphericSolver:
     tol : float, optional
         Tolerance for the fractional change in parameters to determine
         convergence (default: 1e-6).
-    zernike_limit : int, optional
-        The maximum order of Zernike polynomials to use for the screen model.
-        If None, a default is used (default: None).
+    zernike_limit : list[int], optional
+        list of Zernike index limits:
+        Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+        If None, a default is used by the solver.
 
     Attributes
     ----------

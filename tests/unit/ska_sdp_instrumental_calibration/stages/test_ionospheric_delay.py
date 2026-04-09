@@ -72,7 +72,7 @@ def test_solver_runs_and_applies_correction(
         block_diagonal=True,
         niter=20,
         tol=1e-6,
-        zernike_limit=None,
+        zernike_limit=[6, 2, 2, 2],
         export_gaintable=False,
         plot_table=False,
     )
@@ -85,7 +85,7 @@ def test_solver_runs_and_applies_correction(
         True,
         20,
         1e-6,
-        None,
+        [6, 2, 2, 2],
     )
 
     mock_create_gaintable.assert_called_once_with(
