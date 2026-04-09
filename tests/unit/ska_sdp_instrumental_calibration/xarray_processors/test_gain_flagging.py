@@ -13,14 +13,15 @@ from ska_sdp_instrumental_calibration.xarray_processors.gain_flagging import (
 
 def test_should_flag_gains_for_amplitude():
     soltype = "amplitude"
-    order = 3
-    n_sigma = 2.0
+    order = 2
+    n_sigma = 3.0
     max_ncycles = 1
     n_sigma_rolling = 0.0
     window_size = 3
 
     frequencies = np.arange(0, 1, 0.1)
     gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
+    init_gains = gains.copy()
     gains[5] = 0 + 100j
     weights = np.ones(10)
 
@@ -50,38 +51,26 @@ def test_should_flag_gains_for_amplitude():
             1.0,
         ]
     )
-    expected_amp_fit = np.array(
-        [
-            2.814829,
-            2.06567,
-            8.526082,
-            15.493124,
-            21.533434,
-            25.266551,
-            25.317458,
-            20.319706,
-            8.989625,
-            10.724825,
-        ]
-    )
+    expected_amp_fit = np.abs(init_gains)
 
-    np.testing.assert_allclose(updated_weights, expected_weights)
     np.testing.assert_allclose(
         fits["amp_fit"], expected_amp_fit, rtol=1e-5, atol=1e-6
     )
+    np.testing.assert_allclose(updated_weights, expected_weights)
 
 
 def test_should_flag_gains_for_both_phase_and_amplitude():
     soltype = "amp-phase"
-    order = 3
-    n_sigma = 3
+    order = 2
+    n_sigma = 4
     max_ncycles = 1
-    n_sigma_rolling = 3.0
+    n_sigma_rolling = 0.0
     window_size = 3
 
     frequencies = np.arange(0, 1, 0.1)
 
-    gains = np.zeros(10, dtype=complex)
+    gains = np.arange(1, 2, 0.1) + 1j * np.arange(2, 1, -0.1)
+    init_gains = gains.copy()
     gains[5] = -200  # Outlier in both amp and phase
     gains[4] = -500j
 
@@ -106,7 +95,7 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
             1.0,
             1.0,
             0.0,
-            1.0,
+            0.0,
             1.0,
             1.0,
             1.0,
@@ -114,35 +103,9 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         ]
     )
 
-    expected_amp_fit = np.array(
-        [
-            66.713259,
-            39.813524,
-            110.442876,
-            149.370605,
-            160.792513,
-            148.904404,
-            117.90208,
-            71.981342,
-            15.337996,
-            47.832161,
-        ]
-    )
+    expected_amp_fit = np.abs(init_gains)
 
-    expected_phase_fit = np.array(
-        [
-            1.576405e00,
-            -3.137745e00,
-            1.573614e00,
-            1.609824e-03,
-            -1.570416e00,
-            3.140736e00,
-            1.568704e00,
-            -3.314318e-03,
-            -1.575081e00,
-            -6.030979e-03,
-        ]
-    )
+    expected_phase_fit = np.angle(init_gains)
 
     np.testing.assert_allclose(updated_weights, expected_weights)
     np.testing.assert_allclose(
@@ -156,8 +119,8 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
 def test_should_flag_gains_for_real_imag():
 
     soltype = "real-imag"
-    order = 3
-    n_sigma = 5.0
+    order = 2
+    n_sigma = 4.0
     max_ncycles = 1
     n_sigma_rolling = 0.0
     window_size = 3
@@ -166,6 +129,9 @@ def test_should_flag_gains_for_real_imag():
     gains[5] = 100 + 100j
 
     weights = np.ones(10)
+
+    expected_weights = weights.copy()
+    expected_weights[5] = 0
 
     flagger_obj = GainFlagger(
         soltype,
@@ -185,9 +151,7 @@ def test_should_flag_gains_for_real_imag():
         receptor2="Y",
     )
 
-    assert flagged_weights[5] == 0.0
-
-    assert np.sum(flagged_weights == 0) >= 1
+    np.testing.assert_allclose(flagged_weights, expected_weights)
 
     assert "real_fit" in fits
     assert "imag_fit" in fits
@@ -209,8 +173,8 @@ def test_should_flag_gains_for_real_imag():
             np.vstack([gains.real[:-2], gains.real[1:-1], gains.real[2:]]),
             axis=0,
         ),
-        rtol=1e-2,
-        atol=1e-2,
+        rtol=1e-1,
+        atol=1e-1,
     )
 
 

@@ -202,16 +202,42 @@ class RMSFlagger:
         """
         self.n_sigma = n_sigma
 
-    def flag(self, detrended, weights):
+    def pre_flag(self, arr, weights):
+        """
+        Flag outliers using Median Absolute Deviation (MAD).
+
+        Parameters
+        ----------
+            arr : ndarray
+                Input array containing the data to be flagged.
+            weights : ndarray
+                Weighting factors for each element in the input array.
+
+        Returns
+        -------
+            ndarray
+                Boolean mask where True indicates an outlier based on n_sigma.
+        """
+        valid = weights != 0
+        if not np.any(valid):
+            return np.zeros_like(weights, dtype=bool), np.nan
+
+        med = np.nanmedian(arr[valid])
+        sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med))
+        return np.abs((arr - med) * weights) > (self.n_sigma * sigma)
+
+    def flag(self, arr, weights):
         """
         Does flagging using rms.
 
         Parameters
         ----------
-            deterend: Array
+            arr: Array
                 Diff of fit and gains.
             weights: Array
                 Weights of gains.
+            detrend: Bool
+                Whether the array is detrended or not
         Returns
         -------
             Array fo flags
@@ -220,8 +246,9 @@ class RMSFlagger:
         if not np.any(valid):
             return np.zeros_like(weights, dtype=bool), np.nan
 
-        sigma = 1.4826 * np.nanmedian(np.abs(detrended[valid]))
-        flags = np.abs(detrended * weights) > (self.n_sigma * sigma)
+        sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
+        flags = np.abs(arr * weights) > (self.n_sigma * sigma)
+
         return flags, sigma
 
 
@@ -232,7 +259,48 @@ class RollingRMSFlagger:
         self.n_sigma = n_sigma
         self.window = window
 
-    def flag(self, detrended, weights):
+    def _rms(self, data):
+        """
+        Calculate the rolling Root Mean Square (RMS) of the input data.
+
+        Parameters
+        ----------
+            data : ndarray
+                The 1D input signal to process.
+
+        Returns
+        -------
+            The rolling RMS values, padded to match the original data length.
+        """
+        pad = np.pad(data, self.window // 2, mode="reflect")
+        return np.sqrt(
+            np.convolve(pad**2, np.ones(self.window), "valid") / self.window
+        )
+
+    def pre_flag(self, arr, weights):
+        """
+        Flag outliers based on the rolling RMS and MAD-derived threshold.
+
+        Parameters
+        ----------
+            arr : ndarray
+                Input array to be analyzed.
+            weights : ndarray
+                Weighting factors where zero indicates invalid data points.
+
+        Returns
+        -------
+            Boolean mask identifying elements exceeding the n_sigma threshold.
+        """
+        valid = weights != 0
+        rms = self._rms(arr)
+
+        med = np.nanmedian(rms[valid])
+        sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med))
+
+        return ((rms - med) * weights) > (self.n_sigma * sigma)
+
+    def flag(self, arr, weights):
         """
         Does flagging using rolling rms.
 
@@ -247,13 +315,11 @@ class RollingRMSFlagger:
             Array fo flags
         """
         valid = weights != 0
-        pad = np.pad(detrended, self.window // 2, mode="reflect")
-        rms = np.sqrt(
-            np.convolve(pad**2, np.ones(self.window), "valid") / self.window
-        )
+        rms = self._rms(arr)
 
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
         flags = (rms * weights) > (self.n_sigma * sigma)
+
         return flags, sigma
 
 
@@ -365,11 +431,23 @@ class GainFlagger:
         freq_guess = None
         last_fit_components = None
 
+        components = {}
+        data_components = self.soltype(gains)
+        components = {key: data_components[key] for key in data_components}
+
+        pre_flags = np.zeros_like(weights, dtype=bool)
+        for arr in components.values():
+            for flagger in self.flaggers:
+                flags = flagger.pre_flag(arr, weights)
+                pre_flags |= flags
+
+        weights[pre_flags] = 0
+
         for cycle in range(self.max_ncycles):
             if not np.any(weights):
                 break
 
-            cycle_flags = np.zeros_like(weights, dtype=bool)
+            cycle_flags = pre_flags
             cycle_sigma = None
             components = {}
 
@@ -401,11 +479,24 @@ class GainFlagger:
                     if sigma is not None and not np.isnan(sigma):
                         cycle_sigma = sigma
 
-            if not np.any(cycle_flags):
-                logger.debug("Converged at cycle %d", cycle + 1)
-                break
-
             weights[cycle_flags] = 0
+
+            total_flagged = np.count_nonzero(weights == 0)
+
+            if not np.any(cycle_flags):
+                logger.info(
+                    "Converged at cycle %d: antenna=%s receptors=[%s,%s] "
+                    "MAD=%.5f flagged=%d soltype=%s mode=%s",
+                    cycle + 1,
+                    antenna,
+                    receptor1,
+                    receptor2,
+                    cycle_sigma if cycle_sigma is not None else float("nan"),
+                    total_flagged,
+                    self.soltype_name,
+                    self.mode,
+                )
+                break
 
             percent_flagged = (
                 100.0 * np.count_nonzero(weights == 0) / weights.size
