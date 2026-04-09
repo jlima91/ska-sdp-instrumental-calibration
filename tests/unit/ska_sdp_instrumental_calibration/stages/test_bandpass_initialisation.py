@@ -38,6 +38,7 @@ def test_should_initialize_gains_for_bandpass(
     solver_factory_mock, run_solver_mock, parse_ref_ant_mock
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
     initial_gaintable = Mock(name="initial_gaintable")
@@ -113,6 +114,7 @@ def test_should_export_gaintable(
     delayed_mock,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
     initial_gaintable = Mock(name="initial_gaintable")
@@ -139,7 +141,7 @@ def test_should_export_gaintable(
     )
 
     get_gaintables_path_mock.assert_called_once_with(
-        "/output/path", "bandpass_initialisation.gaintable.h5parm"
+        "/output/path", "ms_prefix_bandpass_initialisation.gaintable.h5parm"
     )
 
     export_gaintable_mock.assert_called_once_with(

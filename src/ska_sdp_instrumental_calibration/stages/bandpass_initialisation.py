@@ -61,6 +61,7 @@ def bandpass_initialisation_stage(
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     initialtable = _upstream_output_.gaintable
+    prefix = _upstream_output_.ms_prefix
 
     refant = parse_antenna(refant, initialtable.configuration.names)
     solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
@@ -74,7 +75,7 @@ def bandpass_initialisation_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, "bandpass_initialisation.gaintable.h5parm"
+            _output_dir_, f"{prefix}_bandpass_initialisation.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

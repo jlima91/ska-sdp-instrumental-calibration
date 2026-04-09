@@ -48,83 +48,94 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
 
         assert os.path.exists(f"{temp_dir}/output/demo.ms_fid0_ddid0/")
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/bandpass.gaintable.h5parm"
+            f"{temp_dir}/output/gaintables/demo_bandpass.gaintable.h5parm"
         )
         assert os.path.exists(
             f"{temp_dir}/output/gaintables/"
-            "bandpass_initialisation.gaintable.h5parm"
+            "demo_bandpass_initialisation.gaintable.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/channel_rm.gaintable.h5parm"
+            f"{temp_dir}/output/gaintables/demo_channel_rm.gaintable.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/delay.clock.h5parm"
+            f"{temp_dir}/output/gaintables/demo_delay.clock.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/delay.gaintable.h5parm"
+            f"{temp_dir}/output/gaintables/demo_delay.gaintable.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/gain_flag.gaintable.h5parm"
+            f"{temp_dir}/output/gaintables/demo_gain_flag.gaintable.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/gaintables/ionospheric_delay.gaintable.h5parm"
+            f"{temp_dir}/output/gaintables/demo_ionospheric_delay"
+            ".gaintable.h5parm"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/bandpass-all_station_amp_vs_freq.png"
-        )
-        assert os.path.exists(f"{temp_dir}/output/plots/bandpass-amp-freq.png")
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/bandpass-phase-freq.png"
+            f"{temp_dir}/output/plots/demo_bandpass-"
+            "all_station_amp_vs_freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/channel_rm-amp-freq.png"
+            f"{temp_dir}/output/plots/demo_bandpass-amp-freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/channel_rm-phase-freq.png"
+            f"{temp_dir}/output/plots/demo_bandpass-phase-freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/channel_rm-rm-station-LOWBD2_344.png"
+            f"{temp_dir}/output/plots/demo_channel_rm-amp-freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/"
-            "curve_fit_gain-curve-amp-phase_freq-LOWBD2_344-LOWBD2_347.png"
+            f"{temp_dir}/output/plots/demo_channel_rm-phase-freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/"
-            "curve_fit_gain-curve-amp-phase_freq-LOWBD2_348-LOWBD2_351.png"
+            f"{temp_dir}/output/plots/demo_channel_rm-rm-station"
+            "-LOWBD2_344.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/"
-            "curve_fit_gain-curve-amp-phase_freq-LOWBD2_352-LOWBD2_429.png"
+            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
+            "-LOWBD2_344-LOWBD2_347.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/"
-            "curve_fit_gain-curve-amp-phase_freq-LOWBD2_430-LOWBD2_433.png"
+            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
+            "-LOWBD2_348-LOWBD2_351.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/"
-            "curve_fit_gain-curve-amp-phase_freq-LOWBD2_464-LOWBD2_467.png"
-        )
-        assert os.path.exists(f"{temp_dir}/output/plots/delay-amp-freq.png")
-        assert os.path.exists(f"{temp_dir}/output/plots/delay-phase-freq.png")
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/delay_station_delay.png"
+            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
+            "-LOWBD2_352-LOWBD2_429.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/gain_flagging"
+            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
+            "-LOWBD2_430-LOWBD2_433.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
+            "-LOWBD2_464-LOWBD2_467.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/demo_delay-amp-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/demo_delay-phase-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/demo_delay_station_delay.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/demo_gain_flagging"
             "-weights_freq-LOWBD2_344-LOWBD2_433.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/gain_flagging"
+            f"{temp_dir}/output/plots/demo_gain_flagging"
             "-weights_freq-LOWBD2_464-LOWBD2_467.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/plots/ionospheric_delay-phase-freq.png"
+            f"{temp_dir}/output/plots/demo_ionospheric_delay-phase-freq.png"
         )
         assert os.path.exists(
-            f"{temp_dir}/output/visibilities/corrected_vis.ms/"
+            f"{temp_dir}/output/visibilities/corrected_demo.ms/"
         )
-        assert os.path.exists(f"{temp_dir}/output/visibilities/modelvis.ms/")
+        assert os.path.exists(
+            f"{temp_dir}/output/visibilities/demo_modelvis.ms/"
+        )
         assert os.path.exists(f"{temp_dir}/output/inst.gaintable.h5parm")
         assert any(
             Path(f"{temp_dir}/output/").glob(
@@ -141,4 +152,4 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
                 "ska_sdp_instrumental_calibration*.log"
             )
         )
-        assert os.path.exists(f"{temp_dir}/output/sky_model.csv")
+        assert os.path.exists(f"{temp_dir}/output/demo_sky_model.csv")

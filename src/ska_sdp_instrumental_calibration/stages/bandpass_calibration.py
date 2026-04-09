@@ -86,6 +86,7 @@ def bandpass_calibration_stage(
     _upstream_output_.add_checkpoint_key("gaintable")
     modelvis = _upstream_output_.modelvis
     initialtable = _upstream_output_.gaintable
+    prefix = _upstream_output_.ms_prefix
 
     vis = _upstream_output_[visibility_key]
     logger.info(f"Using {visibility_key} for calibration.")
@@ -114,7 +115,7 @@ def bandpass_calibration_stage(
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
-            _output_dir_, f"bandpass{call_counter_suffix}"
+            _output_dir_, f"{prefix}_bandpass{call_counter_suffix}"
         )
 
         freq_plotter = PlotGaintableFrequency(
@@ -132,7 +133,8 @@ def bandpass_calibration_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, f"bandpass{call_counter_suffix}.gaintable.h5parm"
+            _output_dir_,
+            f"{prefix}_bandpass{call_counter_suffix}.gaintable.h5parm",
         )
 
         _upstream_output_.add_compute_tasks(

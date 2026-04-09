@@ -3,6 +3,7 @@ import os
 from typing import Annotated, Literal
 
 import dask
+import xarray as xr
 from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
@@ -13,15 +14,29 @@ from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
+from ..scheduler import UpstreamOutput
+from ..tagger import Tags
 
 logger = logging.getLogger()
 
 INST_METADATA_FILE = "ska-data-product.yaml"
 
 
+def concat_gaintables(upstream_outputs: list[UpstreamOutput]):
+    if len(upstream_outputs) == 1:
+        return upstream_outputs[0]
+
+    gaintables = [output.gaintable for output in upstream_outputs]
+    upstream_output = upstream_outputs[0]
+    upstream_output.gaintable = xr.concat(gaintables, dim="time")
+
+    return upstream_output
+
+
 @ConfigurableStage(name="export_gain_table")
+@Tags.AGGREGATOR
 def export_gaintable_stage(
-    _upstream_output_,
+    _upstream_output_: list[UpstreamOutput],
     _output_dir_,
     file_name: Annotated[
         str,
@@ -62,6 +77,7 @@ def export_gaintable_stage(
         dict
             Updated upstream output
     """
+    _upstream_output_ = concat_gaintables(_upstream_output_)
     gaintable = _upstream_output_.gaintable
     gaintable_file_path = os.path.join(
         _output_dir_, f"{file_name}.{export_format}"

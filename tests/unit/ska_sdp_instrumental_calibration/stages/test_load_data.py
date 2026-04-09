@@ -3,7 +3,10 @@ import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.stages.load_data import load_data_stage
+from ska_sdp_instrumental_calibration.stages.load_data import (
+    Tags,
+    load_data_stage,
+)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -20,6 +23,10 @@ def test_should_have_the_expected_default_configuration():
     }
 
     assert load_data_stage.__stage__.config == expected_config
+
+
+def test_load_data_stage_is_a_broadcaster():
+    assert load_data_stage in Tags.BROADCASTER
 
 
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
@@ -93,11 +100,13 @@ def test_should_load_data_from_existing_cached_zarr_file(
         read_data_mock.return_value, "full", "B"
     )
 
-    assert new_up_output["vis"] == read_data_mock.return_value
-    assert new_up_output["central_beams"] is None
-    assert new_up_output["beams_factory"] is None
+    assert len(new_up_output) == 1
+    assert new_up_output[0]["vis"] == read_data_mock.return_value
+    assert new_up_output[0]["ms_prefix"] == "vis"
+    assert new_up_output[0]["central_beams"] is None
+    assert new_up_output[0]["beams_factory"] is None
 
-    assert new_up_output["chunks"] == {
+    assert new_up_output[0]["chunks"] == {
         "baselineid": -1,
         "polarisation": -1,
         "spatial": -1,
