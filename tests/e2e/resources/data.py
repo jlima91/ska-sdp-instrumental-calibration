@@ -1,3 +1,4 @@
+import shutil
 import tarfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +13,7 @@ OSKAR_MOCK_TAR = Path(f"{resource_root_path}/OSKAR_MOCK.ms.tar.gz")
 
 @dataclass
 class TestResource:
-    ms_file: str
+    ms_files: list[str]
     config: str
     gleamdata: str
     eb_ms: str
@@ -23,10 +24,12 @@ def init_data(temp_dir: Path):
         tar.extractall(path=temp_dir)
         ms_name = tar.getnames()[0].split("/")[0]
         ms_path = (temp_dir / Path(ms_name)).as_posix()
+        ms_path_2 = (temp_dir / Path(f"a_{ms_name}")).as_posix()
+        shutil.copytree(ms_path, ms_path_2)
 
     with tarfile.open(OSKAR_MOCK_TAR, "r:*") as tar:
         tar.extractall(path=temp_dir)
         eb_ms_name = tar.getnames()[0].split("/")[0]
         eb_ms = (temp_dir / Path(eb_ms_name)).as_posix()
 
-    return TestResource(ms_path, CONFIG_PATH, GLEAMDATA, eb_ms)
+    return TestResource([ms_path, ms_path_2], CONFIG_PATH, GLEAMDATA, eb_ms)

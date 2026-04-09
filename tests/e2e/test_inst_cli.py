@@ -41,7 +41,7 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
             "--set",
             "parameters.predict_vis.eb_ms",
             test_resources.eb_ms,
-            test_resources.ms_file,
+            *test_resources.ms_files,
         ]
 
         ska_sdp_instrumental_calibration()
@@ -131,7 +131,94 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
             f"{temp_dir}/output/plots/demo_ionospheric_delay-phase-freq.png"
         )
         assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_bandpass.gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/"
+            "a_demo_bandpass_initialisation.gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_channel_rm.gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_delay.clock.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_delay.gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_gain_flag.gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/gaintables/a_demo_ionospheric_delay"
+            ".gaintable.h5parm"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_bandpass-"
+            "all_station_amp_vs_freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_bandpass-amp-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_bandpass-phase-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_channel_rm-amp-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_channel_rm-phase-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_channel_rm-rm-station"
+            "-LOWBD2_344.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
+            "phase_freq-LOWBD2_344-LOWBD2_347.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
+            "phase_freq-LOWBD2_348-LOWBD2_351.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
+            "phase_freq-LOWBD2_352-LOWBD2_429.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
+            "phase_freq-LOWBD2_430-LOWBD2_433.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
+            "phase_freq-LOWBD2_464-LOWBD2_467.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_delay-amp-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_delay-phase-freq.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_delay_station_delay.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_gain_flagging"
+            "-weights_freq-LOWBD2_344-LOWBD2_433.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_gain_flagging"
+            "-weights_freq-LOWBD2_464-LOWBD2_467.png"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/plots/a_demo_ionospheric_delay-phase-freq.png"
+        )
+
+        assert os.path.exists(
             f"{temp_dir}/output/visibilities/corrected_demo.ms/"
+        )
+        assert os.path.exists(
+            f"{temp_dir}/output/visibilities/corrected_a_demo.ms/"
         )
         assert os.path.exists(
             f"{temp_dir}/output/visibilities/demo_modelvis.ms/"
