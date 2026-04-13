@@ -881,7 +881,7 @@ def _generate_file_paths_for_vis_zarr_file(vis_cache_directory):
 
 
 def write_ms_to_zarr(
-    input_ms_path,
+    input_ms_paths: str | list[str],
     vis_cache_directory,
     zarr_chunks,
     ack=False,
@@ -894,15 +894,22 @@ def write_ms_to_zarr(
     NOTE: The baselines coordinates in Visibility are simplified.
     See note section in :py:func:`load_ms_as_dataset_with_time_chunks`
     """
-    visibility = load_ms_as_dataset_with_time_chunks(
-        input_ms_path,
-        zarr_chunks["time"],
-        ack=ack,
-        datacolumn=datacolumn,
-        field_id=field_id,
-        data_desc_id=data_desc_id,
-    )
+    if isinstance(input_ms_paths, str):
+        input_ms_paths = [input_ms_paths]
 
+    visibilities = [
+        load_ms_as_dataset_with_time_chunks(
+            input_ms,
+            zarr_chunks["time"],
+            ack=ack,
+            datacolumn=datacolumn,
+            field_id=field_id,
+            data_desc_id=data_desc_id,
+        )
+        for input_ms in input_ms_paths
+    ]
+
+    visibility = xr.concat(visibilities, dim="time", data_vars="minimal")
     writer = write_visibility_to_zarr(
         vis_cache_directory, zarr_chunks, visibility
     )

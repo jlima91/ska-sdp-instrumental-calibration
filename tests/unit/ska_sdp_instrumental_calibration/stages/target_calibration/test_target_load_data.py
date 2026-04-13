@@ -143,7 +143,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
     write_ms_mock.assert_called_once_with(
-        "/path/to/vis.ms",
+        ["/path/to/vis.ms"],
         "/path/to/output/dir/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
