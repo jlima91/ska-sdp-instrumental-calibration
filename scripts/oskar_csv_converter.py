@@ -92,6 +92,10 @@ def convert_oskar_to_new_format(
     df["spec_idx"] = df["spec_idx"].apply(lambda x: [x] if pd.notna(x) else [0.0])
     df["log_spec_idx"] = True
 
+    # New column values are of 'semi'-major/minor axis
+    df["a_arcsec"] = df["a_arcsec"] / 2
+    df["b_arcsec"] = df["b_arcsec"] / 2
+
     # Convert to components and write to CSV
     components = ComponentConverters.df_to_components(df)
     export_lsm_to_csv(components, output_file)
