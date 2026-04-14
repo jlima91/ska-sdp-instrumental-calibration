@@ -77,6 +77,11 @@ def convert_oskar_to_new_format(
         dtype=float,
     )
 
+    # Headers after I are optional
+    # If those columns are None, fill in 0 instead
+    for header in OSKAR_HEADERS[3:]:
+        df[header] = df[header].fillna(0)
+
     header_mapping = {
         "RA (deg)": "ra_deg",
         "Dec (deg)": "dec_deg",
@@ -118,7 +123,7 @@ def main():
         "output_csv",
         nargs="?",
         type=str,
-        default="converted_sky_model.csv",
+        default="./converted_sky_model.csv",
         help="Path for the output CSV file in new format.",
     )
     parser.add_argument(
