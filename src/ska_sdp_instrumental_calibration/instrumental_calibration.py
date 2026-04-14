@@ -10,6 +10,7 @@ from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
 from .scheduler import InstrumentalDaskRunner
+from .sdm import SDM
 from .stages import (
     bandpass_calibration_stage,
     bandpass_initialisation_stage,
@@ -23,6 +24,32 @@ from .stages import (
     predict_vis_stage,
     smooth_gain_solution_stage,
 )
+
+
+def prepare_qa_path(output_dir, sdm_path, **kwargs):
+    """
+    Initialize SDM directory structure and prepare the QA path.
+
+    Parameters
+    ----------
+    output_dir : str
+        Base directory used to construct the SDM path if not provided.
+    sdm_path : str or None
+        Path to the SDM directory. If None, it defaults to a 'sdm'
+        subdirectory within output_dir.
+    **kwargs : dict
+        Additional keyword arguments for path preparation.
+
+    Returns
+    -------
+    str
+        The path to the prepared log directory.
+    """
+    if sdm_path is None:
+        sdm_path = f"{output_dir}/sdm/"
+
+    SDM.init(sdm_path)
+    return SDM.prepare_log_dir(sdm_path, "inst")
 
 
 class ExperimentalConfig(PiperBaseModel):
@@ -44,27 +71,40 @@ input_cli_arg = CLIArgument(
     help="Input visibility path",
 )
 
+sdm_cli_arg = CLIArgument(
+    "--sdm-path",
+    dest="sdm_path",
+    type=str,
+    default=None,
+    help="""Directory path to store the Science Data Models""",
+)
+
 """
 This is the entrypoint for instrumental calibration pipeline.
 """
-ska_sdp_instrumental_calibration = Pipeline(
-    "ska_sdp_instrumental_calibration",
-    load_data_stage,
-    predict_vis_stage,
-    bandpass_initialisation_stage,
-    bandpass_calibration_stage,
-    delay_calibration_stage,
-    flag_gain_stage,
-    ionospheric_delay_stage,
-    generate_channel_rm_stage,
-    smooth_gain_solution_stage,
-    export_visibilities_stage,
-    export_gaintable_stage,
-    global_config_model=GlobalConfig,
-    version=__version__,
-).overide_run(
-    input_cli_arg,
-    runner=InstrumentalDaskRunner,
+ska_sdp_instrumental_calibration = (
+    Pipeline(
+        "ska_sdp_instrumental_calibration",
+        load_data_stage,
+        predict_vis_stage,
+        bandpass_initialisation_stage,
+        bandpass_calibration_stage,
+        delay_calibration_stage,
+        flag_gain_stage,
+        ionospheric_delay_stage,
+        generate_channel_rm_stage,
+        smooth_gain_solution_stage,
+        export_visibilities_stage,
+        export_gaintable_stage,
+        global_config_model=GlobalConfig,
+        version=__version__,
+    )
+    .with_qa_path_resolver(prepare_qa_path)
+    .overide_run(
+        input_cli_arg,
+        sdm_cli_arg,
+        runner=InstrumentalDaskRunner,
+    )
 )
 
 
@@ -73,6 +113,7 @@ ska_sdp_instrumental_calibration = Pipeline(
     "experimental",
     *RUN_CLI_ARGS,
     input_cli_arg,
+    sdm_cli_arg,
     *InstrumentalDaskRunner.cli_args(),
     help="Allows reordering of stages via additional config section",
 )
