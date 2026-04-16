@@ -1,12 +1,36 @@
 import os
 
 import numpy as np
+import pytest
+from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
+    read_ms_field_id,
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
+
+
+def create_mock_table(getcol_return=None, getkeywords_return=None):
+    mock_table = MagicMock()
+    mock_table.__enter__ = MagicMock(return_value=mock_table)
+    mock_table.__exit__ = MagicMock(return_value=False)
+
+    if getcol_return is not None:
+        mock_table.getcol.return_value = getcol_return
+    if getkeywords_return is not None:
+        mock_table.getkeywords.return_value = getkeywords_return
+
+    return mock_table
+
+
+@pytest.fixture
+def mock_table():
+    with patch(
+        "ska_sdp_instrumental_calibration.data_managers.visibility.table"
+    ) as mock:
+        yield mock
 
 
 def test_visibility_write_and_read(tmp_path, generate_vis, generate_ms):
@@ -141,3 +165,27 @@ def test_visibility_write_and_read_for_multiple_ms_input(
 
     # Check attributes is failing as frame attribute is not preserved
     # assert gen_vis.attrs == zarred_dataset.attrs
+
+
+def test_should_read_field_id_from_field_table(mock_table):
+    ms_path = "/path/to/test.ms"
+    expected_field_id = "field_0123"
+    mock_field_table = create_mock_table(getcol_return=[expected_field_id])
+    mock_table.return_value = mock_field_table
+
+    result = read_ms_field_id(ms_path)
+
+    assert result == expected_field_id
+    mock_table.assert_called_once_with(ms_path + "/FIELD")
+    mock_field_table.getcol.assert_called_once_with("NAME")
+
+
+def test_should_return_first_field_name_when_multiple_fields(mock_table):
+    ms_path = "/data/observation.ms"
+    field_names = ["target_field", "calibrator_field", "another_field"]
+    mock_field_table = create_mock_table(getcol_return=field_names)
+    mock_table.return_value = mock_field_table
+
+    result = read_ms_field_id(ms_path)
+
+    assert result == "target_field"

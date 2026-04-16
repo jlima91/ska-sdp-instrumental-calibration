@@ -1035,3 +1035,23 @@ def check_if_cache_files_exist(vis_cache_directory):
         and os.path.isfile(baselines_file)
         and os.path.isdir(vis_zarr_file)
     )
+
+
+def read_ms_field_id(ms_path: str):
+    """
+    Read field ID from measurement set.
+
+    Parameters
+    ----------
+    ms_path : str
+        Absolute path to the measurement set.
+
+    Returns
+    -------
+    field_id : str
+        Field ID of the measurement set.
+    """
+
+    with table(ms_path + "/FIELD") as tb:
+        field_id = tb.getcol("NAME")[0]
+    return field_id

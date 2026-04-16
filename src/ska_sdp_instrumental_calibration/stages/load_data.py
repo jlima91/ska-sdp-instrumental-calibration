@@ -6,9 +6,12 @@ import dask
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
+from ska_sdp_instrumental_calibration.sdm import SDM
+
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
+    read_ms_field_id,
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
@@ -209,5 +212,9 @@ def _load_data(
     )
     _upstream_output_["central_beams"] = None
     _upstream_output_["beams_factory"] = None
+    _upstream_output_["field_id"] = read_ms_field_id(input_ms)
+    _upstream_output_["calibration_purpose"] = SDM.BANDPASS.value
+
+    logger.info(f"ms_prefix:{_upstream_output_['ms_prefix']} field_id: {_upstream_output_['field_id']}")
 
     return _upstream_output_

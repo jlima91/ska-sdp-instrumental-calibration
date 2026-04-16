@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 
 import dask
 import xarray as xr
@@ -8,13 +8,15 @@ from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
-from ska_sdp_piper.piper import ConfigurableStage
+from functools import reduce
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
 from ..scheduler import UpstreamOutput
+from ..sdm import SDM
 from ..tagger import Tags
 
 logger = logging.getLogger()
@@ -32,12 +34,27 @@ def concat_gaintables(upstream_outputs: list[UpstreamOutput]):
 
     return upstream_output
 
+def group_upstream_by_field_id(upstream_outputs):
+    def accumulate_by_field_id(acc, upstream): 
+        if upstream.field_id not in acc:
+            acc[upstream.field_id] = []
+
+        acc[upstream.field_id].append(upstream)
+        return acc
+
+    return reduce(
+        accumulate_by_field_id,
+        upstream_outputs,
+        {}
+    )
+
 
 @ConfigurableStage(name="export_gain_table")
 @Tags.AGGREGATOR
 def export_gaintable_stage(
     _upstream_output_: list[UpstreamOutput],
     _output_dir_,
+    sdm_path: Annotated[Optional[str], CLIArgument] = None,
     file_name: Annotated[
         str,
         Field(
@@ -77,23 +94,33 @@ def export_gaintable_stage(
         dict
             Updated upstream output
     """
-    _upstream_output_ = concat_gaintables(_upstream_output_)
-    gaintable = _upstream_output_.gaintable
-    gaintable_file_path = os.path.join(
-        _output_dir_, f"{file_name}.{export_format}"
-    )
+    final_upstream = UpstreamOutput()
     export_functions = {
         "h5parm": export_gaintable_to_h5parm,
         "hdf5": export_gaintable_to_hdf5,
     }
+    grouped_upstream_output = group_upstream_by_field_id(_upstream_output_)
+    for field_id, upstream_outputs in grouped_upstream_output.items():
+        upstream_output = concat_gaintables(upstream_outputs)
 
-    logger.info(f"Writing solutions to {gaintable_file_path}")
+        gaintable = upstream_output.gaintable
+        gaintable_filename = f"{file_name}.{export_format}"
+        purpose = upstream_output.calibration_purpose
+        gaintable_file_path = _get_gaintable_file_path(
+            output_dir=_output_dir_,
+            filename=gaintable_filename,
+            sdm_path=sdm_path,
+            purpose=purpose,
+            field_id=field_id,
+        )
 
-    export = dask.delayed(export_functions[export_format])(
-        gaintable, gaintable_file_path
-    )
+        logger.info(f"Writing solutions to {gaintable_file_path}")
 
-    _upstream_output_.add_compute_tasks(export)
+        export = dask.delayed(export_functions[export_format])(
+            gaintable, gaintable_file_path
+        )
+
+        final_upstream.add_compute_tasks(export)
 
     if export_metadata and INSTMetaData.can_create_metadata():
         metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)
@@ -106,6 +133,14 @@ def export_gaintable_stage(
                 }
             ],
         )
-        _upstream_output_.add_compute_tasks(inst_metadata.export())
+        final_upstream.add_compute_tasks(inst_metadata.export())
 
-    return _upstream_output_
+    return final_upstream
+
+
+def _get_gaintable_file_path(
+    output_dir, filename, sdm_path, purpose, field_id
+):
+    if sdm_path is not None:
+        return SDM(purpose).prepare_model(sdm_path, field_id, filename)
+    return os.path.join(output_dir, f"{field_id}_{filename}")
