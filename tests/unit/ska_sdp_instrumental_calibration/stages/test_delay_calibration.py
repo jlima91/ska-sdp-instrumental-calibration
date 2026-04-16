@@ -45,7 +45,7 @@ def test_should_perform_delay_calibration(
 
     actual_output = delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -99,7 +99,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -107,7 +107,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -195,7 +195,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
@@ -203,7 +203,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,

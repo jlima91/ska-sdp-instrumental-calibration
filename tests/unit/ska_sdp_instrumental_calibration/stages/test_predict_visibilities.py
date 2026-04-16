@@ -61,7 +61,7 @@ def test_should_predict_visibilities(
     }
 
     result = predict_vis_stage(
-        upstream_output, input=input, _output_dir_="./output_dir", **params
+        upstream_output, input=input, _qa_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
@@ -125,7 +125,7 @@ def test_should_update_call_count(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     upstream_output = predict_vis_stage(upstream_output, input=input, **params)
@@ -190,7 +190,7 @@ def test_should_normalise_at_beam_centre(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     result = predict_vis_stage(
@@ -246,7 +246,7 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     result = predict_vis_stage(upstream_output, input=input, **params)
@@ -304,7 +304,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     }
 
     predict_vis_stage(
-        upstream_output, **params, _output_dir_="./output_dir", input=input
+        upstream_output, **params, _qa_dir_="./output_dir", input=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(

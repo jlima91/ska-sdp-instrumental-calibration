@@ -14,7 +14,7 @@ from .configuration_models import PlotSmoothGainsConfig
 @ConfigurableStage(name="smooth_gain_solution", optional=True)
 def smooth_gain_solution_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     plot_config: Annotated[
         PlotSmoothGainsConfig,
         Field(
@@ -48,8 +48,8 @@ def smooth_gain_solution_stage(
     ----------
      _upstream_output_: dict
         Output from the upstream stage
-    _output_dir_ : str
-        Directory path where the output file will be written.
+    _qa_dir_ : str
+        Directory path where the diagnostic QA outputs will be written.
     plot_config: PlotConfig
         Configuration required for plotting.
     window_size: int
@@ -77,7 +77,7 @@ def smooth_gain_solution_stage(
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
-            _output_dir_,
+            _qa_dir_,
             f"{prefix}_{plot_config.plot_path_prefix}{call_counter_suffix}",
         )
         freq_plotter = PlotGaintableFrequency(
@@ -93,7 +93,7 @@ def smooth_gain_solution_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_,
+            _qa_dir_,
             f"{prefix}_smooth_gain{call_counter_suffix}.gaintable.h5parm",
         )
         _upstream_output_.add_compute_tasks(

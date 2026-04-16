@@ -75,7 +75,7 @@ def test_should_perform_complex_gain_calibration(
         plot_config=plot_config,
         visibility_key=visibility_key_attr,
         export_gaintable=False,
-        _output_dir_="/out",
+        _qa_dir_="/out",
     )
 
     parse_ref_ant_mock.assert_called_once_with(
@@ -158,7 +158,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     actual_output = complex_gain_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         run_solver_config=run_solver_config,
         visibility_key="corrected_vis",
         plot_config=plot_config,

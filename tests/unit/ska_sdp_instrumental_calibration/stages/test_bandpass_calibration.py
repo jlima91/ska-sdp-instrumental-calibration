@@ -98,7 +98,7 @@ def test_should_perform_bandpass_calibration(
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     parse_ref_ant_mock.assert_called_once_with(2, initable.configuration.names)
@@ -174,7 +174,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     bandpass_calibration_stage(
@@ -184,7 +184,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     get_plots_path_mock.assert_has_calls(
@@ -272,7 +272,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     bandpass_calibration_stage(
@@ -282,7 +282,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_config=plot_config,
         visibility_key="corrected_vis",
         export_gaintable=True,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     get_gaintables_path_mock.assert_has_calls(
@@ -347,7 +347,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
@@ -416,7 +416,7 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
         plot_config=plot_config,
         visibility_key="vis",
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     visibility_filter_mock.filter.assert_called_once_with(

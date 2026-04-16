@@ -68,7 +68,7 @@ def test_solver_runs_and_applies_correction(
 
     result = ionospheric_delay_stage(
         mock_upstream_output,
-        _output_dir_="OUTPUT_DIR",
+        _qa_dir_="OUTPUT_DIR",
         cluster_indexes=[0, 1, 0, 1],
         block_diagonal=True,
         niter=20,
@@ -167,7 +167,7 @@ def test_gaintable_export_is_triggered(
 
     ionospheric_delay_stage(
         mock_upstream_output,
-        _output_dir_="/test/dir",
+        _qa_dir_="/test/dir",
         cluster_indexes=None,
         block_diagonal=True,
         niter=20,

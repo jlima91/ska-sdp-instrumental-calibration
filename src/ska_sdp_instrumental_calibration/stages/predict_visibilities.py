@@ -15,7 +15,7 @@ logger = logging.getLogger()
 
 def predict_visibilities(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     input: Annotated[list[str], CLIArgument],
     use_everybeam: Annotated[
         bool,
@@ -98,8 +98,8 @@ def predict_visibilities(
     ----------
     _upstream_output_: dict
         Output from the upstream stage.
-    _output_dir_ : str
-        Directory path where the output file will be written.
+    _qa_dir_ : str
+        Directory path where the diagnostic QA outputs will be written.
     input: CLIArgument
         Input measurementset.
     use_everybeam: bool
@@ -154,7 +154,7 @@ def predict_visibilities(
 
     if export_sky_model:
         ms_prefix = _upstream_output_.ms_prefix
-        sky_model_csv_path = f"{_output_dir_}/{ms_prefix}_sky_model.csv"
+        sky_model_csv_path = f"{_qa_dir_}/{ms_prefix}_sky_model.csv"
         logger.info(f"Exporting sky model to CSV file at {sky_model_csv_path}")
         _upstream_output_["lsm"].export_sky_model_csv(sky_model_csv_path)
 

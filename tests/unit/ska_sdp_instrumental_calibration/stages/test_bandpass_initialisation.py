@@ -54,7 +54,7 @@ def test_should_initialize_gains_for_bandpass(
 
     actual = bandpass_initialisation_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         refant=refant,
         niter=niter,
         tol=tol,
@@ -133,7 +133,7 @@ def test_should_export_gaintable(
 
     actual = bandpass_initialisation_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         refant=refant,
         niter=niter,
         tol=tol,

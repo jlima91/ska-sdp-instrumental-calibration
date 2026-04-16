@@ -22,7 +22,7 @@ logger = logging.getLogger()
 @ConfigurableStage(name="complex_gain_calibration")
 def complex_gain_calibration_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     run_solver_config: Annotated[
         TargetRunSolverConfig,
         Field(
@@ -59,8 +59,8 @@ def complex_gain_calibration_stage(
             Output from the upstream stage. It should contain:
                 gaintable, modelvis and visibility data with key
                 same as visibility_key
-        _output_dir_ : str
-            Directory path where the output file will be written.
+        _qa_dir_ : str
+            Directory path where the diagnostic QA outputs will be written.
         run_solver_config: RunSolverConfig
             Run solver config for target calibration
         plot_config: dict
@@ -105,7 +105,7 @@ def complex_gain_calibration_stage(
     )
 
     if plot_config.plot_table:
-        path_prefix = get_plots_path(_output_dir_, "complex_gain")
+        path_prefix = get_plots_path(_qa_dir_, "complex_gain")
 
         freq_plotter = PlotGaintableTime(
             path_prefix=path_prefix,
@@ -121,7 +121,7 @@ def complex_gain_calibration_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, "complex_gain.gaintable.h5parm"
+            _qa_dir_, "complex_gain.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

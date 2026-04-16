@@ -139,7 +139,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         plot_table=False,
         export_gaintable=False,
         run_solver_config=run_solver_config,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     parse_ref_ant_mock.assert_has_calls(
@@ -279,7 +279,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         plot_table=False,
         export_gaintable=False,
         run_solver_config=run_solver_config,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     model_rotations_mock.assert_called_once_with(
@@ -444,7 +444,7 @@ def test_should_plot_with_proper_suffix(
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     upstream_output["gaintable"] = initial_table_mock
@@ -458,7 +458,7 @@ def test_should_plot_with_proper_suffix(
         plot_table=True,
         run_solver_config=run_solver_config,
         export_gaintable=False,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     model_rotations_mock.assert_has_calls(
@@ -638,7 +638,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_table=False,
         run_solver_config=run_solver_config,
         export_gaintable=True,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     upstream_output["gaintable"] = initial_table_mock
@@ -652,7 +652,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_table=False,
         run_solver_config=run_solver_config,
         export_gaintable=True,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     get_gaintables_path_mock.assert_has_calls(
@@ -760,7 +760,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         plot_table=False,
         export_gaintable=False,
         run_solver_config=run_solver_config,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
     )
 
     model_rotations_mock.assert_called_once_with(

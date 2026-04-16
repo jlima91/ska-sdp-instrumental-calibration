@@ -69,7 +69,7 @@ def test_solver_runs_and_updates_gaintable(
         tol=1e-6,
         zernike_limit=None,
         plot_table=False,
-        _output_dir_="OUTPUT_DIR",
+        _qa_dir_="OUTPUT_DIR",
     )
 
     MockIonosphericSolver.solve.assert_called_once_with(
@@ -141,7 +141,7 @@ def test_solver_runs_and_plots_gaintable(
         tol=1e-6,
         zernike_limit=None,
         plot_table=True,
-        _output_dir_="OUTPUT_DIR",
+        _qa_dir_="OUTPUT_DIR",
     )
 
     get_plot_path_mock.assert_called_once_with(
