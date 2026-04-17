@@ -417,13 +417,13 @@ def _load_vis_xdr(
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    vis_data_shape = (
+    ms_data_shape = (
         vis_chunk.shape[0],
         num_baselines_in_ms,
         *vis_chunk.shape[2:],
     )
 
-    vis_data = get_col_from_ms(
+    ms_data = get_col_from_ms(
         ms_name,
         colname=datacolumn,
         start_time_idx=start_time_idx,
@@ -431,22 +431,21 @@ def _load_vis_xdr(
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(vis_data_shape)
+    )[0].reshape(ms_data_shape)
 
     if crosscorr_mask_over_baseline is not None:
-        vis_data[:, crosscorr_mask_over_baseline, ...] = np.conj(
-            vis_data[:, crosscorr_mask_over_baseline, ...]
+        ms_data[:, crosscorr_mask_over_baseline, ...] = np.conj(
+            ms_data[:, crosscorr_mask_over_baseline, ...]
         )
-
         if polarisation_order is not None:
-            vis_data[:, crosscorr_mask_over_baseline, ...] = vis_data[
+            ms_data[:, crosscorr_mask_over_baseline, ...] = ms_data[
                 :, crosscorr_mask_over_baseline, ...
             ][..., polarisation_order]
 
     actual_vis_data = np.zeros_like(vis_chunk)
-    actual_vis_data[:, vis_baseline_indices_to_update, ...] = vis_data
+    actual_vis_data[:, vis_baseline_indices_to_update, ...] = ms_data
 
-    del vis_data
+    del ms_data
 
     return xr.DataArray(actual_vis_data, coords=vis_chunk.coords)
 
@@ -659,6 +658,9 @@ def _load_data_vars(
                     "Order of antennas in baseline pairs is not consistent."
                 )
 
+            ms_ant1_col = ms.getcol("ANTENNA1")
+            ms_ant2_col = ms.getcol("ANTENNA2")
+
     time_index_xdr = xr.DataArray(
         da.arange(vis.time.size), coords={"time": vis.time}
     ).pipe(with_chunks, vis.chunksizes)
@@ -676,24 +678,11 @@ def _load_data_vars(
     else:
         ms_baseline_indices_order = slice(None, None, None)
 
-    if ms_contains_autocorrelations:
-        diag_offset = 0
-    else:
-        diag_offset = 1
-
     ms_baseline_indices = pandas.MultiIndex.from_arrays(
-        np.triu_indices(nantennas, k=diag_offset)[ms_baseline_indices_order],
+        [ms_ant1_col, ms_ant2_col],
         names=("antenna1", "antenna2"),
-    )
-
-    num_baselines_in_ms = num_rows_in_ms // time_index_xdr.size
-
-    assert num_baselines_in_ms == len(ms_baseline_indices), (
-        "Number of baselines in measurement set (%s) do not match with "
-        "number of baselines from indices (%s)",
-        num_baselines_in_ms,
-        len(ms_baseline_indices),
-    )
+    ).unique()
+    num_baselines_in_ms = len(ms_baseline_indices)
 
     vis_baseline_indices_to_update = np.array(
         [
