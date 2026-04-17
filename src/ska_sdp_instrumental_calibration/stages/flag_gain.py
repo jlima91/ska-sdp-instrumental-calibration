@@ -71,7 +71,7 @@ def flag_gain_stage(
         Field(
             description="Normailize the amplitude and phase before flagging."
         ),
-    ] = True,
+    ] = False,
     export_gaintable: Annotated[
         bool,
         Field(description="Export intermediate gain solutions."),

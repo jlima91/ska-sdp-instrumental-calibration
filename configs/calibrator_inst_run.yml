@@ -13,12 +13,12 @@ parameters:
   predict_vis:
     use_everybeam: true
     normalise_at_beam_centre: true
+    element_response_model: oskar_dipole_cos
     eb_ms: null
     gleamfile: null
     lsm_csv_path: null
-    export_sky_model: true
-    element_response_model: oskar_dipole_cos
-    fov: 10.0
+    export_sky_model: false
+    fov: 5.0
     flux_limit: 1.0
     alpha0: -0.78
   bandpass_initialisation:
@@ -32,7 +32,7 @@ parameters:
       refant: 0
       niter: 50
       phase_only: false
-      tol: 0.0001
+      tol: 0.001
       crosspol: false
     visibility_filters:
       uvdist: null
@@ -57,10 +57,10 @@ parameters:
     apply_flag: true
     skip_cross_pol: true
     max_ncycles: 5
-    n_sigma: 3.0
-    n_sigma_rolling: 10.0
+    n_sigma: 12.0
+    n_sigma_rolling: 0.0
     window_size: 11
-    normalize_gains: true
+    normalize_gains: false
     export_gaintable: false
   ionospheric_delay:
     cluster_indexes: null
@@ -68,25 +68,26 @@ parameters:
     niter: 500
     tol: 1.0e-06
     zernike_limit: null
+    timeslice: full
     plot_table: false
-    export_gaintable: true
+    export_gaintable: false
   generate_channel_rm:
     run_solver_config:
       solver: jones_substitution
       refant: 0
       niter: 50
       phase_only: false
-      tol: 0.0001
+      tol: 0.001
       crosspol: false
     plot_rm_config:
-      plot_rm: true
+      plot_rm: false
       station: 0
     oversample: 5
     peak_threshold: 0.5
     refine_fit: true
     visibility_key: vis
-    plot_table: true
-    export_gaintable: true
+    plot_table: false
+    export_gaintable: false
   smooth_gain_solution:
     plot_config:
       plot_table: false

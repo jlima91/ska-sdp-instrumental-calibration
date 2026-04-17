@@ -24,7 +24,7 @@ def test_should_have_the_expected_default_configuration():
             "n_sigma": 12.0,
             "n_sigma_rolling": 0.0,
             "window_size": 11,
-            "normalize_gains": True,
+            "normalize_gains": False,
             "export_gaintable": False,
             "plot_config": {"curve_fit_plot": True, "gain_flag_plot": True},
         },
