@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import reduce
 from typing import Annotated, Literal, Optional
 
 import dask
@@ -8,7 +9,6 @@ from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
-from functools import reduce
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
@@ -34,19 +34,16 @@ def concat_gaintables(upstream_outputs: list[UpstreamOutput]):
 
     return upstream_output
 
+
 def group_upstream_by_field_id(upstream_outputs):
-    def accumulate_by_field_id(acc, upstream): 
+    def accumulate_by_field_id(acc, upstream):
         if upstream.field_id not in acc:
             acc[upstream.field_id] = []
 
         acc[upstream.field_id].append(upstream)
         return acc
 
-    return reduce(
-        accumulate_by_field_id,
-        upstream_outputs,
-        {}
-    )
+    return reduce(accumulate_by_field_id, upstream_outputs, {})
 
 
 @ConfigurableStage(name="export_gain_table")

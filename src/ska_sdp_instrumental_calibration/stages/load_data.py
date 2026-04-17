@@ -215,6 +215,4 @@ def _load_data(
     _upstream_output_["field_id"] = read_ms_field_id(input_ms)
     _upstream_output_["calibration_purpose"] = SDM.BANDPASS.value
 
-    logger.info(f"ms_prefix:{_upstream_output_['ms_prefix']} field_id: {_upstream_output_['field_id']}")
-
     return _upstream_output_
