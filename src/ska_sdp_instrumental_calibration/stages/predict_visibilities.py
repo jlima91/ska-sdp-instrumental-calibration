@@ -153,8 +153,9 @@ def predict_visibilities(
     )
 
     if export_sky_model:
-        ms_prefix = _upstream_output_.ms_prefix
-        sky_model_csv_path = f"{_output_dir_}/{ms_prefix}_sky_model.csv"
+        ms_prefix = getattr(_upstream_output_, "ms_prefix", "")
+        ms_prefix = ms_prefix and f"{ms_prefix}_"
+        sky_model_csv_path = f"{_output_dir_}/{ms_prefix}sky_model.csv"
         logger.info(f"Exporting sky model to CSV file at {sky_model_csv_path}")
         _upstream_output_["lsm"].export_sky_model_csv(sky_model_csv_path)
 

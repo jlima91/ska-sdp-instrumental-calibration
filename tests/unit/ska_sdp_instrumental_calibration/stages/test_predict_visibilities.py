@@ -288,7 +288,6 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     global_sky_model_mock.return_value = global_sky_model_mock
 
     upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     input = "path/to/input/ms"
@@ -307,6 +306,16 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
         "export_sky_model": True,
     }
 
+    predict_vis_stage(
+        upstream_output, **params, _output_dir_="./output_dir", input_ms=input
+    )
+
+    global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
+        "./output_dir/sky_model.csv"
+    )
+
+    global_sky_model_mock.reset_mock()
+    upstream_output["ms_prefix"] = "ms_prefix"
     predict_vis_stage(
         upstream_output, **params, _output_dir_="./output_dir", input_ms=input
     )
