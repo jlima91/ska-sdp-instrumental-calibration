@@ -61,7 +61,7 @@ def test_should_predict_visibilities(
     }
 
     result = predict_vis_stage(
-        upstream_output, input=input, _output_dir_="./output_dir", **params
+        upstream_output, input_ms=input, _output_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
@@ -128,9 +128,13 @@ def test_should_update_call_count(
         "_output_dir_": "./output_dir",
     }
 
-    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
+    upstream_output = predict_vis_stage(
+        upstream_output, input_ms=input, **params
+    )
 
-    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
+    upstream_output = predict_vis_stage(
+        upstream_output, input_ms=input, **params
+    )
 
     assert upstream_output.get_call_count("predict_vis") == 2
 
@@ -195,7 +199,7 @@ def test_should_normalise_at_beam_centre(
 
     result = predict_vis_stage(
         upstream_output,
-        input=input,
+        input_ms=input,
         **params,
     )
 
@@ -249,7 +253,7 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
         "_output_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage(upstream_output, input=input, **params)
+    result = predict_vis_stage(upstream_output, input_ms=input, **params)
     global_sky_model_mock.assert_called_once_with(
         upstream_output.vis.phasecentre,
         10.0,
@@ -304,7 +308,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     }
 
     predict_vis_stage(
-        upstream_output, **params, _output_dir_="./output_dir", input=input
+        upstream_output, **params, _output_dir_="./output_dir", input_ms=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(

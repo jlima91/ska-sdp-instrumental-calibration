@@ -16,7 +16,7 @@ logger = logging.getLogger()
 def predict_visibilities(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[list[str], CLIArgument],
+    input_ms: Annotated[list[str], CLIArgument],
     use_everybeam: Annotated[
         bool,
         Field(description="Whether to use everybeam model."),
@@ -100,7 +100,7 @@ def predict_visibilities(
         Output from the upstream stage.
     _output_dir_ : str
         Directory path where the output file will be written.
-    input: CLIArgument
+    input_ms: CLIArgument
         Input measurementset.
     use_everybeam: bool
         Whether to use everybeam model. It uses everybeam by default.
@@ -164,7 +164,7 @@ def predict_visibilities(
 
     if use_everybeam:
         logger.info("Using EveryBeam model in predict")
-        eb_ms = input[0] if eb_ms is None else eb_ms
+        eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
             nstations=vis.configuration.id.size,

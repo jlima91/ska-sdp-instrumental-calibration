@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[list[str], CLIArgument],
+    input_ms: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -88,7 +88,7 @@ def load_data_stage(
         Output from the upstream stage
     _output_dir_: str
         Piper builtin. Stores the output directory path.
-    input: CLIArgument
+    input_ms: CLIArgument
         Input measurementset.
     nchannels_per_chunk: int
         Number of frequency channels per chunk in the
@@ -132,7 +132,7 @@ def load_data_stage(
             field_id,
             data_desc_id,
         )
-        for ms in input
+        for ms in input_ms
     ]
 
 
