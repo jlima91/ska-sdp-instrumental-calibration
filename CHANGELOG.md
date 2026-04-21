@@ -1,5 +1,19 @@
 # Changelog
 
+## Development
+
+### New Features & Enhancements
+
+1. Multiple-MS Support: INST can accept multiple measurement sets (multiple scans for the same field) as input. This is available for both calibrator INST and target INST pipelines.
+
+2. Updated the zernike_limit parameter to accept a list of integers instead of a single value.
+
+### Bug Fixes
+
+1. In `flag_gain` stage, resolve issues preventing the convergence of flagging cycle
+
+1. Fixed a bug in the `load_data` stage to handle antenna baseline order in correct way
+
 ## 1.0.0
 
 ### Features
