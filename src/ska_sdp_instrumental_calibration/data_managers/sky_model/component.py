@@ -59,6 +59,11 @@ class Component:
     log_spec_idx: bool = True
     "True if logarithmic spectral model, False if linear. Default=True"
 
+    source_id: Optional[str] = ""
+    "ID of the source this component belongs to"
+    epoch: Optional[float] = 0.0
+    "Epoch of observation"
+
     @cached_property
     def direction(self):
         """

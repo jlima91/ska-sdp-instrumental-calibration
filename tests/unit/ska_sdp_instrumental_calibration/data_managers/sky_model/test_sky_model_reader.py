@@ -23,8 +23,8 @@ GLEAM J235139-894114 -0.001036 0.026022 23 51 39.45 -89 41 14.30 357.914368   0.
 
 
 CSV_CONTENT = """# Number of sources: 1434
-# (component_id,ra_deg,dec_deg,i_pol_jy,a_arcsec,b_arcsec,pa_deg,ref_freq_hz,spec_idx,log_spec_idx) = format
-GLEAM J000010-000001, 357.914368, -89.687309, 2.71901e-01,  2.19263e+02, 1.464811e+02, -4.158033e+00, 2.000000e+08, "[-0.7,0.01,0.123]", true
+# (component_id,source_id,ra_deg,dec_deg,i_pol_jy,epoch,a_arcsec,b_arcsec,pa_deg,ref_freq_hz,spec_idx,log_spec_idx) = format
+GLEAM J000010-000001,S0001-11,357.914368, -89.687309, 2.71901e-01, 2026.2247,2.19263e+02, 1.464811e+02, -4.158033e+00, 2.000000e+08, "[-0.7,0.01,0.123]", true
 """  # noqa: E501
 
 
@@ -315,6 +315,8 @@ def test_should_generate_lsm_from_csv_file(logger_mock, path_mock, csv_file):
     assert lsm == [
         Component(
             component_id="GLEAM J000010-000001",
+            source_id="S0001-11",
+            epoch=2026.2247,
             ra=357.914368,
             dec=-89.687309,
             i_pol=0.271901,
@@ -404,10 +406,12 @@ def test_should_export_lsm_to_csv(local_skymodel_mock):
     local_skymodel_mock.assert_called_once_with(
         column_names=[
             "component_id",
-            "ref_freq_hz",
+            "source_id",
             "ra_deg",
             "dec_deg",
             "i_pol_jy",
+            "ref_freq_hz",
+            "epoch",
             "a_arcsec",
             "b_arcsec",
             "pa_deg",
@@ -421,10 +425,12 @@ def test_should_export_lsm_to_csv(local_skymodel_mock):
         0,
         {
             "component_id": "GLEAM J000010-000001",
+            "source_id": "",
             "ref_freq_hz": 200000000.0,
             "ra_deg": 357.914368,
             "dec_deg": -89.687309,
             "i_pol_jy": 0.271901,
+            "epoch": 0.0,
             "a_arcsec": 219.263,
             "b_arcsec": 146.4811,
             "pa_deg": -4.158033,
@@ -511,6 +517,8 @@ class TestComponentConverts:
     def test_should_create_components_from_local_sky_components_df(self):
         columns = [
             "component_id",
+            "source_id",
+            "epoch",
             "ra_deg",
             "dec_deg",
             "i_pol_jy",
@@ -526,6 +534,8 @@ class TestComponentConverts:
         data = [
             [
                 "Component 000000",
+                "source 1",
+                2026.2247,
                 197.914612,
                 -22.277973,
                 45.91633,
@@ -538,6 +548,8 @@ class TestComponentConverts:
             ],
             [
                 "Component 000001",
+                "source 2",
+                2026.232,
                 198.034622,
                 -20.447077,
                 3.442318,
@@ -555,6 +567,8 @@ class TestComponentConverts:
         expected = [
             Component(
                 component_id="Component 000000",
+                source_id="source 1",
+                epoch=2026.2247,
                 ra=197.914612,
                 dec=-22.277973,
                 i_pol=45.91633,
@@ -570,6 +584,8 @@ class TestComponentConverts:
             ),
             Component(
                 component_id="Component 000001",
+                source_id="source 2",
+                epoch=2026.232,
                 ra=198.034622,
                 dec=-20.447077,
                 i_pol=3.442318,
@@ -592,6 +608,8 @@ class TestComponentConverts:
         expected = [
             Component(
                 component_id="Component 000000",
+                source_id="source 1",
+                epoch=2026.2247,
                 ra=197.914612,
                 dec=-22.277973,
                 i_pol=45.91633,
@@ -611,6 +629,8 @@ class TestComponentConverts:
             [
                 SkyComponent(
                     component_id="Component 000000",
+                    source_id="source 1",
+                    epoch=2026.2247,
                     ra_deg=197.914612,
                     dec_deg=-22.277973,
                     i_pol_jy=45.91633,
@@ -630,6 +650,8 @@ class TestComponentConverts:
         expected = [
             SkyComponent(
                 component_id="Component 000000",
+                source_id="source 1",
+                epoch=2026.2247,
                 ra_deg=197.914612,
                 dec_deg=-22.277973,
                 i_pol_jy=45.91633,
@@ -642,6 +664,8 @@ class TestComponentConverts:
             ),
             SkyComponent(
                 component_id="Component 000001",
+                source_id="source 2",
+                epoch=2026.321,
                 ra_deg=197.914612,
                 dec_deg=-22.277973,
                 i_pol_jy=45.91633,
@@ -659,6 +683,8 @@ class TestComponentConverts:
             [
                 Component(
                     component_id="Component 000000",
+                    source_id="source 1",
+                    epoch=2026.2247,
                     ra=197.914612,
                     dec=-22.277973,
                     i_pol=45.91633,
@@ -674,6 +700,8 @@ class TestComponentConverts:
                 ),
                 Component(
                     component_id="Component 000001",
+                    source_id="source 2",
+                    epoch=2026.321,
                     ra=197.914612,
                     dec=-22.277973,
                     i_pol=45.91633,
