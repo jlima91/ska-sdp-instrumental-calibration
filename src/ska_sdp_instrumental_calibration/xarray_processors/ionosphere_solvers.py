@@ -343,7 +343,7 @@ class IonosphericSolver:
         """
         A = self.build_cluster_design_matrix(modelvis, param, cid)
 
-        (n_param, *_) = A.shape
+        n_param, *_ = A.shape
 
         AA = np.zeros((n_param, n_param))
         Ab = np.zeros(n_param)

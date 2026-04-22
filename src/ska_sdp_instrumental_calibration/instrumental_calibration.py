@@ -10,7 +10,7 @@ from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
 from .scheduler import InstrumentalDaskRunner
-from .sdm import SDM
+from .sdm import prepare_qa_path
 from .stages import (
     bandpass_calibration_stage,
     bandpass_initialisation_stage,
@@ -24,32 +24,6 @@ from .stages import (
     predict_vis_stage,
     smooth_gain_solution_stage,
 )
-
-
-def prepare_qa_path(output_dir, sdm_path, **kwargs):
-    """
-    Initialize SDM directory structure and prepare the QA path.
-
-    Parameters
-    ----------
-    output_dir : str
-        Base directory used to construct the SDM path if not provided.
-    sdm_path : str or None
-        Path to the SDM directory. If None, it defaults to a 'sdm'
-        subdirectory within output_dir.
-    **kwargs : dict
-        Additional keyword arguments for path preparation.
-
-    Returns
-    -------
-    str
-        The path to the prepared log directory.
-    """
-    if sdm_path is None:
-        sdm_path = f"{output_dir}/sdm/"
-
-    SDM.init(sdm_path)
-    return SDM.prepare_log_dir(sdm_path, "inst")
 
 
 class ExperimentalConfig(PiperBaseModel):
@@ -70,6 +44,7 @@ input_cli_arg = CLIArgument(
     type=str,
     help="Input visibility path(s)",
 )
+
 
 sdm_cli_arg = CLIArgument(
     "--sdm-path",

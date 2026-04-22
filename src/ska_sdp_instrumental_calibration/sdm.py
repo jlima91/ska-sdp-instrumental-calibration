@@ -6,6 +6,32 @@ from pathlib import Path
 from typing import Optional
 
 
+def prepare_qa_path(output_dir, sdm_path, **kwargs):
+    """
+    Initialize SDM directory structure and prepare the QA path.
+
+    Parameters
+    ----------
+    output_dir : str
+        Base directory used to construct the SDM path if not provided.
+    sdm_path : str or None
+        Path to the SDM directory. If None, it defaults to a 'sdm'
+        subdirectory within output_dir.
+    **kwargs : dict
+        Additional keyword arguments for path preparation.
+
+    Returns
+    -------
+    str
+        The path to the prepared log directory.
+    """
+    if sdm_path is None:
+        sdm_path = f"{output_dir}/sdm/"
+
+    SDM.init(sdm_path)
+    return SDM.prepare_log_dir(sdm_path, "inst")
+
+
 class SDM(Enum):
     """SDM management functions"""
 

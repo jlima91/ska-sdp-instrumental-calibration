@@ -6,7 +6,18 @@ from pathlib import Path
 import pytest
 from mock import call, patch
 
-from ska_sdp_instrumental_calibration.sdm import SDM
+from ska_sdp_instrumental_calibration.sdm import SDM, prepare_qa_path
+
+
+def test_should_prepare_qa_path():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        assert prepare_qa_path(temp_dir, sdm_path=None) == Path(
+            f"{temp_dir}/sdm/logs/01-inst"
+        )
+
+        sdm_root = Path(f"{temp_dir}/sdm_root")
+        inst_log_path = Path(f"{sdm_root}/logs/01-inst")
+        assert prepare_qa_path(None, sdm_path=sdm_root) == inst_log_path
 
 
 @patch("ska_sdp_instrumental_calibration.sdm.Path")
