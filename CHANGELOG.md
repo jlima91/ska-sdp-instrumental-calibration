@@ -1,5 +1,9 @@
 # Changelog
 
+## Development
+
+1. Add SDM support for inst. This introduces the concept of _qa_dir_ in stages planning on exporting diagnostic QA products. Field ID is used to differentiate MS files, and the same is used for obtaining sky model, and for exporting gaintables.
+
 ## 1.1.0
 
 ### New Features & Enhancements
