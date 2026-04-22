@@ -57,15 +57,14 @@ cat <<EOF > $BATCHLET_CONFIG
     "$INST_CONFIG",
     "--output",
     "$OUTPUT_PATH",
+    "--no-unique-output-subdir",
     "--set",
     "parameters.predict_vis.lsm_csv_path",
     "$CALIBRATOR_SKY_MODEL",
     "--set",
     "parameters.load_data.cache_directory",
     "$WORK_PATH",
-    "--input",
-    "$PRE_PROCESSED_CALIBRATOR",
-    "--no-unique-output-subdir"
+    "$PRE_PROCESSED_CALIBRATOR"
   ],
   "dask_params": {
     "threads_per_worker": 4,

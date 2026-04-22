@@ -59,7 +59,7 @@ def test_should_predict_visibilities(
     }
 
     result = predict_vis_stage(
-        upstream_output, input=input, _qa_dir_="./output_dir", **params
+        upstream_output, input_ms=input, _qa_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
@@ -123,9 +123,13 @@ def test_should_update_call_count(
         "_qa_dir_": "./output_dir",
     }
 
-    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
+    upstream_output = predict_vis_stage(
+        upstream_output, input_ms=input, **params
+    )
 
-    upstream_output = predict_vis_stage(upstream_output, input=input, **params)
+    upstream_output = predict_vis_stage(
+        upstream_output, input_ms=input, **params
+    )
 
     assert upstream_output.get_call_count("predict_vis") == 2
 
@@ -187,7 +191,7 @@ def test_should_normalise_at_beam_centre(
 
     result = predict_vis_stage(
         upstream_output,
-        input=input,
+        input_ms=input,
         **params,
     )
 
@@ -238,7 +242,7 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
         "_qa_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage(upstream_output, input=input, **params)
+    result = predict_vis_stage(upstream_output, input_ms=input, **params)
     global_sky_model_mock.assert_called_once_with(
         upstream_output.vis.phasecentre,
         10.0,
@@ -271,8 +275,11 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
 ):
 
     global_sky_model_mock.return_value = global_sky_model_mock
+    upstream_output = UpstreamOutput()
+    upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output["field_id"] = "field_a"
 
-    upstream_output = _get_prepopulated_upstream_output()
     input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
@@ -290,7 +297,17 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     }
 
     predict_vis_stage(
-        upstream_output, **params, _qa_dir_="./output_dir", input=input
+        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
+    )
+
+    global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
+        "./output_dir/sky_model.csv"
+    )
+
+    global_sky_model_mock.reset_mock()
+    upstream_output = _get_prepopulated_upstream_output()
+    predict_vis_stage(
+        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
@@ -336,7 +353,7 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
     )
 
     upstream_output = _get_prepopulated_upstream_output()
-    input = "path/to/input/ms"
+    input_ms = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -357,7 +374,7 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
         upstream_output,
         **params,
         _qa_dir_="./output_dir",
-        input=input,
+        input_ms=input_ms,
     )
     global_sky_model_mock.assert_called_once_with(
         upstream_output.vis.phasecentre,

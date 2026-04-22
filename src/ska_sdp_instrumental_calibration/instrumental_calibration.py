@@ -65,10 +65,10 @@ class GlobalConfig(PiperBaseModel):
 logger = logging.getLogger()
 
 input_cli_arg = CLIArgument(
-    "input",
+    "input_ms",
     nargs="+",
     type=str,
-    help="Input visibility path",
+    help="Input visibility path(s)",
 )
 
 sdm_cli_arg = CLIArgument(

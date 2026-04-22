@@ -17,7 +17,7 @@ logger = logging.getLogger()
 def predict_visibilities(
     _upstream_output_,
     _qa_dir_,
-    input: Annotated[list[str], CLIArgument],
+    input_ms: Annotated[list[str], CLIArgument],
     sdm_path: Annotated[Optional[str], CLIArgument] = None,
     use_everybeam: Annotated[
         bool,
@@ -110,7 +110,7 @@ def predict_visibilities(
         Output from the upstream stage.
     _qa_dir_ : str
         Directory path where the diagnostic QA outputs will be written.
-    input: CLIArgument
+    input_ms: CLIArgument
         Input measurementset.
     use_everybeam: bool
         Whether to use everybeam model. It uses everybeam by default.
@@ -168,8 +168,9 @@ def predict_visibilities(
     )
 
     if export_sky_model:
-        ms_prefix = _upstream_output_.ms_prefix
-        sky_model_csv_path = f"{_qa_dir_}/{ms_prefix}_sky_model.csv"
+        ms_prefix = getattr(_upstream_output_, "ms_prefix", "")
+        ms_prefix = ms_prefix and f"{ms_prefix}_"
+        sky_model_csv_path = f"{_qa_dir_}/{ms_prefix}sky_model.csv"
         logger.info(f"Exporting sky model to CSV file at {sky_model_csv_path}")
         _upstream_output_["lsm"].export_sky_model_csv(sky_model_csv_path)
 
@@ -179,7 +180,7 @@ def predict_visibilities(
 
     if use_everybeam:
         logger.info("Using EveryBeam model in predict")
-        eb_ms = input[0] if eb_ms is None else eb_ms
+        eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
             nstations=vis.configuration.id.size,

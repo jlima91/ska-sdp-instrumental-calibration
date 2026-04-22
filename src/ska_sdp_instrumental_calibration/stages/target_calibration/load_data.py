@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
-    input: Annotated[list[str], CLIArgument],
+    input_ms: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         int,
         Field(
@@ -145,7 +145,7 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded target visibility data
     """
-    input = [os.path.realpath(i) for i in input]
+    input_ms = [os.path.realpath(i) for i in input_ms]
 
     # Common dimensions across zarr and loaded visibility dataset
     non_chunked_dims = {
@@ -173,7 +173,7 @@ def load_data_stage(
 
     vis_cache_directory = os.path.join(
         cache_directory,
-        f"{os.path.basename(input[0])}_fid{field_id}_ddid{data_desc_id}",
+        f"{os.path.basename(input_ms[0])}_fid{field_id}_ddid{data_desc_id}",
     )
     os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
@@ -188,7 +188,7 @@ def load_data_stage(
         )
         with dask.annotate(resources={"process": 1}):
             write_ms_to_zarr(
-                input,
+                input_ms,
                 vis_cache_directory,
                 vis_chunks,
                 ack=ack,
@@ -204,6 +204,6 @@ def load_data_stage(
     _upstream_output_["vis"] = vis
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_["central_beams"] = None
-    _upstream_output_["field_id"] = read_ms_field_id(input[0])
+    _upstream_output_["field_id"] = read_ms_field_id(input_ms[0])
     _upstream_output_["calibration_purpose"] = SDM.GAINS.value
     return _upstream_output_

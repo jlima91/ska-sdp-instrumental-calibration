@@ -84,6 +84,8 @@ class ComponentConverters:
         return (
             Component(
                 component_id=sky_comp.component_id,
+                source_id=sky_comp.source_id,
+                epoch=sky_comp.epoch,
                 ra=sky_comp.ra_deg,
                 dec=sky_comp.dec_deg,
                 i_pol=sky_comp.i_pol_jy,
@@ -119,6 +121,8 @@ class ComponentConverters:
         return (
             SkyComponent(
                 component_id=comp.component_id,
+                source_id=comp.source_id,
+                epoch=comp.epoch,
                 ra_deg=comp.ra,
                 dec_deg=comp.dec,
                 i_pol_jy=comp.i_pol,

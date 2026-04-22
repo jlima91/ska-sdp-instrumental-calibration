@@ -11,13 +11,13 @@ parameters:
     field_id: 0
     data_desc_id: 0
   predict_vis:
-    beam_type: everybeam
+    use_everybeam: true
     normalise_at_beam_centre: true
+    element_response_model: oskar_dipole_cos
     eb_ms: null
     gleamfile: null
     lsm_csv_path: null
     export_sky_model: true
-    element_response_model: oskar_dipole_cos
     fov: 10.0
     flux_limit: 1.0
     alpha0: -0.78

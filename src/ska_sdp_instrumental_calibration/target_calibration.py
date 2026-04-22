@@ -9,10 +9,10 @@ from ska_sdp_instrumental_calibration.stages import (
 from . import __version__
 
 input_arg = CLIArgument(
-    "input",
+    "input_ms",
     nargs="+",
     type=str,
-    help="Input visibility path",
+    help="Input visibility path(s)",
 )
 
 ska_sdp_instrumental_target_calibration = Pipeline(
