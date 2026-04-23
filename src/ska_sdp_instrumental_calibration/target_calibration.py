@@ -36,6 +36,7 @@ ska_sdp_instrumental_target_calibration = (
     .with_qa_path_resolver(prepare_qa_path)
     .overide_run(
         input_arg,
+        sdm_cli_arg,
         runner=InstrumentalDaskRunner,
     )
 )
@@ -52,6 +53,7 @@ ska_sdp_instrumental_target_ionospheric_calibration = (
     .with_qa_path_resolver(prepare_qa_path)
     .overide_run(
         input_arg,
+        sdm_cli_arg,
         runner=InstrumentalDaskRunner,
     )
 )

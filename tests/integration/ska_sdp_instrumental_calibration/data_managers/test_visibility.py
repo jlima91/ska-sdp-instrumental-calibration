@@ -185,7 +185,7 @@ def test_should_return_unknown_field(mock_table):
     mock_field_table = create_mock_table(getcol_return=[""])
     mock_table.return_value = mock_field_table
 
-    assert read_ms_field_id(ms_path) == "UNKOWN_FIELD"
+    assert read_ms_field_id(ms_path) == "UNKNOWN_FIELD"
     mock_table.assert_called_once_with(ms_path + "/FIELD")
     mock_field_table.getcol.assert_called_once_with("NAME")
 
