@@ -180,6 +180,16 @@ def test_should_read_field_id_from_field_table(mock_table):
     mock_field_table.getcol.assert_called_once_with("NAME")
 
 
+def test_should_return_unknown_field(mock_table):
+    ms_path = "/path/to/test.ms"
+    mock_field_table = create_mock_table(getcol_return=[""])
+    mock_table.return_value = mock_field_table
+
+    assert read_ms_field_id(ms_path) == "UNKOWN_FIELD"
+    mock_table.assert_called_once_with(ms_path + "/FIELD")
+    mock_field_table.getcol.assert_called_once_with("NAME")
+
+
 def test_should_return_first_field_name_when_multiple_fields(mock_table):
     ms_path = "/data/observation.ms"
     field_names = ["target_field", "calibrator_field", "another_field"]

@@ -1043,4 +1043,5 @@ def read_ms_field_id(ms_path: str):
 
     with table(ms_path + "/FIELD") as tb:
         field_id = tb.getcol("NAME")[0]
-    return field_id
+
+    return field_id if field_id else "UNKOWN_FIELD"
