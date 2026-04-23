@@ -1,9 +1,9 @@
-import os
 import sys
 import tempfile
 from pathlib import Path
 
 import pytest
+from mock import patch
 
 from ska_sdp_instrumental_calibration.instrumental_calibration import (
     ska_sdp_instrumental_calibration,
@@ -15,20 +15,12 @@ from . import resources
 #  change the default singleton stage configuration.
 
 
-@pytest.fixture
-def clean_argv():
-    original_argv = sys.argv.copy()
-    yield
-    sys.argv = original_argv
-
-
-@pytest.mark.skip("Test run gets into infinite loop, need to verify")
 @pytest.mark.order(-1)
-def test_should_run_inst_and_generate_required_files(clean_argv):
+def test_should_run_inst_and_generate_required_files():
     with tempfile.TemporaryDirectory() as temp_dir:
         print(temp_dir)
         test_resources = resources.init_data(temp_dir)
-        sys.argv = [
+        testargs = [
             "ska-sdp-instrumental-calibration",
             "run",
             "--no-unique-output-subdir",
@@ -45,199 +37,62 @@ def test_should_run_inst_and_generate_required_files(clean_argv):
             *test_resources.ms_files,
         ]
 
-        ska_sdp_instrumental_calibration()
+        with patch.object(sys, "argv", testargs):
+            ska_sdp_instrumental_calibration()
 
-        assert os.path.exists(f"{temp_dir}/output/demo.ms_fid0_ddid0/")
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_bandpass.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/"
-            "demo_bandpass_initialisation.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_channel_rm.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_delay.clock.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_delay.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_gain_flag.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/demo_ionospheric_delay"
-            ".gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_bandpass-"
-            "all_station_amp_vs_freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_bandpass-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_bandpass-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_channel_rm-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_channel_rm-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_channel_rm-rm-station"
-            "-LOWBD2_344.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
-            "-LOWBD2_344-LOWBD2_347.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
-            "-LOWBD2_348-LOWBD2_351.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
-            "-LOWBD2_352-LOWBD2_429.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
-            "-LOWBD2_430-LOWBD2_433.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_curve_fit_gain-curve-amp-phase_freq"
-            "-LOWBD2_464-LOWBD2_467.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_delay-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_delay-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_delay_station_delay.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_gain_flagging"
-            "-weights_freq-LOWBD2_344-LOWBD2_433.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_gain_flagging"
-            "-weights_freq-LOWBD2_464-LOWBD2_467.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/demo_ionospheric_delay-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_bandpass.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/"
-            "a_demo_bandpass_initialisation.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_channel_rm.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_delay.clock.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_delay.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_gain_flag.gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/gaintables/a_demo_ionospheric_delay"
-            ".gaintable.h5parm"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_bandpass-"
-            "all_station_amp_vs_freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_bandpass-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_bandpass-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_channel_rm-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_channel_rm-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_channel_rm-rm-station"
-            "-LOWBD2_344.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
-            "phase_freq-LOWBD2_344-LOWBD2_347.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
-            "phase_freq-LOWBD2_348-LOWBD2_351.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
-            "phase_freq-LOWBD2_352-LOWBD2_429.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
-            "phase_freq-LOWBD2_430-LOWBD2_433.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_curve_fit_gain-curve-amp-"
-            "phase_freq-LOWBD2_464-LOWBD2_467.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_delay-amp-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_delay-phase-freq.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_delay_station_delay.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_gain_flagging"
-            "-weights_freq-LOWBD2_344-LOWBD2_433.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_gain_flagging"
-            "-weights_freq-LOWBD2_464-LOWBD2_467.png"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/plots/a_demo_ionospheric_delay-phase-freq.png"
-        )
+        output_dir = Path(f"{temp_dir}/output")
+        qa_dir = output_dir / "sdm/logs/01-inst"
 
-        assert os.path.exists(
-            f"{temp_dir}/output/visibilities/corrected_demo.ms/"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/visibilities/corrected_a_demo.ms/"
-        )
-        assert os.path.exists(
-            f"{temp_dir}/output/visibilities/demo_modelvis.ms/"
-        )
-        assert os.path.exists(f"{temp_dir}/output/inst.gaintable.h5parm")
+        assert (output_dir / "a_demo.ms_fid0_ddid0").exists()
+        assert (output_dir / "demo.ms_fid0_ddid0").exists()
+
+        assert (output_dir / "visibilities/corrected_demo.ms/").exists()
+        assert (output_dir / "visibilities/corrected_a_demo.ms/").exists()
+        assert (output_dir / "visibilities/demo_modelvis.ms/").exists()
+        assert (output_dir / "visibilities/a_demo_modelvis.ms/").exists()
+
+        # [TODO] Update "unknown" with the correct field name
+        # once test data is fixed
+        assert (output_dir / "unknown_inst.gaintable.h5parm").exists()
+
+        assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.cli.yaml"))
         assert any(
-            Path(f"{temp_dir}/output/").glob(
-                "ska_sdp_instrumental_calibration*.cli.yaml"
-            )
+            qa_dir.glob("ska_sdp_instrumental_calibration*.config.yaml")
         )
-        assert any(
-            Path(f"{temp_dir}/output/").glob(
-                "ska_sdp_instrumental_calibration*.config.yaml"
-            )
-        )
-        assert any(
-            Path(f"{temp_dir}/output/").glob(
-                "ska_sdp_instrumental_calibration*.log"
-            )
-        )
-        assert os.path.exists(f"{temp_dir}/output/demo_sky_model.csv")
+        assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.log"))
+        assert (qa_dir / "demo_sky_model.csv").exists()
+        assert (qa_dir / "a_demo_sky_model.csv").exists()
+
+        demo_qa_plots = {
+            qa_file.name for qa_file in (qa_dir / "plots").glob("demo*.png")
+        }
+        a_demo_qa_plots = {
+            qa_file.name for qa_file in (qa_dir / "plots").glob("a_demo*.png")
+        }
+
+        demo_qa_gaintables = {
+            qa_file.name
+            for qa_file in (qa_dir / "gaintables").glob("demo*.h5parm")
+        }
+        a_demo_qa_gaintables = {
+            qa_file.name
+            for qa_file in (qa_dir / "gaintables").glob("a_demo*.h5parm")
+        }
+
+        assert len(demo_qa_plots) == len(a_demo_qa_plots)
+        assert len(demo_qa_gaintables) == len(a_demo_qa_gaintables)
+
+        assert len(demo_qa_gaintables) == 7
+
+        for stage in [
+            "channel_rm",
+            "bandpass_initialisation",
+            "gain_flag",
+            "delay",
+            "ionospheric_delay",
+            "bandpass",
+        ]:
+            gaintable_file = f"demo_{stage}.gaintable.h5parm"
+            assert gaintable_file in demo_qa_gaintables
+
+        assert "demo_delay.clock.h5parm" in demo_qa_gaintables

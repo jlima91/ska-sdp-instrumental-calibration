@@ -83,7 +83,6 @@ ska_sdp_instrumental_calibration = (
 )
 
 
-# TODO: Update CLI ARGS to include array of input paths.
 @ska_sdp_instrumental_calibration.sub_command(
     "experimental",
     *RUN_CLI_ARGS,

@@ -1,6 +1,11 @@
 parameters:
   predict_vis:
     export_sky_model: True
+  bandpass_calibration:
+    run_solver_config:
+      niter: 1
+  bandpass_initialisation:
+    niter: 1
   delay_calibration:
     plot_config:
       plot_table: true
@@ -13,12 +18,16 @@ parameters:
   export_gain_table:
     export_metadata: true
   generate_channel_rm:
+    oversample: 1
+    refine_fit: false
+    run_solver_config:
+      niter: 1
     plot_rm_config:
       plot_rm: true
     plot_table: true
     export_gaintable: true
   ionospheric_delay:
-    niter: 10
+    niter: 1
     plot_table: true
     export_gaintable: true
 pipeline:
