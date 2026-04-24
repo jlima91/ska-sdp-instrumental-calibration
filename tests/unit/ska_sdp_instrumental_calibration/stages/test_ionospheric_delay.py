@@ -178,11 +178,11 @@ def test_gaintable_export_is_triggered(
     )
 
     mock_get_gaintable_path.assert_called_once_with(
-        "/test/dir", "ms_prefix_ionospheric_delay.gaintable.h5parm"
+        "/test/dir", "ms_prefix/ionospheric_delay.gaintable.h5parm"
     )
 
     mock_get_plot_path.assert_called_once_with(
-        "/test/dir", "ms_prefix_ionospheric_delay"
+        "/test/dir", "ms_prefix/ionospheric_delay"
     )
 
     mock_export_func.assert_called_once_with(

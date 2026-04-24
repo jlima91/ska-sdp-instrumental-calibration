@@ -152,7 +152,7 @@ def ionospheric_delay_stage(
     _upstream_output_["vis"] = vis
 
     if plot_table:
-        path_prefix = get_plots_path(_qa_dir_, f"{prefix}_ionospheric_delay")
+        path_prefix = get_plots_path(_qa_dir_, f"{prefix}/ionospheric_delay")
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
@@ -166,7 +166,7 @@ def ionospheric_delay_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _qa_dir_, f"{prefix}_ionospheric_delay.gaintable.h5parm"
+            _qa_dir_, f"{prefix}/ionospheric_delay.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

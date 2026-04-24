@@ -482,9 +482,9 @@ def test_should_plot_with_proper_suffix(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_channel_rm"),
-            call("/output/path", "ms_prefix_channel_rm"),
-            call("/output/path", "ms_prefix_channel_rm_1"),
+            call("/output/path", "ms_prefix/channel_rm"),
+            call("/output/path", "ms_prefix/channel_rm"),
+            call("/output/path", "ms_prefix/channel_rm_1"),
         ]
     )
 
@@ -657,8 +657,8 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_channel_rm.gaintable.h5parm"),
-            call("/output/path", "ms_prefix_channel_rm_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/channel_rm.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/channel_rm_1.gaintable.h5parm"),
         ]
     )
 

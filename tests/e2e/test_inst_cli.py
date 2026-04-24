@@ -46,10 +46,10 @@ def test_should_run_inst_and_generate_required_files():
         assert (output_dir / "a_demo.ms_fid0_ddid0").exists()
         assert (output_dir / "demo.ms_fid0_ddid0").exists()
 
-        assert (output_dir / "visibilities/corrected_demo.ms/").exists()
-        assert (output_dir / "visibilities/corrected_a_demo.ms/").exists()
-        assert (output_dir / "visibilities/demo_modelvis.ms/").exists()
-        assert (output_dir / "visibilities/a_demo_modelvis.ms/").exists()
+        assert (output_dir / "visibilities/demo/corrected.ms/").exists()
+        assert (output_dir / "visibilities/a_demo/corrected.ms/").exists()
+        assert (output_dir / "visibilities/demo/modelvis.ms/").exists()
+        assert (output_dir / "visibilities/a_demo/modelvis.ms/").exists()
 
         # [TODO] Update "unknown" with the correct field name
         # once test data is fixed
@@ -60,23 +60,23 @@ def test_should_run_inst_and_generate_required_files():
             qa_dir.glob("ska_sdp_instrumental_calibration*.config.yaml")
         )
         assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.log"))
-        assert (qa_dir / "demo_sky_model.csv").exists()
-        assert (qa_dir / "a_demo_sky_model.csv").exists()
+        assert (qa_dir / "demo/sky_model.csv").exists()
+        assert (qa_dir / "a_demo/sky_model.csv").exists()
 
         demo_qa_plots = {
-            qa_file.name for qa_file in (qa_dir / "plots").glob("demo*.png")
+            qa_file.name for qa_file in (qa_dir / "plots/demo").glob("*.png")
         }
         a_demo_qa_plots = {
-            qa_file.name for qa_file in (qa_dir / "plots").glob("a_demo*.png")
+            qa_file.name for qa_file in (qa_dir / "plots/a_demo").glob("*.png")
         }
 
         demo_qa_gaintables = {
             qa_file.name
-            for qa_file in (qa_dir / "gaintables").glob("demo*.h5parm")
+            for qa_file in (qa_dir / "gaintables/demo").glob("*.h5parm")
         }
         a_demo_qa_gaintables = {
             qa_file.name
-            for qa_file in (qa_dir / "gaintables").glob("a_demo*.h5parm")
+            for qa_file in (qa_dir / "gaintables/a_demo").glob("*.h5parm")
         }
 
         assert len(demo_qa_plots) == len(a_demo_qa_plots)
@@ -92,7 +92,7 @@ def test_should_run_inst_and_generate_required_files():
             "ionospheric_delay",
             "bandpass",
         ]:
-            gaintable_file = f"demo_{stage}.gaintable.h5parm"
+            gaintable_file = f"{stage}.gaintable.h5parm"
             assert gaintable_file in demo_qa_gaintables
 
-        assert "demo_delay.clock.h5parm" in demo_qa_gaintables
+        assert "delay.clock.h5parm" in demo_qa_gaintables

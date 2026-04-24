@@ -189,8 +189,8 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_bandpass"),
-            call("/output/path", "ms_prefix_bandpass_1"),
+            call("/output/path", "ms_prefix/bandpass"),
+            call("/output/path", "ms_prefix/bandpass_1"),
         ]
     )
     plot_gaintable_freq_mock.assert_has_calls(
@@ -287,8 +287,8 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_bandpass.gaintable.h5parm"),
-            call("/output/path", "ms_prefix_bandpass_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/bandpass.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/bandpass_1.gaintable.h5parm"),
         ]
     )
 

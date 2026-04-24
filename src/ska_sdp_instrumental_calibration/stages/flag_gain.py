@@ -154,7 +154,7 @@ def flag_gain_stage(
 
     if plot_config.gain_flag_plot:
         path_prefix = get_plots_path(
-            _qa_dir_, f"{prefix}_gain_flagging{call_counter_suffix}"
+            _qa_dir_, f"{prefix}/gain_flagging{call_counter_suffix}"
         )
         _upstream_output_.add_compute_tasks(
             plot_flag_gain(
@@ -166,7 +166,7 @@ def flag_gain_stage(
 
     if plot_config.curve_fit_plot:
         path_prefix = get_plots_path(
-            _qa_dir_, f"{prefix}_curve_fit_gain{call_counter_suffix}"
+            _qa_dir_, f"{prefix}/curve_fit_gain{call_counter_suffix}"
         )
 
         _upstream_output_.add_compute_tasks(
@@ -183,7 +183,7 @@ def flag_gain_stage(
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
-            f"{prefix}_gain_flag{call_counter_suffix}.gaintable.h5parm",
+            f"{prefix}/gain_flag{call_counter_suffix}.gaintable.h5parm",
         )
 
         _upstream_output_.add_compute_tasks(

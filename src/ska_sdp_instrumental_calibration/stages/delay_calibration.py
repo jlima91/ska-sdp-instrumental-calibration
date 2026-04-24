@@ -67,7 +67,7 @@ def delay_calibration_stage(
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
-            _qa_dir_, f"{prefix}_delay{call_counter_suffix}"
+            _qa_dir_, f"{prefix}/delay{call_counter_suffix}"
         )
 
         freq_plotter = PlotGaintableFrequency(
@@ -92,11 +92,11 @@ def delay_calibration_stage(
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
-            f"{prefix}_delay{call_counter_suffix}.gaintable.h5parm",
+            f"{prefix}/delay{call_counter_suffix}.gaintable.h5parm",
         )
 
         delaytable_file_path = get_gaintables_path(
-            _qa_dir_, f"{prefix}_delay{call_counter_suffix}.clock.h5parm"
+            _qa_dir_, f"{prefix}/delay{call_counter_suffix}.clock.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

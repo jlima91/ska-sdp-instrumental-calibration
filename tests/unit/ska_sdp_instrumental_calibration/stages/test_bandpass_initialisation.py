@@ -141,7 +141,7 @@ def test_should_export_gaintable(
     )
 
     get_gaintables_path_mock.assert_called_once_with(
-        "/output/path", "ms_prefix_bandpass_initialisation.gaintable.h5parm"
+        "/output/path", "ms_prefix/bandpass_initialisation.gaintable.h5parm"
     )
 
     export_gaintable_mock.assert_called_once_with(

@@ -75,7 +75,7 @@ def bandpass_initialisation_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _qa_dir_, f"{prefix}_bandpass_initialisation.gaintable.h5parm"
+            _qa_dir_, f"{prefix}/bandpass_initialisation.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(
