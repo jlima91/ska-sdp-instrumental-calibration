@@ -2,11 +2,13 @@ import logging
 from typing import Annotated, Optional
 
 from pydantic import Field
+from ska_sdp_datamodels.science_data_model.science_data_model import (
+    ScienceDataModel,
+)
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel
-from ..sdm import SDM
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis
@@ -64,14 +66,6 @@ def predict_visibilities(
             sky model. The CSV file should be in OSKAR CSV format."""
         ),
     ] = None,
-    sdm_lsm_file: Annotated[
-        str,
-        Field(
-            description="""Specifies name of LSM file available in SDM which
-            contains the local sky model. This will be used if sdm_path is
-            provided."""
-        ),
-    ] = "sky_model.csv",
     export_sky_model: Annotated[
         bool,
         Field(
@@ -152,12 +146,12 @@ def predict_visibilities(
     _upstream_output_.add_checkpoint_key("modelvis")
     vis = _upstream_output_.vis
     gaintable = _upstream_output_.gaintable
+
     if sdm_path is not None:
-        lsm_csv_path = str(
-            SDM.SKY.find_model(
-                sdm_path, _upstream_output_.field_id, sdm_lsm_file
-            )
-        )
+        sdm = ScienceDataModel(sdm_path)
+        gleamfile = None
+        lsm_csv_path = str(sdm.get_sky_model_path(_upstream_output_.field_id))
+
     _upstream_output_["lsm"] = GlobalSkyModel(
         vis.phasecentre,
         fov,

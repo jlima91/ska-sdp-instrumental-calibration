@@ -13,7 +13,6 @@ def test_should_have_the_expected_default_configuration():
             "element_response_model": "oskar_dipole_cos",
             "gleamfile": None,
             "lsm_csv_path": None,
-            "sdm_lsm_file": "sky_model.csv",
             "fov": 5.0,
             "flux_limit": 1.0,
             "alpha0": -0.78,
@@ -335,11 +334,11 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     ".apply_gaintable_to_dataset"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.predict_visibilities.SDM.SKY"
-    ".find_model"
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities."
+    "ScienceDataModel"
 )
 def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
-    find_model_mock,
+    sdm_mock,
     apply_gaintable_mock,
     prediction_beams_mock,
     predict_vis_mock,
@@ -348,7 +347,8 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
 ):
 
     global_sky_model_mock.return_value = global_sky_model_mock
-    find_model_mock.return_value = (
+    sdm_mock.return_value = sdm_mock
+    sdm_mock.get_sky_model_path.return_value = (
         "/path/to/sdm/skymodel/field_a/sky_model1.csv"
     )
 
@@ -361,7 +361,6 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
         "normalise_at_beam_centre": False,
         "eb_ms": None,
         "lsm_csv_path": "/path/to/lsm.csv",
-        "sdm_lsm_file": "sky_model1.csv",
         "element_response_model": "dipole_model",
         "fov": 10.0,
         "flux_limit": 1.0,
@@ -384,9 +383,11 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
         None,
         "/path/to/sdm/skymodel/field_a/sky_model1.csv",
     )
-    find_model_mock.assert_called_once_with(
-        "path/to/sdm", "field_a", "sky_model1.csv"
+    sdm_mock.assert_called_once_with(
+        "path/to/sdm",
     )
+
+    sdm_mock.get_sky_model_path.assert_called_once_with("field_a")
 
 
 def _get_prepopulated_upstream_output():

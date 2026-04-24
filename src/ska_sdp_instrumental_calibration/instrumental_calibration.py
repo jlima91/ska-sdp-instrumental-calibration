@@ -9,8 +9,8 @@ from ska_sdp_piper.piper.stage import Stages
 from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
+from .data_managers.sdm import prepare_qa_path
 from .scheduler import InstrumentalDaskRunner
-from .sdm import prepare_qa_path
 from .stages import (
     bandpass_calibration_stage,
     bandpass_initialisation_stage,

@@ -15,8 +15,8 @@ from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
+from ..data_managers.sdm import get_gaintable_file_path
 from ..scheduler import UpstreamOutput
-from ..sdm import SDM
 from ..tagger import Tags
 
 logger = logging.getLogger()
@@ -103,7 +103,7 @@ def export_gaintable_stage(
         gaintable = upstream_output.gaintable
         gaintable_filename = f"{file_name}.{export_format}"
         purpose = upstream_output.calibration_purpose
-        gaintable_file_path = _get_gaintable_file_path(
+        gaintable_file_path = get_gaintable_file_path(
             output_dir=_output_dir_,
             filename=gaintable_filename,
             sdm_path=sdm_path,
@@ -133,11 +133,3 @@ def export_gaintable_stage(
         final_upstream.add_compute_tasks(inst_metadata.export())
 
     return final_upstream
-
-
-def _get_gaintable_file_path(
-    output_dir, filename, sdm_path, purpose, field_id
-):
-    if sdm_path is not None:
-        return SDM(purpose).prepare_model(sdm_path, field_id, filename)
-    return os.path.join(output_dir, f"{field_id}_{filename}")

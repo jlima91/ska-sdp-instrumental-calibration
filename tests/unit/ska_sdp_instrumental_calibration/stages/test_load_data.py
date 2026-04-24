@@ -3,7 +3,6 @@ import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.sdm import SDM
 from ska_sdp_instrumental_calibration.stages.load_data import (
     Tags,
     load_data_stage,
@@ -110,7 +109,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output[0]["central_beams"] is None
     assert new_up_output[0]["beams_factory"] is None
     assert new_up_output[0]["field_id"] == "field-a"
-    assert new_up_output[0]["calibration_purpose"] == SDM.BANDPASS.value
+    assert new_up_output[0]["calibration_purpose"] == "bandpass"
 
     assert new_up_output[0]["chunks"] == {
         "baselineid": -1,

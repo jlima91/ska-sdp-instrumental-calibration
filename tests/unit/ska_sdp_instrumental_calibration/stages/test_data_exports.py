@@ -1,11 +1,9 @@
 import os
 
-import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.data_exports import (
-    SDM,
     concat_gaintables,
     export_gaintable_stage,
 )
@@ -66,21 +64,6 @@ def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
     assert upstream_output.gaintable == xarray_mock.concat.return_value
 
 
-@pytest.mark.parametrize(
-    "sdm_path, expected_path1, expected_path2",
-    [
-        (
-            "/path/to/sdm",
-            "/path/to/sdm/field_a/test_gains.h5parm",
-            "/path/to/sdm/field_b/test_gains.h5parm",
-        ),
-        (
-            None,
-            "dir/to/save/field_a_test_gains.h5parm",
-            "dir/to/save/field_b_test_gains.h5parm",
-        ),
-    ],
-)
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"
@@ -90,18 +73,19 @@ def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
 )
 @patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
 @patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports.SDM.GAINS"
-    ".prepare_model"
+    "ska_sdp_instrumental_calibration.stages.data_exports."
+    "get_gaintable_file_path"
 )
 def test_should_export_gaintable_as_h5parm(
     prepare_model_mock,
     dask_mock,
     concat_mock,
     export_gaintable_h5parm_mock,
-    sdm_path,
-    expected_path1,
-    expected_path2,
 ):
+
+    sdm_path = "/path/to/sdm"
+    expected_path1 = "/path/to/sdm/field_a/test_gains.h5parm"
+    expected_path2 = "/path/to/sdm/field_b/test_gains.h5parm"
 
     upstream_output1 = _get_prepopulated_upstream_output(field_id="field_a")
     upstream_output2 = _get_prepopulated_upstream_output(field_id="field_a")
@@ -149,13 +133,25 @@ def test_should_export_gaintable_as_h5parm(
             call([upstream_output3]),
         ]
     )
-    if sdm_path is not None:
-        prepare_model_mock.assert_has_calls(
-            [
-                call(sdm_path, "field_a", "test_gains.h5parm"),
-                call(sdm_path, "field_b", "test_gains.h5parm"),
-            ]
-        )
+
+    prepare_model_mock.assert_has_calls(
+        [
+            call(
+                output_dir="dir/to/save",
+                filename="test_gains.h5parm",
+                sdm_path="/path/to/sdm",
+                purpose="gains",
+                field_id="field_a",
+            ),
+            call(
+                output_dir="dir/to/save",
+                filename="test_gains.h5parm",
+                sdm_path="/path/to/sdm",
+                purpose="gains",
+                field_id="field_b",
+            ),
+        ]
+    )
 
 
 @patch(
@@ -272,7 +268,7 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
 
 
 def _get_prepopulated_upstream_output(
-    field_id="field_a", calibration_purpose=SDM.GAINS.value
+    field_id="field_a", calibration_purpose="gains"
 ):
     upstream_output = UpstreamOutput()
     upstream_output["gaintable"] = Mock(name="gaintable")

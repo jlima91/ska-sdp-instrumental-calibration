@@ -101,6 +101,7 @@ def test_should_perform_complex_gain_calibration(
         solver="SOLVER",
     )
     assert out.gaintable == gaintable_mock
+    assert out["calibration_purpose"] == "gains"
 
 
 @patch(

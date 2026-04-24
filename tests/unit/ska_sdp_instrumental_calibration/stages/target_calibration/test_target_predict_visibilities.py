@@ -9,7 +9,6 @@ def test_should_predict_visibilities():
         "predict_vis": {
             "use_everybeam": True,
             "normalise_at_beam_centre": True,
-            "sdm_lsm_file": "sky_model.csv",
             "eb_ms": None,
             "element_response_model": "oskar_dipole_cos",
             "gleamfile": None,

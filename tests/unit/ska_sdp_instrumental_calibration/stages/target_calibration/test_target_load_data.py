@@ -1,7 +1,6 @@
 from mock import patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
-from ska_sdp_instrumental_calibration.sdm import SDM
 from ska_sdp_instrumental_calibration.stages import target_calibration
 
 load_data_stage = target_calibration.load_data_stage
@@ -92,7 +91,6 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output["gaintable"] == create_gaintable_mock.return_value
     assert new_up_output["central_beams"] is None
     assert new_up_output["field_id"] == "field-a"
-    assert new_up_output["calibration_purpose"] == SDM.GAINS.value
 
 
 @patch(

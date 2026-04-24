@@ -131,4 +131,5 @@ def complex_gain_calibration_stage(
         )
 
     _upstream_output_["gaintable"] = gaintable
+    _upstream_output_["calibration_purpose"] = "gains"
     return _upstream_output_

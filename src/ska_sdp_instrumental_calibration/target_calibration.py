@@ -7,7 +7,7 @@ from ska_sdp_instrumental_calibration.stages import (
 )
 
 from . import __version__
-from .sdm import prepare_qa_path
+from .data_managers.sdm import prepare_qa_path
 
 input_arg = CLIArgument(
     "input_ms",

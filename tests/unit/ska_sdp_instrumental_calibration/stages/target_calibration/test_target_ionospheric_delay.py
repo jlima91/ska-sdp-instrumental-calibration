@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from mock import ANY, MagicMock, patch
 
+from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.target_calibration import (
     ionospheric_delay_stage,
 )
@@ -10,13 +11,12 @@ from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
 
 @pytest.fixture
 def mock_upstream_output():
-    mock_output = MagicMock(name="UpstreamOutput")
-    mock_output.vis = MagicMock(name="original_vis")
-    mock_output.modelvis = MagicMock(name="model_vis")
-    mock_output.chunks = MagicMock(name="chunks")
-    mock_output.timeslice = "timeslice"
-
-    mock_output.__setitem__ = MagicMock()
+    mock_output = UpstreamOutput()
+    mock_output["vis"] = MagicMock(name="original_vis")
+    mock_output["modelvis"] = MagicMock(name="model_vis")
+    mock_output["chunks"] = MagicMock(name="chunks")
+    mock_output["timeslice"] = "timeslice"
+    mock_output.add_compute_tasks = MagicMock(name="add_compute_tasks")
 
     return mock_output
 
@@ -94,11 +94,8 @@ def test_solver_runs_and_updates_gaintable(
     called_args, _ = MockIonosphericSolver.solve.call_args
     np.testing.assert_array_equal(called_args[3], np.array([0, 1, 0, 1]))
 
-    mock_upstream_output.__setitem__.assert_called_once_with(
-        "gaintable", mock_gaintable
-    )
-
-    assert result is mock_upstream_output
+    assert result["gaintable"] == mock_gaintable
+    assert result["calibration_purpose"] == "ionosphere"
 
 
 @patch(

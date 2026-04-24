@@ -128,6 +128,7 @@ def ionospheric_delay_stage(
     )
 
     _upstream_output_["gaintable"] = gaintable
+    _upstream_output_["calibration_purpose"] = "ionosphere"
 
     if plot_table:
         path_prefix = get_plots_path(_qa_dir_, "ionospheric_delay")
