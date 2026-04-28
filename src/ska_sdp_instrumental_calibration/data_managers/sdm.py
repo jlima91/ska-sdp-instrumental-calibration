@@ -35,7 +35,7 @@ def get_gaintable_file_path(output_dir, filename, sdm_path, purpose, field_id):
         gaintable_path = sdm.get_calibration_table(
             field_id=field_id, purpose=purpose, file_name=filename
         )
-        gaintable_path.parent.mkdir(exists_ok=True, parents=True)
+        gaintable_path.parent.mkdir(exist_ok=True, parents=True)
         return str(gaintable_path)
 
     return os.path.join(output_dir, f"{field_id}_{filename}")

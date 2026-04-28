@@ -63,5 +63,5 @@ def test_should_get_gaintable_file_path_with_sdm(sdm_mock):
         field_id="field_id", purpose="purpose", file_name="filename"
     )
     sdm_model_path.parent.mkdir.assert_called_once_with(
-        exists_ok=True, parents=True
+        exist_ok=True, parents=True
     )
