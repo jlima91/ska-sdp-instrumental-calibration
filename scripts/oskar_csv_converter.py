@@ -8,8 +8,11 @@ Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec),
 FWHM minor (arcsec), Position angle (deg)
 
 New format columns:
-component_id, ra, dec, i_pol, major_ax, minor_ax, pos_ang, ref_freq,
-spec_idx, log_spec_idx
+component_id, source_id, ra_deg, dec_deg, i_pol_jy, ref_freq_hz, epoch,
+a_arcsec, b_arcsec, pa_deg, spec_idx, log_spec_idx
+
+For more details on the SKA LSM format, please visit:
+https://developer.skao.int/projects/ska-sdp-global-sky-model/en/latest/design/lsm-file-structure.html
 
 Usage:
     python scripts/oskar_csv_converter.py input.csv
