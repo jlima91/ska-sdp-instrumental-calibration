@@ -17,7 +17,7 @@ logger = logging.getLogger()
 @ConfigurableStage(name="bandpass_initialisation")
 def bandpass_initialisation_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
     niter: Annotated[
         int, Field(description="Number of solver iterations.")
@@ -40,8 +40,8 @@ def bandpass_initialisation_stage(
     ----------
         _upstream_output_: dict
             Output from the upstream stage
-        _output_dir_: str
-            Piper builtin. Stores the output directory path.
+        _qa_dir_: str
+            Directory path where the diagnostic QA outputs will be written.
         refant: (int,str)
             Reference antenna
         niter: int
@@ -75,7 +75,7 @@ def bandpass_initialisation_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, f"{prefix}_bandpass_initialisation.gaintable.h5parm"
+            _qa_dir_, f"{prefix}/bandpass_initialisation.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

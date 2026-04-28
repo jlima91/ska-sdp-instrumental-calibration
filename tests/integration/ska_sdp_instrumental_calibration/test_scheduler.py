@@ -53,7 +53,7 @@ def test_should_scheduler_wait_and_fail_for_failed_tasks_with_client(
 ):
     # Create a mix of successful and failing tasks
     with Client() as _:
-        default_scheduler = InstrumentalDaskRunner(failing_pipeline)
+        default_scheduler = InstrumentalDaskRunner(_pipeline_=failing_pipeline)
 
         with pytest.raises(ZeroDivisionError):
             default_scheduler.execute()
@@ -62,7 +62,7 @@ def test_should_scheduler_wait_and_fail_for_failed_tasks_with_client(
 def test_should_scheduler_wait_and_success_with_client(passing_pipeline):
     # Create a mix of successful and failing tasks
     with Client() as _:
-        default_scheduler = InstrumentalDaskRunner(passing_pipeline)
+        default_scheduler = InstrumentalDaskRunner(_pipeline_=passing_pipeline)
         default_scheduler.execute()
 
 
@@ -70,13 +70,13 @@ def test_should_scheduler_wait_and_fail_for_failed_tasks_without_client(
     failing_pipeline,
 ):
     # Create a mix of successful and failing tasks
-    default_scheduler = InstrumentalDaskRunner(failing_pipeline)
+    default_scheduler = InstrumentalDaskRunner(_pipeline_=failing_pipeline)
 
     with pytest.raises(ZeroDivisionError):
         default_scheduler.execute()
 
 
 def test_should_scheduler_wait_and_success_without_client(passing_pipeline):
-    default_scheduler = InstrumentalDaskRunner(passing_pipeline)
+    default_scheduler = InstrumentalDaskRunner(_pipeline_=passing_pipeline)
 
     default_scheduler.execute()

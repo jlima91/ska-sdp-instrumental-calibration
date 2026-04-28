@@ -40,10 +40,7 @@ def test_should_predict_visibilities(
     beams_factory_mock,
 ):
 
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    upstream_output["vis"] = Mock(name="Visibilities")
-    upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output = _get_prepopulated_upstream_output()
     input = ["path/to/input/ms"]
     predict_vis_mock.return_value = [1, 2, 3]
 
@@ -61,7 +58,7 @@ def test_should_predict_visibilities(
     }
 
     result = predict_vis_stage(
-        upstream_output, input_ms=input, _output_dir_="./output_dir", **params
+        upstream_output, input_ms=input, _qa_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
@@ -107,10 +104,7 @@ def test_should_update_call_count(
     beams_factory_mock,
 ):
 
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    upstream_output["vis"] = Mock(name="Visibilities")
-    upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output = _get_prepopulated_upstream_output()
     input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
@@ -125,7 +119,7 @@ def test_should_update_call_count(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     upstream_output = predict_vis_stage(
@@ -165,15 +159,12 @@ def test_should_normalise_at_beam_centre(
     global_sky_model_mock,
     beams_factory_mock,
 ):
+    upstream_output = _get_prepopulated_upstream_output()
     vis = Mock(name="Visibilities")
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-
     upstream_output["vis"] = vis
     input = "path/to/input/ms"
 
     model_vis = Mock(name="Model Visibilities")
-    upstream_output["gaintable"] = Mock(name="Gaintable")
     predict_vis_mock.return_value = model_vis
     mock_beams = Mock(name="Beams")
     mock_beams.persist.return_value = mock_beams
@@ -194,7 +185,7 @@ def test_should_normalise_at_beam_centre(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     result = predict_vis_stage(
@@ -232,10 +223,7 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
     global_sky_model_mock,
 ):
 
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    upstream_output["vis"] = Mock(name="Visibilities")
-    upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output = _get_prepopulated_upstream_output()
     input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
@@ -250,7 +238,7 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
         "flux_limit": 1.0,
         "alpha0": -0.78,
         "export_sky_model": False,
-        "_output_dir_": "./output_dir",
+        "_qa_dir_": "./output_dir",
     }
 
     result = predict_vis_stage(upstream_output, input_ms=input, **params)
@@ -286,10 +274,11 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
 ):
 
     global_sky_model_mock.return_value = global_sky_model_mock
-
     upstream_output = UpstreamOutput()
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output["field_id"] = "field_a"
+
     input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
@@ -307,19 +296,104 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     }
 
     predict_vis_stage(
-        upstream_output, **params, _output_dir_="./output_dir", input_ms=input
+        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
-        "./output_dir/sky_model.csv"
+        "./output_dir/sky/sky_model.csv"
     )
 
     global_sky_model_mock.reset_mock()
-    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output = _get_prepopulated_upstream_output()
     predict_vis_stage(
-        upstream_output, **params, _output_dir_="./output_dir", input_ms=input
+        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
-        "./output_dir/ms_prefix_sky_model.csv"
+        "./output_dir/sky/ms_prefix/sky_model.csv"
     )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".BeamsFactory"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".GlobalSkyModel"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".prediction_central_beams"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".apply_gaintable_to_dataset"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities."
+    "ScienceDataModel"
+)
+def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
+    sdm_mock,
+    apply_gaintable_mock,
+    prediction_beams_mock,
+    predict_vis_mock,
+    global_sky_model_mock,
+    beams_factory_mock,
+):
+
+    global_sky_model_mock.return_value = global_sky_model_mock
+    sdm_mock.return_value = sdm_mock
+    sdm_mock.get_sky_model_path.return_value = (
+        "/path/to/sdm/skymodel/field_a/sky_model1.csv"
+    )
+
+    upstream_output = _get_prepopulated_upstream_output()
+    input_ms = "path/to/input/ms"
+    predict_vis_mock.return_value = [1, 2, 3]
+
+    params = {
+        "use_everybeam": True,
+        "normalise_at_beam_centre": False,
+        "eb_ms": None,
+        "lsm_csv_path": "/path/to/lsm.csv",
+        "element_response_model": "dipole_model",
+        "fov": 10.0,
+        "flux_limit": 1.0,
+        "alpha0": -0.78,
+        "export_sky_model": True,
+        "sdm_path": "path/to/sdm",
+    }
+
+    predict_vis_stage(
+        upstream_output,
+        **params,
+        _qa_dir_="./output_dir",
+        input_ms=input_ms,
+    )
+    global_sky_model_mock.assert_called_once_with(
+        upstream_output.vis.phasecentre,
+        10.0,
+        1.0,
+        -0.78,
+        None,
+        "/path/to/sdm/skymodel/field_a/sky_model1.csv",
+    )
+    sdm_mock.assert_called_once_with(
+        "path/to/sdm",
+    )
+
+    sdm_mock.get_sky_model_path.assert_called_once_with("field_a")
+
+
+def _get_prepopulated_upstream_output():
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="Visibilities")
+    upstream_output["gaintable"] = Mock(name="Gaintable")
+    upstream_output["field_id"] = "field_a"
+    return upstream_output

@@ -138,7 +138,7 @@ class GainSubstitution(Solver):
                 + "must both be provided or both be None"
             )
 
-        (pointvis_vis, pointvis_weight) = create_point_vis(
+        pointvis_vis, pointvis_weight = create_point_vis(
             vis_vis, vis_flags, vis_weight, model_vis, model_flags
         )
 

@@ -25,7 +25,7 @@ logger = logging.getLogger()
 @ConfigurableStage(name="bandpass_calibration")
 def bandpass_calibration_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     run_solver_config: Annotated[
         RunSolverConfig,
         Field(
@@ -62,8 +62,8 @@ def bandpass_calibration_stage(
     ----------
         _upstream_output_: dict
             Output from the upstream stage
-        _output_dir_ : str
-            Directory path where the output file will be written.
+        _qa_dir_ : str
+            Directory path where the diagnostic QA outputs will be written.
         run_solver_config: RunSolverConfig
             {run_solver_docstring}
         visibility_filters: VisibilityFilterConfig
@@ -115,7 +115,7 @@ def bandpass_calibration_stage(
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
-            _output_dir_, f"{prefix}_bandpass{call_counter_suffix}"
+            _qa_dir_, f"{prefix}/bandpass{call_counter_suffix}"
         )
 
         freq_plotter = PlotGaintableFrequency(
@@ -133,8 +133,8 @@ def bandpass_calibration_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_,
-            f"{prefix}_bandpass{call_counter_suffix}.gaintable.h5parm",
+            _qa_dir_,
+            f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",
         )
 
         _upstream_output_.add_compute_tasks(

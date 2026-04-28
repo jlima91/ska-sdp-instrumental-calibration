@@ -7,6 +7,7 @@ from ska_sdp_instrumental_calibration.stages import (
 )
 
 from . import __version__
+from .data_managers.sdm import prepare_qa_path
 
 input_arg = CLIArgument(
     "input_ms",
@@ -15,26 +16,44 @@ input_arg = CLIArgument(
     help="Input visibility path(s)",
 )
 
-ska_sdp_instrumental_target_calibration = Pipeline(
-    "ska_sdp_instrumental_target_calibration",
-    target_calibration.load_data_stage,
-    target_calibration.predict_vis_stage,
-    target_calibration.complex_gain_calibration_stage,
-    export_gaintable_stage,
-    version=__version__,
-).overide_run(
-    input_arg,
-    runner=InstrumentalDaskRunner,
+sdm_cli_arg = CLIArgument(
+    "--sdm-path",
+    dest="sdm_path",
+    type=str,
+    default=None,
+    help="""Directory path to store the Science Data Models""",
 )
 
-ska_sdp_instrumental_target_ionospheric_calibration = Pipeline(
-    "ska_sdp_instrumental_target_ionospheric_calibration",
-    target_calibration.load_data_stage,
-    target_calibration.predict_vis_stage,
-    target_calibration.ionospheric_delay_stage,
-    export_gaintable_stage,
-    version=__version__,
-).overide_run(
-    input_arg,
-    runner=InstrumentalDaskRunner,
+ska_sdp_instrumental_target_calibration = (
+    Pipeline(
+        "ska_sdp_instrumental_target_calibration",
+        target_calibration.load_data_stage,
+        target_calibration.predict_vis_stage,
+        target_calibration.complex_gain_calibration_stage,
+        export_gaintable_stage,
+        version=__version__,
+    )
+    .with_qa_path_resolver(prepare_qa_path)
+    .overide_run(
+        input_arg,
+        sdm_cli_arg,
+        runner=InstrumentalDaskRunner,
+    )
+)
+
+ska_sdp_instrumental_target_ionospheric_calibration = (
+    Pipeline(
+        "ska_sdp_instrumental_target_ionospheric_calibration",
+        target_calibration.load_data_stage,
+        target_calibration.predict_vis_stage,
+        target_calibration.ionospheric_delay_stage,
+        export_gaintable_stage,
+        version=__version__,
+    )
+    .with_qa_path_resolver(prepare_qa_path)
+    .overide_run(
+        input_arg,
+        sdm_cli_arg,
+        runner=InstrumentalDaskRunner,
+    )
 )

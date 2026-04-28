@@ -58,7 +58,7 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
         vis_mock, upstream_output["gaintable"], inverse=True
     )
     get_visibilities_path_mock.assert_called_once_with(
-        "./", "corrected_ms_prefix.ms"
+        "./", "ms_prefix/corrected.ms"
     )
     export_mock.assert_called_once_with(
         "./visibilities/corrected_vis.ms", [corrected_vis_mock]
@@ -101,7 +101,7 @@ def test_should_export_model_vis(
 
     export_visibilities_stage(upstream_output, "./", "modelvis", False)
     get_visibilities_path_mock.assert_called_once_with(
-        "./", "ms_prefix_modelvis.ms"
+        "./", "ms_prefix/modelvis.ms"
     )
     export_mock.assert_called_once_with(
         "./visibilities/modelvis.ms", [model_vis]
@@ -149,8 +149,8 @@ def test_should_export_both_vis_and_model_vis(
 
     get_visibilities_path_mock.assert_has_calls(
         [
-            call("./", "raw_ms_prefix.ms"),
-            call("./", "ms_prefix_modelvis.ms"),
+            call("./", "ms_prefix/raw.ms"),
+            call("./", "ms_prefix/modelvis.ms"),
         ]
     )
     export_mock.assert_has_calls(
@@ -212,10 +212,10 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
     export_visibilities_stage(upstream_output, "./", "all", False)
     get_visibilities_path_mock.assert_has_calls(
         [
-            call("./", "raw_ms_prefix.ms"),
-            call("./", "ms_prefix_modelvis.ms"),
-            call("./", "raw_ms_prefix_1.ms"),
-            call("./", "ms_prefix_modelvis_1.ms"),
+            call("./", "ms_prefix/raw.ms"),
+            call("./", "ms_prefix/modelvis.ms"),
+            call("./", "ms_prefix/raw_1.ms"),
+            call("./", "ms_prefix/modelvis_1.ms"),
         ]
     )
 

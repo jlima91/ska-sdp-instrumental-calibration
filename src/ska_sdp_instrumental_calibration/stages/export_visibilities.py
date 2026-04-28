@@ -61,16 +61,16 @@ def export_visibilities_stage(
     if call_count := _upstream_output_.get_call_count("export_visibilities"):
         call_counter_suffix = f"_{call_count}"
 
-    vis_prefix = "raw_"
+    vis_prefix = "raw"
     if apply_gaintable_to_vis:
-        vis_prefix = "corrected_"
+        vis_prefix = "corrected"
         gaintable = _upstream_output_["gaintable"]
         vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
         _upstream_output_["corrected_vis"] = vis
 
     if data_to_export == "vis" or data_to_export == "all":
         path_prefix = get_visibilities_path(
-            _output_dir_, f"{vis_prefix}{prefix}{call_counter_suffix}.ms"
+            _output_dir_, f"{prefix}/{vis_prefix}{call_counter_suffix}.ms"
         )
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_visibility_to_ms)(path_prefix, [vis])
@@ -79,7 +79,7 @@ def export_visibilities_stage(
     if data_to_export == "modelvis" or data_to_export == "all":
         modelvis = _upstream_output_["modelvis"]
         path_prefix = get_visibilities_path(
-            _output_dir_, f"{prefix}_modelvis{call_counter_suffix}.ms"
+            _output_dir_, f"{prefix}/modelvis{call_counter_suffix}.ms"
         )
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_visibility_to_ms)(path_prefix, [modelvis])

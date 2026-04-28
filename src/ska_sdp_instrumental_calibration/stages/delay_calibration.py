@@ -17,7 +17,7 @@ from .configuration_models import PlotConfig
 @ConfigurableStage(name="delay_calibration")
 def delay_calibration_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     plot_config: Annotated[
         PlotConfig,
         Field(description="Plot parameters", default_factory=PlotConfig),
@@ -38,8 +38,8 @@ def delay_calibration_stage(
     __________
          _upstream_output_: dict
             Output from the upstream stage
-        _output_dir_ : str
-            Directory path where the output file will be written.
+        _qa_dir_ : str
+            Directory path where the diagnostic QA outputs will be written.
         plot_config: PlotConfig
             Configuration required for plotting.
             eg: {plot_table: False, fixed_axis: False}
@@ -67,7 +67,7 @@ def delay_calibration_stage(
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
-            _output_dir_, f"{prefix}_delay{call_counter_suffix}"
+            _qa_dir_, f"{prefix}/delay{call_counter_suffix}"
         )
 
         freq_plotter = PlotGaintableFrequency(
@@ -91,12 +91,12 @@ def delay_calibration_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_,
-            f"{prefix}_delay{call_counter_suffix}.gaintable.h5parm",
+            _qa_dir_,
+            f"{prefix}/delay{call_counter_suffix}.gaintable.h5parm",
         )
 
         delaytable_file_path = get_gaintables_path(
-            _output_dir_, f"{prefix}_delay{call_counter_suffix}.clock.h5parm"
+            _qa_dir_, f"{prefix}/delay{call_counter_suffix}.clock.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(
