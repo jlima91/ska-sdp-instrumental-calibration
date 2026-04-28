@@ -94,7 +94,7 @@ class TestInstrumentalDaskRunner:
         # Persist returns checkpoint and compute task values
         mock_persist.return_value = ["vis1_value", "task1"]
 
-        scheduler = InstrumentalDaskRunner(pipeline)
+        scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
         scheduler.execute()
 
         # Check persist called for both stages
@@ -147,7 +147,7 @@ class TestInstrumentalDaskRunner:
         mock_futures_of.return_value = (mock_delay1, mock_delay2)
         mock_as_completed.return_value = [error_task, success_task]
 
-        scheduler = InstrumentalDaskRunner(pipeline)
+        scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
         # Create mock tasks
 
         # Patch wait to return (done, not_done)
@@ -183,7 +183,7 @@ class TestInstrumentalDaskRunner:
 
         dummy_stage.return_value = output
 
-        scheduler = InstrumentalDaskRunner(pipeline)
+        scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
 
         success_task = MagicMock()
         success_task.status = "success"

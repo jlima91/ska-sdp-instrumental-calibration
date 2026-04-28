@@ -20,7 +20,7 @@ logger = logging.getLogger()
 @ConfigurableStage(name="ionospheric_delay", optional=True)
 def ionospheric_delay_stage(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     cluster_indexes: Annotated[
         Optional[list[int]],
         Field(
@@ -93,8 +93,8 @@ def ionospheric_delay_stage(
     ----------
      _upstream_output_: dict
         Output from the upstream stage
-    _output_dir_ : str
-        Directory path where the output file will be written.
+    _qa_dir_ : str
+        Directory path where the diagnostic QA outputs will be written.
     cluster_indexes : list or numpy.ndarray, optional
         An array of integers assigning each antenna to a specific cluster.
         If None, all antennas are treated as a single cluster (default: None).
@@ -152,9 +152,7 @@ def ionospheric_delay_stage(
     _upstream_output_["vis"] = vis
 
     if plot_table:
-        path_prefix = get_plots_path(
-            _output_dir_, f"{prefix}_ionospheric_delay"
-        )
+        path_prefix = get_plots_path(_qa_dir_, f"{prefix}/ionospheric_delay")
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
@@ -168,7 +166,7 @@ def ionospheric_delay_stage(
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
-            _output_dir_, f"{prefix}_ionospheric_delay.gaintable.h5parm"
+            _qa_dir_, f"{prefix}/ionospheric_delay.gaintable.h5parm"
         )
 
         _upstream_output_.add_compute_tasks(

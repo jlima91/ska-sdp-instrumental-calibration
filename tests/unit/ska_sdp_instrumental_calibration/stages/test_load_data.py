@@ -43,7 +43,9 @@ def test_load_data_stage_is_a_broadcaster():
     "ska_sdp_instrumental_calibration.stages.load_data"
     ".create_gaintable_from_visibility"
 )
+@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
 def test_should_load_data_from_existing_cached_zarr_file(
+    read_ms_field_id_mock,
     create_bandpass_mock,
     read_data_mock,
     write_ms_mock,
@@ -56,6 +58,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         np.arange(12).reshape(1, 4, 3), dims=["time", "frequency", "antenna"]
     )
     create_bandpass_mock.return_value = gaintable
+    read_ms_field_id_mock.return_value = "field-a"
 
     frequency_per_chunk = 2
     times_per_ms_chunk = 3
@@ -105,6 +108,8 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output[0]["ms_prefix"] == "vis"
     assert new_up_output[0]["central_beams"] is None
     assert new_up_output[0]["beams_factory"] is None
+    assert new_up_output[0]["field_id"] == "field-a"
+    assert new_up_output[0]["calibration_purpose"] == "bandpass"
 
     assert new_up_output[0]["chunks"] == {
         "baselineid": -1,
@@ -129,7 +134,9 @@ def test_should_load_data_from_existing_cached_zarr_file(
     "ska_sdp_instrumental_calibration.stages.load_data"
     ".create_gaintable_from_visibility"
 )
+@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
+    read_ms_field_id_mock,
     create_bandpass_mock,
     read_data_mock,
     write_ms_mock,
@@ -140,7 +147,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
 
     gaintable = MagicMock(name="gaintable")
     create_bandpass_mock.return_value = gaintable
-
+    read_ms_field_id_mock.return_value = "field-a"
     frequency_per_chunk = 16
     times_per_ms_chunk = 8
 

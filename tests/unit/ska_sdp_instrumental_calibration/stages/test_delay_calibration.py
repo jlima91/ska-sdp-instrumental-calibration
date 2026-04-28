@@ -45,7 +45,7 @@ def test_should_perform_delay_calibration(
 
     actual_output = delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -99,7 +99,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -107,7 +107,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
@@ -115,8 +115,8 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_delay"),
-            call("/output/path", "ms_prefix_delay_1"),
+            call("/output/path", "ms_prefix/delay"),
+            call("/output/path", "ms_prefix/delay_1"),
         ]
     )
 
@@ -195,7 +195,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
@@ -203,7 +203,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     delay_calibration_stage(
         upstream_output,
-        _output_dir_="/output/path",
+        _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
@@ -211,10 +211,10 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("/output/path", "ms_prefix_delay.gaintable.h5parm"),
-            call("/output/path", "ms_prefix_delay.clock.h5parm"),
-            call("/output/path", "ms_prefix_delay_1.gaintable.h5parm"),
-            call("/output/path", "ms_prefix_delay_1.clock.h5parm"),
+            call("/output/path", "ms_prefix/delay.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/delay.clock.h5parm"),
+            call("/output/path", "ms_prefix/delay_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/delay_1.clock.h5parm"),
         ]
     )
     export_gaintable_mock.assert_has_calls(

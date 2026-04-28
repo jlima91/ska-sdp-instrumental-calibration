@@ -9,6 +9,7 @@ from ska_sdp_piper.piper.stage import Stages
 from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
+from .data_managers.sdm import prepare_qa_path
 from .scheduler import InstrumentalDaskRunner
 from .stages import (
     bandpass_calibration_stage,
@@ -44,35 +45,49 @@ input_cli_arg = CLIArgument(
     help="Input visibility path(s)",
 )
 
+
+sdm_cli_arg = CLIArgument(
+    "--sdm-path",
+    dest="sdm_path",
+    type=str,
+    default=None,
+    help="""Directory path to store the Science Data Models""",
+)
+
 """
 This is the entrypoint for instrumental calibration pipeline.
 """
-ska_sdp_instrumental_calibration = Pipeline(
-    "ska_sdp_instrumental_calibration",
-    load_data_stage,
-    predict_vis_stage,
-    bandpass_initialisation_stage,
-    bandpass_calibration_stage,
-    delay_calibration_stage,
-    flag_gain_stage,
-    ionospheric_delay_stage,
-    generate_channel_rm_stage,
-    smooth_gain_solution_stage,
-    export_visibilities_stage,
-    export_gaintable_stage,
-    global_config_model=GlobalConfig,
-    version=__version__,
-).overide_run(
-    input_cli_arg,
-    runner=InstrumentalDaskRunner,
+ska_sdp_instrumental_calibration = (
+    Pipeline(
+        "ska_sdp_instrumental_calibration",
+        load_data_stage,
+        predict_vis_stage,
+        bandpass_initialisation_stage,
+        bandpass_calibration_stage,
+        delay_calibration_stage,
+        flag_gain_stage,
+        ionospheric_delay_stage,
+        generate_channel_rm_stage,
+        smooth_gain_solution_stage,
+        export_visibilities_stage,
+        export_gaintable_stage,
+        global_config_model=GlobalConfig,
+        version=__version__,
+    )
+    .with_qa_path_resolver(prepare_qa_path)
+    .overide_run(
+        input_cli_arg,
+        sdm_cli_arg,
+        runner=InstrumentalDaskRunner,
+    )
 )
 
 
-# TODO: Update CLI ARGS to include array of input paths.
 @ska_sdp_instrumental_calibration.sub_command(
     "experimental",
     *RUN_CLI_ARGS,
     input_cli_arg,
+    sdm_cli_arg,
     *InstrumentalDaskRunner.cli_args(),
     help="Allows reordering of stages via additional config section",
 )

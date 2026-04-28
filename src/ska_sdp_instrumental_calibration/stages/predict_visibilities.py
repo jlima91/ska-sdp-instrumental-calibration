@@ -2,6 +2,9 @@ import logging
 from typing import Annotated, Optional
 
 from pydantic import Field
+from ska_sdp_datamodels.science_data_model.science_data_model import (
+    ScienceDataModel,
+)
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
@@ -15,8 +18,9 @@ logger = logging.getLogger()
 
 def predict_visibilities(
     _upstream_output_,
-    _output_dir_,
+    _qa_dir_,
     input_ms: Annotated[list[str], CLIArgument],
+    sdm_path: Annotated[Optional[str], CLIArgument] = None,
     use_everybeam: Annotated[
         bool,
         Field(description="Whether to use everybeam model."),
@@ -98,8 +102,8 @@ def predict_visibilities(
     ----------
     _upstream_output_: dict
         Output from the upstream stage.
-    _output_dir_ : str
-        Directory path where the output file will be written.
+    _qa_dir_ : str
+        Directory path where the diagnostic QA outputs will be written.
     input_ms: CLIArgument
         Input measurementset.
     use_everybeam: bool
@@ -143,6 +147,11 @@ def predict_visibilities(
     vis = _upstream_output_.vis
     gaintable = _upstream_output_.gaintable
 
+    if sdm_path is not None:
+        sdm = ScienceDataModel(sdm_path)
+        gleamfile = None
+        lsm_csv_path = str(sdm.get_sky_model_path(_upstream_output_.field_id))
+
     _upstream_output_["lsm"] = GlobalSkyModel(
         vis.phasecentre,
         fov,
@@ -154,8 +163,8 @@ def predict_visibilities(
 
     if export_sky_model:
         ms_prefix = getattr(_upstream_output_, "ms_prefix", "")
-        ms_prefix = ms_prefix and f"{ms_prefix}_"
-        sky_model_csv_path = f"{_output_dir_}/{ms_prefix}sky_model.csv"
+        ms_prefix = ms_prefix and f"{ms_prefix}/"
+        sky_model_csv_path = f"{_qa_dir_}/sky/{ms_prefix}sky_model.csv"
         logger.info(f"Exporting sky model to CSV file at {sky_model_csv_path}")
         _upstream_output_["lsm"].export_sky_model_csv(sky_model_csv_path)
 

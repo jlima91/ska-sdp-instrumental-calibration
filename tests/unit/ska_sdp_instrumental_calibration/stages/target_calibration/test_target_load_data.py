@@ -26,7 +26,12 @@ load_data_stage = target_calibration.load_data_stage
     "ska_sdp_instrumental_calibration.stages.target_calibration"
     ".load_data.create_gaintable_from_visibility"
 )
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration"
+    ".load_data.read_ms_field_id"
+)
 def test_should_load_data_from_existing_cached_zarr_file(
+    read_ms_field_id_mock,
     create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
@@ -34,6 +39,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     os_makedirs_mock,
 ):
     check_cache_mock.return_value = True
+    read_ms_field_id_mock.return_value = "field-a"
 
     frequency_per_chunk = 2
     times_per_ms_chunk = 3
@@ -84,6 +90,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output["timeslice"] == 1
     assert new_up_output["gaintable"] == create_gaintable_mock.return_value
     assert new_up_output["central_beams"] is None
+    assert new_up_output["field_id"] == "field-a"
 
 
 @patch(
@@ -106,7 +113,12 @@ def test_should_load_data_from_existing_cached_zarr_file(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
     ".load_data.create_gaintable_from_visibility"
 )
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration"
+    ".load_data.read_ms_field_id"
+)
 def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
+    read_ms_field_id_mock,
     create_gaintable_mock,
     read_data_mock,
     write_ms_mock,
@@ -114,6 +126,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     os_makedirs_mock,
 ):
     check_cache_mock.return_value = False
+    read_ms_field_id_mock.return_value = "field-a"
 
     frequency_per_chunk = 16
     times_per_ms_chunk = 8
