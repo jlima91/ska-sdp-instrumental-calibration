@@ -300,7 +300,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
-        "./output_dir/sky_model.csv"
+        "./output_dir/sky/sky_model.csv"
     )
 
     global_sky_model_mock.reset_mock()
@@ -310,7 +310,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
-        "./output_dir/ms_prefix/sky_model.csv"
+        "./output_dir/sky/ms_prefix/sky_model.csv"
     )
 
 

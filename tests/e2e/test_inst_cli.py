@@ -60,8 +60,8 @@ def test_should_run_inst_and_generate_required_files():
             qa_dir.glob("ska_sdp_instrumental_calibration*.config.yaml")
         )
         assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.log"))
-        assert (qa_dir / "demo/sky_model.csv").exists()
-        assert (qa_dir / "a_demo/sky_model.csv").exists()
+        assert (qa_dir / "sky/demo/sky_model.csv").exists()
+        assert (qa_dir / "sky/a_demo/sky_model.csv").exists()
 
         demo_qa_plots = {
             qa_file.name for qa_file in (qa_dir / "plots/demo").glob("*.png")

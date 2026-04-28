@@ -244,8 +244,8 @@ def test_should_export_smoothed_gain_solution_with_suffix(
 
     get_gaintables_path_mock.assert_has_calls(
         [
-            call("./output/path", "ms_prefix_smooth_gain.gaintable.h5parm"),
-            call("./output/path", "ms_prefix_smooth_gain_1.gaintable.h5parm"),
+            call("./output/path", "ms_prefix/smooth_gain.gaintable.h5parm"),
+            call("./output/path", "ms_prefix/smooth_gain_1.gaintable.h5parm"),
         ]
     )
 

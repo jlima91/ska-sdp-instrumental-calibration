@@ -94,7 +94,7 @@ def smooth_gain_solution_stage(
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
-            f"{prefix}_smooth_gain{call_counter_suffix}.gaintable.h5parm",
+            f"{prefix}/smooth_gain{call_counter_suffix}.gaintable.h5parm",
         )
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
