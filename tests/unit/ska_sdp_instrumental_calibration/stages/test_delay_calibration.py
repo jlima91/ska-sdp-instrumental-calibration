@@ -25,8 +25,8 @@ def test_should_have_the_expected_default_configuration():
     assert delay_calibration_stage.__stage__.config == expected_config
 
 
-def test_delay_calibration_stage_is_required():
-    assert delay_calibration_stage.__stage__.is_enabled
+def test_delay_calibration_stage_is_optional():
+    assert not delay_calibration_stage.__stage__.is_enabled
 
 
 @patch(

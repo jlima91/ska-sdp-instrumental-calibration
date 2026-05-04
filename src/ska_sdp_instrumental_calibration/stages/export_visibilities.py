@@ -9,7 +9,7 @@ from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ._utils import get_visibilities_path
 
 
-@ConfigurableStage(name="export_visibilities")
+@ConfigurableStage(name="export_visibilities", optional=True)
 def export_visibilities_stage(
     _upstream_output_,
     _output_dir_,

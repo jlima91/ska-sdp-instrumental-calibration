@@ -14,7 +14,7 @@ from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotConfig
 
 
-@ConfigurableStage(name="delay_calibration")
+@ConfigurableStage(name="delay_calibration", optional=True)
 def delay_calibration_stage(
     _upstream_output_,
     _qa_dir_,

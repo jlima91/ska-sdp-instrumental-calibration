@@ -35,6 +35,8 @@ pipeline:
   ionospheric_delay: true
   generate_channel_rm: true
   ionospheric_delay: true
+  delay_calibration: true
+  export_visibilities: true
 global_parameters:
   experimental:
     pipeline: []

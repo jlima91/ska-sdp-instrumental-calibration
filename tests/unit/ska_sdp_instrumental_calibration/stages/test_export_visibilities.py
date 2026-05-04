@@ -15,8 +15,8 @@ def test_should_have_the_expected_default_configuration():
     assert export_visibilities_stage.__stage__.config == expected_config
 
 
-def test_export_visibilities_stage_is_required():
-    assert export_visibilities_stage.__stage__.is_enabled
+def test_export_visibilities_stage_is_optional():
+    assert not export_visibilities_stage.__stage__.is_enabled
 
 
 @patch(
