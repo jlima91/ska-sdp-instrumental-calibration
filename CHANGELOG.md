@@ -1,8 +1,16 @@
 # Changelog
 
-## Development
+## 1.2.0
+
+### New Features & Enhancements
 
 1. Add SDM support for inst. This introduces the concept of _qa_dir_ in stages planning on exporting diagnostic QA products. Field ID is used to differentiate MS files, and the same is used for obtaining sky model, and for exporting gaintables.
+2. Update skymodel reader with datamodels 1.3.0.
+3. Disable export visibilities stage by default.
+
+### Bug Fixes
+1. SKB-1311: Export crosspols if gain data is present.
+2. SKB-1312: Disable delay stage by default.
 
 ## 1.1.0
 
