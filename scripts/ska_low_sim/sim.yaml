@@ -1,17 +1,17 @@
-scenario: "low40s-model"          # Scenario name (used for output folder prefix)
+scenario: "channel-rm-18s-only-tec-LOW"          # Scenario name (used for output folder prefix)
 
 # ===============================
 # Global simulation parameters
 # ===============================
 
-n_stations: 40                                         # Number of stations
-tel_model: "./telescope-models/SKA-Low_AA2_40S_rigid-rotation_model.tm" # Telescope model directory
+n_stations: 18                                       # Number of stations
+tel_model: "/home/ska/Work/inst-data-simulation/telescope-models/SKA-Low_AA2_18S_rigid-rotation_model.tm" # Telescope model directory
 
-simulation_start_frequency_hz: 123.0e6                  # Start frequency (Hz)
-simulation_end_frequency_hz: 153.0e6                    # End frequency (Hz)
-correlated_channel_bandwidth_hz: 21.70138888888889e3    # Channel width (Hz)
+simulation_start_frequency_hz: 50.0e6                  # Start frequency (Hz)
+simulation_end_frequency_hz: 125.0e6                 # End frequency (Hz)
+correlated_channel_bandwidth_hz: 81.767955801105e3    # Channel width (Hz)
 
-observing_time_mins: 10                              # Observation duration (minutes)
+observing_time_mins: 1                              # Observation duration (minutes)
 sampling_time_sec: 3.3973862400000003                   # Dump/integration time (seconds)
 
 fields:
@@ -51,7 +51,7 @@ generate_gaintable:
 # ===============================
 
 run_sim:
-  oskar_sif: "./OSKAR-2.11.1-Python3.sif" # Path to OSKAR Singularity image
+  oskar_sif: "./OSKAR-2.12.2-Python3.sif" # Path to OSKAR Singularity image
 
   # GLEAM sky model. Optional. Comment to disable.
   gleam_file: "./sky-models/GLEAM_EGC.fits" # GLEAM catalogue FITS file
@@ -60,10 +60,10 @@ run_sim:
   # Corruptions to be applied. All are optional. Comment to disable.
   # gaintable: *gen_gaintable           # Gaintable containing bandpass corruptions
   # cable_delay: "./cable_delays/cable_length_error_40s.txt" # Cable delay error file
-  # tec_screen: "./tec/calibrator_iono_tec.fits" # Ionospheric TEC screen FITS
-
+  #tec_screen: "./tec/calibrator_iono_tec.fits" # Ionospheric TEC screen FITS
+  tec_screen: "./tec_scale20e3_rescaled.fits"
   # Imaging parameters using wsclean. Optional. Comment to disable.
-  create_dirty_image: true          # Whether to run wsclean imaging
+  create_dirty_image: false          # Whether to run wsclean imaging
   image_size: 1024                  # Image size (pixels)
   pixel_size: "2arcsec"             # Pixel size (angular units)
 
