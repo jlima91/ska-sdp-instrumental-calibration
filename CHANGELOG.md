@@ -1,5 +1,7 @@
 # Changelog
-
+## 1.2.1
+1. Update piper, sdp-func-python and sdp-datamodels dependencies	
+	
 ## 1.2.0
 
 ### New Features & Enhancements
