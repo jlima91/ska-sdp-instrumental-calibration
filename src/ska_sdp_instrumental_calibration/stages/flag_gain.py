@@ -31,7 +31,7 @@ def flag_gain_stage(
                 "eg -180 and 180"
             )
         ),
-    ] = "amp-phase",
+    ] = "amplitude",
     order: Annotated[
         int,
         Field(description="Order of the function fitted during detrending."),

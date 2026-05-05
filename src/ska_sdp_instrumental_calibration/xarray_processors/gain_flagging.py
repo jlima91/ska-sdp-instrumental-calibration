@@ -137,7 +137,7 @@ class PhasorPolyFit:
                 x,
                 y_real,
                 p0=p0,
-                maxfev=5000,
+                maxfev=10000,
             )
             model = self.phasor_envelope_model(self.freq, *params)
             return model, freq_guess
@@ -219,12 +219,14 @@ class RMSFlagger:
                 Boolean mask where True indicates an outlier based on n_sigma.
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         if not np.any(valid):
-            return np.zeros_like(weights, dtype=bool), np.nan
+            return np.zeros_like(weights, dtype=bool)
 
         med = np.nanmedian(arr[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med))
-        return np.abs((arr - med) * weights) > (self.n_sigma * sigma)
+        return np.abs((arr - med) * valid_weights) > (self.n_sigma * sigma)
 
     def flag(self, arr, weights):
         """
@@ -243,11 +245,13 @@ class RMSFlagger:
             Array fo flags
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         if not np.any(valid):
             return np.zeros_like(weights, dtype=bool), np.nan
 
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
-        flags = np.abs(arr * weights) > (self.n_sigma * sigma)
+        flags = np.abs(arr * valid_weights) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -293,12 +297,14 @@ class RollingRMSFlagger:
             Boolean mask identifying elements exceeding the n_sigma threshold.
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         rms = self._rms(arr)
 
         med = np.nanmedian(rms[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med))
 
-        return ((rms - med) * weights) > (self.n_sigma * sigma)
+        return ((rms - med) * valid_weights) > (self.n_sigma * sigma)
 
     def flag(self, arr, weights):
         """
@@ -315,10 +321,12 @@ class RollingRMSFlagger:
             Array fo flags
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         rms = self._rms(arr)
 
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
-        flags = (rms * weights) > (self.n_sigma * sigma)
+        flags = (rms * valid_weights) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -388,6 +396,7 @@ class GainFlagger:
         self.soltype = self.SOLTYPE[soltype]
 
         self.flaggers = []
+        self.preflagger = RMSFlagger(n_sigma)
         if n_sigma:
             self.flaggers.append(RMSFlagger(n_sigma))
         if n_sigma_rolling:
@@ -431,15 +440,9 @@ class GainFlagger:
         freq_guess = None
         last_fit_components = None
 
-        components = {}
-        data_components = self.soltype(gains)
-        components = {key: data_components[key] for key in data_components}
-
         pre_flags = np.zeros_like(weights, dtype=bool)
-        for arr in components.values():
-            for flagger in self.flaggers:
-                flags = flagger.pre_flag(arr, weights)
-                pre_flags |= flags
+        flags = self.preflagger.pre_flag(np.abs(gains), weights)
+        pre_flags |= flags
 
         weights[pre_flags] = 0
 
