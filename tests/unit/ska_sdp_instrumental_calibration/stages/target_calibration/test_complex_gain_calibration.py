@@ -150,10 +150,10 @@ def test_should_export_gaintable_with_proper_suffix(
     run_solver_config,
     plot_config,
 ):
-
     gaintable_mock = Mock(name="gaintable")
     run_solver_mock.return_value = gaintable_mock
     plot_gaintable_time_mock.return_value = plot_gaintable_time_mock
+    parse_reference_antenna_mock.return_value = 2
     plot_config.plot_table = True
     plot_config.fixed_axis = True
 
@@ -177,7 +177,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     get_plot_path_mock.assert_called_once_with("/output/path", "complex_gain")
     plot_gaintable_time_mock.assert_called_once_with(
-        path_prefix=get_plot_path_mock.return_value
+        path_prefix=get_plot_path_mock.return_value, refant=2
     )
     plot_gaintable_time_mock.plot.assert_called_once_with(
         gaintable_mock,

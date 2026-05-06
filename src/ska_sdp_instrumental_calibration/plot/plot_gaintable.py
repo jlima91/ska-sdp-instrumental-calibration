@@ -5,6 +5,7 @@ from astropy.time import Time
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
+from ..data_managers.gaintable import divide_bandpass_by_ref_ant_preserve_phase
 from ._util import safe
 
 logger = setup_logger(__name__)
@@ -22,6 +23,10 @@ class PlotGaintable:
 
     Parameters
     ----------
+    refant : int, default None
+        The reference antenna index used for normalizing the bandpass
+        solutions. If provided, the gains will be divided by the reference
+        antenna's gains while preserving phase.
     path_prefix : str, optional
         A prefix used to construct the output filenames for the plots.
         Defaults to None.
@@ -42,7 +47,7 @@ class PlotGaintable:
         Storage for the provided `path_prefix`.
     """
 
-    def __init__(self, path_prefix=None):
+    def __init__(self, refant=None, path_prefix=None):
         """
         Initialize the base gaintable plotter.
 
@@ -72,6 +77,7 @@ class PlotGaintable:
         self._x_data = None
         self._x_sec_data = None
         self._path_prefix = path_prefix
+        self.refant = refant
 
     @property
     def xdim(self):
@@ -151,6 +157,7 @@ class PlotGaintable:
         -------
         None
         """
+        logger.info("Gaintable plotting started for figure: %s", figure_title)
         gaintable = self._prepare_gaintable(gaintable, drop_cross_pols)
         gain_phase = gaintable.gain.copy()
         gain_phase.data = np.angle(gaintable.gain, deg=True)
@@ -192,6 +199,8 @@ class PlotGaintable:
 
         if plot_all_stations:
             self._plot_all_stations(gaintable)
+
+        logger.info(f"Gaintable plots saved with prefix {self._path_prefix}.")
 
     def _primary_sec_ax_mapper(self, map_from, map_to, reverse=False):
         """
@@ -326,6 +335,11 @@ class PlotGaintable:
         xarray.Dataset
             The processed gaintable ready for plotting.
         """
+        if self.refant is not None:
+            gain_table = divide_bandpass_by_ref_ant_preserve_phase(
+                gain_table, self.refant
+            )
+
         gaintable = gain_table.stack(
             Jones_Solutions=("receptor1", "receptor2")
         )

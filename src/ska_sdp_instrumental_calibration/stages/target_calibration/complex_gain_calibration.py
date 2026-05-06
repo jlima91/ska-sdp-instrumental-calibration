@@ -108,7 +108,7 @@ def complex_gain_calibration_stage(
         path_prefix = get_plots_path(_qa_dir_, "complex_gain")
 
         freq_plotter = PlotGaintableTime(
-            path_prefix=path_prefix,
+            path_prefix=path_prefix, refant=run_solver_config["refant"]
         )
 
         _upstream_output_.add_compute_tasks(

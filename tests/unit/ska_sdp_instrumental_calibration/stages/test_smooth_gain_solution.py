@@ -109,6 +109,7 @@ def test_should_plot_the_smoothed_gain_solution(
     get_plots_path_mock.return_value = "./output/path/plots/some/path"
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["refant"] = 2
     gaintable_mock = Mock(name="gaintable")
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
 
@@ -129,6 +130,7 @@ def test_should_plot_the_smoothed_gain_solution(
     )
     plot_gaintable_freq_mock.assert_called_once_with(
         path_prefix="./output/path/plots/some/path",
+        refant=2,
     )
     plot_gaintable_freq_mock.plot.assert_called_once_with(
         gaintable_mock,
@@ -160,6 +162,7 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
     ]
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["refant"] = 2
     gaintable_mock = Mock(name="gaintable")
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
 
@@ -189,10 +192,12 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
         [
             call(
                 path_prefix="./output/path/plots/some/path",
+                refant=2,
             ),
             call.plot(gaintable_mock, figure_title="plot title"),
             call(
                 path_prefix="./output/path/plots/some/path_1",
+                refant=2,
             ),
             call.plot(gaintable_mock, figure_title="plot title"),
         ]
@@ -230,6 +235,7 @@ def test_should_export_smoothed_gain_solution_with_suffix(
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     gaintable_mock = Mock(name="gaintable")
+    upstream_output["refant"] = 2
 
     upstream_output.gaintable = gaintable_mock
     sliding_window_smooth_mock.return_value = gaintable_mock

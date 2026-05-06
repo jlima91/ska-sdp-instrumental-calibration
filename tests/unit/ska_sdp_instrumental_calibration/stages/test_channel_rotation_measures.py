@@ -406,7 +406,7 @@ def test_should_plot_with_proper_suffix(
     upstream_output["modelvis"] = Mock(name="modelvis")
     upstream_output["beams_factory"] = Mock(name="beams_factory")
     upstream_output["lsm"] = Mock(name="lsm")
-
+    upstream_output["refant"] = 2
     upstream_output["central_beams"] = Mock(name="beams")
 
     initial_table_mock = Mock(name="initial gaintable")
@@ -525,6 +525,7 @@ def test_should_plot_with_proper_suffix(
         [
             call(
                 path_prefix="/output/path/plots/channel_rm",
+                refant=2,
             ),
             call.plot(
                 solved_gaintable_mock,
@@ -533,6 +534,7 @@ def test_should_plot_with_proper_suffix(
             ),
             call(
                 path_prefix="/output/path/plots/channel_rm_1",
+                refant=2,
             ),
             call.plot(
                 solved_gaintable_mock,

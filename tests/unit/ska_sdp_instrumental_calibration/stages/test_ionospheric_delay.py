@@ -13,6 +13,7 @@ def mock_upstream_output():
     mock_output.modelvis = MagicMock(name="model_vis")
     mock_output.chunks = MagicMock(name="chunks")
     mock_output.ms_prefix = "ms_prefix"
+    mock_output.refant = 2
 
     mock_output.__setitem__ = MagicMock()
 
@@ -189,7 +190,8 @@ def test_gaintable_export_is_triggered(
         mock_gaintable, "/test/dir/output.h5parm"
     )
     mock_plot_freq_func.assert_called_once_with(
-        path_prefix="/test/dir/plot.png"
+        path_prefix="/test/dir/plot.png",
+        refant=2,
     )
     mock_plot_freq_func.plot.assert_called_once_with(
         mock_gaintable, figure_title="Ionospheric Delay", phase_only=True

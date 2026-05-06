@@ -92,6 +92,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     upstream_output["ms_prefix"] = "ms_prefix"
     gaintable_mock = Mock(name="gaintable")
     upstream_output["gaintable"] = gaintable_mock
+    upstream_output["refant"] = 2
     oversample = 16
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
     plot_config.plot_table = True
@@ -124,6 +125,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         [
             call(
                 path_prefix="/output/path/plots/delay",
+                refant=2,
             ),
             call.plot(
                 apply_delay_mock.return_value,
@@ -132,6 +134,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
             ),
             call(
                 path_prefix="/output/path/plots/delay_1",
+                refant=2,
             ),
             call.plot(
                 apply_delay_mock.return_value,

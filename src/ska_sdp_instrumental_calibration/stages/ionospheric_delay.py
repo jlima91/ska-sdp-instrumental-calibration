@@ -156,6 +156,7 @@ def ionospheric_delay_stage(
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
+            refant=_upstream_output_.refant,
         )
 
         _upstream_output_.add_compute_tasks(

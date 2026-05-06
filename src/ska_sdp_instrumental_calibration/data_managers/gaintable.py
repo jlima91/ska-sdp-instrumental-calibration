@@ -170,3 +170,77 @@ def reset_gaintable(gaintable: GainTable) -> GainTable:
     new_gaintable.residual.data = residual
 
     return new_gaintable
+
+
+def divide_bandpass_by_ref_ant_preserve_phase(
+    gaintable: GainTable, ref_ant: int
+) -> GainTable:
+    """
+    Original code referred from https://github.com/flint-crew/flint.git
+    Divide the bandpass complex gains (solved for initially by something
+    like calibrate) by a nominated reference antenna. In the case of
+    ``calibrate`` there is no implicit reference antenna. This is valid for
+    cases where the xy-phase is set to 0 (true via the ASKAP on-dish
+    calibrator).
+
+    This particular function is most appropriate for the `calibrate` style
+    solutions, which solve for the Jones in one step. In HMS notation this
+    are normally split into two separate 2x2 matrices, one for the gains
+    with zero off-diagonal elements and a leakage matrix with ones on
+    the diagonal.
+
+    This is the preferred function to use whena attempting to set a
+    phase reference antenna to precomputed Jones bandpass solutions.
+
+    The input complex gains should be in the form:
+    >> (ant, channel, pol)
+
+    Internally reference phasores are constructed for the G_x and G_y
+    terms of the reference antenna. They are then applied:
+    >> G_x = G_x / G_xref
+    >> G_xyp = G_xy / G_yref
+    >> G_yxp = G_yx / G_xref
+    >> G_y = G_y / G_yref
+
+    which is applied to all antennas in ``complex_gains``.
+
+    Args:
+        complex_gains (np.ndarray): The complex gains that will be normalised
+        ref_ant (int): The desired reference antenna to use
+
+    Returns:
+        GainTable: The normalised bandpass solutions
+    """
+    gains = np.copy(gaintable.gain.data)
+
+    g_x = gains[..., 0, 0]
+    g_y = gains[..., 1, 1]
+    g_xy = gains[..., 0, 1]
+    g_yx = gains[..., 1, 0]
+
+    ref_g_x = gains[:, ref_ant : ref_ant + 1, :, 0, 0]  # noqa: E203
+    ref_g_x = ref_g_x / np.abs(ref_g_x)
+
+    ref_g_y = gains[:, ref_ant : ref_ant + 1, :, 1, 1]  # noqa: E203
+    ref_g_y = ref_g_y / np.abs(ref_g_y)
+
+    g_x_prime = g_x / ref_g_x
+    g_y_prime = g_y / ref_g_y
+    g_xy_prime = g_xy / ref_g_y
+    g_yx_prime = g_yx / ref_g_x
+
+    bp_p = np.zeros_like(gains) * np.nan + 1j * np.zeros_like(gains) * np.nan
+
+    bp_p[..., 0, 0] = g_x_prime
+    bp_p[..., 1, 1] = g_y_prime
+    bp_p[..., 0, 1] = g_xy_prime
+    bp_p[..., 1, 0] = g_yx_prime
+
+    new_gain = gaintable.gain.copy()
+    new_gain.data = bp_p
+
+    return gaintable.assign(
+        {
+            "gain": new_gain,
+        }
+    ).chunk(gaintable.chunks)

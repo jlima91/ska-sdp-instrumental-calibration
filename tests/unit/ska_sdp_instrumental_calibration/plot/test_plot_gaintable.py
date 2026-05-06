@@ -36,9 +36,14 @@ def test_should_map_time_to_time_index():
     np.testing.assert_allclose(index_to_time_map(time_index), [0.1, 0.2, 0.3])
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.plot.plot_gaintable"
+    ".divide_bandpass_by_ref_ant_preserve_phase"
+)
 @patch("ska_sdp_instrumental_calibration.plot.plot_gaintable.np")
-def test_should_plot_gaintable_for_freq(np_mock):
+def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     gaintable = MagicMock(name="gaintable")
+    divide_bandpass_mock.return_value = gaintable
     gaintable.stack.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
@@ -57,11 +62,12 @@ def test_should_plot_gaintable_for_freq(np_mock):
     np_mock.abs.return_value = amp_gain_mock
     gaintable.__getitem__.return_value = jones_solution_mock
 
-    plotter = PlotGaintableFrequency(path_prefix="path/to/save")
+    plotter = PlotGaintableFrequency(path_prefix="path/to/save", refant=2)
 
     delayed_plot = plotter.plot(gaintable, figure_title="Plot Title")
     delayed_plot.compute()
 
+    divide_bandpass_mock.assert_called_once_with(gaintable, 2)
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
     )

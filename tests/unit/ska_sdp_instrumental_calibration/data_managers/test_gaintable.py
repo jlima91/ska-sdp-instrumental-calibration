@@ -4,6 +4,7 @@ from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
+    divide_bandpass_by_ref_ant_preserve_phase,
     reset_gaintable,
 )
 
@@ -106,3 +107,22 @@ def test_should_reset_gaintable(da_mock, generate_vis):
     assert r_gaintable.gain.data == da_mock.broadcast_to.return_value
     assert r_gaintable.weight.data == da_mock.ones.return_value
     assert r_gaintable.residual.data == da_mock.zeros.return_value
+
+
+def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
+    vis, _ = generate_vis
+    vis = vis.chunk(frequency=1)
+    gaintable = create_gaintable_from_visibility(vis, jones_type="B")
+
+    actual_gaintable = divide_bandpass_by_ref_ant_preserve_phase(gaintable, 0)
+    complex_gains = actual_gaintable.gain.data
+
+    x_angle = np.angle(complex_gains[:, 0, :, 0, 0])
+    y_angle = np.angle(complex_gains[:, 0, :, 1, 1])
+
+    actual_amp = np.abs(complex_gains)
+    expected_amp = np.abs(gaintable.gain.data)
+
+    assert np.allclose(x_angle[np.isfinite(x_angle)], 0)
+    assert np.allclose(y_angle[np.isfinite(y_angle)], 0)
+    assert np.allclose(actual_amp, expected_amp)

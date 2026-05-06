@@ -85,5 +85,6 @@ def bandpass_initialisation_stage(
         )
 
     _upstream_output_["gaintable"] = gaintable
+    _upstream_output_["refant"] = refant
 
     return _upstream_output_

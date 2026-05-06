@@ -158,6 +158,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
     upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["refant"] = 2
 
     solver_factory_mock.get_solver.return_value = "jones_substitution"
     gaintable_mock = Mock(name="gaintable")
@@ -197,6 +198,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         [
             call(
                 path_prefix="/output/path/plots/bandpass",
+                refant=2,
             ),
             call.plot(
                 gaintable_mock,
@@ -206,6 +208,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
             ),
             call(
                 path_prefix="/output/path/plots/bandpass_1",
+                refant=2,
             ),
             call.plot(
                 gaintable_mock,
