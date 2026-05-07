@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from mock import ANY, MagicMock, patch
+from mock import ANY, MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.stages import ionospheric_delay_stage
 from ska_sdp_instrumental_calibration.xarray_processors import with_chunks
@@ -59,13 +59,18 @@ def test_solver_runs_and_applies_correction(
     mock_apply_gaintable,
     mock_upstream_output,
 ):
+    mock_upstream_corrected_vis = MagicMock(name="mock_upstream_corrected_vis")
+    mock_iono_corrected_vis = MagicMock(name="mock_iono_corrected_vis")
+    mock_apply_gaintable.side_effect = [
+        mock_upstream_corrected_vis,
+        mock_iono_corrected_vis,
+    ]
 
     mock_gaintable = MagicMock(name="gaintable")
-    mock_corrected_vis = MagicMock(name="corrected_vis")
-    chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
     MockIonosphericSolver.solve.return_value = mock_gaintable
+
+    chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
     mock_gaintable.pipe.return_value = chunked_mock_gaintable
-    mock_apply_gaintable.return_value = mock_corrected_vis
 
     result = ionospheric_delay_stage(
         mock_upstream_output,
@@ -75,12 +80,28 @@ def test_solver_runs_and_applies_correction(
         niter=20,
         tol=1e-6,
         zernike_limit=[6, 2, 2, 2],
+        timeslice="auto",
         export_gaintable=False,
         plot_table=False,
     )
 
+    mock_apply_gaintable.assert_has_calls(
+        [
+            call(
+                mock_upstream_output.vis,
+                mock_upstream_output.gaintable,
+                inverse=True,
+            ),
+            call(
+                mock_upstream_corrected_vis,
+                chunked_mock_gaintable,
+                inverse=True,
+            ),
+        ]
+    )
+
     MockIonosphericSolver.solve.assert_called_once_with(
-        mock_upstream_output.vis,
+        mock_upstream_corrected_vis,
         mock_upstream_output.modelvis,
         mock_create_gaintable.return_value,
         ANY,
@@ -91,7 +112,7 @@ def test_solver_runs_and_applies_correction(
     )
 
     mock_create_gaintable.assert_called_once_with(
-        mock_upstream_output.vis, "full", "B", skip_default_chunk=True
+        mock_upstream_output.vis, "auto", "B", skip_default_chunk=True
     )
     called_args, _ = MockIonosphericSolver.solve.call_args
     np.testing.assert_array_equal(called_args[3], np.array([0, 1, 0, 1]))
@@ -101,6 +122,9 @@ def test_solver_runs_and_applies_correction(
     )
 
     mock_upstream_output.add_checkpoint_key.assert_called_once_with("vis")
+    mock_upstream_output.__setitem__.assert_called_with(
+        "vis", mock_iono_corrected_vis
+    )
 
     assert result is mock_upstream_output
 
