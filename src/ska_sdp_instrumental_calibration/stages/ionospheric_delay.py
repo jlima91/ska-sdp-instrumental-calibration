@@ -131,6 +131,15 @@ def ionospheric_delay_stage(
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
+
+    upstream_gaintable = _upstream_output_.gaintable
+    _upstream_output_["vis"] = (
+        apply_gaintable_to_dataset(vis, upstream_gaintable, inverse=True)
+        if upstream_gaintable is not None
+        else vis
+    )
+    vis = _upstream_output_.vis
+
     initialtable = create_gaintable_from_visibility(
         vis, timeslice, "B", skip_default_chunk=True
     )

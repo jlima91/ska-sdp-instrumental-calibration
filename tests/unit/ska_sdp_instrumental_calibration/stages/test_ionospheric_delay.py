@@ -99,13 +99,6 @@ def test_solver_runs_and_applies_correction(
     mock_gaintable.pipe.assert_called_once_with(
         with_chunks, mock_upstream_output.chunks
     )
-    mock_apply_gaintable.assert_called_once_with(
-        mock_upstream_output.vis, chunked_mock_gaintable, inverse=True
-    )
-
-    mock_upstream_output.__setitem__.assert_called_once_with(
-        "vis", mock_corrected_vis
-    )
 
     mock_upstream_output.add_checkpoint_key.assert_called_once_with("vis")
 

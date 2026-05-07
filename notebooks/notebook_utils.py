@@ -368,6 +368,224 @@ def plot_phase_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
 
     plt.close(fig)
 
+def plot_Q_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
+
+    """
+
+    Plot phase vs time for a given channel and baseline.
+
+    """
+
+    fig = plt.figure(layout="constrained", figsize=(10, 5))
+
+    fig.suptitle("Stokes Q vs Frequency", fontsize=16)
+
+    xx_ax, yy_ax = fig.subplots(1, 2)
+
+
+
+    xx_ax.set_title("Input")
+
+    xx_ax.set_xlabel("Freq (Hz)")
+
+    xx_ax.set_ylabel("Stokes Q")
+
+
+
+    yy_ax.set_title("Corrected")
+
+    yy_ax.set_xlabel("Freq (Hz)")
+
+    yy_ax.set_ylabel("Stokes Q")
+
+
+
+    xx_ax.scatter(
+
+        input_vis.frequency,
+
+        np.abs(
+
+            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0) - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+        ),
+
+    )
+
+    yy_ax.scatter(
+
+        corrected_vis.frequency,
+
+        np.abs(
+
+            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)  - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+
+        ),
+
+    )
+
+    fig.savefig(f"{prefix_path}/stokes-Q-freq-{time}-{baseline}.png")
+
+    plt.show()
+
+    plt.close(fig)
+    
+    
+
+
+def plot_pol_angle_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
+
+
+    """
+
+
+    Plot phase vs time for a given channel and baseline.
+
+
+    """
+
+
+    fig = plt.figure(layout="constrained", figsize=(10, 5))
+
+
+    fig.suptitle("Polarization Angle vs Frequency", fontsize=16)
+
+
+    xx_ax, yy_ax = fig.subplots(1, 2)
+
+
+    xx_ax.set_title("Input")
+
+
+    xx_ax.set_xlabel("Freq (Hz)")
+
+
+    xx_ax.set_ylabel("Polarization Angle")
+
+
+    yy_ax.set_title("Corrected")
+
+
+    yy_ax.set_xlabel("Freq (Hz)")
+
+
+    yy_ax.set_ylabel("Polarization Angle")
+
+
+    stokes_Q_input = input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0) - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+    
+    stokes_Q_corrected = corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)  - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+    
+    stokes_U_input = input_vis.vis.isel(time=time, baselineid=baseline, polarisation=1) + input_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
+    
+    stokes_U_corrected = corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=1) + corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
+        
+    pol_angle_input = 0.5 * np.arctan2(np.abs(stokes_U_input), np.abs(stokes_Q_input))
+
+    pol_angle_corrected = 0.5 * np.arctan2(np.abs(stokes_U_corrected), np.abs(stokes_Q_corrected))
+
+
+    xx_ax.scatter(
+
+
+        input_vis.frequency,
+
+
+        pol_angle_input,
+
+
+    )
+
+
+    yy_ax.scatter(
+
+
+        corrected_vis.frequency,
+
+
+        pol_angle_corrected,
+
+
+    )
+
+
+    fig.savefig(f"{prefix_path}/pol-angle-freq-{time}-{baseline}.png")
+
+
+    plt.show()
+
+
+    plt.close(fig)
+
+
+
+
+
+def plot_data_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
+    """
+    Plot amplitude and phase vs frequency for a given time and baseline.
+    """
+    fig = plt.figure(layout="constrained", figsize=(10, 8))
+    fig.suptitle("Amplitude and Phase vs Frequency", fontsize=16)
+    ax1, ax2, ax3, ax4 = fig.subplots(2, 2).flatten()
+
+    # Input Amplitude
+    ax1.set_title("Input Amplitude")
+    ax1.set_xlabel("Freq (Hz)")
+    ax1.set_ylabel("Amplitude")
+    #ax1.set_ylim(0, 60)
+    ax1.scatter(
+        input_vis.frequency,
+        np.abs(
+            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
+        ),
+    )
+
+    # Corrected Amplitude
+    ax2.set_title("Corrected Amplitude")
+    ax2.set_xlabel("Freq (Hz)")
+    ax2.set_ylabel("Amplitude")
+    #ax2.set_ylim(0, 60)
+    ax2.scatter(
+        corrected_vis.frequency,
+        np.abs(
+            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
+        ),
+    )
+
+    # Input Phase
+    ax3.set_title("Input Phase")
+    ax3.set_xlabel("Freq (Hz)")
+    ax3.set_ylabel("Phase (deg)")
+    ax3.set_ylim([-180, 180])
+    ax3.scatter(
+        input_vis.frequency,
+        np.angle(
+            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
+            deg=True,
+        ),
+    )
+
+    # Corrected Phase
+    ax4.set_title("Corrected Phase")
+    ax4.set_xlabel("Freq (Hz)")
+    ax4.set_ylabel("Phase (deg)")
+    ax4.set_ylim([-180, 180])
+    ax4.scatter(
+        corrected_vis.frequency,
+        np.angle(
+            corrected_vis.vis.isel(
+                time=time, baselineid=baseline, polarisation=0
+            ),
+            deg=True,
+        ),
+    )
+
+    fig.savefig(f"{prefix_path}/amp-phase-freq-{time}-{baseline}.png")
+
+    plt.show()
+
+    plt.close(fig)
+
 
 def plot_time_vs_freq_for_phase(input_vis, corrected_vis, baseline, prefix_path):
     """
