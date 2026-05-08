@@ -676,10 +676,11 @@ class IonosphericSolver:
         it : int
             The current iteration number.
         """
-        mask = np.abs(np.hstack(param).astype(np.float64)) > 0.0
+        eps = 1e-13
+
         self.change = np.max(
-            np.abs(np.hstack(param_update)[mask].astype(np.float64))
-            / np.abs(np.hstack(param)[mask].astype(np.float64))
+            np.abs(np.hstack(param_update).astype(np.float64))
+            / np.abs(np.hstack(param + eps).astype(np.float64))
         )
 
         logger.info(
