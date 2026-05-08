@@ -2,6 +2,7 @@ import dask
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.time import Time
+from matplotlib.colors import ListedColormap
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -59,6 +60,7 @@ class PlotGaintable:
         """
         self.__plot_path = f"{path_prefix}-{{plot_type}}-{self.xdim}.png"
         self._post_title = ""
+
         self._plot_args = dict(
             x=None,
             hue="Jones_Solutions",
@@ -66,9 +68,11 @@ class PlotGaintable:
             col_wrap=5,
             add_legend=True,
             add_colorbar=False,
-            sharex=False,
+            sharex=True,
+            sharey=True,
             edgecolors="none",
             aspect=1.5,
+            cmap=ListedColormap(["red", "grey", "green", "blue"]),
             s=8,
         )
 
@@ -202,6 +206,32 @@ class PlotGaintable:
 
         logger.info(f"Gaintable plots saved with prefix {self._path_prefix}.")
 
+    def _get_gain_facet(self, gain_component, y_lim, y_label):
+        """
+        Create a facet grid scatter plot for a specific gain component.
+
+        Parameters
+        ----------
+        gain_component : xarray.DataArray
+            The gain data (e.g., amplitude or phase) to plot.
+        y_lim : tuple or None
+            Desired y-axis limits (e.g., `(-180, 180)`).
+        y_label : str
+            The label for the y-axis.
+
+        Returns
+        -------
+        xarray.plot.FacetGrid
+            The generated FacetGrid object.
+        """
+        plot_kwargs = self._plot_args.copy()
+        facet_plot = gain_component.plot.scatter(**plot_kwargs, ylim=y_lim)
+
+        self._update_facet(facet_plot, y_label)
+
+        return facet_plot
+
+
     def _primary_sec_ax_mapper(self, map_from, map_to, reverse=False):
         """
         Create a mapping function between primary and secondary axes.
@@ -232,6 +262,79 @@ class PlotGaintable:
         """
         raise NotImplementedError("_primary_sec_ax_mapper not defined")
 
+    def _add_main_axes_labels(self, facet_plot, y_label):
+        """
+        Add labels to the main axes of the facet plot.
+
+        This method sets the x and y axis labels for the facet plot. The x
+        label is set to `self._x_label` and the y label is set to the provided
+        `y_label`. The labels are only added to the leftmost column (for y)
+        and bottom row (for x) to avoid redundancy in the faceted layout.
+
+        Parameters
+        ----------
+        facet_plot : xarray.plot.FacetGrid
+            The FacetGrid object to modify.
+        y_label : str
+            The label to apply to the y-axis of the first column.
+        """
+        for ax in facet_plot.axs.flat:
+            if ax.get_subplotspec().is_last_row():
+                ax.set_xlabel(self._x_label, fontsize="small")
+            if ax.get_subplotspec().is_first_col():
+                ax.set_ylabel(y_label, fontsize="small")
+
+    def _add_secondary_axis(self, facet_plot):
+        """
+        Add a secondary x-axis to the given facet grid.
+
+        Parameters
+        ----------
+        facet_plot : xarray.plot.FacetGrid
+            The FacetGrid object to modify.
+        """
+        for ax in facet_plot.axs.flat:
+            sec_ax = ax.secondary_xaxis(
+                "top",
+                functions=(
+                    self._primary_sec_ax_mapper(
+                        self._x_data, self._x_sec_data
+                    ),
+                    self._primary_sec_ax_mapper(
+                        self._x_data, self._x_sec_data, reverse=True
+                    ),
+                ),
+            )
+
+            sec_ax.tick_params(labeltop=False)
+            if ax.get_subplotspec().is_first_row():
+                sec_ax.set_xlabel(self._x_sec_label, fontsize="small")
+                sec_ax.tick_params(labeltop=True)
+
+    def _add_subplot_titles(self, facet_plot):
+        """
+        Update subplot titles information.
+
+        Parameters
+        ----------
+        facet_plot : xarray.plot.FacetGrid
+            The FacetGrid object containing the subplots to update.
+        """
+        facet_plot.set_titles("")
+        for idx, ax in enumerate(facet_plot.axs.flat):
+            title = str(facet_plot.col_names[idx])
+            ax.text(
+                0.05,
+                0.95,
+                title,
+                fontsize=10,
+                transform=ax.transAxes,
+                va="top",
+                ha="left",
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+            )
+        return facet_plot
+
     def _update_facet(self, facet_plot, y_label):
         """
         Update facet plot labels and add a secondary x-axis.
@@ -247,24 +350,10 @@ class PlotGaintable:
         y_label : str
             The label to apply to the y-axis of the first column.
         """
-        for ax in facet_plot.axs[:, 0]:
-            ax.set_ylabel(y_label, fontsize="small")
 
-        for ax in facet_plot.axs.flat:
-            ax.set_xlabel(self._x_label, fontsize="small")
-            sec_ax = ax.secondary_xaxis(
-                "top",
-                functions=(
-                    self._primary_sec_ax_mapper(
-                        self._x_data, self._x_sec_data
-                    ),
-                    self._primary_sec_ax_mapper(
-                        self._x_data, self._x_sec_data, reverse=True
-                    ),
-                ),
-            )
-            sec_ax.set_xlabel(self._x_sec_label, fontsize="small")
-            sec_ax.tick_params(axis="x", labelsize=8)
+        self._add_main_axes_labels(facet_plot, y_label)
+        self._add_secondary_axis(facet_plot)
+        self._add_subplot_titles(facet_plot)
 
     def _plot_all_stations(self, gaintable):
         """
@@ -284,34 +373,6 @@ class PlotGaintable:
         """
         raise NotImplementedError("plot_all_stations not implemented")
 
-    def _get_gain_facet(self, gain_component, y_lim, y_label):
-        """
-        Create a facet grid scatter plot for a specific gain component.
-
-        Parameters
-        ----------
-        gain_component : xarray.DataArray
-            The gain data (e.g., amplitude or phase) to plot.
-        y_lim : tuple or None
-            Desired y-axis limits (e.g., `(-180, 180)`).
-        y_label : str
-            The label for the y-axis.
-
-        Returns
-        -------
-        xarray.plot.FacetGrid
-            The generated FacetGrid object.
-        """
-        facet_plot = gain_component.plot.scatter(**self._plot_args, ylim=y_lim)
-
-        facet_plot.set_axis_labels(self._x_label, y_label)
-        for ax in facet_plot.axs.reshape(-1):
-            ax.tick_params(labelbottom=True)
-
-        self._update_facet(facet_plot, y_label)
-        facet_plot.set_ticks(fontsize=8)
-
-        return facet_plot
 
     def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
         """
@@ -357,7 +418,6 @@ class PlotGaintable:
             gaintable = gaintable.sel(Jones_Solutions=["J_XX", "J_YY"])
 
         return gaintable.swap_dims({"antenna": "Station"})
-
 
 class PlotGaintableFrequency(PlotGaintable):
     """
@@ -650,7 +710,8 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
             col="Station",
             col_wrap=5,
             add_colorbar=True,
-            sharex=False,
+            sharex=True,
+            sharey=True,
             aspect=1.5,
         )
         self.__plot_path = f"{path_prefix}-{{plot_type}}-{self.xdim}.png"
@@ -740,12 +801,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         gaintable = self._prepare_gaintable(gaintable)
         facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
 
-        facet_plot.set_axis_labels(self._x_label, y_label)
-        for ax in facet_plot.axs.reshape(-1):
-            ax.tick_params(labelbottom=True)
-
         self._update_facet(facet_plot, y_label)
-        facet_plot.set_ticks(fontsize=8)
 
         gain_phase_fig = facet_plot.fig
 

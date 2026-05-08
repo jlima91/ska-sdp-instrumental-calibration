@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib.colors import ListedColormap
 from mock import ANY, MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.plot import (
@@ -55,10 +56,27 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     gain_mock = MagicMock(name="gain")
     gaintable.gain = gain_mock
     gain_mock.copy.return_value = phase_gain_mock
+
     mock_facet_phase = MagicMock(name="facet_plot_phase")
     mock_facet_amp = MagicMock(name="facet_plot_amp")
+
+    phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
+    phase_axs = MagicMock(name="ax1")
+    phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
+
+    mock_facet_phase.axs.flat = [phase_axs]
+    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+
+    amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
+    amp_axs = MagicMock(name="ax1")
+    amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
+
+    mock_facet_amp.axs.flat = [amp_axs]
+    mock_facet_amp.col_names.__getitem__.return_value = "amp_title"
+
     amp_gain_mock.plot.scatter.return_value = mock_facet_amp
     phase_gain_mock.plot.scatter.return_value = mock_facet_phase
+
     np_mock.abs.return_value = amp_gain_mock
     gaintable.__getitem__.return_value = jones_solution_mock
 
@@ -88,9 +106,11 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 col_wrap=5,
                 add_legend=True,
                 add_colorbar=False,
-                sharex=False,
+                sharex=True,
+                sharey=True,
                 edgecolors="none",
                 aspect=1.5,
+                cmap=ListedColormap(["red", "grey", "green", "blue"]),
                 s=8,
                 ylim=None,
             )
@@ -106,9 +126,11 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 col_wrap=5,
                 add_legend=True,
                 add_colorbar=False,
-                sharex=False,
+                sharex=True,
+                sharey=True,
                 edgecolors="none",
                 aspect=1.5,
+                cmap=ListedColormap(["red", "grey", "green", "blue"]),
                 s=8,
                 ylim=None,
             )
@@ -122,6 +144,20 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     mock_facet_phase.fig.savefig.assert_called_once_with(
         "path/to/save-phase-freq.png", bbox_inches="tight"
     )
+    mock_facet_phase.set_titles.assert_called_once_with("")
+    phase_axs.text.assert_called_once_with(
+        0.05,
+        0.95,
+        "phase_title",
+        fontsize=10,
+        transform=phase_axs.transAxes,
+        va="top",
+        ha="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+    )
+    phase_subplot_spec_mock.is_first_row.assert_called_once()
+    phase_subplot_spec_mock.is_last_row.assert_called_once()
+    phase_subplot_spec_mock.is_first_col.assert_called_once()
 
     mock_facet_amp.fig.suptitle.assert_called_once_with(
         "Plot Title Solutions (Amplitude)", fontsize="x-large", y=1.08
@@ -130,6 +166,20 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     mock_facet_amp.fig.savefig.assert_called_once_with(
         "path/to/save-amp-freq.png", bbox_inches="tight"
     )
+    mock_facet_amp.set_titles.assert_called_once_with("")
+    amp_axs.text.assert_called_once_with(
+        0.05,
+        0.95,
+        "amp_title",
+        fontsize=10,
+        transform=amp_axs.transAxes,
+        va="top",
+        ha="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+    )
+    amp_subplot_spec_mock.is_first_row.assert_called_once()
+    amp_subplot_spec_mock.is_last_row.assert_called_once()
+    amp_subplot_spec_mock.is_first_col.assert_called_once()
 
 
 @patch("ska_sdp_instrumental_calibration.plot.plot_gaintable.np")
@@ -149,8 +199,24 @@ def test_should_plot_gaintable_for_time(np_mock):
     gain_mock = MagicMock(name="gain")
     gaintable.gain = gain_mock
     gain_mock.copy.return_value = phase_gain_mock
+
     mock_facet_phase = MagicMock(name="facet_plot_phase")
     mock_facet_amp = MagicMock(name="facet_plot_amp")
+
+    phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
+    phase_axs = MagicMock(name="ax1")
+    phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
+
+    mock_facet_phase.axs.flat = [phase_axs]
+    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+
+    amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
+    amp_axs = MagicMock(name="ax1")
+    amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
+
+    mock_facet_amp.axs.flat = [amp_axs]
+    mock_facet_amp.col_names.__getitem__.return_value = "amp_title"
+
     amp_gain_mock.plot.scatter.return_value = mock_facet_amp
     phase_gain_mock.plot.scatter.return_value = mock_facet_phase
     np_mock.abs.return_value = amp_gain_mock
@@ -181,9 +247,11 @@ def test_should_plot_gaintable_for_time(np_mock):
                 col_wrap=5,
                 add_legend=True,
                 add_colorbar=False,
-                sharex=False,
+                sharex=True,
+                sharey=True,
                 edgecolors="none",
                 aspect=1.5,
+                cmap=ListedColormap(["red", "grey", "green", "blue"]),
                 s=8,
                 ylim=None,
             )
@@ -199,9 +267,11 @@ def test_should_plot_gaintable_for_time(np_mock):
                 col_wrap=5,
                 add_legend=True,
                 add_colorbar=False,
-                sharex=False,
+                sharex=True,
+                sharey=True,
                 edgecolors="none",
                 aspect=1.5,
+                cmap=ListedColormap(["red", "grey", "green", "blue"]),
                 s=8,
                 ylim=None,
             )
@@ -220,6 +290,20 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_phase.fig.savefig.assert_called_once_with(
         "path/to/save-phase-time.png", bbox_inches="tight"
     )
+    mock_facet_phase.set_titles.assert_called_once_with("")
+    phase_axs.text.assert_called_once_with(
+        0.05,
+        0.95,
+        "phase_title",
+        fontsize=10,
+        transform=phase_axs.transAxes,
+        va="top",
+        ha="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+    )
+    phase_subplot_spec_mock.is_first_row.assert_called_once()
+    phase_subplot_spec_mock.is_last_row.assert_called_once()
+    phase_subplot_spec_mock.is_first_col.assert_called_once()
 
     mock_facet_amp.fig.suptitle.assert_called_once_with(
         (
@@ -233,6 +317,20 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_amp.fig.savefig.assert_called_once_with(
         "path/to/save-amp-time.png", bbox_inches="tight"
     )
+    mock_facet_amp.set_titles.assert_called_once_with("")
+    amp_axs.text.assert_called_once_with(
+        0.05,
+        0.95,
+        "amp_title",
+        fontsize=10,
+        transform=amp_axs.transAxes,
+        va="top",
+        ha="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+    )
+    amp_subplot_spec_mock.is_first_row.assert_called_once()
+    amp_subplot_spec_mock.is_last_row.assert_called_once()
+    amp_subplot_spec_mock.is_first_col.assert_called_once()
 
 
 @patch("ska_sdp_instrumental_calibration.plot.plot_gaintable.np")
@@ -253,6 +351,14 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     gaintable.gain = gain_mock
     gain_mock.copy.return_value = phase_gain_mock
     mock_facet_phase = MagicMock(name="facet_plot_phase")
+
+    phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
+    phase_axs = MagicMock(name="ax1")
+    phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
+
+    mock_facet_phase.axs.flat = [phase_axs]
+    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+
     phase_gain_mock.plot.return_value = mock_facet_phase
     gaintable.__getitem__.return_value = phase_gain_mock
 
@@ -277,7 +383,8 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
         col="Station",
         col_wrap=5,
         add_colorbar=True,
-        sharex=False,
+        sharex=True,
+        sharey=True,
         aspect=1.5,
     )
 
@@ -293,3 +400,16 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     mock_facet_phase.fig.savefig.assert_called_once_with(
         "path/to/save-phase-time-freq.png", bbox_inches="tight"
     )
+    phase_axs.text.assert_called_once_with(
+        0.05,
+        0.95,
+        "phase_title",
+        fontsize=10,
+        transform=phase_axs.transAxes,
+        va="top",
+        ha="left",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+    )
+    phase_subplot_spec_mock.is_first_row.assert_called_once()
+    phase_subplot_spec_mock.is_last_row.assert_called_once()
+    phase_subplot_spec_mock.is_first_col.assert_called_once()
