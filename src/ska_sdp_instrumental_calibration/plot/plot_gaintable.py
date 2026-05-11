@@ -231,7 +231,6 @@ class PlotGaintable:
 
         return facet_plot
 
-
     def _primary_sec_ax_mapper(self, map_from, map_to, reverse=False):
         """
         Create a mapping function between primary and secondary axes.
@@ -373,7 +372,6 @@ class PlotGaintable:
         """
         raise NotImplementedError("plot_all_stations not implemented")
 
-
     def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
         """
         Prepare the gaintable xarray.Dataset for plotting.
@@ -418,6 +416,7 @@ class PlotGaintable:
             gaintable = gaintable.sel(Jones_Solutions=["J_XX", "J_YY"])
 
         return gaintable.swap_dims({"antenna": "Station"})
+
 
 class PlotGaintableFrequency(PlotGaintable):
     """
