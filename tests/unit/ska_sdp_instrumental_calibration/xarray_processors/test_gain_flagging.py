@@ -146,9 +146,9 @@ def test_should_flag_gains_for_real_imag():
     flagged_weights, fits = flagger_obj.flag_dimension(
         gains,
         weights,
-        antenna="a1",
-        receptor1="X",
-        receptor2="Y",
+        antenna_name="a1",
+        receptor1_name="X",
+        receptor2_name="Y",
     )
 
     np.testing.assert_allclose(flagged_weights, expected_weights)
@@ -577,9 +577,9 @@ def test_gain_flagger_smooth_branch_executes():
     flagged_weights, fits = flagger.flag_dimension(
         gains,
         weights,
-        antenna="a1",
-        receptor1="X",
-        receptor2="Y",
+        antenna_name="a1",
+        receptor1_name="X",
+        receptor2_name="Y",
     )
 
     assert "real_fit" in fits
