@@ -14,7 +14,7 @@ from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotConfig
 
 
-@ConfigurableStage(name="delay_calibration", optional=True)
+@ConfigurableStage(name="delay_calibration")
 def delay_calibration_stage(
     _upstream_output_,
     _qa_dir_,
@@ -32,7 +32,7 @@ def delay_calibration_stage(
     ] = True,
 ):
     """
-    Performs delay calibration
+    Extract delays from bandpass solutions for plotting
 
     Parameters
     __________
@@ -52,7 +52,6 @@ def delay_calibration_stage(
         dict
             Updated upstream_output with gaintable
     """
-    _upstream_output_.add_checkpoint_key("gaintable")
 
     gaintable = _upstream_output_["gaintable"]
     prefix = _upstream_output_.ms_prefix
@@ -110,7 +109,6 @@ def delay_calibration_stage(
             export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
 
-    _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("delay")
 
     return _upstream_output_

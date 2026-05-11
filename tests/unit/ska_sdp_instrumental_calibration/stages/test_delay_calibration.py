@@ -25,8 +25,8 @@ def test_should_have_the_expected_default_configuration():
     assert delay_calibration_stage.__stage__.config == expected_config
 
 
-def test_delay_calibration_stage_is_optional():
-    assert not delay_calibration_stage.__stage__.is_enabled
+def test_delay_calibration_stage_is_not_optional():
+    assert delay_calibration_stage.__stage__.is_enabled
 
 
 @patch(
@@ -43,7 +43,7 @@ def test_should_perform_delay_calibration(
     upstream_output["gaintable"] = gaintable_mock
     oversample = 16
 
-    actual_output = delay_calibration_stage(
+    delay_calibration_stage(
         upstream_output,
         _qa_dir_="/output/path",
         oversample=oversample,
@@ -55,8 +55,6 @@ def test_should_perform_delay_calibration(
     apply_delay_mock.assert_called_once_with(
         gaintable_mock, calculate_delay_mock.return_value
     )
-
-    assert actual_output.gaintable == apply_delay_mock.return_value
 
 
 @patch(
