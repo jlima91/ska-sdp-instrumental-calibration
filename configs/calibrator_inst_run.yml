@@ -52,7 +52,7 @@ parameters:
     plot_config:
       curve_fit_plot: true
       gain_flag_plot: true
-    soltype: amp-phase
+    soltype: amplitude
     order: 3
     apply_flag: true
     skip_cross_pol: true
@@ -108,7 +108,7 @@ pipeline:
   predict_vis: true
   bandpass_initialisation: true
   bandpass_calibration: true
-  delay_calibration: true
+  delay_calibration: false
   flag_gain: false
   ionospheric_delay: false
   generate_channel_rm: false
