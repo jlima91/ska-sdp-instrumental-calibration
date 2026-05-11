@@ -35,7 +35,9 @@ def test_should_flag_gains_for_amplitude():
         freq=frequencies,
     )
 
-    updated_weights, fits = flagger_obj.flag_dimension(gains, weights)
+    updated_weights, fits = flagger_obj.flag_dimension(
+        gains, weights, None, None, None
+    )
 
     expected_weights = np.array(
         [
@@ -86,7 +88,9 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         freq=frequencies,
     )
 
-    updated_weights, fits = flagger_obj.flag_dimension(gains, weights)
+    updated_weights, fits = flagger_obj.flag_dimension(
+        gains, weights, None, None, None
+    )
 
     expected_weights = np.array(
         [
