@@ -137,7 +137,7 @@ class PhasorPolyFit:
                 x,
                 y_real,
                 p0=p0,
-                maxfev=5000,
+                maxfev=10000,
             )
             model = self.phasor_envelope_model(self.freq, *params)
             return model, freq_guess
@@ -219,12 +219,14 @@ class RMSFlagger:
                 Boolean mask where True indicates an outlier based on n_sigma.
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         if not np.any(valid):
-            return np.zeros_like(weights, dtype=bool), np.nan
+            return np.zeros_like(weights, dtype=bool)
 
         med = np.nanmedian(arr[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med))
-        return np.abs((arr - med) * weights) > (self.n_sigma * sigma)
+        return np.abs((arr - med) * valid_weights) > (self.n_sigma * sigma)
 
     def flag(self, arr, weights):
         """
@@ -243,11 +245,13 @@ class RMSFlagger:
             Array fo flags
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         if not np.any(valid):
             return np.zeros_like(weights, dtype=bool), np.nan
 
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
-        flags = np.abs(arr * weights) > (self.n_sigma * sigma)
+        flags = np.abs(arr * valid_weights) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -293,12 +297,14 @@ class RollingRMSFlagger:
             Boolean mask identifying elements exceeding the n_sigma threshold.
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         rms = self._rms(arr)
 
         med = np.nanmedian(rms[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med))
 
-        return ((rms - med) * weights) > (self.n_sigma * sigma)
+        return ((rms - med) * valid_weights) > (self.n_sigma * sigma)
 
     def flag(self, arr, weights):
         """
@@ -315,10 +321,12 @@ class RollingRMSFlagger:
             Array fo flags
         """
         valid = weights != 0
+        valid_weights = np.zeros_like(weights, dtype=float)
+        valid_weights[valid] = 1
         rms = self._rms(arr)
 
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
-        flags = (rms * weights) > (self.n_sigma * sigma)
+        flags = (rms * valid_weights) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -359,25 +367,25 @@ class GainFlagger:
 
         Parameters
         ----------
-            soltype: str
-                Solution type to flag. Can be "phase", "amplitude"
-                or "both".
-            order : int
-                Order of the function fitted during detrending.
-                If mode=smooth these are the window of the running
-                median (0=all axis).
-            max_ncycles: int
-                Max number of independent flagging cycles, by default 5.
-            n_sigma: float, optional
-                Flag values greated than n_simga * sigma_hat.
-                Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
-            n_sigma_rolling: float
-                Do a running rms and then flag those regions that have a rms
-                higher than n_sigma_rolling*MAD(rmses).
-            window_size: int, optional
-                Window size for the running rms, by default 11.
-            frequencies: List
-                List of frequencies.
+        soltype
+            Solution type to flag. Can be "phase", "amplitude"
+            or "both".
+        order
+            Order of the function fitted during detrending.
+            If mode=smooth these are the window of the running
+            median (0=all axis).
+        max_ncycles
+            Max number of independent flagging cycles, by default 5.
+        n_sigma
+            Flag values greated than n_simga * sigma_hat.
+            Where sigma_hat is 1.4826 * MeanAbsoluteDeviation
+        n_sigma_rolling
+            Do a running rms and then flag those regions that have a rms
+            higher than n_sigma_rolling*MAD(rmses).
+        window_size
+            Window size for the running rms, by default 11.
+        freq
+            Frequency axis.
         """
 
         self.freq = freq
@@ -388,8 +396,13 @@ class GainFlagger:
         self.soltype = self.SOLTYPE[soltype]
 
         self.flaggers = []
-        if n_sigma:
-            self.flaggers.append(RMSFlagger(n_sigma))
+
+        if n_sigma <= 0:
+            raise ValueError("n_sigma must be greater than zero")
+
+        self.preflagger = RMSFlagger(n_sigma)
+        self.flaggers.append(RMSFlagger(n_sigma))
+
         if n_sigma_rolling:
             self.flaggers.append(
                 RollingRMSFlagger(n_sigma_rolling, window_size)
@@ -397,49 +410,40 @@ class GainFlagger:
 
     def flag_dimension(
         self,
-        gains,
-        weights,
-        antenna=None,
-        receptor1=None,
-        receptor2=None,
-    ):
+        gains: np.ndarray,
+        weights: np.ndarray,
+        antenna_name: str,
+        receptor1_name: str,
+        receptor2_name: str,
+    ) -> tuple[np.ndarray, dict]:
         """
         Applies flagging to chunk of gaintable with detrending/fitting
         algorithm for the given gain and weight chunk.
 
         Parameters
         ----------
-            gains: xr.DataArray
-                Gain solutions.
-            weights: xr.DataArray
-                Weight of gains.
-            antenna: list
-                Antenna names
-            receptor1: list
-                Receptor1 name
-            receptor2: list
-                Receptor2 name
+        gains
+            Gain solutions. Shape: (freq,)
+        weights
+            Weight of gains. Shape: (freq,)
+        antenna_name
+            Antenna name
+        receptor1_name
+            Receptor1 name. e.g. 'X'
+        receptor2_name
+            Receptor2 name. e.g. 'Y'
 
         Returns
         -------
-            weights: xr.DataArray
-                Updated weights.
-            last_fit_components: dict
-                Final fits of soltype.
+            A tuple of updated weights, and final fits of soltype.
         """
         weights = weights.copy()
         freq_guess = None
         last_fit_components = None
 
-        components = {}
-        data_components = self.soltype(gains)
-        components = {key: data_components[key] for key in data_components}
-
         pre_flags = np.zeros_like(weights, dtype=bool)
-        for arr in components.values():
-            for flagger in self.flaggers:
-                flags = flagger.pre_flag(arr, weights)
-                pre_flags |= flags
+        flags = self.preflagger.pre_flag(np.abs(gains), weights)
+        pre_flags |= flags
 
         weights[pre_flags] = 0
 
@@ -488,9 +492,9 @@ class GainFlagger:
                     "Converged at cycle %d: antenna=%s receptors=[%s,%s] "
                     "MAD=%.5f flagged=%d soltype=%s mode=%s",
                     cycle + 1,
-                    antenna,
-                    receptor1,
-                    receptor2,
+                    antenna_name,
+                    receptor1_name,
+                    receptor2_name,
                     cycle_sigma if cycle_sigma is not None else float("nan"),
                     total_flagged,
                     self.soltype_name,
@@ -506,9 +510,9 @@ class GainFlagger:
                 "Gain flagging cycle %d: antenna=%s receptors=[%s,%s] "
                 "MAD=%.5f flagged=%.2f%% soltype=%s mode=%s",
                 cycle + 1,
-                antenna,
-                receptor1,
-                receptor2,
+                antenna_name,
+                receptor1_name,
+                receptor2_name,
                 cycle_sigma if cycle_sigma is not None else float("nan"),
                 percent_flagged,
                 self.soltype_name,
@@ -518,22 +522,51 @@ class GainFlagger:
         return weights, last_fit_components
 
 
-def _flag_wrapper(
-    gains,
-    weights,
-    antenna,
-    freq,
-    cfg,
-    receptor1,
-    receptor2,
-):
+def _flag_wrapper_ufunc_(
+    gains: np.ndarray,
+    weights: np.ndarray,
+    antenna_name: str,
+    freq: np.ndarray,
+    cfg: dict,
+    receptor1_name: str,
+    receptor2_name: str,
+) -> tuple[np.ndarray, ...]:
+    """
+    This function acts as the bridge between the flag_on_gains which calls
+    apply_ufunc, and the actual flaggers.
+
+    Parameters
+    ----------
+    gains
+        Gain solutions. Shape: (freq,).
+    weights
+        Weight of gains. Shape: (freq,).
+    antenna_name
+        Antenna name
+    freq
+        Frequency axis values. Shape: (freq,).
+    cfg
+        Named parameters passed to GainFlagger constructor
+    receptor1_name
+        Name of the first receptor
+    receptor2_name
+        Name of the second receptor
+
+    Returns
+    -------
+        A variable length tuple of numpy arrays, containing:
+
+        - New flags with shape (freq)
+        - Curve fits corresponding to each solution (amp / phase / real / imag)
+          Size of the tuple depends on how many type of fits were applied.
+    """
     flagger = GainFlagger(freq=freq, **cfg)
     new_weights, fits = flagger.flag_dimension(
         gains,
         weights,
-        antenna=antenna,
-        receptor1=receptor1,
-        receptor2=receptor2,
+        antenna_name=antenna_name,
+        receptor1_name=receptor1_name,
+        receptor2_name=receptor2_name,
     )
 
     outputs = [new_weights]
@@ -635,7 +668,7 @@ def flag_on_gains(
             continue
 
         results = xr.apply_ufunc(
-            _flag_wrapper,
+            _flag_wrapper_ufunc_,
             gaintable.gain[0, :, :, receptor1, receptor2],
             gaintable.weight[0, :, :, receptor1, receptor2],
             gaintable.configuration.names.data,
@@ -647,8 +680,8 @@ def flag_on_gains(
             kwargs=dict(
                 freq=freq,
                 cfg=cfg,
-                receptor1=gaintable.receptor1[receptor1].data,
-                receptor2=gaintable.receptor2[receptor2].data,
+                receptor1_name=gaintable.receptor1[receptor1].data,
+                receptor2_name=gaintable.receptor2[receptor2].data,
             ),
         )
 

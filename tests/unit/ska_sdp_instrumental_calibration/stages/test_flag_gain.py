@@ -16,7 +16,7 @@ def plot_config():
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "flag_gain": {
-            "soltype": "amp-phase",
+            "soltype": "amplitude",
             "order": 3,
             "apply_flag": True,
             "skip_cross_pol": True,

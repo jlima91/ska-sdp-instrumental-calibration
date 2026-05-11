@@ -685,8 +685,8 @@ def calculate_gains(cfg):
 
     rfi = generate_gaintable_cfg.get("rfi", False)
     if rfi:
-        rfi_start_freq = float(cfg["rfi_start_freq_hz"]) * 1e-6
-        rfi_end_freq = float(cfg["rfi_end_freq_hz"]) * 1e-6
+        rfi_start_freq = float(generate_gaintable_cfg["rfi_start_freq_hz"]) * 1e-6
+        rfi_end_freq = float(generate_gaintable_cfg["rfi_end_freq_hz"]) * 1e-6
     else:
         rfi_start_freq = rfi_end_freq = None
 
