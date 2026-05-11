@@ -320,8 +320,9 @@ class PlotGaintable:
             The FacetGrid object containing the subplots to update.
         """
         facet_plot.set_titles("")
-        for idx, ax in enumerate(facet_plot.axs.flat):
-            title = str(facet_plot.col_names[idx])
+        axes = facet_plot.axs.flat
+        for idx, title in enumerate(facet_plot.col_names):
+            ax = axes[idx]
             ax.text(
                 0.05,
                 0.95,

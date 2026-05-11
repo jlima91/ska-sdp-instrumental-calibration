@@ -65,14 +65,15 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
-    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+    mock_facet_phase.col_names = ["phase_title"]
 
     amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
     amp_axs = MagicMock(name="ax1")
     amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
 
     mock_facet_amp.axs.flat = [amp_axs]
-    mock_facet_amp.col_names.__getitem__.return_value = "amp_title"
+
+    mock_facet_amp.col_names = ["amp_title"]
 
     amp_gain_mock.plot.scatter.return_value = mock_facet_amp
     phase_gain_mock.plot.scatter.return_value = mock_facet_phase
@@ -208,14 +209,15 @@ def test_should_plot_gaintable_for_time(np_mock):
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
-    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+    mock_facet_phase.col_names = ["phase_title"]
 
     amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
     amp_axs = MagicMock(name="ax1")
     amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
 
     mock_facet_amp.axs.flat = [amp_axs]
-    mock_facet_amp.col_names.__getitem__.return_value = "amp_title"
+
+    mock_facet_amp.col_names = ["amp_title"]
 
     amp_gain_mock.plot.scatter.return_value = mock_facet_amp
     phase_gain_mock.plot.scatter.return_value = mock_facet_phase
@@ -357,7 +359,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
-    mock_facet_phase.col_names.__getitem__.return_value = "phase_title"
+    mock_facet_phase.col_names = ["phase_title"]
 
     phase_gain_mock.plot.return_value = mock_facet_phase
     gaintable.__getitem__.return_value = phase_gain_mock
