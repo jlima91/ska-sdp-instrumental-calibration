@@ -396,9 +396,13 @@ class GainFlagger:
         self.soltype = self.SOLTYPE[soltype]
 
         self.flaggers = []
+
+        if n_sigma <= 0:
+            raise ValueError("n_sigma must be greater than zero")
+
         self.preflagger = RMSFlagger(n_sigma)
-        if n_sigma:
-            self.flaggers.append(RMSFlagger(n_sigma))
+        self.flaggers.append(RMSFlagger(n_sigma))
+
         if n_sigma_rolling:
             self.flaggers.append(
                 RollingRMSFlagger(n_sigma_rolling, window_size)

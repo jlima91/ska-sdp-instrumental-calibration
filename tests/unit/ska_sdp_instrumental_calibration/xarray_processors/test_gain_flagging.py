@@ -182,11 +182,30 @@ def test_should_flag_gains_for_real_imag():
     )
 
 
-def test_should_throw_exception_if_window_size_is_even():
-
+def test_should_throw_exception_if_nsigma_is_less_than_or_equal_to_zero():
     soltype = "real-imag"
     order = 1
     n_sigma = 0.0
+    max_ncycles = 1
+    n_sigma_rolling = 0.0
+    window_size = 2
+    frequencies = np.arange(0, 1, 0.1)
+    with pytest.raises(ValueError, match="n_sigma must be greater than zero"):
+        GainFlagger(
+            soltype,
+            order,
+            max_ncycles,
+            n_sigma,
+            n_sigma_rolling,
+            window_size,
+            frequencies,
+        )
+
+
+def test_should_throw_exception_if_window_size_is_even():
+    soltype = "real-imag"
+    order = 1
+    n_sigma = 3.0
     max_ncycles = 1
     n_sigma_rolling = 15.0
     window_size = 2
@@ -222,7 +241,7 @@ def test_should_perform_gain_flagging(
     soltype = "amplitude"
 
     order = 1
-    n_sigma = 0.0
+    n_sigma = 3.0
     max_ncycles = 1
     n_sigma_rolling = 15.0
     window_size = 3
@@ -336,7 +355,7 @@ def test_should_perform_gain_flagging_without_apply(
 ):
     soltype = "real-imag"
     order = 1
-    n_sigma = 0.0
+    n_sigma = 3.0
     max_ncycles = 1
     n_sigma_rolling = 15.0
     window_size = 3
