@@ -1,9 +1,13 @@
+from copy import copy
 from typing import Literal
 
 import dask.array as da
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+from ska_sdp_datamodels.calibration import GainTable
+from ska_sdp_datamodels.science_data_model import ReceptorFrame
+from ska_sdp_datamodels.visibility import Visibility
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -244,23 +248,6 @@ def compare_arrays(
         actions[output]("info", msg)
 
 
-# # TODO: Move this to its own test module
-# # Test for the new gain interval logic
-# timeslice = "full"
-# gain_time_bins = create_solint_slices(vis.time, timeslice)
-# gain_time = gain_time_bins.mean().data
-# gain_interval = get_intervals_from_grouped_bins(gain_time_bins)
-# idx = 0
-# time = gain_time[idx]
-# time_slice = {
-#         "time": slice(
-#             time - gain_interval[idx] / 2,
-#             time + gain_interval[idx] / 2,
-#         )
-#     }
-# assert np.all(vis.time.sel(time_slice).data == vis.time.data)
-
-
 def identify_max_min_baselineid(uvw):
     """
     Identify the baseline IDs with the maximum and minimum baseline
@@ -291,13 +278,12 @@ def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path)
     """
     fig = plt.figure(layout="constrained", figsize=(10, 5))
     fig.suptitle("Phase vs Time", fontsize=16)
-    xx_ax, yy_ax = fig.subplots(1, 2)
 
+    xx_ax, yy_ax = fig.subplots(1, 2)
     xx_ax.set_title("Input")
     xx_ax.set_xlabel("Time (sec)")
     xx_ax.set_ylabel("Phase (deg)")
     xx_ax.set_ylim([-180, 180])
-
     yy_ax.set_title("Corrected")
     yy_ax.set_xlabel("Time (sec)")
     yy_ax.set_ylabel("Phase (deg)")
@@ -321,9 +307,7 @@ def plot_phase_vs_time(input_vis, corrected_vis, channel, baseline, prefix_path)
     )
 
     fig.savefig(f"{prefix_path}/phase-time-{channel}-{baseline}.png")
-
     plt.show()
-
     plt.close(fig)
 
 
@@ -333,13 +317,12 @@ def plot_phase_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     """
     fig = plt.figure(layout="constrained", figsize=(10, 5))
     fig.suptitle("Phase vs Frequency", fontsize=16)
-    xx_ax, yy_ax = fig.subplots(1, 2)
 
+    xx_ax, yy_ax = fig.subplots(1, 2)
     xx_ax.set_title("Input")
     xx_ax.set_xlabel("Freq (Hz)")
     xx_ax.set_ylabel("Phase (deg)")
     xx_ax.set_ylim([-180, 180])
-
     yy_ax.set_title("Corrected")
     yy_ax.set_xlabel("Freq (Hz)")
     yy_ax.set_ylabel("Phase (deg)")
@@ -355,21 +338,17 @@ def plot_phase_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     yy_ax.scatter(
         corrected_vis.frequency,
         np.angle(
-            corrected_vis.vis.isel(
-                time=time, baselineid=baseline, polarisation=0
-            ),
+            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
             deg=True,
         ),
     )
 
     fig.savefig(f"{prefix_path}/phase-freq-{time}-{baseline}.png")
-
     plt.show()
-
     plt.close(fig)
 
-def plot_Q_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
 
+def plot_Q_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     """
 
     Plot phase vs time for a given channel and baseline.
@@ -377,64 +356,36 @@ def plot_Q_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     """
 
     fig = plt.figure(layout="constrained", figsize=(10, 5))
-
     fig.suptitle("Stokes Q vs Frequency", fontsize=16)
 
     xx_ax, yy_ax = fig.subplots(1, 2)
-
-
-
     xx_ax.set_title("Input")
-
     xx_ax.set_xlabel("Freq (Hz)")
-
     xx_ax.set_ylabel("Stokes Q")
-
-
-
     yy_ax.set_title("Corrected")
-
     yy_ax.set_xlabel("Freq (Hz)")
-
     yy_ax.set_ylabel("Stokes Q")
-
-
-
     xx_ax.scatter(
-
         input_vis.frequency,
-
         np.abs(
-
-            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0) - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+            input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)
+            - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
         ),
-
     )
-
     yy_ax.scatter(
-
         corrected_vis.frequency,
-
         np.abs(
-
-            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)  - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
-
+            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)
+            - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
         ),
-
     )
 
     fig.savefig(f"{prefix_path}/stokes-Q-freq-{time}-{baseline}.png")
-
     plt.show()
-
     plt.close(fig)
-    
-    
 
 
 def plot_pol_angle_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
-
-
     """
 
 
@@ -443,81 +394,51 @@ def plot_pol_angle_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path
 
     """
 
-
     fig = plt.figure(layout="constrained", figsize=(10, 5))
-
-
     fig.suptitle("Polarization Angle vs Frequency", fontsize=16)
 
-
     xx_ax, yy_ax = fig.subplots(1, 2)
-
-
     xx_ax.set_title("Input")
-
-
     xx_ax.set_xlabel("Freq (Hz)")
-
-
     xx_ax.set_ylabel("Polarization Angle")
-
-
     yy_ax.set_title("Corrected")
-
-
     yy_ax.set_xlabel("Freq (Hz)")
-
-
     yy_ax.set_ylabel("Polarization Angle")
 
+    stokes_Q_input = input_vis.vis.isel(
+        time=time, baselineid=baseline, polarisation=0
+    ) - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
 
-    stokes_Q_input = input_vis.vis.isel(time=time, baselineid=baseline, polarisation=0) - input_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
-    
-    stokes_Q_corrected = corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0)  - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
-    
-    stokes_U_input = input_vis.vis.isel(time=time, baselineid=baseline, polarisation=1) + input_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
-    
-    stokes_U_corrected = corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=1) + corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
-        
+    stokes_Q_corrected = corrected_vis.vis.isel(
+        time=time, baselineid=baseline, polarisation=0
+    ) - corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=3)
+
+    stokes_U_input = input_vis.vis.isel(
+        time=time, baselineid=baseline, polarisation=1
+    ) + input_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
+
+    stokes_U_corrected = corrected_vis.vis.isel(
+        time=time, baselineid=baseline, polarisation=1
+    ) + corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=2)
+
     pol_angle_input = 0.5 * np.arctan2(np.abs(stokes_U_input), np.abs(stokes_Q_input))
 
-    pol_angle_corrected = 0.5 * np.arctan2(np.abs(stokes_U_corrected), np.abs(stokes_Q_corrected))
-
+    pol_angle_corrected = 0.5 * np.arctan2(
+        np.abs(stokes_U_corrected), np.abs(stokes_Q_corrected)
+    )
 
     xx_ax.scatter(
-
-
         input_vis.frequency,
-
-
         pol_angle_input,
-
-
     )
-
-
     yy_ax.scatter(
-
-
         corrected_vis.frequency,
-
-
         pol_angle_corrected,
-
-
     )
-
 
     fig.savefig(f"{prefix_path}/pol-angle-freq-{time}-{baseline}.png")
-
-
     plt.show()
-
-
     plt.close(fig)
-
-
-
 
 
 def plot_data_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
@@ -532,7 +453,7 @@ def plot_data_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     ax1.set_title("Input Amplitude")
     ax1.set_xlabel("Freq (Hz)")
     ax1.set_ylabel("Amplitude")
-    #ax1.set_ylim(0, 60)
+    # ax1.set_ylim(0, 60)
     ax1.scatter(
         input_vis.frequency,
         np.abs(
@@ -544,7 +465,7 @@ def plot_data_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     ax2.set_title("Corrected Amplitude")
     ax2.set_xlabel("Freq (Hz)")
     ax2.set_ylabel("Amplitude")
-    #ax2.set_ylim(0, 60)
+    # ax2.set_ylim(0, 60)
     ax2.scatter(
         corrected_vis.frequency,
         np.abs(
@@ -573,17 +494,13 @@ def plot_data_vs_freq(input_vis, corrected_vis, time, baseline, prefix_path):
     ax4.scatter(
         corrected_vis.frequency,
         np.angle(
-            corrected_vis.vis.isel(
-                time=time, baselineid=baseline, polarisation=0
-            ),
+            corrected_vis.vis.isel(time=time, baselineid=baseline, polarisation=0),
             deg=True,
         ),
     )
 
     fig.savefig(f"{prefix_path}/amp-phase-freq-{time}-{baseline}.png")
-
     plt.show()
-
     plt.close(fig)
 
 
@@ -690,3 +607,75 @@ def plot_time_vs_freq_for_phase_multiple_baselines(
     )
 
     plt.close(fig)
+
+
+def create_gaintable_from_h5param(
+    h5parm_path: str, interval: np.ndarray, vis: Visibility = None
+) -> GainTable:
+    """
+    Load h5parm file and convert to GainTable.
+
+    Parameters
+    ----------
+    h5parm_path : str
+        Path to the h5parm file.
+    interval : np.ndarray
+        Interval array for the gain table.
+        Typically derived from ``SolutionIntervals.intervals`` property.
+    vis : Visibility, optional
+        Visibility object to extract metadata (phasecentre, configuration, receptor_frame).
+        Default is None.
+
+    Returns
+    -------
+    GainTable
+        The gain table constructed from the h5parm file.
+
+    Example
+    -------
+    >>> vis = load_ms_as_dataset_with_time_chunks(mspath, 10)
+    ... interval = SolutionIntervals(vis.time.data, "full").intervals
+    ... gaintable = create_gaintable_from_h5param(h5param_path, interval, vis)
+
+    """
+    with h5py.File(h5parm_path) as h5f:
+        solution = h5f["sol000"]
+        amplitude = solution["amplitude000"]
+        phase = solution["phase000"]
+
+        gain = amplitude["val"][...] * np.exp(phase["val"][...] * 1j)
+        gain_shape_og = gain.shape
+        # Reshaping to get 2x2 matrix
+        gain = np.reshape(gain, (*gain_shape_og[:3], 2, 2))
+
+        time = amplitude["time"][...]
+        frequency = amplitude["freq"][...]
+        residual = np.zeros((time.size, frequency.size, 2, 2))
+
+        try:
+            weight_amp = amplitude["weight"][...]
+            weight_phase = phase["weight"][...]
+            np.testing.assert_allclose(weight_amp, weight_phase)
+        except AssertionError:
+            print(
+                "WARNING: weights are different in amp and phase. Will pick weight values from amplitude."
+            )
+        weight = np.reshape(weight_amp, gain.shape)
+
+        kawrgs = {}
+        if vis:
+            kawrgs["phasecentre"] = copy(vis.phasecentre)
+            kawrgs["configuration"] = copy(vis.configuration)
+            kawrgs["receptor_frame"] = ReceptorFrame(
+                vis.visibility_acc.polarisation_frame.type
+            )
+
+        return GainTable.constructor(
+            gain=gain,
+            time=time,
+            interval=interval,
+            weight=weight,
+            residual=residual,
+            frequency=frequency,
+            **kawrgs,
+        )
