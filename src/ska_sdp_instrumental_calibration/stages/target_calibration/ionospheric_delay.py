@@ -38,7 +38,7 @@ def ionospheric_delay_stage(
         Field(
             description="""Number of solver iterations.""",
         ),
-    ] = 10,
+    ] = 500,
     tol: Annotated[
         float,
         Field(
@@ -59,7 +59,7 @@ def ionospheric_delay_stage(
         Field(
             description="""Plot all station Phase vs Frequency""",
         ),
-    ] = False,
+    ] = True,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.

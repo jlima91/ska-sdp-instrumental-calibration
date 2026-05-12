@@ -57,7 +57,7 @@ def export_gaintable_stage(
         Field(
             description="""Gain table file name without extension""",
         ),
-    ] = "inst.gaintable",
+    ] = "gaintable",
     export_format: Annotated[
         Literal["h5parm", "hdf5"],
         Field(

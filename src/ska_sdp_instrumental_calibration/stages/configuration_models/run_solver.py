@@ -88,7 +88,7 @@ class TargetRunSolverConfig(PiperBaseModel):
     niter: Annotated[
         int,
         Field(description="Number of solver iterations."),
-    ] = 50
+    ] = 200
     tol: Annotated[
         float,
         Field(

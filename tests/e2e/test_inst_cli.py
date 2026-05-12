@@ -53,7 +53,7 @@ def test_should_run_inst_and_generate_required_files():
 
         # [TODO] Update "unknown" with the correct field name
         # once test data is fixed
-        assert (output_dir / "unknown_inst.gaintable.h5parm").exists()
+        assert (output_dir / "unknown_gaintable.h5parm").exists()
 
         assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.cli.yaml"))
         assert any(

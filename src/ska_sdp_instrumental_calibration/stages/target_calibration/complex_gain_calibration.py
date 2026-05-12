@@ -48,7 +48,7 @@ def complex_gain_calibration_stage(
         Field(
             description="""Export intermediate gain solutions.""",
         ),
-    ] = False,
+    ] = True,
 ):
     """
     Performs Complex Gain Calibration

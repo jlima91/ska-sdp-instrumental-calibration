@@ -29,8 +29,8 @@ def test_should_have_the_expected_default_configuration():
             "tol": 1.0e-06,
             "zernike_limit": None,
             "timeslice": "full",
-            "plot_table": False,
-            "export_gaintable": False,
+            "plot_table": True,
+            "export_gaintable": True,
         }
     }
 

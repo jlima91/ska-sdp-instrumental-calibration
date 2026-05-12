@@ -76,13 +76,13 @@ def generate_channel_rm_stage(
         Field(
             description="""Plot the generated gain table""",
         ),
-    ] = False,
+    ] = True,
     export_gaintable: Annotated[
         bool,
         Field(
             description="""Export intermediate gain solutions.""",
         ),
-    ] = False,
+    ] = True,
 ):
     """
     Estimate a Rotation Measure value for each station, re-predict

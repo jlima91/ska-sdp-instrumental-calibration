@@ -53,14 +53,13 @@ def load_data_stage(
         float,
         Field(
             description="""Defines time scale over which each gain solution
-            is valid. This is used to define time axis of the GainTable.
-            This parameter is interpreted as follows,
-            float: this is a custom time interval in seconds.
+            is valid in seconds.
+            This is used to define time axis of the GainTable.
             Input timestamps are grouped by intervals of this duration,
             and said groups are separately averaged to produce
             the output time axis.""",
         ),
-    ] = 3.0,
+    ] = 120.0,
     ack: Annotated[
         bool,
         Field(

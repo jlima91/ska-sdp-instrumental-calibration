@@ -75,7 +75,7 @@ def flag_gain_stage(
     export_gaintable: Annotated[
         bool,
         Field(description="Export intermediate gain solutions."),
-    ] = False,
+    ] = True,
 ):
     """
     Performs flagging on gains and updates the weight.

@@ -72,7 +72,7 @@ def predict_visibilities(
             description="""Specifies whether to export the sky model
             to a CSV file."""
         ),
-    ] = False,
+    ] = True,
     fov: Annotated[
         float,
         Field(

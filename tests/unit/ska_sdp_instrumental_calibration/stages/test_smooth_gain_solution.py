@@ -10,7 +10,7 @@ from ska_sdp_instrumental_calibration.stages.smooth_gain_solution import (
 
 @pytest.fixture
 def plot_config():
-    return PlotSmoothGainsConfig()
+    return PlotSmoothGainsConfig(plot_table=False)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -19,11 +19,11 @@ def test_should_have_the_expected_default_configuration():
             "window_size": 1,
             "mode": "median",
             "plot_config": {
-                "plot_table": False,
+                "plot_table": True,
                 "plot_path_prefix": "smoothed-gain",
                 "plot_title": "Smoothed Gain",
             },
-            "export_gaintable": False,
+            "export_gaintable": True,
         },
     }
 

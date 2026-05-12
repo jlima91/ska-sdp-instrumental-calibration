@@ -26,10 +26,10 @@ def test_should_have_the_expected_default_configuration():
         "ionospheric_delay": {
             "cluster_indexes": None,
             "block_diagonal": True,
-            "niter": 10,
+            "niter": 500,
             "tol": 1.0e-06,
             "zernike_limit": None,
-            "plot_table": False,
+            "plot_table": True,
         }
     }
 

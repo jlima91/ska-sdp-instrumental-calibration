@@ -27,7 +27,7 @@ class PlotRMConfig(PiperBaseModel):
             description="""Plot the estimated rotational measures
             per station"""
         ),
-    ] = False
+    ] = True
     station: Annotated[
         int | str,
         Field(description="Station number/name to be plotted"),
@@ -61,7 +61,7 @@ class PlotSmoothGainsConfig(PiperBaseModel):
         Field(
             description="""Plot the smoothed gaintable""",
         ),
-    ] = False
+    ] = True
     plot_path_prefix: Annotated[
         str,
         Field(

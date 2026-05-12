@@ -74,11 +74,11 @@ def ionospheric_delay_stage(
     plot_table: Annotated[
         bool,
         Field(description="Plot all station Phase vs Frequency"),
-    ] = False,
+    ] = True,
     export_gaintable: Annotated[
         bool,
         Field(description="Export intermediate gain solutions."),
-    ] = False,
+    ] = True,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.
@@ -160,7 +160,7 @@ def ionospheric_delay_stage(
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
-            refant=_upstream_output_.refant,
+            refant=getattr(_upstream_output_, "refant", None),
         )
 
         _upstream_output_.add_compute_tasks(

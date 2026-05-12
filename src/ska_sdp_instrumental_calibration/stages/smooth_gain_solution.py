@@ -39,7 +39,7 @@ def smooth_gain_solution_stage(
         Field(
             description="""Export intermediate gain solutions.""",
         ),
-    ] = False,
+    ] = True,
 ):
     """
     Smooth the gain solution.

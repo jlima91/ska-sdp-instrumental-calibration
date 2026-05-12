@@ -16,7 +16,7 @@ def test_should_predict_visibilities():
             "fov": 5.0,
             "flux_limit": 1.0,
             "alpha0": -0.78,
-            "export_sky_model": False,
+            "export_sky_model": True,
         }
     }
 
