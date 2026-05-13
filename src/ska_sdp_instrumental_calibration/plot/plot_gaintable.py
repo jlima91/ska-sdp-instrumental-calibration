@@ -72,7 +72,6 @@ class PlotGaintable:
             sharey=True,
             edgecolors="none",
             aspect=1.5,
-            cmap=ListedColormap(["red", "grey", "green", "blue"]),
             s=8,
         )
 
@@ -176,6 +175,7 @@ class PlotGaintable:
             y=1.08,
         )
         gain_phase_fig.tight_layout()
+
         gain_phase_fig.savefig(
             self.__plot_path.format(plot_type="phase"), bbox_inches="tight"
         )
@@ -206,6 +206,26 @@ class PlotGaintable:
 
         logger.info(f"Gaintable plots saved with prefix {self._path_prefix}.")
 
+    def _get_cmap(self, gain_component):
+        """
+        Determine the appropriate colormap for the given gain component.
+
+        Parameters
+        ----------
+        gain_component : xarray.DataArray
+            The gain data variable (e.g., amplitude or phase) for which to
+            determine the colormap.
+
+        Returns
+        -------
+        matplotlib.colors.Colormap
+            The colormap to use for plotting the given gain component.
+        """
+        if len(gain_component["Jones_Solutions"]) > 2:
+            return ListedColormap(["#e15759", "#E69F00", "#009E73", "#0072B2"])
+        else:
+            return ListedColormap(["#e15759", "#0072B2"])
+
     def _get_gain_facet(self, gain_component, y_lim, y_label):
         """
         Create a facet grid scatter plot for a specific gain component.
@@ -225,7 +245,10 @@ class PlotGaintable:
             The generated FacetGrid object.
         """
         plot_kwargs = self._plot_args.copy()
-        facet_plot = gain_component.plot.scatter(**plot_kwargs, ylim=y_lim)
+        cmap = self._get_cmap(gain_component)
+        facet_plot = gain_component.plot.scatter(
+            **plot_kwargs, cmap=cmap, ylim=y_lim
+        )
 
         self._update_facet(facet_plot, y_label)
 
@@ -324,14 +347,14 @@ class PlotGaintable:
         for idx, title in enumerate(facet_plot.col_names):
             ax = axes[idx]
             ax.text(
-                0.05,
-                0.95,
+                0.02,
+                0.96,
                 title,
-                fontsize=10,
+                fontsize=8,
                 transform=ax.transAxes,
                 va="top",
                 ha="left",
-                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+                bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.6},
             )
         return facet_plot
 
@@ -403,6 +426,7 @@ class PlotGaintable:
         gaintable = gain_table.stack(
             Jones_Solutions=("receptor1", "receptor2")
         )
+
         polstrs = [
             f"J_{p1}{p2}".upper()
             for p1, p2 in gaintable["Jones_Solutions"].data
