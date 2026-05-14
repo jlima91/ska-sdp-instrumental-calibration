@@ -71,7 +71,6 @@ class PlotGaintable:
             sharex=True,
             sharey=True,
             edgecolors="none",
-            subplot_kws={"ymargin": 0.15},
             aspect=1.5,
             s=8,
         )
@@ -358,6 +357,19 @@ class PlotGaintable:
             )
         return facet_plot
 
+    def _create_top_headroom(self, facet_plot):
+        """
+        Create headroom at the top of each subplot for title.
+
+        Parameters
+        ----------
+        facet_plot : xarray.plot.FacetGrid
+            The FacetGrid object containing the subplots to update.
+        """
+        for ax in facet_plot.axs.flat:
+            ymin, ymax = ax.get_ylim()
+            ax.set_ylim(ymin, ymax + 0.003 * (ymax - ymin))
+
     def _update_facet(self, facet_plot, y_label):
         """
         Update facet plot labels and add a secondary x-axis.
@@ -375,6 +387,7 @@ class PlotGaintable:
         """
 
         self._add_main_axes_labels(facet_plot, y_label)
+        self._create_top_headroom(facet_plot)
         self._add_secondary_axis(facet_plot)
         self._add_subplot_titles(facet_plot)
 
@@ -826,17 +839,6 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
 
         facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
         gain_phase_fig = facet_plot.fig
-
-        # NOTE: This following adjustment in the ylimit is made to ensure
-        # that the subplot titles do not overlap with the top row of data
-        # points. Method .plot argument 'subplot_kws={"ymargin": 0.15} is not
-        # working as it does work for .plot.scatter
-
-        for ax in gain_phase_fig.axes:
-            ymin, ymax = ax.get_ylim()
-            ax.set_ylim(ymin, ymax + 0.003 * (ymax - ymin))
-
-        # End of adjustment
 
         self._update_facet(facet_plot, y_label)
 

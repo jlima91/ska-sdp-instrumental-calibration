@@ -68,6 +68,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
     phase_axs = MagicMock(name="ax1")
+    phase_axs.get_ylim.return_value = (0.1, 10)
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
@@ -75,6 +76,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
     amp_axs = MagicMock(name="ax1")
+    amp_axs.get_ylim.return_value = (0.1, 10)
     amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
 
     mock_facet_amp.axs.flat = [amp_axs]
@@ -116,7 +118,6 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
-                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(
@@ -139,7 +140,6 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
-                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(
@@ -219,6 +219,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
     phase_axs = MagicMock(name="ax1")
+    phase_axs.get_ylim.return_value = (0.1, 10)
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
@@ -226,6 +227,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     amp_subplot_spec_mock = MagicMock(name="subplot_spec_amp")
     amp_axs = MagicMock(name="ax1")
+    amp_axs.get_ylim.return_value = (0.1, 10)
     amp_axs.get_subplotspec.return_value = amp_subplot_spec_mock
 
     mock_facet_amp.axs.flat = [amp_axs]
@@ -265,7 +267,6 @@ def test_should_plot_gaintable_for_time(np_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
-                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(["#e15759", "#0072B2"]),
@@ -286,7 +287,6 @@ def test_should_plot_gaintable_for_time(np_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
-                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(["#e15759", "#0072B2"]),
@@ -371,6 +371,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
 
     phase_subplot_spec_mock = MagicMock(name="subplot_spec_phase")
     phase_axs = MagicMock(name="ax1")
+    phase_axs.get_ylim.return_value = (0.1, 10)
     phase_axs.get_subplotspec.return_value = phase_subplot_spec_mock
 
     mock_facet_phase.axs.flat = [phase_axs]
