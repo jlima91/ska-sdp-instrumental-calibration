@@ -823,11 +823,22 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         starting_time = self.observation_start_time(gaintable)
 
         gaintable = self._prepare_gaintable(gaintable)
+
         facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
+        gain_phase_fig = facet_plot.fig
+
+        # NOTE: This following adjustment in the ylimit is made to ensure
+        # that the subplot titles do not overlap with the top row of data
+        # points. Method .plot argument 'subplot_kws={"ymargin": 0.15} is not
+        # working as it does work for .plot.scatter
+
+        for ax in gain_phase_fig.axes:
+            ymin, ymax = ax.get_ylim()
+            ax.set_ylim(ymin, ymax + 0.003 * (ymax - ymin))
+
+        # End of adjustment
 
         self._update_facet(facet_plot, y_label)
-
-        gain_phase_fig = facet_plot.fig
 
         gain_phase_fig.suptitle(
             (
