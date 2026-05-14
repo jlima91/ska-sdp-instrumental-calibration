@@ -71,6 +71,7 @@ class PlotGaintable:
             sharex=True,
             sharey=True,
             edgecolors="none",
+            subplot_kws={"ymargin": 0.15},
             aspect=1.5,
             s=8,
         )
@@ -172,7 +173,7 @@ class PlotGaintable:
         gain_phase_fig.suptitle(
             f"{figure_title} Solutions (Phase){self._post_title}",
             fontsize="x-large",
-            y=1.08,
+            y=1.02,
         )
         gain_phase_fig.tight_layout()
 
@@ -192,7 +193,7 @@ class PlotGaintable:
             gain_amp_fig.suptitle(
                 f"{figure_title} Solutions (Amplitude){self._post_title}",
                 fontsize="x-large",
-                y=1.08,
+                y=1.02,
             )
             gain_amp_fig.tight_layout()
             gain_amp_fig.savefig(
@@ -249,7 +250,6 @@ class PlotGaintable:
         facet_plot = gain_component.plot.scatter(
             **plot_kwargs, cmap=cmap, ylim=y_lim
         )
-
         self._update_facet(facet_plot, y_label)
 
         return facet_plot
@@ -835,7 +835,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
                 f"[Solution Start Time: {starting_time}]"
             ),
             fontsize="x-large",
-            y=1.08,
+            y=1.02,
         )
         gain_phase_fig.tight_layout()
         # Adjust right margin to make room for the colorbar

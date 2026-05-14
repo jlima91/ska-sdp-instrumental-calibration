@@ -116,6 +116,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
+                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(
@@ -138,6 +139,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
+                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(
@@ -149,7 +151,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     )
 
     mock_facet_phase.fig.suptitle.assert_called_once_with(
-        "Plot Title Solutions (Phase)", fontsize="x-large", y=1.08
+        "Plot Title Solutions (Phase)", fontsize="x-large", y=1.02
     )
     mock_facet_phase.fig.tight_layout.assert_called_once()
     mock_facet_phase.fig.savefig.assert_called_once_with(
@@ -171,7 +173,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     phase_subplot_spec_mock.is_first_col.assert_called_once()
 
     mock_facet_amp.fig.suptitle.assert_called_once_with(
-        "Plot Title Solutions (Amplitude)", fontsize="x-large", y=1.08
+        "Plot Title Solutions (Amplitude)", fontsize="x-large", y=1.02
     )
     mock_facet_amp.fig.tight_layout.assert_called_once()
     mock_facet_amp.fig.savefig.assert_called_once_with(
@@ -263,6 +265,7 @@ def test_should_plot_gaintable_for_time(np_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
+                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(["#e15759", "#0072B2"]),
@@ -283,6 +286,7 @@ def test_should_plot_gaintable_for_time(np_mock):
                 sharex=True,
                 sharey=True,
                 edgecolors="none",
+                subplot_kws={"ymargin": 0.15},
                 aspect=1.5,
                 s=8,
                 cmap=ListedColormap(["#e15759", "#0072B2"]),
@@ -297,7 +301,7 @@ def test_should_plot_gaintable_for_time(np_mock):
             "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
         ),
         fontsize="x-large",
-        y=1.08,
+        y=1.02,
     )
     mock_facet_phase.fig.tight_layout.assert_called_once()
     mock_facet_phase.fig.savefig.assert_called_once_with(
@@ -324,7 +328,7 @@ def test_should_plot_gaintable_for_time(np_mock):
             "-[Solution Start Time: 1858-11-17T00:00:01.000000000]"
         ),
         fontsize="x-large",
-        y=1.08,
+        y=1.02,
     )
     mock_facet_amp.fig.tight_layout.assert_called_once()
     mock_facet_amp.fig.savefig.assert_called_once_with(
@@ -407,7 +411,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
             "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
         ),
         fontsize="x-large",
-        y=1.08,
+        y=1.02,
     )
     mock_facet_phase.fig.tight_layout.assert_called_once()
     mock_facet_phase.fig.savefig.assert_called_once_with(
