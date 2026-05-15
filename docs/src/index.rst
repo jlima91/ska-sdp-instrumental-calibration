@@ -22,6 +22,7 @@ SKA SDP Instrumental Calibration (INST) Pipeline
 
    stage_config
    calibration_strategy
+   sdm_mode
 
 .. toctree::
    :maxdepth: 1
