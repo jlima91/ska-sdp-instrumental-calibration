@@ -1,6 +1,3 @@
-"""Test for sdm"""
-
-import tempfile
 from pathlib import Path
 
 from mock import MagicMock, patch
@@ -11,15 +8,19 @@ from ska_sdp_instrumental_calibration.data_managers.sdm import (
 )
 
 
-def test_should_prepare_qa_path():
-    with tempfile.TemporaryDirectory() as temp_dir:
-        assert prepare_qa_path(temp_dir, sdm_path=None) == Path(
-            f"{temp_dir}/sdm/logs/01-inst"
-        )
+def test_should_prepare_qa_path_when_sdm_path_exists(tmp_path):
+    sdm_root = tmp_path / "sdm"
+    logs = sdm_root / "logs"
+    logs.mkdir(parents=True)
+    expected_inst_log_path = Path(f"{sdm_root}/logs/01-inst")
 
-        sdm_root = Path(f"{temp_dir}/sdm_root")
-        inst_log_path = Path(f"{sdm_root}/logs/01-inst")
-        assert prepare_qa_path(None, sdm_path=sdm_root) == inst_log_path
+    assert expected_inst_log_path.exists() is False
+    assert prepare_qa_path(None, sdm_path=sdm_root) == expected_inst_log_path
+    assert expected_inst_log_path.exists() is True
+
+
+def test_should_return_output_dir_as_qa_path_when_sdm_path_is_none():
+    assert prepare_qa_path("output_dir", sdm_path=None) == Path("output_dir")
 
 
 @patch(

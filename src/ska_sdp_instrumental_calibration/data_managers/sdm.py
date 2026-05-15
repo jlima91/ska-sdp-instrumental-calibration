@@ -1,6 +1,7 @@
 """SDM class to manage science data model"""
 
 import os
+from pathlib import Path
 
 from ska_sdp_datamodels.science_data_model.science_data_model import (
     ScienceDataModel,
@@ -61,12 +62,15 @@ def prepare_qa_path(output_dir, sdm_path, **kwargs):
         The path to the prepared log directory.
     """
     if sdm_path is None:
-        sdm_path = f"{output_dir}/sdm/"
+        return Path(output_dir)
 
     sdm = ScienceDataModel(sdm_path)
 
     if not os.path.exists(sdm_path):
-        sdm.create_empty(sdm_path)
+        raise FileNotFoundError(
+            f"Provided SDM path {sdm_path} does not exist. "
+            "Please provide a valid path."
+        )
 
     logs_path = sdm.get_next_logs_dir("inst")
     logs_path.mkdir(parents=True, exist_ok=True)
