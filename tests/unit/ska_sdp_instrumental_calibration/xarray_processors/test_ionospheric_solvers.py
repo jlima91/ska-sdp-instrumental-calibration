@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from mock import patch
 
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
@@ -27,37 +26,12 @@ def test_solve_for_ionosphere(generate_ionospehric_vis, apply_gaintable):
         crpted_vis, modelvis, gaintable
     ).compute()
 
-    corrected_vis = apply_gaintable(vis=crpted_vis, gt=gaintable)
+    corrected_vis = apply_gaintable(vis=crpted_vis, gt=gaintable, inverse=True)
+
     np.testing.assert_allclose(
-        np.angle(og_vis_data),
         np.angle(corrected_vis.vis.data),
-        rtol=1e-10,
-        atol=1e-7,
+        np.angle(og_vis_data),
     )
-
-
-def test_should_set_correct_polarization(generate_ionospehric_vis):
-    vis, jones = generate_ionospehric_vis
-    modelvis = vis.copy(deep=True)
-    modelvis.vis.data[..., :] = [1, 0, 0, 1]
-
-    solver = ionosphere_solvers.IonosphericSolver(vis, modelvis)
-    np.testing.assert_array_equal(solver.pols, [0, 3])
-
-    with patch(
-        "ska_sdp_instrumental_calibration.xarray_processors"
-        ".ionosphere_solvers.np.argwhere",
-        return_value=np.array([[4]]),
-    ):
-        vis.attrs["_polarisation_frame"] = "stokesI"
-        solver = ionosphere_solvers.IonosphericSolver(vis, modelvis)
-        np.testing.assert_array_equal(solver.pols, [4])
-
-    with pytest.raises(
-        ValueError, match="build_normal_equation: Unsupported polarisations"
-    ):
-        vis.attrs["_polarisation_frame"] = "circular"
-        solver = ionosphere_solvers.IonosphericSolver(vis, modelvis)
 
 
 def test_should_raise_exception_for_zero_model_vis(generate_ionospehric_vis):

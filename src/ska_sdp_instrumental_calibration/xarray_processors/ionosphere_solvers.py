@@ -23,6 +23,9 @@ class IonosphericSolver:
     best fits the observed visibility data. It supports antenna clustering
     and iterative refinement of the solution.
 
+    NOTE: This solver assumes that input visibilities have linear
+    polarisation, with all 4 polarisations (XX, XY, YX, YY) present.
+
     Parameters
     ----------
     vis : xarray.Dataset
@@ -125,24 +128,6 @@ class IonosphericSolver:
         if np.all(modelvis.vis == 0.0):
             raise ValueError("solve_ionosphere: Model visibilities are zero")
 
-        self.pols = [0]
-
-        if vis.visibility_acc.polarisation_frame.type.find("stokesI") == 0:
-            self.pols = np.array(
-                [np.argwhere(vis.polarisation.data == "I")[0][0]]
-            )
-        elif vis.visibility_acc.polarisation_frame.type.find("linear") == 0:
-            self.pols = np.array(
-                [
-                    np.argwhere(vis.polarisation.data == "XX")[0][0],
-                    np.argwhere(vis.polarisation.data == "YY")[0][0],
-                ]
-            )
-        else:
-            raise ValueError(
-                "build_normal_equation: Unsupported polarisations"
-            )
-
         self.change = np.inf
 
         self.cluster_indexes = cluster_indexes
@@ -151,10 +136,14 @@ class IonosphericSolver:
         self.tol = tol
         self.zernike_limit = zernike_limit
 
-        self.vis = vis.vis.isel(time=0).chunk(-1)
-        self.weight = vis.weight.isel(time=0).chunk(-1)
-        self.flags = vis.flags.isel(time=0).chunk(-1)
-        self.modelvis = modelvis.vis.isel(time=0).chunk(-1)
+        # Selecting data from only first time sample,
+        # and polarsations "XX" and "YY"
+        self.vis = vis.vis.isel(time=0, polarisation=[0, 3]).chunk(-1)
+        self.weight = vis.weight.isel(time=0, polarisation=[0, 3]).chunk(-1)
+        self.flags = vis.flags.isel(time=0, polarisation=[0, 3]).chunk(-1)
+        self.modelvis = modelvis.vis.isel(time=0, polarisation=[0, 3]).chunk(
+            -1
+        )
 
         self.xyz = vis.configuration.xyz
         self.antenna1 = vis.antenna1.data
@@ -348,9 +337,9 @@ class IonosphericSolver:
         AA = np.zeros((n_param, n_param))
         Ab = np.zeros(n_param)
 
-        A_sliced = A[..., self.pols]
-        wgt = self.weight[..., self.pols] * (1 - self.flags[..., self.pols])
-        vis_diff = self.vis[..., self.pols] - modelvis[..., self.pols]
+        A_sliced = A
+        wgt = self.weight * (1 - self.flags)
+        vis_diff = self.vis - modelvis
 
         AA = np.real(
             np.einsum(
@@ -506,7 +495,7 @@ class IonosphericSolver:
 
         for cid in range(0, n_cluster):
             # combine parmas for [n_station] phase terms and scale for [n_freq]
-            table_data[0, cid2stn[cid]] = np.exp(
+            diag_gain = np.exp(
                 np.einsum(
                     "s,f->sf",
                     np.einsum(
@@ -516,7 +505,10 @@ class IonosphericSolver:
                     ),
                     1j * self.wl_const,
                 )
-            )[..., np.newaxis, np.newaxis]
+            )
+
+            table_data[0, cid2stn[cid], :, 0, 0] = diag_gain
+            table_data[0, cid2stn[cid], :, 1, 1] = diag_gain
 
         return table_data
 

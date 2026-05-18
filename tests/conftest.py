@@ -10,15 +10,16 @@ import numpy as np
 import pytest
 import xarray as xr
 from astropy.coordinates import SkyCoord
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
 from ska_sdp_datamodels.configuration.config_create import (
     create_named_configuration,
 )
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.visibility.vis_create import create_visibility
 from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
+
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (
+    create_gaintable_from_visibility,
+)
 
 ms_name = "test.ms"
 
@@ -61,7 +62,9 @@ def generate_vis():
     vis.vis.data[..., :] = [1, 0, 0, 1]
 
     # Create the GainTable dataset
-    jones = create_gaintable_from_visibility(vis, jones_type="B")
+    jones = create_gaintable_from_visibility(
+        vis, jones_type="B", skip_default_chunk=True
+    ).compute()
     jones.gain.data[..., 0, 0] = 1 - 0.1j
     jones.gain.data[..., 1, 1] = 3 + 0j
     jones.gain.data += np.random.normal(0, 0.2, jones.gain.shape)
@@ -108,12 +111,11 @@ def generate_ionospehric_vis():
     vis.vis.data[..., :] = [1, 0, 0, 1]
 
     # Create the GainTable dataset
-    jones = create_gaintable_from_visibility(vis, jones_type="B")
+    jones = create_gaintable_from_visibility(
+        vis, jones_type="B", skip_default_chunk=True
+    ).compute()
 
     phi = (-8.44797245 * 1e9) / jones.gain.frequency.data
-
-    jones.gain.data += np.random.normal(0, 1e-10, jones.gain.shape)
-    jones.gain.data += np.random.normal(0, 1e-10, jones.gain.shape) * 1j
 
     jones.gain.data[..., :, 0, 0] = np.exp(1j * phi)
     jones.gain.data[..., :, 1, 1] = np.exp(1j * phi)
