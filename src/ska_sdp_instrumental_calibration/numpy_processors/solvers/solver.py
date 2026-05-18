@@ -56,6 +56,9 @@ class Solver:
         if hasattr(cls, "_SOLVER_NAME_"):
             cls._solvers[cls._SOLVER_NAME_] = cls
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {vars(self)}>"
+
     @classmethod
     def get_solver(cls, solver="gain_substitution", **kwargs):
         """

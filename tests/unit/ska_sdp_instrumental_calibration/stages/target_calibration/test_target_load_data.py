@@ -148,16 +148,18 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
     os_makedirs_mock.assert_called_once_with(
-        "/path/to/output/dir/vis.ms_fid10_ddid5", mode=0o755, exist_ok=True
+        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
+        mode=0o755,
+        exist_ok=True,
     )
 
     check_cache_mock.assert_called_once_with(
-        "/path/to/output/dir/vis.ms_fid10_ddid5"
+        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5"
     )
 
     write_ms_mock.assert_called_once_with(
         ["/path/to/vis.ms"],
-        "/path/to/output/dir/vis.ms_fid10_ddid5",
+        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,
@@ -172,7 +174,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
     read_data_mock.assert_called_once_with(
-        "/path/to/output/dir/vis.ms_fid10_ddid5",
+        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
         {
             "baselineid": -1,
             "polarisation": -1,

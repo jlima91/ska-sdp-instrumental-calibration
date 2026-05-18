@@ -66,6 +66,8 @@ def bandpass_initialisation_stage(
     refant = parse_antenna(refant, initialtable.configuration.names)
     solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
 
+    logger.info("Bandpass Initialisation will be done with solver: %s", solver)
+
     gaintable = run_solver(
         vis=vis,
         modelvis=modelvis,

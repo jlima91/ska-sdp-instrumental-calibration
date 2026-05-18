@@ -163,10 +163,8 @@ def load_data_stage(
     _upstream_output_["chunks"] = vis_chunks
 
     if cache_directory is None:
-        logger.info(
-            "Setting cache_directory to output directory: %s", _output_dir_
-        )
-        cache_directory = _output_dir_
+        cache_directory = os.path.join(_output_dir_, ".cache")
+        logger.info("Setting cache_directory as %s", cache_directory)
 
     vis_cache_directory = os.path.join(
         cache_directory,

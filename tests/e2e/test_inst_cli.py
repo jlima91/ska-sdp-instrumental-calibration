@@ -43,8 +43,8 @@ def test_should_run_inst_and_generate_required_files():
         output_dir = Path(f"{temp_dir}/output")
         qa_dir = output_dir
 
-        assert (output_dir / "a_demo.ms_fid0_ddid0").exists()
-        assert (output_dir / "demo.ms_fid0_ddid0").exists()
+        assert (output_dir / ".cache" / "a_demo.ms_fid0_ddid0").exists()
+        assert (output_dir / ".cache" / "demo.ms_fid0_ddid0").exists()
 
         assert (output_dir / "visibilities/demo/corrected.ms/").exists()
         assert (output_dir / "visibilities/a_demo/corrected.ms/").exists()

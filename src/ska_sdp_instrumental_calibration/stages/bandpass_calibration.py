@@ -98,6 +98,8 @@ def bandpass_calibration_stage(
 
     solver = Solver.get_solver(**run_solver_config.model_dump())
 
+    logger.info("Bandpass Calibration will be done with solver: %s", solver)
+
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("bandpass"):
         call_counter_suffix = f"_{call_count}"
