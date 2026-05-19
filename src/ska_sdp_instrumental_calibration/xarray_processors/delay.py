@@ -184,7 +184,7 @@ def coarse_delay(gains, oversample):
     padded_gains = da.zeros((nstations, N), "complex")
 
     gain_start_index = N // 2 - nchan // 2
-    gain_stop_index = N // 2 + nchan // 2
+    gain_stop_index = gain_start_index + nchan
 
     padded_gains[:, gain_start_index:gain_stop_index] = gains
 
