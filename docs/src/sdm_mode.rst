@@ -4,8 +4,8 @@ SDM Mode
 Overview
 --------
 
-The INST pipeline supports **SDM (Science Data Model)**, which integrates
-with the SDP system by exchanging data with other pipelines via a shared SDM
+The INST pipeline supports `Science Data Model <https://confluence.skatelescope.org/display/SWSI/Science+Data+Model>`_ (**SDM**), which integrates
+with the SDP by exchanging data with other pipelines via a shared SDM
 directory.
 
 When ``--sdm-path`` is provided, the pipeline:
@@ -31,7 +31,7 @@ Gaintables will be written at given location for each pipeline:
 
 
 .. note::
-  ``--sdm-path`` and ``--output`` are used together, but ``--sdm-path`` takes
+  When ``--sdm-path`` and ``--output`` are used together, but ``--sdm-path`` takes
   precedence for gaintable, sky model and log output locations. When omitted,
   the pipeline falls back to writing outputs under ``--output``.
 
@@ -39,7 +39,7 @@ Gaintables will be written at given location for each pipeline:
 CLI Invocation
 --------------
 
-Pass ``--sdm-path`` as follows for invoking any of the INST pipeline:
+User can pass ``--sdm-path`` as follows while running any of the INST pipeline:
 
 .. code-block:: bash
 
@@ -52,12 +52,11 @@ Pass ``--sdm-path`` as follows for invoking any of the INST pipeline:
 It's similar for the target calibration and ionospheric calibration pipelines.
 
 
-
 Directory Conventions
 ---------------------
 
 When ``--sdm-path`` is provided, pipeline assumes following folder structure to
-be present in directory 
+be present in SDM directory
 
 .. code-block:: text
 
@@ -70,8 +69,7 @@ be present in directory
    └─ ...
 
 
-
-The pipeline updates the following structure inside the SDM directory:
+Post-run, the pipeline updates the SDM directory like this:
 
 .. code-block:: text
 
