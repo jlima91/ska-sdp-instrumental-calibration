@@ -1,5 +1,21 @@
 # Changelog
+
+## 1.3.0
+
+### Features
+
+1. Improve styling of the QA plots
+
+### Bug fixes
+
+1. Fix padding indices in delay calibration
+2. Ensure that delay_calibration stage does not apply the delay twice to the gaintable
+3. Fix export h5param function to make it more compatible with DP3
+4. Simplify ionospheric solver to only solve XX and YY polarisations
+5. SKB-1313: INST gain phase plots are not corrected for a reference antenna
+
 ## 1.2.1
+
 1. Update piper, sdp-func-python and sdp-datamodels dependencies	
 	
 ## 1.2.0
@@ -11,6 +27,7 @@
 3. Disable export visibilities stage by default.
 
 ### Bug Fixes
+
 1. SKB-1311: Export crosspols if gain data is present.
 2. SKB-1312: Disable delay stage by default.
 
