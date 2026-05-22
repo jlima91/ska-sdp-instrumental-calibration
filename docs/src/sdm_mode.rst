@@ -4,7 +4,7 @@ SDM Mode
 Overview
 --------
 
-The INST pipeline supports `Science Data Model <https://confluence.skatelescope.org/display/SWSI/Science+Data+Model>`_ (**SDM**), which integrates
+The INST pipeline supports **Science Data Model(SDM)**, which integrates
 with the SDP by exchanging data with other pipelines via a shared SDM
 directory.
 
