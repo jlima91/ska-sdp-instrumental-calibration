@@ -94,11 +94,11 @@ class BeamsLow:
             self.beam_direction, self.solution_time
         )
 
-        # self.telescope = eb.load_telescope(  # pylint: disable=I1101
-        #     self.beam_ms,
-        #     element_response_model=element_response_model,
-        # )
-        self.telescope = None
+        self.telescope = eb.load_telescope(  # pylint: disable=I1101
+            self.beam_ms,
+            element_response_model=element_response_model,
+        )
+        # self.telescope = None
 
         self.scale = np.ones(
             (self.frequency.size,),
