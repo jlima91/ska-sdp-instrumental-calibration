@@ -180,7 +180,7 @@ def predict_visibilities(
         eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
-            nstations=ps["vis.scan-300_0"]["antenna_xds"].antenna_name.size,
+            nstations=ps[list(ps.keys())[0]]["antenna_xds"].antenna_name.size,
             array_location=_get_earth_location(),
             direction=phasecentre,
             ms_path=eb_ms,

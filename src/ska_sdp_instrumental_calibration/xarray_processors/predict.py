@@ -128,7 +128,6 @@ def predict_vis(
 
     common_input_args = []
     common_input_core_dims = []
-    # import pdb; pdb.set_trace();
     input_kwargs = dict(
         polarisation=vis.polarization,
         antenna1=vis.baseline_antenna1_name.values,

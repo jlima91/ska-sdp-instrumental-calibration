@@ -205,18 +205,17 @@ def _load_data(
     ps = open_processing_set(ps_store=input_ms)
 
     # all_obs = ps.xr_ps.summary().name.values
-    ds = ps["vis.scan-300_0"].to_dataset()
-    # import pdb; pdb.set_trace();
+    obs = list(ps.keys())
+    ds = ps[obs[0]].to_dataset()
     _upstream_output_["ms_prefix"] = "ms"
     _upstream_output_["vis"] = ds
     _upstream_output_["ps"] = ps
     _upstream_output_["gaintable"] = create_gaintable_from_visibility(
         ps, ds, "full", "B"
     )
-    # import pdb; pdb.set_trace();
     _upstream_output_["central_beams"] = None
     _upstream_output_["beams_factory"] = None
-    _upstream_output_["field_id"] = ps["vis.scan-300_0"][
+    _upstream_output_["field_id"] = ps[obs[0]][
         "field_and_source_base_xds"
     ].field_name
     _upstream_output_["calibration_purpose"] = "bandpass"

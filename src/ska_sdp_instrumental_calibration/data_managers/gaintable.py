@@ -79,7 +79,6 @@ from .solution_interval import SolutionIntervals
 #     # Backward compatibility. Should be removed as "auto" is vary vague
 #     if timeslice == "auto":
 #         timeslice = None
-#     import pdb;pdb.set_trace()
 #     soln_intervals = SolutionIntervals(vis.time.data, timeslice)
 #     ntimes = soln_intervals.size
 
@@ -153,7 +152,7 @@ def create_gaintable_from_visibility(
     soln_intervals = SolutionIntervals(vis.time.data, timeslice)
     ntimes = soln_intervals.size
 
-    nants = ps["vis.scan-300_0"]["antenna_xds"].antenna_name.size
+    nants = ps[list(ps.keys())[0]]["antenna_xds"].antenna_name.size
     if jones_type == "B":
         gain_frequency = vis.frequency.data
         nfrequency = len(gain_frequency)
