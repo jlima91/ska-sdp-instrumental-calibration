@@ -116,33 +116,33 @@ def apply_gaintable_to_dataset(
         [
             xr.apply_ufunc(
                 _apply_gaintable_to_dataset_ufunc,
-                vis.vis.isel(time=slc),
+                vis.VISIBILITY.isel(time=slc),
                 gains.isel(time=idx, drop=True),
                 input_core_dims=[
-                    ["baselineid", "polarisation"],
+                    ["baseline_id", "polarization"],
                     ["antenna", "receptor1", "receptor2"],
                 ],
                 output_core_dims=[
-                    ["baselineid", "polarisation"],
+                    ["baseline_id", "polarization"],
                 ],
                 dask="parallelized",
-                output_dtypes=[vis.vis.dtype],
+                output_dtypes=[vis.VISIBILITY.dtype],
                 dask_gufunc_kwargs=dict(
                     output_sizes={
-                        "baselineid": vis.baselineid.size,
-                        "polarisation": vis.polarisation.size,
+                        "baseline_id": vis.baseline_id.size,
+                        "polarization": vis.polarization.size,
                     }
                 ),
                 kwargs={
-                    "antenna1": vis.antenna1,
-                    "antenna2": vis.antenna2,
+                    "antenna1": vis.baseline_antenna1_name.values,
+                    "antenna2": vis.baseline_antenna2_name.values,
                     "inverse": inverse,
                 },
-            ).transpose("time", "baselineid", "frequency", "polarisation")
+            ).transpose("time", "baseline_id", "frequency", "polarization")
             for idx, slc in enumerate(soln_interval_slices)
         ],
         dim="time",
     )
 
-    applied = applied.assign_attrs(vis.vis.attrs)
+    applied = applied.assign_attrs(vis.VISIBILITY.attrs)
     return vis.assign({"vis": applied})

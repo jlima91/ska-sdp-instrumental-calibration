@@ -6,9 +6,13 @@ import xarray as xr
 from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.visibility import Visibility
 
+from ska_sdp_instrumental_calibration.xarray_processors._utils import (
+    _get_phasecentre,
+)
+
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel, LocalSkyModel
-from ._utils import with_chunks
+from ._utils import _get_earth_location, with_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ def _predict_vis_ufunc(
 
 
 def predict_vis(
+    ps,
     vis: Visibility,
     gsm: GlobalSkyModel,
     soln_time: np.ndarray,
@@ -123,14 +128,14 @@ def predict_vis(
 
     common_input_args = []
     common_input_core_dims = []
-
+    # import pdb; pdb.set_trace();
     input_kwargs = dict(
-        polarisation=vis.polarisation,
-        antenna1=vis.antenna1,
-        antenna2=vis.antenna2,
-        phasecentre=vis.phasecentre,
+        polarisation=vis.polarization,
+        antenna1=vis.baseline_antenna1_name.values,
+        antenna2=vis.baseline_antenna2_name.values,
+        phasecentre=_get_phasecentre(ps),
         beams_factory=beams_factory,
-        output_dtype=vis.vis.dtype,
+        output_dtype=vis.VISIBILITY.dtype,
     )
 
     # Process frequency
@@ -162,26 +167,28 @@ def predict_vis(
     predicted_across_soln_time = []
     for idx, slc in enumerate(soln_interval_slices):
         local_sky_model = gsm.get_local_sky_model(
-            soln_time[idx], vis.configuration.location
+            soln_time[idx],
+            _get_earth_location(),
         )
 
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
-            vis.uvw.isel(time=slc),
+            vis.UVW.isel(time=slc),
             *common_input_args,
             input_core_dims=[
-                ["baselineid", "spatial"],
+                ["baseline_id", "uvw_label"],
                 *common_input_core_dims,
             ],
             output_core_dims=[
-                ["baselineid", "polarisation"],
+                ["baseline_id", "polarization"],
             ],
             dask="parallelized",
-            output_dtypes=[vis.vis.dtype],
+            output_dtypes=[vis.VISIBILITY.dtype],
             dask_gufunc_kwargs=dict(
                 output_sizes={
-                    "baselineid": vis.baselineid.size,
-                    "polarisation": vis.polarisation.size,
+                    # "frequency": vis.frequency.size,
+                    "baseline_id": vis.baseline_id.size,
+                    "polarization": vis.polarization.size,
                 }
             ),
             kwargs=dict(
@@ -190,12 +197,12 @@ def predict_vis(
             ),
         )
         predicted_per_soln_time = predicted_per_soln_time.transpose(
-            "time", "baselineid", "frequency", "polarisation"
+            "time", "baseline_id", "frequency", "polarization"
         )
         predicted_across_soln_time.append(predicted_per_soln_time)
 
     predicted: xr.DataArray = xr.concat(predicted_across_soln_time, dim="time")
 
-    predicted = predicted.assign_attrs(vis.vis.attrs)
+    predicted = predicted.assign_attrs(vis.VISIBILITY.attrs)
 
     return vis.assign({"vis": predicted})

@@ -1,86 +1,159 @@
 from typing import Literal, Union
 
+import astropy.units as au
 import dask.array as da
 import numpy as np
+from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
+from ska_sdp_instrumental_calibration.xarray_processors._utils import (
+    _get_phasecentre,
+)
+
 from .solution_interval import SolutionIntervals
+
+# def create_gaintable_from_visibility(
+#     vis: Visibility,
+#     timeslice: Union[float, Literal["auto", "full"], None] = None,
+#     jones_type: Literal["T", "G", "B"] = "T",
+#     lower_precision: bool = True,
+#     skip_default_chunk: bool = False,
+# ) -> GainTable:
+#     """
+#     Create a unity- or identity-initialised GainTable consistent with the
+#     given Visibility.
+
+#     GainTable either represents:
+
+#     - a collection of complex-valued scalar gains, if Visibility carries only
+#       Stokes I data.
+#     - a collection of 2x2 complex-valued Jones matrices otherwise.
+
+#     In the first case, gains are initialised to unity. In the second case,
+#     Jones matrices are initialised to the identity matrix.
+
+#     Parameters
+#     ----------
+#     vis
+#         Visibility to create gaintable from
+#     timeslice
+#         Defines the time scale over which each gain solution is
+#         valid. This is used to define the time axis of the GainTable. This
+#         parameter is interpreted as follows depending on its type:
+
+#         - ``float``: this is a custom time interval in seconds.
+#           Input timestamps are grouped by intervals of this duration,
+#           and said groups are separately averaged to produce
+#           the output time axis.
+#         - "full": create a single solution across the entire visibility time
+#         - "auto" or ``None``: match the time resolution of the input
+#           visibility, i.e. copy the time axis of the input Visibility
+
+#     jones_type
+#         Type of Jones term, one of {"T", "G", "B"}.
+#         The frequency axis of the output GainTable depends on the value
+#         provided:
+
+#         - "B": the output frequency axis is the same as that of the input
+#           Visibility.
+#         - "T" or "G": solution is assumed to be frequency-independent,
+#           and the frequency axis of the output contains a single value: the
+#           average frequency of the input Visibility's channels.
+
+#     lower_precision
+#         Used to set up the float bit sizes while initialising the gaintable.
+#         If true, uses np.complex64 and np.float32 instead of higher precision
+#         np.complex128 and np.float64. Useful for memory optimization.
+#     skip_default_chunk
+#         If set to true, skips Dask/Xarray chunking of data in alignment to the
+#         input visibility. Useful in cases of chunk alignment issues.
+#         Default: False
+
+#     Returns
+#     -------
+#         Gaintable suitable for storing calibration solutions of given
+#         visibility
+#     """
+#     # Backward compatibility. Should be removed as "auto" is vary vague
+#     if timeslice == "auto":
+#         timeslice = None
+#     import pdb;pdb.set_trace()
+#     soln_intervals = SolutionIntervals(vis.time.data, timeslice)
+#     ntimes = soln_intervals.size
+
+#     nants = vis.visibility_acc.nants
+
+#     # Set the frequency sampling
+#     if jones_type == "B":
+#         gain_frequency = vis.frequency.data
+#         nfrequency = len(gain_frequency)
+#     elif jones_type in ("G", "T"):
+#         gain_frequency = np.mean(vis.frequency.data, keepdims=True)
+#         nfrequency = 1
+#     else:
+#         raise ValueError(f"Unknown Jones type {jones_type}")
+
+#     # There is only one receptor frame in Visibility
+#     # Use it for both receptor1 and receptor2
+#     receptor_frame = ReceptorFrame(vis.visibility_acc.polarisation_frame.type)
+#     nrec = receptor_frame.nrec
+
+#     gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
+
+#     # Create data variables with provided precision and backend
+#     if lower_precision:
+#         complex_dtype, float_dtype = np.complex64, np.float32
+#     else:
+#         complex_dtype, float_dtype = np.complex128, np.float64
+
+#     gain = da.broadcast_to(da.eye(nrec, dtype=complex_dtype), gain_shape)
+#     gain_weight = da.ones(gain_shape, dtype=float_dtype)
+#     gain_residual = da.zeros(
+#         [ntimes, nfrequency, nrec, nrec], dtype=float_dtype
+#     )
+#     gain_table = GainTable.constructor(
+#         gain=gain,
+#         time=soln_intervals.solution_time,
+#         interval=soln_intervals.intervals,
+#         weight=gain_weight,
+#         residual=gain_residual,
+#         frequency=gain_frequency,
+#         receptor_frame=receptor_frame,
+#         phasecentre=vis.phasecentre,
+#         configuration=vis.configuration,
+#         jones_type=jones_type,
+#     )
+
+#     # Attach solution interval slices as attribute
+#     gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
+#     # Chunk data variables
+
+#     if skip_default_chunk:
+#         return gain_table
+
+#     gain_table = gain_table.chunk(time=1)
+#     if gain_table.frequency.size == vis.frequency.size:
+#         gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
+
+#     return gain_table
 
 
 def create_gaintable_from_visibility(
-    vis: Visibility,
+    ps,
+    vis,
     timeslice: Union[float, Literal["auto", "full"], None] = None,
     jones_type: Literal["T", "G", "B"] = "T",
     lower_precision: bool = True,
     skip_default_chunk: bool = False,
 ) -> GainTable:
-    """
-    Create a unity- or identity-initialised GainTable consistent with the
-    given Visibility.
-
-    GainTable either represents:
-
-    - a collection of complex-valued scalar gains, if Visibility carries only
-      Stokes I data.
-    - a collection of 2x2 complex-valued Jones matrices otherwise.
-
-    In the first case, gains are initialised to unity. In the second case,
-    Jones matrices are initialised to the identity matrix.
-
-    Parameters
-    ----------
-    vis
-        Visibility to create gaintable from
-    timeslice
-        Defines the time scale over which each gain solution is
-        valid. This is used to define the time axis of the GainTable. This
-        parameter is interpreted as follows depending on its type:
-
-        - ``float``: this is a custom time interval in seconds.
-          Input timestamps are grouped by intervals of this duration,
-          and said groups are separately averaged to produce
-          the output time axis.
-        - "full": create a single solution across the entire visibility time
-        - "auto" or ``None``: match the time resolution of the input
-          visibility, i.e. copy the time axis of the input Visibility
-
-    jones_type
-        Type of Jones term, one of {"T", "G", "B"}.
-        The frequency axis of the output GainTable depends on the value
-        provided:
-
-        - "B": the output frequency axis is the same as that of the input
-          Visibility.
-        - "T" or "G": solution is assumed to be frequency-independent,
-          and the frequency axis of the output contains a single value: the
-          average frequency of the input Visibility's channels.
-
-    lower_precision
-        Used to set up the float bit sizes while initialising the gaintable.
-        If true, uses np.complex64 and np.float32 instead of higher precision
-        np.complex128 and np.float64. Useful for memory optimization.
-    skip_default_chunk
-        If set to true, skips Dask/Xarray chunking of data in alignment to the
-        input visibility. Useful in cases of chunk alignment issues.
-        Default: False
-
-    Returns
-    -------
-        Gaintable suitable for storing calibration solutions of given
-        visibility
-    """
-    # Backward compatibility. Should be removed as "auto" is vary vague
     if timeslice == "auto":
         timeslice = None
-
     soln_intervals = SolutionIntervals(vis.time.data, timeslice)
     ntimes = soln_intervals.size
 
-    nants = vis.visibility_acc.nants
-
-    # Set the frequency sampling
+    nants = ps["vis.scan-300_0"]["antenna_xds"].antenna_name.size
     if jones_type == "B":
         gain_frequency = vis.frequency.data
         nfrequency = len(gain_frequency)
@@ -89,15 +162,12 @@ def create_gaintable_from_visibility(
         nfrequency = 1
     else:
         raise ValueError(f"Unknown Jones type {jones_type}")
-
-    # There is only one receptor frame in Visibility
-    # Use it for both receptor1 and receptor2
-    receptor_frame = ReceptorFrame(vis.visibility_acc.polarisation_frame.type)
+    pol_labels = [str(p) for p in vis["polarization"].values]
+    pol_frame_type = _xradio_pol_to_receptor_frame(pol_labels)
+    receptor_frame = ReceptorFrame(pol_frame_type)
     nrec = receptor_frame.nrec
 
     gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
-
-    # Create data variables with provided precision and backend
     if lower_precision:
         complex_dtype, float_dtype = np.complex64, np.float32
     else:
@@ -109,6 +179,8 @@ def create_gaintable_from_visibility(
         [ntimes, nfrequency, nrec, nrec], dtype=float_dtype
     )
 
+    phasecentre = _get_phasecentre(ps)
+
     gain_table = GainTable.constructor(
         gain=gain,
         time=soln_intervals.solution_time,
@@ -117,23 +189,24 @@ def create_gaintable_from_visibility(
         residual=gain_residual,
         frequency=gain_frequency,
         receptor_frame=receptor_frame,
-        phasecentre=vis.phasecentre,
-        configuration=vis.configuration,
+        phasecentre=phasecentre,
+        # configuration=configuration,
         jones_type=jones_type,
     )
-
-    # Attach solution interval slices as attribute
     gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
-    # Chunk data variables
-
-    if skip_default_chunk:
-        return gain_table
-
-    gain_table = gain_table.chunk(time=1)
-    if gain_table.frequency.size == vis.frequency.size:
-        gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
-
     return gain_table
+
+
+def _xradio_pol_to_receptor_frame(pol_labels: list) -> str:
+    pol_set = set(p.upper() for p in pol_labels)
+    if pol_set <= {"XX", "XY", "YX", "YY"}:
+        return "linear"
+    elif pol_set <= {"RR", "RL", "LR", "LL"}:
+        return "circular"
+    elif pol_set <= {"I", "Q", "U", "V"}:
+        return "stokesI"
+    else:
+        return "linear"
 
 
 def reset_gaintable(gaintable: GainTable) -> GainTable:

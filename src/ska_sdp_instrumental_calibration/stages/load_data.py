@@ -3,8 +3,10 @@ import os
 from typing import Annotated, Literal, Optional
 
 import dask
+import xarray as xr
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
+from xradio.measurement_set.open_processing_set import open_processing_set
 
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
@@ -150,65 +152,73 @@ def _load_data(
 ) -> UpstreamOutput:
 
     _upstream_output_ = UpstreamOutput()
-    _upstream_output_.add_checkpoint_key("gaintable")
-    non_chunked_dims = {
-        dim: -1
-        for dim in [
-            "baselineid",
-            "polarisation",
-            "spatial",
-        ]
-    }
+    # _upstream_output_.add_checkpoint_key("gaintable")
+    # non_chunked_dims = {
+    #     dim: -1
+    #     for dim in [
+    #         "baselineid",
+    #         "polarisation",
+    #         "spatial",
+    #     ]
+    # }
 
-    # Its expected that later stages follow same chunking pattern
-    vis_chunks = {
-        **non_chunked_dims,
-        "time": ntimes_per_ms_chunk,
-        "frequency": nchannels_per_chunk,
-    }
-    _upstream_output_["chunks"] = vis_chunks
-    ms_file = os.path.basename(input_ms)
+    # # Its expected that later stages follow same chunking pattern
+    # vis_chunks = {
+    #     **non_chunked_dims,
+    #     "time": ntimes_per_ms_chunk,
+    #     "frequency": nchannels_per_chunk,
+    # }
+    # _upstream_output_["chunks"] = vis_chunks
+    # ms_file = os.path.basename(input_ms)
 
-    if cache_directory is None:
-        cache_directory = os.path.join(_output_dir_, ".cache")
-        logger.info("Setting cache_directory as %s", cache_directory)
+    # if cache_directory is None:
+    #     cache_directory = os.path.join(_output_dir_, ".cache")
+    #     logger.info("Setting cache_directory as %s", cache_directory)
 
-    vis_cache_directory = os.path.join(
-        cache_directory,
-        f"{ms_file}_fid{field_id}_ddid{data_desc_id}",
-    )
-    os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
+    # vis_cache_directory = os.path.join(
+    #     cache_directory,
+    #     f"{ms_file}_fid{field_id}_ddid{data_desc_id}",
+    # )
+    # os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
 
-    if check_if_cache_files_exist(vis_cache_directory):
-        logger.info(
-            "Reading cached visibilities from path %s", vis_cache_directory
-        )
-    else:
-        logger.info(
-            "Writing converted visibilities to cache dir: %s",
-            vis_cache_directory,
-        )
-        with dask.annotate(resources={"process": 1}):
-            write_ms_to_zarr(
-                input_ms,
-                vis_cache_directory,
-                vis_chunks,
-                ack=ack,
-                datacolumn=datacolumn,
-                field_id=field_id,
-                data_desc_id=data_desc_id,
-            )
+    # if check_if_cache_files_exist(vis_cache_directory):
+    #     logger.info(
+    #         "Reading cached visibilities from path %s", vis_cache_directory
+    #     )
+    # else:
+    #     logger.info(
+    #         "Writing converted visibilities to cache dir: %s",
+    #         vis_cache_directory,
+    #     )
+    #     with dask.annotate(resources={"process": 1}):
+    #         write_ms_to_zarr(
+    #             input_ms,
+    #             vis_cache_directory,
+    #             vis_chunks,
+    #             ack=ack,
+    #             datacolumn=datacolumn,
+    #             field_id=field_id,
+    #             data_desc_id=data_desc_id,
+    #         )
 
-    vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
+    # vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
+    ps = open_processing_set(ps_store=input_ms)
 
-    _upstream_output_["ms_prefix"] = os.path.splitext(ms_file)[0]
-    _upstream_output_["vis"] = vis
+    # all_obs = ps.xr_ps.summary().name.values
+    ds = ps["vis.scan-300_0"].to_dataset()
+    # import pdb; pdb.set_trace();
+    _upstream_output_["ms_prefix"] = "ms"
+    _upstream_output_["vis"] = ds
+    _upstream_output_["ps"] = ps
     _upstream_output_["gaintable"] = create_gaintable_from_visibility(
-        vis, "full", "B"
+        ps, ds, "full", "B"
     )
+    # import pdb; pdb.set_trace();
     _upstream_output_["central_beams"] = None
     _upstream_output_["beams_factory"] = None
-    _upstream_output_["field_id"] = read_ms_field_id(input_ms)
+    _upstream_output_["field_id"] = ps["vis.scan-300_0"][
+        "field_and_source_base_xds"
+    ].field_name
     _upstream_output_["calibration_purpose"] = "bandpass"
 
     return _upstream_output_

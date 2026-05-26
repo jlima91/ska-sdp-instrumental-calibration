@@ -9,6 +9,7 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel
+from ..xarray_processors._utils import _get_earth_location, _get_phasecentre
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis
@@ -145,6 +146,7 @@ def predict_visibilities(
     """
     _upstream_output_.add_checkpoint_key("modelvis")
     vis = _upstream_output_.vis
+    ps = _upstream_output_.ps
     gaintable = _upstream_output_.gaintable
 
     if sdm_path is not None:
@@ -152,8 +154,9 @@ def predict_visibilities(
         gleamfile = None
         lsm_csv_path = str(sdm.get_sky_model_path(_upstream_output_.field_id))
 
+    phasecentre = _get_phasecentre(ps)
     _upstream_output_["lsm"] = GlobalSkyModel(
-        vis.phasecentre,
+        phasecentre,
         fov,
         flux_limit,
         alpha0,
@@ -177,21 +180,25 @@ def predict_visibilities(
         eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
-            nstations=vis.configuration.id.size,
-            array_location=vis.configuration.location,
-            direction=vis.phasecentre,
+            nstations=ps["vis.scan-300_0"]["antenna_xds"].antenna_name.size,
+            array_location=_get_earth_location(),
+            direction=phasecentre,
             ms_path=eb_ms,
             element_response_model=element_response_model,
         )
 
     modelvis = predict_vis(
+        ps,
         vis,
         _upstream_output_["lsm"],
         gaintable.time.data,
         gaintable.soln_interval_slices,
         beams_factory,
     )
-
+    # Everybeam when it loads telescope info, it expects table.dat
+    # from ms/zarr, but zarr doesnt have that metadata.
+    # It is not possible to load telescope info, hence
+    # beam cant be created.
     if normalise_at_beam_centre and use_everybeam:
         central_beams = prediction_central_beams(
             gaintable,

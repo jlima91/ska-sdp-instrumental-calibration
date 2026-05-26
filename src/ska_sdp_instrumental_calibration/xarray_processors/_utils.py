@@ -1,5 +1,7 @@
+import astropy.units as au
 import numpy as np
 import xarray as xr
+from astropy.coordinates import EarthLocation, SkyCoord
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -140,3 +142,41 @@ def restore_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
         return vis.swap_dims({"baselineid": "baselines"}).reset_coords(
             "baselineid"
         )
+
+
+def _get_phasecentre(ps):
+
+    obs_id = next(iter(ps.children))
+    field_phase_center = (
+        ps[obs_id]
+        .xr_ms.get_field_and_source_xds()
+        .FIELD_PHASE_CENTER_DIRECTION
+    )
+
+    if set(field_phase_center.sky_dir_label.values) != {"ra", "dec"}:
+        raise ValueError(
+            "Phase field center coordinates labels are not equal to RA / DEC."
+        )
+    if field_phase_center.units != "rad":
+        raise ValueError("Phase field center value is not defined in radian.")
+
+    fp_center = {
+        label: value
+        for label, value in zip(
+            field_phase_center.sky_dir_label.values,
+            field_phase_center.to_numpy().flatten(),
+        )
+    }
+    fp_frame = field_phase_center.frame.lower()
+
+    coord = SkyCoord(
+        ra=fp_center["ra"] * au.rad,
+        dec=fp_center["dec"] * au.rad,
+        frame=fp_frame,
+    )
+    return coord
+
+
+def _get_earth_location():
+    arr = [-2568941.14673544, 5083138.53153098, -2862212.2019255]
+    return EarthLocation.from_geocentric(*arr, unit=au.m)
