@@ -5,53 +5,9 @@ parameters:
   load_data:
     nchannels_per_chunk: 64
     ntimes_per_ms_chunk: 20
-    cache_directory: null
-    ack: false
-    datacolumn: DATA
-    field_id: 0
-    data_desc_id: 0
   predict_vis:
-    use_everybeam: true
-    normalise_at_beam_centre: true
-    element_response_model: oskar_dipole_cos
-    eb_ms: null
-    gleamfile: null
-    lsm_csv_path: null
-    export_sky_model: true
     fov: 10.0
     flux_limit: 1.0
-    alpha0: -0.78
-  bandpass_initialisation:
-    refant: 0
-    niter: 200
-    tol: 1.0e-06
-    export_gaintable: true
-  bandpass_calibration:
-    run_solver_config:
-      solver: jones_substitution
-      refant: 0
-      niter: 50
-      phase_only: false
-      tol: 0.0001
-      crosspol: false
-    visibility_filters:
-      uvdist: null
-      exclude_baselines: null
-    plot_config:
-      plot_table: true
-      fixed_axis: false
-    visibility_key: vis
-    export_gaintable: true
-  delay_calibration:
-    plot_config:
-      plot_table: true
-      fixed_axis: false
-    oversample: 1
-    export_gaintable: true
-  export_gain_table:
-    file_name: inst.gaintable
-    export_format: h5parm
-    export_metadata: false
 pipeline:
   load_data: true
   predict_vis: true
