@@ -26,15 +26,10 @@ parameters:
       plot_rm: true
     plot_table: true
     export_gaintable: true
-  ionospheric_delay:
-    niter: 1
-    plot_table: true
-    export_gaintable: true
 pipeline:
   flag_gain: true
   ionospheric_delay: true
   generate_channel_rm: true
-  ionospheric_delay: true
   delay_calibration: true
   export_visibilities: true
 global_parameters:

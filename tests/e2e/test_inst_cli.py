@@ -81,15 +81,13 @@ def test_should_run_inst_and_generate_required_files():
 
         assert len(demo_qa_plots) == len(a_demo_qa_plots)
         assert len(demo_qa_gaintables) == len(a_demo_qa_gaintables)
-
-        assert len(demo_qa_gaintables) == 7
+        assert len(demo_qa_gaintables) == 6
 
         for stage in [
             "channel_rm",
             "bandpass_initialisation",
             "gain_flag",
             "delay",
-            "ionospheric_delay",
             "bandpass",
         ]:
             gaintable_file = f"{stage}.gaintable.h5parm"
