@@ -112,7 +112,7 @@ def complex_gain_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            freq_plotter.plot(
+            *freq_plotter.plot(
                 gaintable,
                 figure_title="Complex Gain",
                 fixed_axis=plot_config.fixed_axis,

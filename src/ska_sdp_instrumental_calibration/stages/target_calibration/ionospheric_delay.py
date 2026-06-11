@@ -138,7 +138,7 @@ def ionospheric_delay_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            freq_plotter.plot(
+            *freq_plotter.plot(
                 gaintable,
                 figure_title="Ionospheric",
                 fixed_axis=True,

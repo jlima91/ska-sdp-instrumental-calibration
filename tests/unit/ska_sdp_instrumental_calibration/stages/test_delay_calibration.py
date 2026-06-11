@@ -93,6 +93,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     upstream_output["refant"] = 2
     oversample = 16
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
+    plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
     plot_config.plot_table = True
     plot_config.fixed_axis = True
 

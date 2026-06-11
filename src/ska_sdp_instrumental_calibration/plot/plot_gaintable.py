@@ -1,7 +1,10 @@
+from collections import namedtuple
+
 import dask
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.time import Time
+from dask.delayed import Delayed
 from matplotlib.colors import ListedColormap
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
@@ -10,6 +13,12 @@ from ..data_managers.gaintable import divide_bandpass_by_ref_ant_preserve_phase
 from ._util import safe
 
 logger = setup_logger(__name__)
+
+
+class _BANDPASS_PLOTS__:
+    __model = namedtuple("__bp_plot_type__", ["name", "sols"])
+    GAINS = __model("gain", ["J_XX", "J_YY"])
+    LEAKAGES = __model("leakage", ["J_XY", "J_YX"])
 
 
 class PlotGaintable:
@@ -118,8 +127,6 @@ class PlotGaintable:
             gaintable.time[0] / 86400.0, format="mjd", scale="utc"
         ).datetime64
 
-    @dask.delayed
-    @safe
     def plot(
         self,
         gaintable,
@@ -128,6 +135,42 @@ class PlotGaintable:
         fixed_axis=False,
         phase_only=False,
         plot_all_stations=False,
+    ) -> list[Delayed]:
+        jones_sols = (
+            [_BANDPASS_PLOTS__.GAINS]
+            if drop_cross_pols
+            else [_BANDPASS_PLOTS__.GAINS, _BANDPASS_PLOTS__.LEAKAGES]
+        )
+        gaintable = gaintable.stack(Jones_Solutions=("receptor1", "receptor2"))
+
+        polstrs = [
+            f"J_{p1}{p2}".upper()
+            for p1, p2 in gaintable["Jones_Solutions"].data
+        ]
+        gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
+
+        return [
+            self._plot_bandpass_terms(
+                gaintable=gaintable.sel(Jones_Solutions=pols.sols),
+                figure_title=figure_title,
+                fixed_axis=fixed_axis,
+                phase_only=phase_only,
+                plot_all_stations=plot_all_stations,
+                jones_term=pols.name,
+            )
+            for pols in jones_sols
+        ]
+
+    @dask.delayed
+    @safe
+    def _plot_bandpass_terms(
+        self,
+        gaintable,
+        figure_title,
+        fixed_axis,
+        phase_only,
+        plot_all_stations,
+        jones_term,
     ):
         """
         Generate and save facet plots for gaintable phase and amplitude.
@@ -160,8 +203,13 @@ class PlotGaintable:
         -------
         None
         """
-        logger.info("Gaintable plotting started for figure: %s", figure_title)
-        gaintable = self._prepare_gaintable(gaintable, drop_cross_pols)
+        figure_sub_title = jones_term.capitalize()
+        logger.info(
+            "Gaintable plotting started for figure: %s %s",
+            figure_title,
+            figure_sub_title,
+        )
+        gaintable = self._prepare_gaintable(gaintable)
         gain_phase = gaintable.gain.copy()
         gain_phase.data = np.angle(gaintable.gain, deg=True)
         ylim = (-180, 180) if fixed_axis else None
@@ -170,14 +218,16 @@ class PlotGaintable:
         ).fig
 
         gain_phase_fig.suptitle(
-            f"{figure_title} Solutions (Phase){self._post_title}",
+            f"{figure_title} {figure_sub_title} Solutions (Phase)"
+            f"{self._post_title}",
             fontsize="x-large",
             y=1.02,
         )
         gain_phase_fig.tight_layout()
 
         gain_phase_fig.savefig(
-            self.__plot_path.format(plot_type="phase"), bbox_inches="tight"
+            self.__plot_path.format(plot_type=f"{jones_term}-phase"),
+            bbox_inches="tight",
         )
 
         if not phase_only:
@@ -190,18 +240,20 @@ class PlotGaintable:
             ).fig
 
             gain_amp_fig.suptitle(
-                f"{figure_title} Solutions (Amplitude){self._post_title}",
+                f"{figure_title} {figure_sub_title} Solutions (Amplitude)"
+                f"{self._post_title}",
                 fontsize="x-large",
                 y=1.02,
             )
             gain_amp_fig.tight_layout()
             gain_amp_fig.savefig(
-                self.__plot_path.format(plot_type="amp"), bbox_inches="tight"
+                self.__plot_path.format(plot_type=f"{jones_term}-amp"),
+                bbox_inches="tight",
             )
 
         plt.close()
 
-        if plot_all_stations:
+        if plot_all_stations and jones_term == _BANDPASS_PLOTS__.GAINS.name:
             self._plot_all_stations(gaintable)
 
         logger.info(f"Gaintable plots saved with prefix {self._path_prefix}.")
@@ -409,7 +461,7 @@ class PlotGaintable:
         """
         raise NotImplementedError("plot_all_stations not implemented")
 
-    def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
+    def _prepare_gaintable(self, gaintable):
         """
         Prepare the gaintable xarray.Dataset for plotting.
 
@@ -420,7 +472,7 @@ class PlotGaintable:
 
         Parameters
         ----------
-        gain_table : xarray.Dataset
+        gaintable : xarray.Dataset
             The raw gaintable dataset to process.
         drop_cross_pols : bool, optional
             If True, cross-polarization solutions (e.g., J_XX, J_YY) are
@@ -432,26 +484,14 @@ class PlotGaintable:
             The processed gaintable ready for plotting.
         """
         if self.refant is not None:
-            gain_table = divide_bandpass_by_ref_ant_preserve_phase(
-                gain_table, self.refant
+            gaintable = divide_bandpass_by_ref_ant_preserve_phase(
+                gaintable, self.refant
             )
 
-        gaintable = gain_table.stack(
-            Jones_Solutions=("receptor1", "receptor2")
-        )
-
-        polstrs = [
-            f"J_{p1}{p2}".upper()
-            for p1, p2 in gaintable["Jones_Solutions"].data
-        ]
-        gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
         gaintable.coords["Station"] = (
             "antenna",
             gaintable.configuration.names.data,
         )
-
-        if drop_cross_pols:
-            gaintable = gaintable.sel(Jones_Solutions=["J_XX", "J_YY"])
 
         return gaintable.swap_dims({"antenna": "Station"})
 
@@ -489,7 +529,7 @@ class PlotGaintableFrequency(PlotGaintable):
         self._x_label = "Channel"
         self._x_sec_label = "Frequency [MHz]"
 
-    def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
+    def _prepare_gaintable(self, gain_table):
         """
         Prepare the gaintable for frequency-axis plotting.
 
@@ -513,7 +553,7 @@ class PlotGaintableFrequency(PlotGaintable):
             dimensions swapped such that 'Channel' is the active dimension.
         """
         gaintable = super(PlotGaintableFrequency, self)._prepare_gaintable(
-            gain_table, drop_cross_pols
+            gain_table
         )
         self._x_data = gaintable.frequency / 1e6
         self._x_sec_data = np.arange(len(self._x_data))
@@ -642,7 +682,7 @@ class PlotGaintableTime(PlotGaintable):
         """
         return "time"
 
-    def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
+    def _prepare_gaintable(self, gain_table):
         """
         Prepare the gaintable for time-axis plotting.
 
@@ -665,7 +705,7 @@ class PlotGaintableTime(PlotGaintable):
             The processed gaintable with 'time' converted to relative seconds.
         """
         gaintable = super(PlotGaintableTime, self)._prepare_gaintable(
-            gain_table, drop_cross_pols
+            gain_table
         )
 
         starting_time = self.observation_start_time(gaintable)
@@ -765,7 +805,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         """
         return "time-freq"
 
-    def _prepare_gaintable(self, gain_table, drop_cross_pols=False):
+    def _prepare_gaintable(self, gain_table):
         """
         Prepare the gaintable for Time-Frequency heatmap plotting.
 
@@ -794,7 +834,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         """
         gaintable = super(
             PlotGaintableTargetIonosphere, self
-        )._prepare_gaintable(gain_table, drop_cross_pols)
+        )._prepare_gaintable(gain_table)
 
         gaintable = gaintable.assign(
             {"time": gaintable.time - gaintable.time[0]}
@@ -811,7 +851,9 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
 
     @dask.delayed
     @safe
-    def plot(self, gaintable, figure_title="", **kwargs):
+    def _plot_bandpass_terms(
+        self, gaintable, figure_title="", jones_term=None, **kwargs
+    ):
         """
         Generate and save Time vs. Frequency phase heatmaps.
 
@@ -825,6 +867,8 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
             The input gaintable dataset to plot.
         figure_title : str, optional
             A prefix for the main figure title. Defaults to "".
+        jones_term: str, optional
+            Indicates Gain or Leakage plots.
         **kwargs
             Additional keyword arguments (ignored).
 
@@ -833,6 +877,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         None
         """
         y_label = "Time (S)"
+        figure_sub_title = jones_term.capitalize()
         starting_time = self.observation_start_time(gaintable)
 
         gaintable = self._prepare_gaintable(gaintable)
@@ -844,7 +889,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
 
         gain_phase_fig.suptitle(
             (
-                f"{figure_title} Solutions (Phase)-"
+                f"{figure_title} {figure_sub_title} Solutions (Phase)-"
                 f"[Solution Start Time: {starting_time}]"
             ),
             fontsize="x-large",
@@ -854,7 +899,8 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         # Adjust right margin to make room for the colorbar
         plt.subplots_adjust(right=0.83)
         gain_phase_fig.savefig(
-            self.__plot_path.format(plot_type="phase"), bbox_inches="tight"
+            self.__plot_path.format(plot_type=f"{jones_term}-phase"),
+            bbox_inches="tight",
         )
 
         plt.close()

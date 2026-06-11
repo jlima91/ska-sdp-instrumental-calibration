@@ -86,7 +86,7 @@ def smooth_gain_solution_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            freq_plotter.plot(
+            *freq_plotter.plot(
                 _upstream_output_.gaintable,
                 figure_title=plot_config.plot_title,
             )

@@ -153,6 +153,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         "/output/path/plots/bandpass_1",
     ]
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
+    plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")

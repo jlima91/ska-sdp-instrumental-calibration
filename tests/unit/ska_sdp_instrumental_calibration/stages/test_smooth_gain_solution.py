@@ -165,6 +165,7 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
     upstream_output["refant"] = 2
     gaintable_mock = Mock(name="gaintable")
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
+    plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
 
     upstream_output.gaintable = gaintable_mock
     sliding_window_smooth_mock.return_value = gaintable_mock

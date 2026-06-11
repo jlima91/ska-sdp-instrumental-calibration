@@ -210,7 +210,7 @@ def generate_channel_rm_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            freq_plotter.plot(
+            *freq_plotter.plot(
                 gaintable,
                 figure_title="Channel Rotation Measure",
                 drop_cross_pols=True,

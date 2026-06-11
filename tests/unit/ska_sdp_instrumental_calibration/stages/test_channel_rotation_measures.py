@@ -414,6 +414,7 @@ def test_should_plot_with_proper_suffix(
     upstream_output["gaintable"] = initial_table_mock
 
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
+    plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     model_rotations_obj_mock = MagicMock(name="model rotation mock")
