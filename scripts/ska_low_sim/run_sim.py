@@ -33,6 +33,9 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    
+    with open(args.config) as stream:
+        fields = yaml.safe_load(stream)["fields"]
 
     # Common simulation parameters
     scenario = cfg["scenario"]
@@ -49,6 +52,7 @@ def main():
 
     # Gleam catalogue file and field radius
     gleam_file = run_sim_cfg.get("gleam_file")
+    lotss_file = run_sim_cfg.get("lotss_file")
     field_radius_deg = run_sim_cfg.get("field_radius_deg", 10.0)
 
     # Corruptions
@@ -101,6 +105,10 @@ def main():
     if gleam_file:
         (output_dir / "GLEAM_EGC.fits").symlink_to(Path(gleam_file).resolve())
 
+    # Symlink LOTSS file
+    if lotss_file:
+        (output_dir / "LoTSS_DR2.fits").symlink_to(Path(lotss_file).resolve())
+
     # Add gaintable
     if gaintable:
         (temp_tel_model / "gain_model.h5").symlink_to(Path(gaintable).resolve())
@@ -139,9 +147,9 @@ def main():
         "--channel-width-hz",
         str(channel_width_hz),
         "--field",
-        "EoR2",
+        fields.items().__iter__().__next__()[0],  # Get the first field name from the YAML
         "--target",
-        "Cal1",
+        fields.items().__iter__().__next__()[1].keys().__iter__().__next__(),  # Get the first target name for that field
         "--scan-index",
         "0",
         "--num-scans",
@@ -153,8 +161,9 @@ def main():
 
     if gleam_file:
         options += ["--add-gleam", "--field-radius-deg", str(field_radius_deg)]
-    else:
-        options += ["--no-add-gleam"]
+    
+    if lotss_file:
+        options += ["--add-lotss", "--field-radius-deg", str(field_radius_deg)]
 
     if run_oskar_extra_params:
         options += run_oskar_extra_params.split(" ")

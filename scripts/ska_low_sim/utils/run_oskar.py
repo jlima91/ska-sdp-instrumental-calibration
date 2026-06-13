@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
-
+ 
 """
 Run AA2-Low simulations for PI27 Low Goal 4.
 Relates to feature SP-5416.
-
-Authored by:
-- Fred Dulwich
-- Team Dhruva
-
-This script requires the GLEAM sky model to be available in the current
-working directory as a FITS catalogue called "GLEAM_EGC.fits".
-
-Also required in the current directory is a YAML file called "sim.yaml",
+ 
+This script requires either the GLEAM sky model to be available in the current
+working directory as a FITS catalogue called "GLEAM_EGC.fits", or a LoTSS
+skymodel to be available as a FITS catalogue called "LoTSS.fits".
+ 
+Also required in the current directory is a YAML file called "fields.yaml",
 which must contain the field and target information, for example:
-
+ 
 ---
 fields:
   EoR2:         # MWA EoR2 field
@@ -27,35 +24,46 @@ fields:
       dec_deg: -10.0
       scan_id_start: 400
       transit_time: "2000-01-04 20:38:00.000"
-
+ 
 The field name is given using the --field argument, and
 the target name within the field is given using the --target argument.
 Both names must exist in the YAML file in the correct hierarchy.
 For each target, the keys "ra_deg", "dec_deg", "scan_id_start"
 and "transit_time" must be specified.
 Observations of targets will be centred around their transit time.
-
-Telescope models must also be present, passed to the --tel-model option.
-
+ 
+Telescope models must also be present, starting with the name given
+by --tel-model-prefix, followed by an underscore, then --tel-model-suffix.
+If the suffix is "corrupted", then multiple telescope models must be supplied,
+as it is assumed that each will contain a different gain table to be used for
+each scan of each target.
+So for "corrupted" telescope models, the field name, target name and scan index
+(starting at 0, with two leading zeros if necessary) must be appended to
+the suffix.
+Finally, all telescope model folder names should end in ".tm".
+ 
+Example telescope model names, all with "SKA-Low_AA2_40S_rotated-layout-only"
+as the prefix:
+- SKA-Low_AA2_40S_rotated-layout-only_model.tm  (uncorrupted, suffix supplied as "model")
+- SKA-Low_AA2_40S_rotated-layout-only_corrupted_EoR2_Cal1_000.tm
+- SKA-Low_AA2_40S_rotated-layout-only_corrupted_EoR2_Centre_000.tm
+ 
 Example script command line:
-$ python3 run_oskar.py --output-dir product/model --field EoR2 --target Cal1 --num-scans 1 --scan-index 0 --tel-model path/to/telmodel --obs-length-mins 5 --make-image --make-psf
+$ python3 run_sim.py --output-dir product/model --id lowmvp40s --field EoR2 --target Cal1 --num-scans 1 --scan-index 0 --tel-model-suffix model --obs-length-mins 5 --make-image --make-psf
 """
-
-import random
-
-# Setting seed to a fixed value in order to achieve repeatability of results.
-random.seed(100)
-
+ 
 import argparse
 from datetime import datetime, timedelta
 import os
 from pathlib import Path
+ 
 from astropy.io import fits
 import numpy
 import oskar
 import yaml
-
-
+ 
+precision = 'double'
+ 
 def filter_sky_model(
     sky: oskar.Sky,
     fraction: float,
@@ -87,7 +95,7 @@ def filter_sky_model(
 
     # Keep only the brightest sources.
     sky_sorted = sky_sorted[0:num_to_keep, :]
-    return oskar.Sky.from_array(sky_sorted)
+    return oskar.Sky(precision=precision).from_array(sky_sorted, precision=precision)
 
 
 def gleam_sky_model(ra0_deg: float, dec0_deg: float, max_radius_deg: float):
@@ -125,7 +133,7 @@ def gleam_sky_model(ra0_deg: float, dec0_deg: float, max_radius_deg: float):
     sky_array = sky_array[sky_array[:, 2] > 0]
     # Replace NaNs in spectral index column with zeros.
     sky_array = numpy.nan_to_num(sky_array)
-    gleam = oskar.Sky.from_array(sky_array)
+    gleam = oskar.Sky(precision=precision).from_array(sky_array, precision=precision)
     gleam.filter_by_radius(0, max_radius_deg, ra0_deg, dec0_deg)
     # Keep everything inside 2.5 degrees.
     band0 = filter_sky_model(gleam, 1.0, 0.0, 2.5, ra0_deg, dec0_deg)
@@ -137,7 +145,58 @@ def gleam_sky_model(ra0_deg: float, dec0_deg: float, max_radius_deg: float):
     sky_composite.append(band1)
     sky_composite.append(band2)
     return sky_composite
+ 
+def lotss_sky_model(ra0_deg: float, dec0_deg: float, max_radius_deg: float):
+    """
+    Generate a sky model from a LoTSS pointing.
+ 
+    :param ra0_deg: Central RA, in degrees.
+    :param dec0_deg: Central Dec, in degrees.
+    :param max_radius_deg: Maximum radius to keep.
+ 
+    :return: The LoTSS-based sky model.
 
+    Note the DEC is negated from positive to negative so that the SKA-LOW array has an appropriate primary beam
+    """
+    info=fits.info("LoTSS_DR2.fits")
+    data = fits.getdata("LoTSS_DR2.fits",1)
+    stokes_I = data["Total_flux"]*1e-3 #catalogue flux in units of mJy
+    stokes_Q = numpy.zeros_like(stokes_I)
+    stokes_U = numpy.zeros_like(stokes_I)
+    stokes_V = numpy.zeros_like(stokes_I)
+    ref_freq_hz = numpy.ones_like(stokes_I) * 144e6
+    alpha = numpy.ones_like(stokes_I) * -0.7 #hard-coded spectral index until we get appropriate catalogue
+    rm = numpy.zeros_like(stokes_I) #assume no polarized sources
+    major = data['DC_Maj']
+    minor = data['DC_Min']
+    pa = data['DC_PA']
+    sky_array = numpy.column_stack((
+        data["RA"], data["DEC"]*-1.,
+        stokes_I, stokes_Q, stokes_U, stokes_V, ref_freq_hz, alpha,
+        rm, major, minor, pa
+    )) #Negate dec to form appropriate beam in southern sky
+    # Remove sources with NaN in flux column.
+    sky_array = sky_array[~numpy.isnan(sky_array[:, 2])]
+    # Remove sources with negative fluxes (yes, there are about 3000 of those!).
+    sky_array = sky_array[sky_array[:, 2] > 0]
+    # Replace NaNs in spectral index column with zeros.
+    sky_array = numpy.nan_to_num(sky_array).astype(numpy.float32)
+    lotss = oskar.Sky(precision=precision).from_array(sky_array, precision=precision)
+    lotss.filter_by_radius(0, max_radius_deg, ra0_deg, dec0_deg)
+    
+   
+     # Keep everything inside 7.0 degrees.
+    band0 = filter_sky_model(lotss, 1.0, 0.0, 7.0, ra0_deg, dec0_deg)
+    # Keep only the brightest 50% of sources between 7.0 and 8 degrees.
+    band1 = filter_sky_model(lotss, 0.5, 7.01, 8.0, ra0_deg, dec0_deg)
+    # Keep only the brightest 10% of sources outside 8 degrees.
+    band2 = filter_sky_model(
+        lotss, 0.1, 8.01, max_radius_deg, ra0_deg, dec0_deg
+    )
+    sky_composite = band0.create_copy()
+    sky_composite.append(band1)
+    sky_composite.append(band2)
+    return sky_composite
 
 def main():
     """
@@ -145,6 +204,7 @@ def main():
     """
     # Get command line arguments.
     parser = argparse.ArgumentParser(
+        prog="run_sim",
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -187,7 +247,7 @@ def main():
         "--end-freq-hz", type=float, default=175e6, help="End freq (Hz)"
     )
     parser.add_argument(
-        "--max-sources-per-chunk", type=int, default=2000, help="Chunk size"
+        "--max-sources-per-chunk", type=int, default=16384, help="Chunk size"
     )
     parser.add_argument(
         "--channel-width-hz",
@@ -197,9 +257,15 @@ def main():
     )
     parser.add_argument(
         "--add-gleam",
-        action=argparse.BooleanOptionalAction,
-        default=True,
+        action="store_true",
+        default=False,
         help="If specified, add GLEAM components to the sky model",
+    )
+    parser.add_argument(
+        "--add-lotss",
+        action="store_true",
+        default=False,
+        help="If specified, add LoTSS components to the sky model",
     )
     parser.add_argument(
         "--add-centaurus-a",
@@ -249,6 +315,12 @@ def main():
         default=False,
         help="Whether to use GPU. Default False.",
     )
+    parser.add_argument(
+        "--add-noise",
+        action="store_true",
+        default=False,
+        help="Whether to add interferometric noise. Default False",
+    )
     args = parser.parse_args()
 
     # Print arguments.
@@ -256,7 +328,7 @@ def main():
     print("\n".join(f"    {k}={v}" for k, v in vars(args).items()))
 
     # Load the known fields and targets.
-    with open("sim.yaml") as stream:
+    with open(f"{args.output_dir}/sim.yaml") as stream:
         fields = yaml.safe_load(stream)["fields"]
 
     # Check field and target names are known.
@@ -327,7 +399,25 @@ def main():
         "interferometer/max_channels_per_block": num_channels,
         "interferometer/ms_filename": ms_path,
         "interferometer/ms_dish_diameter": 38,
+        "interferometer/noise/enable": args.add_noise,
+        "interferometer/noise/freq": "Range",
+        "interferometer/noise/freq/start": args.start_freq_hz,
+        "interferometer/noise/freq/inc": args.channel_width_hz,
+        "interferometer/noise/freq/number": num_channels,
+        "interferometer/noise/rms": "Range",
+        "interferometer/noise/rms/start": 0.005,
+        "interferometer/noise/rms/end": 0.01,  
     }
+    
+    global precision
+    
+    if args.double_precision:
+        print("Using double precision for oskar computations.")
+        precision = 'double'
+    else:
+        print("Using single precision for oskar computations.")
+        precision = 'single'
+    
     if args.tec_screen:
         tec_screen = args.tec_screen
         if not os.path.isfile(tec_screen):
@@ -337,31 +427,34 @@ def main():
         sim_params["telescope/external_tec_screen/input_fits_file"] = tec_screen
 
     # Set up the sky model.
-    sky_composite = oskar.Sky()
+    sky_composite = oskar.Sky(precision=precision)
     # Create a GLEAM-based sky model if specified.
     if args.add_gleam:
         sky_gleam = gleam_sky_model(ra_deg, dec_deg, args.field_radius_deg)
         sky_composite.append(sky_gleam)
-
+    if args.add_lotss:
+        sky_lotss = lotss_sky_model(ra_deg, dec_deg, args.field_radius_deg)
+        sky_composite.append(sky_lotss)
+ 
     # Add bright sources if specified.
     # Fornax A: data from the Molonglo Southern 4 Jy sample (VizieR).
     # Others from GLEAM reference paper, Hurley-Walker et al. (2017), Table 2.
     if args.add_centaurus_a:
         print("Adding Centaurus A to sky model")
-        sky_centaurus = oskar.Sky.from_array(
-            [201.36667, -43.01917, 1370, 0, 0, 0, 200e6, -0.50, 0, 0, 0, 0]
+        sky_centaurus = oskar.Sky(precision=precision).from_array(
+            [201.36667, -43.01917, 1370, 0, 0, 0, 200e6, -0.50, 0, 0, 0, 0], precision=precision
         )
         sky_composite.append(sky_centaurus)
     if args.add_fornax_a:
         print("Adding Fornax A to sky model")
-        sky_fornax = oskar.Sky.from_array(
-            [50.67375, -37.20833, 528, 0, 0, 0, 178e6, -0.51, 0, 0, 0, 0]
+        sky_fornax = oskar.Sky(precision=precision).from_array(
+            [50.67375, -37.20833, 528, 0, 0, 0, 178e6, -0.51, 0, 0, 0, 0], precision=precision
         )
         sky_composite.append(sky_fornax)
     if args.add_taurus_a:
         print("Adding Taurus A to sky model")
-        sky_taurus = oskar.Sky.from_array(
-            [83.63333, 22.01444, 1340, 0, 0, 0, 200e6, -0.22, 0, 0, 0, 0]
+        sky_taurus = oskar.Sky(precision=precision).from_array(
+            [83.63333, 22.01444, 1340, 0, 0, 0, 200e6, -0.22, 0, 0, 0, 0], precision=precision
         )
         sky_composite.append(sky_taurus)
     print(f"Sky model contains {sky_composite.num_sources} sources.")
