@@ -57,6 +57,7 @@ extensions = [
     "sphinx.ext.githubpages",
     "myst_parser",
     "sphinx_autodoc_typehints",
+    "sphinxcontrib.autodoc_pydantic",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
 ]
 
@@ -132,3 +133,6 @@ smartquotes = False
 # Configurations for sphinx_autodoc_typehints
 typehints_defaults = "comma"
 always_use_bars_union = True
+
+# Configurations for autodoc_pydantic
+autodoc_pydantic_model_show_json = False
