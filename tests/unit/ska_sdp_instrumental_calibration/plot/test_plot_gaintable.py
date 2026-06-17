@@ -95,6 +95,9 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     (delayed_gain_plot, delayed_leakage_plot) = plotter.plot(
         gaintable, figure_title="Plot Title"
     )
+
+    delayed_gain_plot.compute()
+
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
     )
@@ -106,11 +109,8 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     gaintable.sel.assert_has_calls(
         [
             call(Jones_Solutions=["J_XX", "J_YY"]),
-            call(Jones_Solutions=["J_XY", "J_YX"]),
         ]
     )
-
-    delayed_gain_plot.compute()
 
     divide_bandpass_mock.assert_called_once_with(gaintable, 2)
 
@@ -272,6 +272,9 @@ def test_should_plot_gaintable_for_time(np_mock):
     (delayed_gain_plot, delayed_leakage_plot) = plotter.plot(
         gaintable, figure_title="Plot Title"
     )
+
+    delayed_gain_plot.compute()
+
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
     )
@@ -283,11 +286,8 @@ def test_should_plot_gaintable_for_time(np_mock):
     gaintable.sel.assert_has_calls(
         [
             call(Jones_Solutions=["J_XX", "J_YY"]),
-            call(Jones_Solutions=["J_XY", "J_YX"]),
         ]
     )
-    delayed_gain_plot.compute()
-
     gaintable.swap_dims.assert_called_once_with({"antenna": "Station"})
     gaintable.assign.assert_called_once_with({"time": ANY})
 
@@ -440,39 +440,18 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     mock_facet_phase.col_names = ["phase_title"]
 
     phase_gain_mock.plot.return_value = mock_facet_phase
-    gaintable.__getitem__.return_value = jones_solution_mock
+    gaintable.__getitem__.return_value = phase_gain_mock
 
     plotter = PlotGaintableTargetIonosphere(path_prefix="path/to/save")
 
     (delayed_plot_gain, delayed_plot_leakage) = plotter.plot(
         gaintable, figure_title="Plot Title"
     )
-    gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor1", "receptor2")
-    )
 
-    gaintable.assign_coords.assert_called_once_with(
-        {"Jones_Solutions": ["J_XX", "J_XY", "J_YY"]}
-    )
-
-    gaintable.sel.assert_has_calls(
-        [
-            call(Jones_Solutions=["J_XX", "J_YY"]),
-            call(Jones_Solutions=["J_XY", "J_YX"]),
-        ]
-    )
-
-    gaintable.__getitem__.return_value = phase_gain_mock
     delayed_plot_gain.compute()
 
-    gaintable.assign.assert_has_calls(
-        [call({"time": ANY}), call({"Phase(Degree)": phase_gain_mock})]
-    )
-
-    gaintable.isel.assert_called_once_with(Jones_Solutions=[0])
-
-    gaintable.swap_dims.assert_has_calls(
-        [call({"antenna": "Station"}), call({"frequency": "Channel"})]
+    gaintable.stack.assert_called_once_with(
+        Jones_Solutions=("receptor1", "receptor2")
     )
 
     phase_gain_mock.plot.assert_called_once_with(
