@@ -1,7 +1,13 @@
+import logging
+
 import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
+
+from .solver import run_solver
+
+logger = logging.getLogger()
 
 
 def calculate_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
@@ -218,3 +224,94 @@ def calculate_gain_rot(gain, delay, offset, freq):
         Array of calculated gain rotation
     """
     return gain * np.exp(-2j * np.pi * (offset + (delay.T * freq.T))).T
+
+
+def calibrate_polarization(pol, vis, modelvis, initialtable, solver):
+    """
+    Extract and calibrate for a single polarization
+
+    Parameters:
+    -----------
+    pol: str
+        Single polarization to solve for
+    vis: xr.DataArray
+        Visibilities
+    modelvis: xr.DataArray
+        Model visibilities
+    initialtable: xr.Dataset
+        Gaintable
+    solver: func
+        solver function
+
+    Returns:
+    --------
+    Gaintable
+    """
+    scalar_vis = vis.sel(polarisation=[pol])
+    scalar_model_vis = modelvis.sel(polarisation=[pol])
+    scalar_table = initialtable.sel(receptor1=[pol[0]], receptor2=[pol[0]])
+
+    logger.debug(f"Calibrating polarization {pol}")
+    return run_solver(
+        vis=scalar_vis,
+        modelvis=scalar_model_vis,
+        gaintable=scalar_table,
+        solver=solver,
+    )
+
+
+def unstack_jones_coordinate(
+    ref_gaintable: xr.Dataset, gaintable: xr.Dataset
+) -> xr.Dataset:
+    """Unstack Jones solutions back to diagonal of Jones matrix.
+
+    Places stacked solutions onto the diagonal of the Jones matrix,
+    preserving the reference gaintable structure.
+
+    Parameters:
+    -----------
+    ref_gaintable: xr.Dataset
+        intial gaintable
+    gaintable: xr.Dataset
+        gaintable with jones solution
+
+    Return:
+    -------
+    Gaintable
+    """
+    new_gain_data = ref_gaintable.gain.data.copy()
+    stacked_data = gaintable.gain.data
+
+    # Place solutions on diagonal elements
+    new_gain_data[..., 0, 0] = stacked_data[..., 0]
+    new_gain_data[..., 1, 1] = stacked_data[..., 1]
+
+    new_gain = ref_gaintable.gain.copy(data=new_gain_data)
+
+    return ref_gaintable.assign({"gain": new_gain}).chunk(ref_gaintable.chunks)
+
+
+def stack_jones_coordinate(gaintable: xr.Dataset) -> xr.Dataset:
+    """Stack receptor1 and receptor2 into Jones_Solutions coordinates.
+
+    Transforms individual polarization components (XX, YY, etc.) into
+    a single Jones_Solutions dimension with polarization labels.
+
+    Parameters:
+    -----------
+    gaintable: xr.Dataset
+        Gaintable with all polarizations
+
+    Return:
+    -------
+    Gaintable
+    """
+    stacked = gaintable.stack(Jones_Solutions=("receptor1", "receptor2"))
+
+    # Extract polarization strings from stacked receptor pairs
+    receptors = stacked["Jones_Solutions"].values
+    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in receptors]
+
+    return stacked.drop_vars(
+        ["Jones_Solutions", "receptor1", "receptor2"]
+    ).assign_coords({"Jones_Solutions": polstrs})

@@ -1,12 +1,16 @@
 # pylint: disable = too-many-function-args
 import numpy as np
 import xarray as xr
+from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.delay import (
     apply_delay,
     calculate_delay,
     calculate_gain_rot,
+    calibrate_polarization,
     coarse_delay,
+    stack_jones_coordinate,
+    unstack_jones_coordinate,
 )
 
 
@@ -138,3 +142,112 @@ def test_calculate_apply_delay():
         np.angle(actual_gaintable.gain.data, deg=True),
         np.angle(expected_gain, deg=True),
     )
+
+
+@patch("ska_sdp_instrumental_calibration.xarray_processors.delay.run_solver")
+def test_should_calibrate_single_polarization(run_solver_mock):
+    pol = "XX"
+    vis_mock = Mock(name="vis")
+    modelvis_mock = Mock(name="modelvis")
+    initialtable_mock = Mock(name="initialtable")
+    solver_mock = Mock(name="solver")
+
+    scalar_vis_mock = Mock(name="scalar_vis")
+    scalar_modelvis_mock = Mock(name="scalar_modelvis")
+    scalar_table_mock = Mock(name="scalar_table")
+    solver_result_mock = Mock(name="solver_result")
+
+    vis_mock.sel.return_value = scalar_vis_mock
+    modelvis_mock.sel.return_value = scalar_modelvis_mock
+    initialtable_mock.sel.return_value = scalar_table_mock
+    run_solver_mock.return_value = solver_result_mock
+
+    result = calibrate_polarization(
+        pol, vis_mock, modelvis_mock, initialtable_mock, solver_mock
+    )
+
+    vis_mock.sel.assert_called_once_with(polarisation=["XX"])
+    modelvis_mock.sel.assert_called_once_with(polarisation=["XX"])
+    initialtable_mock.sel.assert_called_once_with(
+        receptor1=["X"], receptor2=["X"]
+    )
+    run_solver_mock.assert_called_once_with(
+        vis=scalar_vis_mock,
+        modelvis=scalar_modelvis_mock,
+        gaintable=scalar_table_mock,
+        solver=solver_mock,
+    )
+    assert result is solver_result_mock
+
+
+def test_should_stack_jones_coordinate():
+    gain_data = np.ones((1, 2, 3, 2, 2), dtype=complex)
+    gaintable = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                gain_data,
+                dims=[
+                    "time",
+                    "antenna",
+                    "frequency",
+                    "receptor1",
+                    "receptor2",
+                ],
+                coords={"receptor1": ["X", "Y"], "receptor2": ["X", "Y"]},
+            )
+        }
+    )
+
+    result = stack_jones_coordinate(gaintable)
+
+    assert "Jones_Solutions" in result.dims
+    assert "receptor1" not in result.dims
+    assert "receptor2" not in result.dims
+    np.testing.assert_array_equal(
+        result["Jones_Solutions"].values, ["J_XX", "J_XY", "J_YX", "J_YY"]
+    )
+
+
+def test_should_unstack_jones_coordinate():
+    ref_gain_data = np.zeros((1, 1, 4, 2, 2), dtype=complex)
+    ref_gaintable = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                ref_gain_data,
+                dims=[
+                    "time",
+                    "antenna",
+                    "frequency",
+                    "receptor1",
+                    "receptor2",
+                ],
+            )
+        },
+        coords={
+            "antenna": [0],
+            "frequency": np.linspace(100e6, 150e6, 4),
+            "time": [0.0],
+        },
+    )
+
+    # stacked gain: index 0 placed on [0,0] diagonal, index 1 on [1,1] diagonal
+    xx_values = np.array([1 + 0j, 3 + 0j, 5 + 0j, 7 + 0j])
+    yy_values = np.array([2 + 0j, 4 + 0j, 6 + 0j, 8 + 0j])
+    stacked_gain_data = np.stack([xx_values, yy_values], axis=-1).reshape(
+        1, 1, 4, 2
+    )
+    stacked_gaintable = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                stacked_gain_data,
+                dims=["time", "antenna", "frequency", "Jones_Solutions"],
+            )
+        }
+    )
+
+    result = unstack_jones_coordinate(ref_gaintable, stacked_gaintable)
+
+    np.testing.assert_array_equal(result.gain.data[0, 0, :, 0, 0], xx_values)
+    np.testing.assert_array_equal(result.gain.data[0, 0, :, 1, 1], yy_values)
+    np.testing.assert_array_equal(result.gain.data[0, 0, :, 0, 1], np.zeros(4))
+    np.testing.assert_array_equal(result.gain.data[0, 0, :, 1, 0], np.zeros(4))
