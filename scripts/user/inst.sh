@@ -41,8 +41,9 @@
 #  --temp-dir PATH          Directory where temporary files are stored, e.g. batchlet config,
 #                           dask worker temporary files.
 #  --extra-cli-args STR     Additional CLI args passed to pipeline command. Shell quoting rules apply.
-#  --memory-per-worker S    Dask memory_per_worker value. Default: 32GB.
 #  --disable-dask-cluster   Disable batchlet-managed dask cluster creation.
+#  --memory-per-worker S    Dask memory_per_worker value. Default: 32GB.
+#  --threads-per-worker N   Dask threads_per_worker value. Default: 4.
 #  --enable-monitor         Enable batchlet resource and log monitoring.
 #  --disable-stdout-logs    Do not mirror main application stdout/stderr to terminal.
 
@@ -68,8 +69,9 @@ cache_dir=""
 report_dir=""
 temp_dir=""
 extra_cli_args=""
-memory_per_worker="32GB"
 disable_dask_cluster=False
+memory_per_worker="32GB"
+threads_per_worker="4"
 enable_monitor=False
 disable_stdout_logs=False
 ms_paths=()
@@ -116,13 +118,17 @@ while [[ "$#" -gt 0 ]]; do
             extra_cli_args=${2:?Missing value for --extra-cli-args}
             shift 2
             ;;
+        --disable-dask-cluster)
+            disable_dask_cluster=True
+            shift
+            ;;
         --memory-per-worker)
             memory_per_worker=${2:?Missing value for --memory-per-worker}
             shift 2
             ;;
-        --disable-dask-cluster)
-            disable_dask_cluster=True
-            shift
+        --threads-per-worker)
+            threads_per_worker=${2:?Missing value for --threads-per-worker}
+            shift 2
             ;;
         --enable-monitor)
             enable_monitor=True
@@ -247,7 +253,7 @@ batchlet_config["command"] = command
 
 if not $disable_dask_cluster:
     batchlet_config["dask_params"] = {
-        "threads_per_worker": 4,
+        "threads_per_worker": $threads_per_worker,
         "memory_per_worker": "$memory_per_worker",
         "resources_per_worker": "process=1",
         "worker_scratch_directory": "$temp_dir",
