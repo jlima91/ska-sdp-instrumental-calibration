@@ -137,7 +137,9 @@ def test_should_perform_delay_calibration(
         initialtable_mock, merged_mock
     )
     calculate_delay_mock.assert_called_once_with(gaintable_mock, oversample)
-    apply_delay_mock.assert_called_once_with(gaintable_mock, delaytable_mock)
+    apply_delay_mock.assert_called_once_with(
+        initialtable_mock, delaytable_mock
+    )
 
 
 @patch(

@@ -121,7 +121,7 @@ def delay_calibration_stage(
 
     delaytable = calculate_delay(gaintable, oversample)
 
-    gaintable = apply_delay(gaintable, delaytable)
+    gaintable = apply_delay(initialtable, delaytable)
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
@@ -168,7 +168,7 @@ def delay_calibration_stage(
             export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
 
-    vis = apply_gaintable_to_dataset(vis, gaintable, inverse=True)
+    vis = apply_gaintable_to_dataset(vis, gaintable, inverse=False)
     _upstream_output_["vis"] = vis
 
     _upstream_output_.increment_call_count("delay")
