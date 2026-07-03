@@ -19,9 +19,6 @@ def test_should_have_the_expected_default_configuration():
             "oversample": 1,
             "plot_config": {"plot_table": True, "fixed_axis": False},
             "export_gaintable": True,
-            "refant": 0,
-            "niter": 200,
-            "tol": 1e-06,
         },
     }
 
@@ -36,24 +33,6 @@ def test_delay_calibration_stage_is_not_optional():
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".apply_gaintable_to_dataset"
 )
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.xarray")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".unstack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".stack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calibrate_polarization"
-)
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.Solver")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".parse_antenna"
-)
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".create_gaintable_from_visibility"
@@ -62,45 +41,40 @@ def test_delay_calibration_stage_is_not_optional():
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".calculate_delay"
 )
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.apply_delay")
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "delay_calibration.apply_delay_to_gaintable"
+)
 def test_should_perform_delay_calibration(
     apply_delay_mock,
     calculate_delay_mock,
     create_gaintable_mock,
-    parse_antenna_mock,
-    solver_mock,
-    calibrate_polarization_mock,
-    stack_jones_coordinate_mock,
-    unstack_jones_coordinate_mock,
-    xarray_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
     vis_mock = Mock(name="vis")
-    modelvis_mock = Mock(name="modelvis")
     initialtable_mock = Mock(name="initialtable")
-    solver_result_mock = Mock(name="solver_result")
-    calibrated_pol_mock = Mock(name="calibrated_pol")
-    stacked_mock = Mock(name="stacked")
-    merged_mock = Mock(name="merged")
     gaintable_mock = Mock(name="gaintable")
+    gaintable_without_delay_mock = Mock(name="gaintable_without_delay")
+    delay_correction_mock = Mock(name="delay_correction")
     delaytable_mock = Mock(name="delaytable")
 
     create_gaintable_mock.return_value = initialtable_mock
-    solver_mock.get_solver.return_value = solver_result_mock
-    calibrate_polarization_mock.return_value = calibrated_pol_mock
-    stack_jones_coordinate_mock.return_value = stacked_mock
-    xarray_mock.merge.return_value = merged_mock
-    unstack_jones_coordinate_mock.return_value = gaintable_mock
     calculate_delay_mock.return_value = delaytable_mock
+
+    apply_delay_mock.side_effect = [
+        gaintable_without_delay_mock,
+        delay_correction_mock,
+    ]
 
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = vis_mock
-    upstream_output["modelvis"] = modelvis_mock
+    upstream_output["gaintable"] = gaintable_mock
+    upstream_output["refant"] = "refant"
     oversample = 16
 
-    delay_calibration_stage(
+    output = delay_calibration_stage(
         upstream_output,
         _qa_dir_="/output/path",
         oversample=oversample,
@@ -108,61 +82,27 @@ def test_should_perform_delay_calibration(
         export_gaintable=False,
     )
 
-    calibrate_polarization_mock.assert_has_calls(
-        [
-            call(
-                "XX",
-                vis_mock,
-                modelvis_mock,
-                initialtable_mock,
-                solver_result_mock,
-            ),
-            call(
-                "YY",
-                vis_mock,
-                modelvis_mock,
-                initialtable_mock,
-                solver_result_mock,
-            ),
-        ]
-    )
-    stack_jones_coordinate_mock.assert_has_calls(
-        [
-            call(calibrated_pol_mock),
-            call(calibrated_pol_mock),
-        ]
-    )
-    xarray_mock.merge.assert_called_once_with([stacked_mock, stacked_mock])
-    unstack_jones_coordinate_mock.assert_called_once_with(
-        initialtable_mock, merged_mock
-    )
     calculate_delay_mock.assert_called_once_with(gaintable_mock, oversample)
-    apply_delay_mock.assert_called_once_with(
-        initialtable_mock, delaytable_mock
+    apply_delay_mock.assert_has_calls(
+        [
+            call(gaintable_mock, delaytable_mock, inverse=True),
+            call(initialtable_mock, delaytable_mock),
+        ]
     )
+
+    apply_gaintable_to_dataset_mock.assert_called_once_with(
+        vis_mock, delay_correction_mock, inverse=True
+    )
+
+    assert output.vis == apply_gaintable_to_dataset_mock.return_value
+    assert output.delay == delay_correction_mock
+    assert output.gaintable == gaintable_without_delay_mock
+    assert output.calibration_tables == ["delay"]
 
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".apply_gaintable_to_dataset"
-)
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.xarray")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".unstack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".stack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calibrate_polarization"
-)
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.Solver")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".parse_antenna"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
@@ -184,7 +124,10 @@ def test_should_perform_delay_calibration(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".calculate_delay"
 )
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.apply_delay")
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "delay_calibration.apply_delay_to_gaintable"
+)
 def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     apply_delay_mock,
     calculate_delay_mock,
@@ -192,12 +135,6 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     plot_station_delays_mock,
     get_plots_path_mock,
     create_gaintable_mock,
-    parse_antenna_mock,
-    solver_mock,
-    calibrate_polarization_mock,
-    stack_jones_coordinate_mock,
-    unstack_jones_coordinate_mock,
-    xarray_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
@@ -205,7 +142,6 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     delayed_gaintable_mock = Mock(name="delayed_gaintable")
     calculate_delay_mock.return_value = delaytable_mock
     apply_delay_mock.return_value = delayed_gaintable_mock
-    parse_antenna_mock.return_value = 2
 
     get_plots_path_mock.side_effect = [
         "/output/path/plots/delay",
@@ -214,7 +150,8 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
-    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["gaintable"] = Mock(name="gaintable")
+    upstream_output["refant"] = 2
     oversample = 16
     plot_gaintable_freq_mock.return_value = plot_gaintable_freq_mock
     plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
@@ -285,24 +222,6 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".apply_gaintable_to_dataset"
 )
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.xarray")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".unstack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".stack_jones_coordinate"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calibrate_polarization"
-)
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.Solver")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".parse_antenna"
-)
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".create_gaintable_from_visibility"
@@ -328,7 +247,10 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
     ".calculate_delay"
 )
-@patch("ska_sdp_instrumental_calibration.stages.delay_calibration.apply_delay")
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "delay_calibration.apply_delay_to_gaintable"
+)
 def test_should_export_gaintable_with_proper_suffix(
     apply_delay_mock,
     calculate_delay_mock,
@@ -337,12 +259,6 @@ def test_should_export_gaintable_with_proper_suffix(
     delay_mock,
     export_clock_mock,
     create_gaintable_mock,
-    parse_antenna_mock,
-    solver_mock,
-    calibrate_polarization_mock,
-    stack_jones_coordinate_mock,
-    unstack_jones_coordinate_mock,
-    xarray_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
@@ -358,7 +274,8 @@ def test_should_export_gaintable_with_proper_suffix(
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
-    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["gaintable"] = Mock(name="gaintable")
+    upstream_output["refant"] = 2
     oversample = 16
 
     delay_calibration_stage(

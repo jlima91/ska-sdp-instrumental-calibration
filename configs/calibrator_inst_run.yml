@@ -17,7 +17,7 @@ parameters:
     eb_ms: null
     gleamfile: null
     lsm_csv_path: null
-    export_sky_model: false
+    export_sky_model: true
     fov: 5.0
     flux_limit: 1.0
     alpha0: -0.78
@@ -25,6 +25,12 @@ parameters:
     refant: 0
     niter: 200
     tol: 1.0e-06
+    export_gaintable: true
+  delay_calibration:
+    plot_config:
+      plot_table: true
+      fixed_axis: false
+    oversample: 1
     export_gaintable: true
   bandpass_calibration:
     run_solver_config:
@@ -42,12 +48,6 @@ parameters:
       fixed_axis: false
     visibility_key: vis
     export_gaintable: true
-  delay_calibration:
-    plot_config:
-      plot_table: true
-      fixed_axis: false
-    oversample: 1
-    export_gaintable: true
   flag_gain:
     plot_config:
       curve_fit_plot: true
@@ -61,7 +61,7 @@ parameters:
     n_sigma_rolling: 0.0
     window_size: 11
     normalize_gains: false
-    export_gaintable: false
+    export_gaintable: true
   generate_channel_rm:
     run_solver_config:
       solver: jones_substitution
@@ -71,22 +71,22 @@ parameters:
       tol: 0.001
       crosspol: false
     plot_rm_config:
-      plot_rm: false
+      plot_rm: true
       station: 0
     oversample: 5
     peak_threshold: 0.5
     refine_fit: true
     visibility_key: vis
-    plot_table: false
-    export_gaintable: false
+    plot_table: true
+    export_gaintable: true
   smooth_gain_solution:
     plot_config:
-      plot_table: false
+      plot_table: true
       plot_path_prefix: smoothed-gain
       plot_title: Smoothed Gain
     window_size: 1
     mode: median
-    export_gaintable: false
+    export_gaintable: true
   export_visibilities:
     data_to_export: all
     apply_gaintable_to_vis: true
@@ -98,8 +98,8 @@ pipeline:
   load_data: true
   predict_vis: true
   bandpass_initialisation: true
+  delay_calibration: true
   bandpass_calibration: true
-  delay_calibration: false
   flag_gain: false
   generate_channel_rm: false
   smooth_gain_solution: false

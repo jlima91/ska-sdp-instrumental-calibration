@@ -66,7 +66,9 @@ def calculate_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
     )
 
 
-def apply_delay(gaintable: xr.Dataset, delay: xr.Dataset) -> xr.Dataset:
+def apply_delay_to_gaintable(
+    gaintable: xr.Dataset, delay: xr.Dataset, inverse: bool = False
+) -> xr.Dataset:
     """
     Applies the delay to the given gaintable
 
@@ -94,10 +96,18 @@ def apply_delay(gaintable: xr.Dataset, delay: xr.Dataset) -> xr.Dataset:
     Yoffset = delay.offset.data[0, :, 1]
 
     new_gain_data[0, :, :, 0, 0] = calculate_gain_rot(
-        Xgain, Xdelay, Xoffset, gaintable.frequency.data.reshape(1, -1)
+        Xgain,
+        Xdelay,
+        Xoffset,
+        gaintable.frequency.data.reshape(1, -1),
+        inverse,
     )
     new_gain_data[0, :, :, 1, 1] = calculate_gain_rot(
-        Ygain, Ydelay, Yoffset, gaintable.frequency.data.reshape(1, -1)
+        Ygain,
+        Ydelay,
+        Yoffset,
+        gaintable.frequency.data.reshape(1, -1),
+        inverse,
     )
 
     new_gain = gaintable.gain.copy()
@@ -134,7 +144,7 @@ def update_delay(gaintable, _offset, delay, pol):
     gains = gaintable.gain.data[0, :, :, pol, pol]
     wgt = gaintable.weight.data[0, :, :, pol, pol]
 
-    gains_rot = calculate_gain_rot(gains, delay, _offset, freq)
+    gains_rot = calculate_gain_rot(gains, delay, _offset, freq, inverse=True)
 
     cycles = da.from_delayed(
         calculate_cycles(gains_rot), gains.shape, gains_rot.real.dtype
@@ -203,7 +213,7 @@ def coarse_delay(gains, oversample):
     return delay[da.abs(delay_spec).argmax(axis=1)]
 
 
-def calculate_gain_rot(gain, delay, offset, freq):
+def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     """
     Calculates gain rotation
 
@@ -223,7 +233,10 @@ def calculate_gain_rot(gain, delay, offset, freq):
     np.array
         Array of calculated gain rotation
     """
-    return gain * np.exp(-2j * np.pi * (offset + (delay.T * freq.T))).T
+
+    sign = -1 if inverse else 1
+
+    return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
 
 
 def calibrate_polarization(pol, vis, modelvis, initialtable, solver):
