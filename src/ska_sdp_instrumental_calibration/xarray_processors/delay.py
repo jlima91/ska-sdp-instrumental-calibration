@@ -235,7 +235,6 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     """
 
     sign = -1 if inverse else 1
-
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
 
 
@@ -271,60 +270,3 @@ def calibrate_polarization(pol, vis, modelvis, initialtable, solver):
         gaintable=scalar_table,
         solver=solver,
     )
-
-
-def unstack_jones_coordinate(
-    ref_gaintable: xr.Dataset, gaintable: xr.Dataset
-) -> xr.Dataset:
-    """Unstack Jones solutions back to diagonal of Jones matrix.
-
-    Places stacked solutions onto the diagonal of the Jones matrix,
-    preserving the reference gaintable structure.
-
-    Parameters:
-    -----------
-    ref_gaintable: xr.Dataset
-        intial gaintable
-    gaintable: xr.Dataset
-        gaintable with jones solution
-
-    Return:
-    -------
-    Gaintable
-    """
-    new_gain_data = ref_gaintable.gain.data.copy()
-    stacked_data = gaintable.gain.data
-
-    # Place solutions on diagonal elements
-    new_gain_data[..., 0, 0] = stacked_data[..., 0]
-    new_gain_data[..., 1, 1] = stacked_data[..., 1]
-
-    new_gain = ref_gaintable.gain.copy(data=new_gain_data)
-
-    return ref_gaintable.assign({"gain": new_gain}).chunk(ref_gaintable.chunks)
-
-
-def stack_jones_coordinate(gaintable: xr.Dataset) -> xr.Dataset:
-    """Stack receptor1 and receptor2 into Jones_Solutions coordinates.
-
-    Transforms individual polarization components (XX, YY, etc.) into
-    a single Jones_Solutions dimension with polarization labels.
-
-    Parameters:
-    -----------
-    gaintable: xr.Dataset
-        Gaintable with all polarizations
-
-    Return:
-    -------
-    Gaintable
-    """
-    stacked = gaintable.stack(Jones_Solutions=("receptor1", "receptor2"))
-
-    # Extract polarization strings from stacked receptor pairs
-    receptors = stacked["Jones_Solutions"].values
-    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in receptors]
-
-    return stacked.drop_vars(
-        ["Jones_Solutions", "receptor1", "receptor2"]
-    ).assign_coords({"Jones_Solutions": polstrs})

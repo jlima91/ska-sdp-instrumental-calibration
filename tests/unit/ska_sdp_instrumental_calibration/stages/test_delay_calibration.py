@@ -35,7 +35,7 @@ def test_delay_calibration_stage_is_not_optional():
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_gaintable_from_visibility"
+    ".reset_gaintable"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
@@ -48,7 +48,7 @@ def test_delay_calibration_stage_is_not_optional():
 def test_should_perform_delay_calibration(
     apply_delay_mock,
     calculate_delay_mock,
-    create_gaintable_mock,
+    reset_gaintable_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
@@ -59,7 +59,7 @@ def test_should_perform_delay_calibration(
     delay_correction_mock = Mock(name="delay_correction")
     delaytable_mock = Mock(name="delaytable")
 
-    create_gaintable_mock.return_value = initialtable_mock
+    reset_gaintable_mock.return_value = initialtable_mock
     calculate_delay_mock.return_value = delaytable_mock
 
     apply_delay_mock.side_effect = [
@@ -106,7 +106,7 @@ def test_should_perform_delay_calibration(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_gaintable_from_visibility"
+    ".reset_gaintable"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
@@ -134,7 +134,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     plot_gaintable_freq_mock,
     plot_station_delays_mock,
     get_plots_path_mock,
-    create_gaintable_mock,
+    reset_gaintable_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
@@ -224,7 +224,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_gaintable_from_visibility"
+    ".reset_gaintable"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
@@ -258,7 +258,7 @@ def test_should_export_gaintable_with_proper_suffix(
     get_gaintables_path_mock,
     delay_mock,
     export_clock_mock,
-    create_gaintable_mock,
+    reset_gaintable_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):

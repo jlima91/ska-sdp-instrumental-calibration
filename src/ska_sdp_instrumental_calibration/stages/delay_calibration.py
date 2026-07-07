@@ -13,7 +13,7 @@ from ..data_managers.data_export import (
     export_clock_to_h5parm,
     export_gaintable_to_h5parm,
 )
-from ..data_managers.gaintable import create_gaintable_from_visibility
+from ..data_managers.gaintable import reset_gaintable
 from ..plot import PlotGaintableFrequency, plot_station_delays
 from ..xarray_processors.delay import apply_delay_to_gaintable, calculate_delay
 from ._utils import get_gaintables_path, get_plots_path
@@ -55,12 +55,6 @@ def delay_calibration_stage(
             Oversample rate
         export_gaintable: bool
             Export intermediate gain solutions
-        refant: (int,str)
-            Reference antenna
-        niter: int
-            Number of solver iterations
-        tol: float
-            Tolerance value for gain solution
     Returns
     -------
         dict
@@ -73,7 +67,7 @@ def delay_calibration_stage(
     gaintable = _upstream_output_.gaintable
     refant = _upstream_output_.refant
 
-    initialtable = create_gaintable_from_visibility(vis, "full", "B")
+    initialtable = reset_gaintable(gaintable)
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("delay"):
@@ -85,6 +79,7 @@ def delay_calibration_stage(
         gaintable, delaytable, inverse=True
     )
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
+    vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
@@ -131,7 +126,6 @@ def delay_calibration_stage(
             export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
 
-    vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
     _upstream_output_["vis"] = vis
     _upstream_output_["delay"] = delay_corrections
     _upstream_output_["gaintable"] = gaintable_without_delay

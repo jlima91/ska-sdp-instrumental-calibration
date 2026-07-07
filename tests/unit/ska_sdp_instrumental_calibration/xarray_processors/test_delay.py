@@ -9,8 +9,6 @@ from ska_sdp_instrumental_calibration.xarray_processors.delay import (
     calculate_gain_rot,
     calibrate_polarization,
     coarse_delay,
-    stack_jones_coordinate,
-    unstack_jones_coordinate,
 )
 
 
@@ -184,76 +182,3 @@ def test_should_calibrate_single_polarization(run_solver_mock):
         solver=solver_mock,
     )
     assert result is solver_result_mock
-
-
-def test_should_stack_jones_coordinate():
-    gain_data = np.ones((1, 2, 3, 2, 2), dtype=complex)
-    gaintable = xr.Dataset(
-        {
-            "gain": xr.DataArray(
-                gain_data,
-                dims=[
-                    "time",
-                    "antenna",
-                    "frequency",
-                    "receptor1",
-                    "receptor2",
-                ],
-                coords={"receptor1": ["X", "Y"], "receptor2": ["X", "Y"]},
-            )
-        }
-    )
-
-    result = stack_jones_coordinate(gaintable)
-
-    assert "Jones_Solutions" in result.dims
-    assert "receptor1" not in result.dims
-    assert "receptor2" not in result.dims
-    np.testing.assert_array_equal(
-        result["Jones_Solutions"].values, ["J_XX", "J_XY", "J_YX", "J_YY"]
-    )
-
-
-def test_should_unstack_jones_coordinate():
-    ref_gain_data = np.zeros((1, 1, 4, 2, 2), dtype=complex)
-    ref_gaintable = xr.Dataset(
-        {
-            "gain": xr.DataArray(
-                ref_gain_data,
-                dims=[
-                    "time",
-                    "antenna",
-                    "frequency",
-                    "receptor1",
-                    "receptor2",
-                ],
-            )
-        },
-        coords={
-            "antenna": [0],
-            "frequency": np.linspace(100e6, 150e6, 4),
-            "time": [0.0],
-        },
-    )
-
-    # stacked gain: index 0 placed on [0,0] diagonal, index 1 on [1,1] diagonal
-    xx_values = np.array([1 + 0j, 3 + 0j, 5 + 0j, 7 + 0j])
-    yy_values = np.array([2 + 0j, 4 + 0j, 6 + 0j, 8 + 0j])
-    stacked_gain_data = np.stack([xx_values, yy_values], axis=-1).reshape(
-        1, 1, 4, 2
-    )
-    stacked_gaintable = xr.Dataset(
-        {
-            "gain": xr.DataArray(
-                stacked_gain_data,
-                dims=["time", "antenna", "frequency", "Jones_Solutions"],
-            )
-        }
-    )
-
-    result = unstack_jones_coordinate(ref_gaintable, stacked_gaintable)
-
-    np.testing.assert_array_equal(result.gain.data[0, 0, :, 0, 0], xx_values)
-    np.testing.assert_array_equal(result.gain.data[0, 0, :, 1, 1], yy_values)
-    np.testing.assert_array_equal(result.gain.data[0, 0, :, 0, 1], np.zeros(4))
-    np.testing.assert_array_equal(result.gain.data[0, 0, :, 1, 0], np.zeros(4))
