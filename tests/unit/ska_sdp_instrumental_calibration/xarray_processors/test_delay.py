@@ -1,13 +1,11 @@
 # pylint: disable = too-many-function-args
 import numpy as np
 import xarray as xr
-from mock import Mock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.delay import (
     apply_delay_to_gaintable,
     calculate_delay,
     calculate_gain_rot,
-    calibrate_polarization,
     coarse_delay,
 )
 
@@ -146,39 +144,3 @@ def test_calculate_apply_delay():
         np.angle(actual_gaintable.gain.data, deg=True),
         np.angle(expected_gain, deg=True),
     )
-
-
-@patch("ska_sdp_instrumental_calibration.xarray_processors.delay.run_solver")
-def test_should_calibrate_single_polarization(run_solver_mock):
-    pol = "XX"
-    vis_mock = Mock(name="vis")
-    modelvis_mock = Mock(name="modelvis")
-    initialtable_mock = Mock(name="initialtable")
-    solver_mock = Mock(name="solver")
-
-    scalar_vis_mock = Mock(name="scalar_vis")
-    scalar_modelvis_mock = Mock(name="scalar_modelvis")
-    scalar_table_mock = Mock(name="scalar_table")
-    solver_result_mock = Mock(name="solver_result")
-
-    vis_mock.sel.return_value = scalar_vis_mock
-    modelvis_mock.sel.return_value = scalar_modelvis_mock
-    initialtable_mock.sel.return_value = scalar_table_mock
-    run_solver_mock.return_value = solver_result_mock
-
-    result = calibrate_polarization(
-        pol, vis_mock, modelvis_mock, initialtable_mock, solver_mock
-    )
-
-    vis_mock.sel.assert_called_once_with(polarisation=["XX"])
-    modelvis_mock.sel.assert_called_once_with(polarisation=["XX"])
-    initialtable_mock.sel.assert_called_once_with(
-        receptor1=["X"], receptor2=["X"]
-    )
-    run_solver_mock.assert_called_once_with(
-        vis=scalar_vis_mock,
-        modelvis=scalar_modelvis_mock,
-        gaintable=scalar_table_mock,
-        solver=solver_mock,
-    )
-    assert result is solver_result_mock

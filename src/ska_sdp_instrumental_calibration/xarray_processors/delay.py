@@ -5,8 +5,6 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from .solver import run_solver
-
 logger = logging.getLogger()
 
 
@@ -236,37 +234,3 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
 
     sign = -1 if inverse else 1
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
-
-
-def calibrate_polarization(pol, vis, modelvis, initialtable, solver):
-    """
-    Extract and calibrate for a single polarization
-
-    Parameters:
-    -----------
-    pol: str
-        Single polarization to solve for
-    vis: xr.DataArray
-        Visibilities
-    modelvis: xr.DataArray
-        Model visibilities
-    initialtable: xr.Dataset
-        Gaintable
-    solver: func
-        solver function
-
-    Returns:
-    --------
-    Gaintable
-    """
-    scalar_vis = vis.sel(polarisation=[pol])
-    scalar_model_vis = modelvis.sel(polarisation=[pol])
-    scalar_table = initialtable.sel(receptor1=[pol[0]], receptor2=[pol[0]])
-
-    logger.debug(f"Calibrating polarization {pol}")
-    return run_solver(
-        vis=scalar_vis,
-        modelvis=scalar_model_vis,
-        gaintable=scalar_table,
-        solver=solver,
-    )
