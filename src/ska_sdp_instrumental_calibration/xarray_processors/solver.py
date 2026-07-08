@@ -147,9 +147,11 @@ def run_solver(
             "For gaintable of type B, gaintable frequency size "
             "must match visibility frequency size"
         )
-        # solution frequency same as vis frequency
-        # Chunking, just to be sure that they match
-        gaintable = gaintable.chunk(frequency=vis.chunksizes["frequency"])
+        # Chunk the gaintable such that it matches
+        # visibility chunks across frequency dimension
+        if vis_freq_chunks := vis.chunksizes.get("frequency", None):
+            gaintable = gaintable.chunk(frequency=vis_freq_chunks)
+
         solver_ufunc = _run_solver_ufunc_with_broadcast_frequency
         vis_core_dims = ["time", "baselineid", "polarisation"]
         gain_core_dims = [
