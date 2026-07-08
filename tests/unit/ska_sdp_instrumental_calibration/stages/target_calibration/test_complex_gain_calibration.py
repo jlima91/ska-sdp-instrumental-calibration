@@ -187,4 +187,5 @@ def test_should_export_gaintable_with_proper_suffix(
 
     delayed_mock.assert_called_once_with(export_gaintable_mock)
 
+    assert actual_output.calibration_tables == ["gaintable"]
     assert actual_output.gaintable == gaintable_mock

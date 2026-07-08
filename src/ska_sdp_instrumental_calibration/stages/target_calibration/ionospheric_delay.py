@@ -145,4 +145,5 @@ def ionospheric_delay_stage(
             )
         )
 
+    _upstream_output_.calibration_tables = "gaintable"
     return _upstream_output_
