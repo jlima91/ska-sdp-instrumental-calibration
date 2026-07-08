@@ -16,6 +16,7 @@ def gaintable_mock():
     gaintable_mock = Mock(name="gaintable_mock")
     gaintable_mock.gain = gain_mock
     gaintable_mock.stack.return_value = gaintable_mock
+    gaintable_mock.drop_vars.return_value = gaintable_mock
     gaintable_mock.assign_coords.return_value = gaintable_mock
 
     gaintable_mock.pol.data = [("X", "X"), ("Y", "Y"), ("X", "Y"), ("Y", "X")]

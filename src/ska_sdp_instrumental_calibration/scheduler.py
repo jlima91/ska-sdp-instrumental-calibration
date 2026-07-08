@@ -39,6 +39,7 @@ class UpstreamOutput:
         self.checkpoint_keys = []
         self.compute_outputs = []
         self.__call_count = {}
+        self.__calibration_tables = []
 
     def __setitem__(self, key, value):
         """
@@ -174,6 +175,14 @@ class UpstreamOutput:
             checkpointing or persistence.
         """
         self.checkpoint_keys.extend(args)
+
+    @property
+    def calibration_tables(self):
+        return self.__calibration_tables
+
+    @calibration_tables.setter
+    def calibration_tables(self, key):
+        self.__calibration_tables.append(key)
 
 
 class InstrumentalDaskRunner(DaskRunner):
