@@ -94,6 +94,7 @@ def test_solver_runs_and_updates_gaintable(
     called_args, _ = MockIonosphericSolver.solve.call_args
     np.testing.assert_array_equal(called_args[3], np.array([0, 1, 0, 1]))
 
+    assert result.calibration_tables == ["gaintable"]
     assert result["gaintable"] == mock_gaintable
     assert result["calibration_purpose"] == "ionosphere"
 
