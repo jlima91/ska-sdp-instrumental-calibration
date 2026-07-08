@@ -78,6 +78,7 @@ def test_should_perform_bandpass_calibration(
     visibility_filters,
 ):
     upstream_output = UpstreamOutput()
+    upstream_output.calibration_tables = "delay"
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["corrected_vis"] = Mock(name="corrected_vis")
@@ -119,6 +120,7 @@ def test_should_perform_bandpass_calibration(
     )
 
     assert actual_output.gaintable == gaintable_mock
+    assert actual_output.calibration_tables == ["delay", "gaintable"]
 
 
 @patch(

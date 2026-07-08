@@ -61,7 +61,9 @@ def plot_flag_gain(
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
-    gaintable = gaintable.assign_coords({"pol": polstrs})
+    gaintable = gaintable.drop_vars(
+        ["pol", "receptor1", "receptor2"]
+    ).assign_coords({"pol": polstrs})
     stations = gaintable.configuration.names
 
     n_rows = 4
@@ -141,7 +143,9 @@ def plot_curve_fit(
     # from SKB-1027. J_XX, J_YY, j_xy and j_yx
     polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
 
-    gaintable = gaintable.assign_coords({"pol": polstrs})
+    gaintable = gaintable.drop_vars(
+        ["pol", "receptor1", "receptor2"]
+    ).assign_coords({"pol": polstrs})
     stations = gaintable.configuration.names
     n_rows = 2
     n_cols = 2

@@ -46,6 +46,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     gaintable = MagicMock(name="gaintable")
     divide_bandpass_mock.return_value = gaintable
     gaintable.stack.return_value = gaintable
+    gaintable.drop_vars.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.sel.return_value = gaintable
@@ -226,6 +227,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 def test_should_plot_gaintable_for_time(np_mock):
     gaintable = MagicMock(name="gaintable")
     gaintable.stack.return_value = gaintable
+    gaintable.drop_vars.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.assign.return_value = gaintable
@@ -415,6 +417,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     gaintable = MagicMock(name="gaintable")
     gaintable.stack.return_value = gaintable
+    gaintable.drop_vars.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.assign.return_value = gaintable

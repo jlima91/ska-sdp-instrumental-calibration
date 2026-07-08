@@ -124,6 +124,7 @@ def test_should_raise_exceptions(h5py_mock, np_mock):
     np_mock.array_equal.return_value = True
     gaintable_mock.configuration = None
     gaintable_mock.assign_coords.return_value = gaintable_mock
+    gaintable_mock.drop_vars.return_value = gaintable_mock
     gaintable_mock.isel.return_value = gaintable_mock
     gaintable_mock.rename.return_value = gaintable_mock
     gaintable_mock.stack.return_value = gaintable_mock

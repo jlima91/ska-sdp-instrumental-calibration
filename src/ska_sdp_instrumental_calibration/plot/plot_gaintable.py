@@ -484,7 +484,9 @@ class PlotGaintable:
             f"J_{p1}{p2}".upper()
             for p1, p2 in gaintable["Jones_Solutions"].data
         ]
-        gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
+        gaintable = gaintable.drop_vars(
+            ["Jones_Solutions", "receptor1", "receptor2"]
+        ).assign_coords({"Jones_Solutions": polstrs})
 
         gaintable.coords["Station"] = (
             "antenna",
