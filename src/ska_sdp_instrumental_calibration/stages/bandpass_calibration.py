@@ -148,7 +148,7 @@ def bandpass_calibration_stage(
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")
-    _upstream_output_.calibration_tables = "gaintable"
+    _upstream_output_.add_calibration_table("gaintable")
     return _upstream_output_
 
 

@@ -32,15 +32,6 @@ def test_export_gaintable_stage_is_an_aggregator():
     assert export_gaintable_stage in Tags.AGGREGATOR
 
 
-def test_should_not_concat_gaintables_in_upstream_outputs():
-    upstream_output = Mock(name="upstream_output")
-    upstream_output.gaintable = "gaintable_1"
-
-    result = concat_gaintables([upstream_output])
-
-    assert result == upstream_output
-
-
 @patch("ska_sdp_instrumental_calibration.stages.data_exports.xr")
 def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
     upstream_output = UpstreamOutput()

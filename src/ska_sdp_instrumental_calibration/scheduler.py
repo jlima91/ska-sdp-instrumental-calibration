@@ -2,6 +2,7 @@ import logging
 
 import dask
 from distributed import as_completed, futures_of, get_client
+from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
 from .tagger import Tags
@@ -177,11 +178,22 @@ class UpstreamOutput:
         self.checkpoint_keys.extend(args)
 
     @property
-    def calibration_tables(self):
-        return self.__calibration_tables
+    def calibration_table(self):
+        if len(self.__calibration_tables) == 0:
+            return self.__stage_outputs["gaintable"]
 
-    @calibration_tables.setter
-    def calibration_tables(self, key):
+        combined_gaintable = None
+        for key in self.__calibration_tables:
+            if combined_gaintable is None:
+                combined_gaintable = self.__stage_outputs[key]
+            else:
+                combined_gaintable = multiply_gaintables(
+                    combined_gaintable, self.__stage_outputs[key]
+                )
+
+        return combined_gaintable
+
+    def add_calibration_table(self, key):
         self.__calibration_tables.append(key)
 
 
