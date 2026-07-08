@@ -58,26 +58,43 @@ def _run_solver_ufunc_with_broadcast_frequency(
     solver: Solver,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Solver wrapper for bandpass terms where frequency stays broadcast.
+    Solver wrapper for bandpass terms where computation is parallelized
+    across frequency dimension, using xarray.apply_ufunc.
 
-    xarray passes broadcast dimensions ahead of core dimensions. For Jones
-    type B we keep frequency outside the core dims so dask can still
+    Xarray passes broadcast dimensions ahead of core dimensions. For Jones
+    type B, we keep frequency outside the core dims so dask can still
     distribute work over visibility frequency chunks.
     """
+    # Order expected by solver:     time, baseline, frequency, polarisation
+    # Order of input data:          frequency, time, baseline, polarisation
+    # We need to re-order so that frequency becomes 3rd dimension
+    vis_dim_order = (1, 2, 0, 3)
+
+    # Order expected by solver:     time, antenna, frequency, rec1, rec2
+    # Order of input data:          frequency, time, antenna, rec1, rec2
+    # We need to re-order so that frequency becomes 3rd dimension
+    gain_dim_order = (1, 2, 0, 3, 4)
+
+    # Order expected by solver:     time, frequency, rec1, rec2
+    # Order of input data:          frequency, time, rec1, rec2
+    # We need to re-order so that frequency becomes 2nd dimension
+    residual_dim_order = (1, 0, 2, 3)
+
     gain, weight, residual = _run_solver_ufunc(
-        vis_vis=np.transpose(vis_vis, (1, 2, 0, 3)),
-        vis_flags=np.transpose(vis_flags, (1, 2, 0, 3)),
-        vis_weight=np.transpose(vis_weight, (1, 2, 0, 3)),
-        model_vis=np.transpose(model_vis, (1, 2, 0, 3)),
-        model_flags=np.transpose(model_flags, (1, 2, 0, 3)),
-        gain_gain=np.transpose(gain_gain, (1, 2, 0, 3, 4)),
-        gain_weight=np.transpose(gain_weight, (1, 2, 0, 3, 4)),
-        gain_residual=np.transpose(gain_residual, (1, 0, 2, 3)),
+        vis_vis=np.transpose(vis_vis, vis_dim_order),
+        vis_flags=np.transpose(vis_flags, vis_dim_order),
+        vis_weight=np.transpose(vis_weight, vis_dim_order),
+        model_vis=np.transpose(model_vis, vis_dim_order),
+        model_flags=np.transpose(model_flags, vis_dim_order),
+        gain_gain=np.transpose(gain_gain, gain_dim_order),
+        gain_weight=np.transpose(gain_weight, gain_dim_order),
+        gain_residual=np.transpose(gain_residual, residual_dim_order),
         antenna1=antenna1,
         antenna2=antenna2,
         solver=solver,
     )
 
+    # Before returning, move frequency from 3rd to 1st dimension in order
     return (
         np.transpose(gain, (2, 0, 1, 3, 4)),
         np.transpose(weight, (2, 0, 1, 3, 4)),
@@ -126,6 +143,10 @@ def run_solver(
     ]
 
     if gaintable.jones_type == "B":
+        assert gaintable.frequency.size == vis.frequency.size, (
+            "For gaintable of type B, gaintable frequency size "
+            "must match visibility frequency size"
+        )
         # solution frequency same as vis frequency
         # Chunking, just to be sure that they match
         gaintable = gaintable.chunk(frequency=vis.chunksizes["frequency"])
@@ -143,8 +164,10 @@ def run_solver(
             "receptor2",
         ]
     else:  # jones_type == T or G
-        assert gaintable.frequency.size == 1, "Gaintable frequency"
-        "must either match to visibility frequency, or must be of size 1"
+        assert gaintable.frequency.size == 1, (
+            "For gaintable of type T or G, "
+            "gaintable frequency must be of size 1"
+        )
         gaintable = gaintable.rename(frequency="solution_frequency")
         # Need to pass full frequency to process single solution
         vis_chunks_per_solution["frequency"] = -1
