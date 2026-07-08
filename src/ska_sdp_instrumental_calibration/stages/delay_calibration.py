@@ -1,17 +1,25 @@
+import logging
 from typing import Annotated
 
 import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
+from ska_sdp_instrumental_calibration.xarray_processors.apply import (
+    apply_gaintable_to_dataset,
+)
+
 from ..data_managers.data_export import (
     export_clock_to_h5parm,
     export_gaintable_to_h5parm,
 )
+from ..data_managers.gaintable import reset_gaintable
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..xarray_processors.delay import apply_delay, calculate_delay
+from ..xarray_processors.delay import apply_delay_to_gaintable, calculate_delay
 from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotConfig
+
+logger = logging.getLogger()
 
 
 @ConfigurableStage(name="delay_calibration")
@@ -53,8 +61,13 @@ def delay_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    gaintable = _upstream_output_["gaintable"]
+    _upstream_output_.add_checkpoint_key("gaintable")
+    vis = _upstream_output_.vis
     prefix = _upstream_output_.ms_prefix
+    gaintable = _upstream_output_.gaintable
+    refant = _upstream_output_.refant
+
+    initialtable = reset_gaintable(gaintable)
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("delay"):
@@ -62,7 +75,11 @@ def delay_calibration_stage(
 
     delaytable = calculate_delay(gaintable, oversample)
 
-    gaintable = apply_delay(gaintable, delaytable)
+    gaintable_without_delay = apply_delay_to_gaintable(
+        gaintable, delaytable, inverse=True
+    )
+    delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
+    vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
 
     if plot_config.plot_table:
         path_prefix = get_plots_path(
@@ -71,12 +88,12 @@ def delay_calibration_stage(
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
-            refant=_upstream_output_.refant,
+            refant=refant,
         )
 
         _upstream_output_.add_compute_tasks(
             *freq_plotter.plot(
-                gaintable,
+                delay_corrections,
                 figure_title="Delay",
                 fixed_axis=plot_config.fixed_axis,
             )
@@ -101,13 +118,19 @@ def delay_calibration_stage(
 
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
+                delay_corrections, gaintable_file_path
             )
         )
 
         _upstream_output_.add_compute_tasks(
             export_clock_to_h5parm(delaytable, delaytable_file_path)
         )
+
+    _upstream_output_["vis"] = vis
+    _upstream_output_["delay"] = delay_corrections
+    _upstream_output_["gaintable"] = gaintable_without_delay
+    _upstream_output_["refant"] = refant
+    _upstream_output_.calibration_tables = "delay"
 
     _upstream_output_.increment_call_count("delay")
 

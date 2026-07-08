@@ -43,14 +43,15 @@ def test_should_not_concat_gaintables_in_upstream_outputs():
 
 @patch("ska_sdp_instrumental_calibration.stages.data_exports.xr")
 def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
-    upstream_output = Mock(name="upstream_output")
-    upstream_output.gaintable = "gaintable_1"
+    upstream_output = UpstreamOutput()
+    upstream_output.calibration_tables = "gaintable"
+    upstream_output["gaintable"] = "gaintable_1"
 
-    upstream_output_1 = Mock(name="ugpstream_output_1")
-    upstream_output_1.gaintable = "gaintable_2"
+    upstream_output_1 = UpstreamOutput()
+    upstream_output_1["gaintable"] = "gaintable_2"
 
-    upstream_output_2 = Mock(name="upstream_output_2")
-    upstream_output_2.gaintable = "gaintable_3"
+    upstream_output_2 = UpstreamOutput()
+    upstream_output_2["gaintable"] = "gaintable_3"
 
     result = concat_gaintables(
         [upstream_output, upstream_output_1, upstream_output_2]
@@ -274,4 +275,5 @@ def _get_prepopulated_upstream_output(
     upstream_output["gaintable"] = Mock(name="gaintable")
     upstream_output["field_id"] = field_id
     upstream_output["calibration_purpose"] = calibration_purpose
+    upstream_output.calibration_tables = "gaintable"
     return upstream_output

@@ -118,7 +118,9 @@ def export_gaintable_to_h5parm(
     polstrs = _ndarray_of_null_terminated_bytes(
         [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
     )
-    gaintable = gaintable.assign_coords({"pol": polstrs})
+    gaintable = gaintable.drop_vars(
+        ["pol", "receptor1", "receptor2"]
+    ).assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms
     polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])

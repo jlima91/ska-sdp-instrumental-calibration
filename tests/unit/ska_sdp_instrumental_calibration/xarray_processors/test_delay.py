@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 
 from ska_sdp_instrumental_calibration.xarray_processors.delay import (
-    apply_delay,
+    apply_delay_to_gaintable,
     calculate_delay,
     calculate_gain_rot,
     coarse_delay,
@@ -49,9 +49,15 @@ def test_calculate_gain_rotation():
             10.00000017 + 8.99999981j,
         ],
     ]
-    actual = calculate_gain_rot(gains, delay, offset, frequency)
+    actual = calculate_gain_rot(gains, delay, offset, frequency, inverse=True)
 
-    assert np.allclose(actual, expected)
+    np.testing.assert_allclose(actual, expected)
+
+    actual = calculate_gain_rot(
+        expected, delay, offset, frequency, inverse=False
+    )
+
+    np.testing.assert_allclose(actual, gains)
 
 
 def test_calculate_apply_delay():
@@ -89,7 +95,7 @@ def test_calculate_apply_delay():
 
     delay = calculate_delay(gaintable, 4)
 
-    actual_gaintable = apply_delay(gaintable, delay)
+    actual_gaintable = apply_delay_to_gaintable(gaintable, delay, inverse=True)
 
     expected_gain = np.array(
         [

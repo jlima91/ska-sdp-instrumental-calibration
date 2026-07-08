@@ -9,6 +9,7 @@ from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     export_gaintable_to_hdf5,
 )
+from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
@@ -28,9 +29,11 @@ def concat_gaintables(upstream_outputs: list[UpstreamOutput]):
     if len(upstream_outputs) == 1:
         return upstream_outputs[0]
 
-    gaintables = [output.gaintable for output in upstream_outputs]
     upstream_output = upstream_outputs[0]
-    upstream_output.gaintable = xr.concat(gaintables, dim="time")
+
+    for key in upstream_output.calibration_tables:
+        gaintables = [output[key] for output in upstream_outputs]
+        upstream_output[key] = xr.concat(gaintables, dim="time")
 
     return upstream_output
 
@@ -100,7 +103,15 @@ def export_gaintable_stage(
     for field_id, upstream_outputs in grouped_upstream_output.items():
         upstream_output = concat_gaintables(upstream_outputs)
 
-        gaintable = upstream_output.gaintable
+        combined_gaintable = None
+        for key in upstream_output.calibration_tables:
+            if combined_gaintable is None:
+                combined_gaintable = upstream_output[key]
+            else:
+                combined_gaintable = multiply_gaintables(
+                    combined_gaintable, upstream_output[key]
+                )
+
         gaintable_filename = f"{file_name}.{export_format}"
         purpose = upstream_output.calibration_purpose
         gaintable_file_path = get_gaintable_file_path(
@@ -114,7 +125,7 @@ def export_gaintable_stage(
         logger.info(f"Writing solutions to {gaintable_file_path}")
 
         export = dask.delayed(export_functions[export_format])(
-            gaintable, gaintable_file_path
+            combined_gaintable, gaintable_file_path
         )
 
         final_upstream.add_compute_tasks(export)
