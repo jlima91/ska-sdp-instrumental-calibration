@@ -22,6 +22,8 @@ from ska_sdp_instrumental_calibration.data_managers.gaintable import (
 )
 
 ms_name = "test.ms"
+_N_TIME = 3
+_N_FREQ = 4
 
 
 @pytest.fixture
@@ -51,9 +53,9 @@ def generate_vis():
     config.attrs["name"] = "AA1-Low"
     vis = create_visibility(
         config=config,
-        times=np.arange(3) * 0.9 / 3600 * np.pi / 12,
-        frequency=150e6 + 1e6 * np.arange(4),
-        channel_bandwidth=[1e6] * 4,
+        times=np.arange(_N_TIME) * 0.9 / 3600 * np.pi / 12,
+        frequency=150e6 + 1e6 * np.arange(_N_FREQ),
+        channel_bandwidth=[1e6] * _N_FREQ,
         phasecentre=SkyCoord(ra=0, dec=-27, unit="degree"),
         polarisation_frame=PolarisationFrame("linear"),
         weight=1.0,
