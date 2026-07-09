@@ -130,7 +130,7 @@ def delay_calibration_stage(
     _upstream_output_["delay"] = delay_corrections
     _upstream_output_["gaintable"] = gaintable_without_delay
     _upstream_output_["refant"] = refant
-    _upstream_output_.calibration_tables = "delay"
+    _upstream_output_.add_calibration_table("delay")
 
     _upstream_output_.increment_call_count("delay")
 

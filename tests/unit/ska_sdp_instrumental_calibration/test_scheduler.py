@@ -1,5 +1,5 @@
 import pytest
-from mock import MagicMock, patch
+from mock import MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import (
     InstrumentalDaskRunner,
@@ -62,6 +62,32 @@ class TestUpstreamOutput:
         upstream_output.add_checkpoint_key("key1", "key2")
         assert "key1" in upstream_output.checkpoint_keys
         assert "key2" in upstream_output.checkpoint_keys
+
+    @patch("ska_sdp_instrumental_calibration.scheduler.multiply_gaintables")
+    def test_build_calibration_table(self, multiply_mock):
+        upstream_output = UpstreamOutput()
+        delay_gaintable = MagicMock(name="delay")
+        gaintable = MagicMock(name="gaintable")
+        flux_gaintable = MagicMock(name="flux")
+
+        upstream_output["gaintable"] = gaintable
+
+        assert upstream_output.calibration_table == gaintable
+
+        upstream_output["delay"] = delay_gaintable
+        upstream_output["flux"] = flux_gaintable
+
+        upstream_output.add_calibration_table("delay")
+        upstream_output.add_calibration_table("flux")
+        upstream_output.add_calibration_table("gaintable")
+
+        assert upstream_output.calibration_table == multiply_mock.return_value
+        multiply_mock.assert_has_calls(
+            [
+                call(delay_gaintable, flux_gaintable),
+                call(multiply_mock.return_value, gaintable),
+            ]
+        )
 
 
 class TestInstrumentalDaskRunner:

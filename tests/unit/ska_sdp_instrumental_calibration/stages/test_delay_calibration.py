@@ -97,7 +97,6 @@ def test_should_perform_delay_calibration(
     assert output.vis == apply_gaintable_to_dataset_mock.return_value
     assert output.delay == delay_correction_mock
     assert output.gaintable == gaintable_without_delay_mock
-    assert output.calibration_tables == ["delay"]
 
 
 @patch(
