@@ -28,14 +28,8 @@ priority = "supplemental"
 python = ">=3.10,<3.14"
 astropy = ">=6.1"
 dask = { version = ">=2024.11", extras = ["distributed", "array"] }
-
-# With xarray 2026.*, there is some issue with the xarray.map_blocks
-# INST has been tested with xarray 2025.7.1, thus limiting the upper
-# version until map_blocks usage is fixed.
-xarray = ">=2024.7,<2025.8"
-
-# Remove zarr<3 limit when xarray is upgraded to 2025*.
-zarr = ">=2.18,<3"
+xarray = ">=2024.7"
+zarr = ">=2.18"
 everybeam = ">=0.8"
 # Limit numpy until astropy can be updated to >7
 numpy = ">=1.26 , <2.4"
@@ -74,6 +68,7 @@ myst-parser = ">=4"
 sphinx-autodoc-typehints = ">=3"
 ska-ser-sphinx-theme = ">=0.2.0"
 autodoc-pydantic = ">=2.2.0"
+roman-numerals = ">=4.1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
