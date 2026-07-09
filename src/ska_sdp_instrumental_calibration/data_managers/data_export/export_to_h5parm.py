@@ -135,7 +135,7 @@ def export_gaintable_to_h5parm(
 
     # Flag gains where weight == 0
     gaintable_gain = gaintable["gain"].where(
-        gaintable["weight"] != 0, 0j, drop=False
+        gaintable["weight"] != 0, np.nan, drop=False
     )
     # NOTE: Here we force all of the 'weight' values to be 1
     # to be compatible with DP3's handling of weights

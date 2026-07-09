@@ -189,7 +189,7 @@ class PhasorPolyFit:
         return np.concatenate([result.real, result.imag])
 
 
-class RMSFlagger:
+class MADFlagger:
     def __init__(self, n_sigma):
         """
         Performs RMS flagging.
@@ -397,8 +397,8 @@ class GainFlagger:
         if n_sigma <= 0:
             raise ValueError("n_sigma must be greater than zero")
 
-        self.preflagger = RMSFlagger(n_sigma)
-        self.flaggers.append(RMSFlagger(n_sigma))
+        self.preflagger = MADFlagger(n_sigma)
+        self.flaggers.append(MADFlagger(n_sigma))
 
         if n_sigma_rolling:
             self.flaggers.append(
@@ -438,13 +438,18 @@ class GainFlagger:
         flags[weights == 0] = True
 
         freq_guess = None
-        last_fit_components = None
+        last_fit_components = np.full_like(gains, np.nan, dtype=complex)
 
-        temp_flags = self.preflagger.pre_flag(np.abs(gains), flags)
-        flags |= temp_flags
+        data_components = self.soltype(gains)
+
+        for arr in data_components.values():
+            temp_flags = self.preflagger.pre_flag(arr, flags)
+            flags |= temp_flags
 
         for cycle in range(self.max_ncycles):
-            if np.any(flags):
+
+            # Exit if everything is flagged
+            if np.all(flags):
                 break
 
             cycle_flags = np.zeros_like(flags, dtype=bool)
@@ -632,9 +637,8 @@ def flag_on_gains(
     """
 
     original_chunks = gaintable.chunks
+    # NOTE: Check for presist issue
     gaintable = gaintable.chunk({"frequency": -1, "antenna": 1})
-
-    logger.info(gaintable.chunks)
 
     freq = gaintable.frequency.data
     fit_names = _fit_names(soltype)
@@ -655,7 +659,8 @@ def flag_on_gains(
         name: xr.zeros_like(gaintable.gain, dtype=float) for name in fit_names
     }
 
-    flags = None
+    flags = xr.zeros_like(gaintable.weight, dtype=bool)
+
     for receptor1, receptor2 in np.ndindex(
         len(gaintable.receptor1), len(gaintable.receptor2)
     ):
@@ -680,10 +685,7 @@ def flag_on_gains(
             ),
         )
 
-        if flags is not None:
-            flags = np.logical_or(flags, results[0])
-        else:
-            flags = results[0]
+        flags[0, :, :, receptor1, receptor2] = results[0]
 
         for i, name in enumerate(fit_names, start=1):
             fits[name][0, :, :, receptor1, receptor2] = results[i]
@@ -696,6 +698,6 @@ def flag_on_gains(
         gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks),
+        gaintable.assign(weight=new_weights).chunk(original_chunks).persist(),
         fits,
     )
