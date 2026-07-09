@@ -63,17 +63,28 @@ def bandpass_initialisation_stage(
     initialtable = _upstream_output_.gaintable
     prefix = _upstream_output_.ms_prefix
 
-    refant = parse_antenna(refant, initialtable.configuration.names)
-    solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
+    if "bandpass_initialized_in_delay" in _upstream_output_:
+        logger.info(
+            "Skipping Bandpass Initialisation as it has already been done as"
+            "part of delay calibration."
+        )
+    else:
+        refant = parse_antenna(refant, initialtable.configuration.names)
+        solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
 
-    logger.info("Bandpass Initialisation will be done with solver: %s", solver)
+        logger.info(
+            "Bandpass Initialisation will be done with solver: %s", solver
+        )
 
-    gaintable = run_solver(
-        vis=vis,
-        modelvis=modelvis,
-        gaintable=initialtable,
-        solver=solver,
-    )
+        gaintable = run_solver(
+            vis=vis,
+            modelvis=modelvis,
+            gaintable=initialtable,
+            solver=solver,
+        )
+
+        _upstream_output_["gaintable"] = gaintable
+        _upstream_output_["refant"] = refant
 
     if export_gaintable:
         gaintable_file_path = get_gaintables_path(
@@ -82,11 +93,8 @@ def bandpass_initialisation_stage(
 
         _upstream_output_.add_compute_tasks(
             dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
+                _upstream_output_["gaintable"], gaintable_file_path
             )
         )
-
-    _upstream_output_["gaintable"] = gaintable
-    _upstream_output_["refant"] = refant
 
     return _upstream_output_

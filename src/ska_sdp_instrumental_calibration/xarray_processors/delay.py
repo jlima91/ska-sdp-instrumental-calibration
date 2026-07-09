@@ -8,7 +8,9 @@ import xarray as xr
 logger = logging.getLogger()
 
 
-def calculate_delay(gaintable: xr.Dataset, oversample) -> xr.Dataset:
+def calculate_delays_from_gain(
+    gaintable: xr.Dataset, oversample
+) -> xr.Dataset:
     """
     Applies the delay to the given gaintable
 
@@ -234,3 +236,24 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
 
     sign = -1 if inverse else 1
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
+
+
+def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> xr.Dataset:
+    """ "
+    Calculates delays from visibility data
+
+    Parameters
+    ----------
+    vis: xarray
+        Visibility data
+    refant: int
+        Reference antenna
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset of calculated delays
+    """
+    raise NotImplementedError(
+        "Calculating delays from visibility data is not implemented yet."
+    )

@@ -82,6 +82,39 @@ def test_should_initialize_gains_for_bandpass(
 
 
 @patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
+    ".run_solver"
+)
+def test_should_not_initialize_gains_if_delay_calibration_is_done(
+    run_solver_mock,
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    initial_gaintable = Mock(name="initial_gaintable")
+    upstream_output["gaintable"] = initial_gaintable
+    tol = 1e-06
+    refant = 0
+    niter = 200
+
+    upstream_output["bandpass_initialized_in_delay"] = True
+
+    actual = bandpass_initialisation_stage(
+        upstream_output,
+        _qa_dir_="/output/path",
+        refant=refant,
+        niter=niter,
+        tol=tol,
+        export_gaintable=False,
+    )
+
+    run_solver_mock.assert_not_called()
+
+    assert actual.gaintable == initial_gaintable
+
+
+@patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
     ".dask.delayed",
     side_effect=lambda x: x,

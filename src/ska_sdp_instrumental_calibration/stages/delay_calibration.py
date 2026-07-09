@@ -14,8 +14,15 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..data_managers.gaintable import reset_gaintable
+from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..xarray_processors.delay import apply_delay_to_gaintable, calculate_delay
+from ..xarray_processors import parse_antenna
+from ..xarray_processors.delay import (
+    apply_delay_to_gaintable,
+    calculate_delays_from_gain,
+    calculate_delays_from_vis,
+)
+from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotConfig
 
@@ -34,9 +41,22 @@ def delay_calibration_stage(
         int,
         Field(description="Oversample rate"),
     ] = 1,
+    use_k_type_solver: Annotated[
+        bool, Field(description="Use K-type solver for delay calibration")
+    ] = False,
+    refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
+    niter: Annotated[
+        int, Field(description="Number of solver iterations.")
+    ] = 200,
+    tol: Annotated[
+        float,
+        Field(
+            description="""Iteration stops when the fractional change
+                in the gain solution is below this tolerance."""
+        ),
+    ] = 1e-06,
     export_gaintable: Annotated[
-        bool,
-        Field(description="Export intermediate gain solutions."),
+        bool, Field(description="Export intermediate gain solutions.")
     ] = True,
 ):
     """
@@ -53,6 +73,15 @@ def delay_calibration_stage(
             eg: {plot_table: False, fixed_axis: False}
         oversample: int
             Oversample rate
+        use_k_type_solver: bool
+            Use K-type solver for delay calibration
+        refant: int | str
+            Reference antenna for delay calibration
+        niter: int
+            Number of solver iterations.
+        tol: float
+            Iteration stops when the fractional change in the gain solution is
+            below this tolerance.
         export_gaintable: bool
             Export intermediate gain solutions
     Returns
@@ -64,20 +93,40 @@ def delay_calibration_stage(
     _upstream_output_.add_checkpoint_key("gaintable")
     vis = _upstream_output_.vis
     prefix = _upstream_output_.ms_prefix
+    modelvis = _upstream_output_.modelvis
     gaintable = _upstream_output_.gaintable
-    refant = _upstream_output_.refant
-
-    initialtable = reset_gaintable(gaintable)
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("delay"):
         call_counter_suffix = f"_{call_count}"
 
-    delaytable = calculate_delay(gaintable, oversample)
+    refant = parse_antenna(refant, gaintable.configuration.names)
 
-    gaintable_without_delay = apply_delay_to_gaintable(
-        gaintable, delaytable, inverse=True
-    )
+    if use_k_type_solver:
+        delaytable = calculate_delays_from_vis(vis, refant)
+
+    else:
+        delay_solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
+        logger.info(
+            "Delay Calibration will be done with solver: %s", delay_solver
+        )
+
+        gaintable = run_solver(
+            vis=vis,
+            modelvis=modelvis,
+            gaintable=gaintable,
+            solver=delay_solver,
+        )
+        delaytable = calculate_delays_from_gain(gaintable, oversample)
+
+        gaintable_without_delay = apply_delay_to_gaintable(
+            gaintable, delaytable, inverse=True
+        )
+
+        _upstream_output_["gaintable"] = gaintable_without_delay
+        _upstream_output_["bandpass_initialized_in_delay"] = True
+
+    initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
     vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
 
@@ -128,7 +177,6 @@ def delay_calibration_stage(
 
     _upstream_output_["vis"] = vis
     _upstream_output_["delay"] = delay_corrections
-    _upstream_output_["gaintable"] = gaintable_without_delay
     _upstream_output_["refant"] = refant
     _upstream_output_.add_calibration_table("delay")
 

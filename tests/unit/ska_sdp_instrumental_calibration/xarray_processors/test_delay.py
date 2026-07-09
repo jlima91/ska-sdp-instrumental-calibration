@@ -4,7 +4,7 @@ import xarray as xr
 
 from ska_sdp_instrumental_calibration.xarray_processors.delay import (
     apply_delay_to_gaintable,
-    calculate_delay,
+    calculate_delays_from_gain,
     calculate_gain_rot,
     coarse_delay,
 )
@@ -93,7 +93,7 @@ def test_calculate_apply_delay():
         attrs={"configuration": "Antenna Configuration"},
     )
 
-    delay = calculate_delay(gaintable, 4)
+    delay = calculate_delays_from_gain(gaintable, 4)
 
     actual_gaintable = apply_delay_to_gaintable(gaintable, delay, inverse=True)
 
