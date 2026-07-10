@@ -4023,14 +4023,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-exec-piper"
-version = "2.1.0"
+version = "2.2.0"
 description = "SKA SDP Piper Execution Framework"
 optional = false
 python-versions = ">=3.10,<4.0"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_exec_piper-2.1.0-py3-none-any.whl", hash = "sha256:7a8ab8192c0d41daeeeb0656c98a42b05db12e81c7965cc9c3e9b99076f79191"},
-    {file = "ska_sdp_exec_piper-2.1.0.tar.gz", hash = "sha256:f714e3795697c54663755ad0e36a6aaaa01b22d80e9463769ad6149b15bc213c"},
+    {file = "ska_sdp_exec_piper-2.2.0-py3-none-any.whl", hash = "sha256:7042db32200424ef2254c932672b9a670070809039b0f06078006e3476ecdaf2"},
+    {file = "ska_sdp_exec_piper-2.2.0.tar.gz", hash = "sha256:34211ff1ff5f329c1325694815e5c8fe21342f8c8afa4caa77d1f11760da81a0"},
 ]
 
 [package.dependencies]
