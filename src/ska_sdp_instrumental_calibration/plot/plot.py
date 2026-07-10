@@ -9,6 +9,7 @@ from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
     generate_rotation_matrices,
 )
 
+from ..scheduler import customDelay
 from ..xarray_processors import normalize_data
 from ._util import ecef_to_lla, safe
 from .plot_gaintable import PlotGaintableFrequency
@@ -26,7 +27,7 @@ __all__ = [
 ]
 
 
-@dask.delayed
+@customDelay.delayed
 @safe
 def plot_flag_gain(
     gaintable,
@@ -106,7 +107,7 @@ def plot_flag_gain(
         plt.close()
 
 
-@dask.delayed
+@customDelay.delayed
 @safe
 def plot_curve_fit(
     gaintable,

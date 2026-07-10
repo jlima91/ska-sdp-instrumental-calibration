@@ -6,29 +6,45 @@ import xarray as xr
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
+from ..scheduler import customDelay
+
 logger = logging.getLogger()
 
 
-@dask.delayed
 def log_flaging_statistics(weights, initial_weights):
+    """
+    Builds the flagging statistics graph using native lazy operations,
+    returning a delayed task for the logging side-effect.
+    """
+    # 1. Native Xarray operations (These build a lazy Dask graph automatically)
     current_flagged = (
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
     ).sum(dim=["time", "frequency"])
 
-    antna_percent_flagged = (
-        current_flagged / weights[:, 0, :, 0, 0].size
-    ) * 100
+    # .size is a known integer metadata attribute; it does not trigger compute
+    total_elements = weights[:, 0, :, 0, 0].size
 
-    min_percent = antna_percent_flagged.min()
-    median_percent = np.median(antna_percent_flagged.data)
-    max_percent = antna_percent_flagged.max()
+    # This remains a lazy 1D DataArray (reduced down to the antenna dimension)
+    antna_percent_flagged = (current_flagged / total_elements) * 100
 
-    logger.info(
-        f"Gain flagging: Statistics "
-        f" min: {min_percent.data:.2f}%,"
-        f" median: {median_percent:.2f}%,"
-        f" max: {max_percent.data:.2f}%."
-    )
+    # 2. Isolate the side-effect and small-array math into a tiny delayed wrapper
+    @customDelay.delayed
+    def _execute_log(percentages):
+        # By the time this runs, Dask has evaluated 'percentages' into memory.
+        # We can safely use numpy operations here on the small 1D array.
+        min_percent = float(percentages.min())
+        max_percent = float(percentages.max())
+        median_percent = float(np.median(percentages))
+
+        logger.info(
+            f"Gain flagging: Statistics "
+            f" min: {min_percent:.2f}%,"
+            f" median: {median_percent:.2f}%,"
+            f" max: {max_percent:.2f}%."
+        )
+
+    # 3. Return the delayed task so the scheduler can append it to the graph
+    return _execute_log(antna_percent_flagged)
 
 
 class SmoothingFit:

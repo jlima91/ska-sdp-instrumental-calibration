@@ -6,6 +6,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
+from ..scheduler import customDelay
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
@@ -14,7 +15,7 @@ from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotFlagGainConfig
 
 
-@ConfigurableStage(name="flag_gain", optional=True)
+@ConfigurableStage(name="flag_gain", optional=False)
 def flag_gain_stage(
     _upstream_output_,
     _qa_dir_,
@@ -145,6 +146,8 @@ def flag_gain_stage(
         apply_flag,
     )
 
+    gaintable, fits = dask.persist(gaintable, fits)
+
     _upstream_output_.add_compute_tasks(
         log_flaging_statistics(
             gaintable.weight,
@@ -187,7 +190,7 @@ def flag_gain_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            customDelay.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

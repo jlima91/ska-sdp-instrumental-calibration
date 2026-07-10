@@ -16,7 +16,7 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..data_managers.sdm import get_gaintable_file_path
-from ..scheduler import UpstreamOutput
+from ..scheduler import UpstreamOutput, customDelay
 from ..tagger import Tags
 
 logger = logging.getLogger()
