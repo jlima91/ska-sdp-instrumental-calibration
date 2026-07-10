@@ -8,6 +8,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
+from ..scheduler import customDelay
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ..xarray_processors.vis_filter import VisibilityFilter
@@ -141,11 +142,14 @@ def bandpass_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            customDelay.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )
 
+    # from IPython import embed
+
+    # embed()
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")
     _upstream_output_.add_calibration_table("gaintable")
