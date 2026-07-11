@@ -238,7 +238,9 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
 
 
-def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> xr.Dataset:
+def fake_gains_from_vis(
+    vis: xr.Dataset, gaintable: xr.Dataset, refant: int
+) -> xr.Dataset:
     """ "
     Calculates delays from visibility data
 
@@ -246,6 +248,8 @@ def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> xr.Dataset:
     ----------
     vis: xarray
         Visibility data
+    gaintable: xarray
+        Gaintable
     refant: int
         Reference antenna
 
@@ -254,6 +258,40 @@ def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> xr.Dataset:
     xr.Dataset
         Dataset of calculated delays
     """
-    raise NotImplementedError(
-        "Calculating delays from visibility data is not implemented yet."
+
+    baseline_ids = vis.baselineid[
+        (vis.antenna1 == refant) | (vis.antenna2 == refant)
+    ]
+
+    baselines = vis.vis.isel(
+        baselineid=baseline_ids, polarisation=[0, 3]
+    ).mean(dim="time")
+
+    baselines[refant, ...] = 1.0 + 0.0j
+
+    weights = vis.weight.isel(
+        baselineid=baseline_ids, polarisation=[0, 3]
+    ).mean(dim="time")
+
+    baselines = np.conj(baselines)
+
+    weights[refant, ...] = 1.0
+
+    nant, nfreq, npol = baselines.shape
+    fake_gains = np.zeros((1, nant, nfreq, npol, npol), dtype=baselines.dtype)
+    fake_weights = np.zeros((1, nant, nfreq, npol, npol), dtype=weights.dtype)
+
+    for idx in range(npol):
+        fake_gains[0, :, :, idx, idx] = baselines[..., idx]
+        fake_weights[0, :, :, idx, idx] = weights[..., idx]
+
+    fake_gaintable = gaintable.copy()
+
+    # assign requires explicit dims when passing numpy arrays with >1 dim
+    gain_dims = gaintable.gain.dims
+    fake_gaintable = fake_gaintable.assign(gain=(gain_dims, fake_gains))
+    fake_gaintable = fake_gaintable.assign(
+        weight=(gaintable.weight.dims, fake_weights)
     )
+
+    return fake_gaintable
