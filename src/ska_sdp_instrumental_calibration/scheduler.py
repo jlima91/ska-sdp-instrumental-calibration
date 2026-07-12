@@ -5,40 +5,13 @@ from distributed import as_completed, futures_of, get_client
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
+from .deferred_task_manager import DeferredTaskManager
 from .tagger import Tags
 
 logger = logging.getLogger()
 
 
-class CustomDelay:
-    def __init__(self):
-        self.__persists = {}
-
-    def process_arg(self, arg):
-        if dask.is_dask_collection(arg):
-            arg_hash = id(arg)
-
-            if arg_hash not in self.__persists:
-                self.__persists[arg_hash] = arg.persist()
-
-            return self.__persists[arg_hash]
-
-        return arg
-
-    def delayed(self, func):
-
-        def wrapper(*args, **kwargs):
-            processed_args = [self.process_arg(arg) for arg in args]
-            processed_kwargs = {
-                key: self.process_arg(arg) for key, arg in kwargs.items()
-            }
-
-            return dask.delayed(func)(*processed_args, **processed_kwargs)
-
-        return wrapper
-
-
-customDelay = CustomDelay()
+customDelay = DeferredTaskManager()
 
 
 class UpstreamOutput:
@@ -84,7 +57,7 @@ class UpstreamOutput:
         value : any
             The data or object to store.
         """
-        self.__stage_outputs[key] = customDelay.process_arg(value)
+        self.__stage_outputs[key] = value
 
     def __getitem__(self, key):
         """
@@ -329,4 +302,5 @@ class InstrumentalDaskRunner(DaskRunner):
                     "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
                 },
             )
-        dask.compute(*computes)
+
+        customDelay.compute()

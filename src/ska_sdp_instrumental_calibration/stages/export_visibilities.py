@@ -5,6 +5,7 @@ from pydantic import Field
 from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
 from ska_sdp_piper.piper import ConfigurableStage
 
+from ..scheduler import UpstreamOutput, customDelay
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ._utils import get_visibilities_path
 
@@ -73,7 +74,7 @@ def export_visibilities_stage(
             _output_dir_, f"{prefix}/{vis_prefix}{call_counter_suffix}.ms"
         )
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_visibility_to_ms)(path_prefix, [vis])
+            customDelay.delayed(export_visibility_to_ms)(path_prefix, [vis])
         )
 
     if data_to_export == "modelvis" or data_to_export == "all":
@@ -82,7 +83,9 @@ def export_visibilities_stage(
             _output_dir_, f"{prefix}/modelvis{call_counter_suffix}.ms"
         )
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_visibility_to_ms)(path_prefix, [modelvis])
+            customDelay.delayed(export_visibility_to_ms)(
+                path_prefix, [modelvis]
+            )
         )
 
     _upstream_output_.increment_call_count("export_visibilities")

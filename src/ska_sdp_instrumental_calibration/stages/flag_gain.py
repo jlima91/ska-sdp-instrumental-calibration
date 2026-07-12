@@ -146,8 +146,6 @@ def flag_gain_stage(
         apply_flag,
     )
 
-    gaintable, fits = dask.persist(gaintable, fits)
-
     _upstream_output_.add_compute_tasks(
         log_flaging_statistics(
             gaintable.weight,

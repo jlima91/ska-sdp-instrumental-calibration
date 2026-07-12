@@ -78,7 +78,7 @@ def smooth_gain_solution_stage(
     if plot_config.plot_table:
         path_prefix = get_plots_path(
             _qa_dir_,
-            f"{prefix}_{plot_config.plot_path_prefix}{call_counter_suffix}",
+            f"{prefix}/{plot_config.plot_path_prefix}{call_counter_suffix}",
         )
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,

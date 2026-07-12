@@ -116,11 +116,9 @@ def delay_calibration_stage(
             modelvis=modelvis,
             gaintable=gaintable,
             solver=delay_solver,
-        ).persist()
+        )
 
-        delaytable = calculate_delays_from_gain(
-            gaintable, oversample
-        ).persist()
+        delaytable = calculate_delays_from_gain(gaintable, oversample)
 
         gaintable_without_delay = apply_delay_to_gaintable(
             gaintable, delaytable, inverse=True

@@ -147,9 +147,6 @@ def bandpass_calibration_stage(
             )
         )
 
-    # from IPython import embed
-
-    # embed()
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")
     _upstream_output_.add_calibration_table("gaintable")

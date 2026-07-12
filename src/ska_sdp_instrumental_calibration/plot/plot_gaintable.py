@@ -853,7 +853,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         return gaintable.isel(Jones_Solutions=[0])
 
     @customDelay.delayed
-    @safe
+    # @safe
     def _plot_bandpass_terms(
         self, gaintable, figure_title="", jones_term=None, **kwargs
     ):

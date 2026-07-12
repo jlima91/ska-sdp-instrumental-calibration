@@ -111,7 +111,7 @@ def export_gaintable_stage(
 
         logger.info(f"Writing solutions to {gaintable_file_path}")
 
-        export = dask.delayed(export_functions[export_format])(
+        export = customDelay.delayed(export_functions[export_format])(
             upstream_output.gaintable, gaintable_file_path
         )
 
