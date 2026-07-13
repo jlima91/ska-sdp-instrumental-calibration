@@ -20,7 +20,7 @@ from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
     apply_delay_to_gaintable,
     calculate_delays_from_gain,
-    fake_gains_from_vis,
+    create_baseline_table_from_vis,
 )
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path, get_plots_path
@@ -43,8 +43,8 @@ def delay_calibration_stage(
     ] = 1,
     use_k_type_solver: Annotated[
         bool, Field(description="Use K-type solver for delay calibration")
-    ] = True,
-    refant: Annotated[int | str, Field(description="Reference antenna")] = 3,
+    ] = False,
+    refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
     niter: Annotated[
         int, Field(description="Number of solver iterations.")
     ] = 200,
@@ -103,7 +103,7 @@ def delay_calibration_stage(
     refant = parse_antenna(refant, gaintable.configuration.names)
 
     if use_k_type_solver:
-        gaintable = fake_gains_from_vis(vis, gaintable, refant)
+        gaintable = create_baseline_table_from_vis(vis, gaintable, refant)
 
     else:
         delay_solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)

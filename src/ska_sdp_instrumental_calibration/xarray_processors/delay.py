@@ -238,7 +238,7 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
 
 
-def fake_gains_from_vis(
+def create_baseline_table_from_vis(
     vis: xr.Dataset, gaintable: xr.Dataset, refant: int
 ) -> xr.Dataset:
     """ "
@@ -267,6 +267,20 @@ def fake_gains_from_vis(
         baselineid=baseline_ids, polarisation=[0, 3]
     ).mean(dim="time")
 
+    refant_baseline_exists = (
+        (vis.antenna1 == refant) & (vis.antenna2 == refant)
+    ).any()
+
+    if not refant_baseline_exists:
+        refant_antenna_dim = baselines.dims[0]
+        baselines = baselines.reindex(
+            {
+                refant_antenna_dim: np.append(
+                    baselines[refant_antenna_dim].values, refant
+                )
+            }
+        )
+
     baselines[refant, ...] = 1.0 + 0.0j
 
     weights = vis.weight.isel(
@@ -278,20 +292,26 @@ def fake_gains_from_vis(
     weights[refant, ...] = 1.0
 
     nant, nfreq, npol = baselines.shape
-    fake_gains = np.zeros((1, nant, nfreq, npol, npol), dtype=baselines.dtype)
-    fake_weights = np.zeros((1, nant, nfreq, npol, npol), dtype=weights.dtype)
+    reshaped_baselines = np.zeros(
+        (1, nant, nfreq, npol, npol), dtype=baselines.dtype
+    )
+    reshaped_weights = np.zeros(
+        (1, nant, nfreq, npol, npol), dtype=weights.dtype
+    )
 
     for idx in range(npol):
-        fake_gains[0, :, :, idx, idx] = baselines[..., idx]
-        fake_weights[0, :, :, idx, idx] = weights[..., idx]
+        reshaped_baselines[0, :, :, idx, idx] = baselines[..., idx]
+        reshaped_weights[0, :, :, idx, idx] = weights[..., idx]
 
-    fake_gaintable = gaintable.copy()
+    baselines_table = gaintable.copy()
 
     # assign requires explicit dims when passing numpy arrays with >1 dim
     gain_dims = gaintable.gain.dims
-    fake_gaintable = fake_gaintable.assign(gain=(gain_dims, fake_gains))
-    fake_gaintable = fake_gaintable.assign(
-        weight=(gaintable.weight.dims, fake_weights)
+    baselines_table = baselines_table.assign(
+        gain=(gain_dims, reshaped_baselines)
+    )
+    baselines_table = baselines_table.assign(
+        weight=(gaintable.weight.dims, reshaped_weights)
     )
 
-    return fake_gaintable
+    return baselines_table
