@@ -8,6 +8,8 @@ from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
 from ...logger import setup_logger
+from ...scheduler import customDelay
+from ...xarray_processors.delay import DelayTable
 
 logger = setup_logger("data_managers.data_export")
 
@@ -167,15 +169,15 @@ def export_gaintable_to_h5parm(
         weight[...] = gaintable["weight"].data
 
 
-@dask.delayed
+@customDelay.delayed
 def export_clock_to_h5parm(
-    delaytable: xr.Dataset, filename: str, squeeze: bool = False
+    delaytable: DelayTable, filename: str, squeeze: bool = False
 ):
     """Export delaytable Dataset to a H5Parm HDF5 file.
 
     Parameters
     ----------
-    delaytable: xr.Dataset
+    delaytable: DelayTable
         Xarray dataset representing the delay table. Similar to gaintable
     filename: str
         Name of H5Parm file

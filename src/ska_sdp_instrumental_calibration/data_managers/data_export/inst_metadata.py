@@ -56,7 +56,6 @@ class INSTMetaData:
         )
         self.__metadata.output_path = path
 
-    @dask.delayed
     def export(self):
         """
         Exports INST metadata.

@@ -128,6 +128,6 @@ def export_gaintable_stage(
                 }
             ],
         )
-        final_upstream.add_compute_tasks(inst_metadata.export())
+        inst_metadata.export()
 
     return final_upstream

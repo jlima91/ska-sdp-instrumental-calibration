@@ -1,6 +1,6 @@
 import logging
-from collections import namedtuple
 from typing import Optional, Sequence
+
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -187,7 +187,13 @@ def calculate_delays_from_gain(gaintable: GainTable, oversample) -> DelayTable:
     )
 
 
-def _calculate_delays_ufunc_(gain: np.ndarray, weight: np.ndarray, offset: np.ndarray, frequency: np.ndarray, oversample: int):
+def _calculate_delays_ufunc_(
+    gain: np.ndarray,
+    weight: np.ndarray,
+    offset: np.ndarray,
+    frequency: np.ndarray,
+    oversample: int,
+):
     """
     gain: np.ndarray (nant, freq) (np.complex64)
     weight: np.ndarray (nant, freq) (float)
@@ -212,7 +218,7 @@ def _calculate_delays_ufunc_(gain: np.ndarray, weight: np.ndarray, offset: np.nd
         delay_coarse,
     )
 
-    return delay , offset
+    return delay, offset
 
 
 def apply_delay_to_gaintable(
@@ -250,9 +256,7 @@ def apply_delay_to_gaintable(
             frequency,
             output_dtypes=[np.complex64],
             dask="parallelized",
-            kwargs=dict(
-                inverse=inverse
-            ),
+            kwargs=dict(inverse=inverse),
         )
 
         new_gains[..., receptor1, receptor2] = delay_rotated_gain
@@ -261,7 +265,11 @@ def apply_delay_to_gaintable(
 
 
 def update_delay(
-    gains: np.ndarray, wgt: np.ndarray, freq: np.ndarray, _offset: np.ndarray, delay: np.ndarray
+    gains: np.ndarray,
+    wgt: np.ndarray,
+    freq: np.ndarray,
+    _offset: np.ndarray,
+    delay: np.ndarray,
 ) -> tuple[np.ndarray[float], np.ndarray[float]]:
     """
     Updates the delay to the gains
@@ -311,7 +319,9 @@ def update_delay(
 #     return np.unwrap(np.angle(gains_rot)) / (2 * np.pi)
 
 
-def coarse_delay(gains: np.ndarray, frequency: np.ndarray, oversample: int) -> np.ndarray[float]:
+def coarse_delay(
+    gains: np.ndarray, frequency: np.ndarray, oversample: int
+) -> np.ndarray[float]:
     """
     Calculates the coarse delay
 
@@ -344,18 +354,25 @@ def coarse_delay(gains: np.ndarray, frequency: np.ndarray, oversample: int) -> n
     return delay[..., np.abs(delay_spec).argmax(axis=-1, keepdims=True)]
 
 
-def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
+def calculate_gain_rot(
+    gain: np.ndarray,
+    delay: float,
+    offset: float,
+    freq: np.ndarray,
+    inverse=False,
+):
     """
     Calculates gain rotation.
     The function assumes that for numpy arrays as input, the values
-    are broadcastable across dimensions.
+    are broadcastable across dimensions excluding the last one.
 
     Parameters
     ----------
-    gain: float | np.ndarray. (complex64)
+    gain: np.ndarray. (complex64)
     delay: float
     offset: float
-    freq: float | np.ndarray. (float)
+    freq: np.ndarray. (float)
+    inverse: bool
 
     Returns
     -------
@@ -368,20 +385,19 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay * freq)))
 
 
-def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> xr.Dataset:
-    """ "
+def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> DelayTable:
+    """
     Calculates delays from visibility data
 
     Parameters
     ----------
-    vis: xarray
+    vis
         Visibility data
-    refant: int
+    refant
         Reference antenna
 
     Returns
     -------
-    xr.Dataset
         Dataset of calculated delays
     """
     raise NotImplementedError(

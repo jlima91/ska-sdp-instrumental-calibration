@@ -1,4 +1,3 @@
-import dask.delayed
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -302,7 +301,7 @@ def plot_curve_fit(
         plt.close()
 
 
-@dask.delayed
+@customDelay.delayed
 @safe
 def plot_station_delays(delaytable, path_prefix):
     """
@@ -352,7 +351,7 @@ def plot_station_delays(delaytable, path_prefix):
     plt.close()
 
 
-@dask.delayed
+@customDelay.delayed
 @safe
 def plot_bandpass_stages(
     gaintable, initialtable, rm_est, refant, plot_path_prefix
@@ -436,7 +435,7 @@ def plot_bandpass_stages(
     fig.savefig(f"{plot_path_prefix}-bandpass_stages.png")
 
 
-@dask.delayed
+@customDelay.delayed
 @safe
 def plot_rm_station(
     gaintable,

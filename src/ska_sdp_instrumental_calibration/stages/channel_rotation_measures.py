@@ -13,6 +13,7 @@ from ..plot import (
     plot_bandpass_stages,
     plot_rm_station,
 )
+from ..scheduler import customDelay
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
@@ -224,7 +225,7 @@ def generate_channel_rm_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            customDelay.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

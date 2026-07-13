@@ -7,11 +7,10 @@ from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
+from ..scheduler import customDelay
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path
-
-from ..scheduler import customDelay
 
 logger = logging.getLogger()
 

@@ -10,8 +10,10 @@ TaskRecipe = namedtuple("TaskRecipe", ["func", "args", "kwargs"])
 
 class DeferredTaskManager:
     def __init__(self):
-        self._registry: list[TaskRecipe] = []
-        self._tracked_arrays: dict[int, da.Array] = {}  # mapping of id(lazy_array) -> lazy_array
+        self._registry: list[TaskRecipe] = list()
+        self._tracked_arrays: dict[int, da.Array] = (
+            dict()
+        )  # mapping of id(lazy_array) -> lazy_array
 
     def _find_arrays(self, obj):
         """Recursively parses arguments to find all unique Dask/Xarray targets."""
