@@ -1,8 +1,10 @@
 import logging
+import warnings
 
 import dask
 import numpy as np
 import xarray as xr
+from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
@@ -651,14 +653,16 @@ def flag_on_gains(
         fits: dict
             All fits generated.
     """
+    original_chunks = gaintable.chunksizes
+    gaintable = gaintable.chunk(time=1, antenna=1, frequency=-1)
 
-    original_chunks = gaintable.chunks
-    # NOTE: Check for presist issue
-    gaintable = gaintable.chunk({"frequency": -1, "antenna": 1})
+    freq = gaintable["frequency"].values
+    # Create a datarray to store antenna names
+    # Rename "id" dimension from configuration to "antenna"
+    # to match with gaintable's dimensions
+    antenna_names_xdr = gaintable.configuration["names"].rename(id="antenna")
 
-    freq = gaintable.frequency.data
     fit_names = _fit_names(soltype)
-
     cfg = dict(
         soltype=soltype,
         order=order,
@@ -669,42 +673,48 @@ def flag_on_gains(
     )
 
     output_core_dims = [["frequency"]] * (1 + len(fit_names))
-    output_dtypes = [gaintable.weight.dtype] + [float] * len(fit_names)
+    output_dtypes = [gaintable["weight"].dtype] + [float] * len(fit_names)
 
     fits = {
-        name: xr.zeros_like(gaintable.gain, dtype=float) for name in fit_names
+        name: xr.zeros_like(gaintable["gain"], dtype=float)
+        for name in fit_names
     }
+    flags = xr.zeros_like(gaintable["weight"], dtype=bool)
 
-    flags = xr.zeros_like(gaintable.weight, dtype=bool)
-
-    for receptor1, receptor2 in np.ndindex(
-        len(gaintable.receptor1), len(gaintable.receptor2)
+    for rec1idx, rec2idx in np.ndindex(
+        gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]
     ):
-        if skip_cross_pol and receptor1 != receptor2:
+        if skip_cross_pol and rec1idx != rec2idx:
             continue
 
-        results = xr.apply_ufunc(
-            _flag_wrapper_ufunc_,
-            gaintable.gain[0, :, :, receptor1, receptor2],
-            gaintable.weight[0, :, :, receptor1, receptor2],
-            gaintable.configuration.names.data,
-            input_core_dims=[["frequency"], ["frequency"], []],
-            output_core_dims=output_core_dims,
-            output_dtypes=output_dtypes,
-            vectorize=True,
-            dask="parallelized",
-            kwargs=dict(
-                freq=freq,
-                cfg=cfg,
-                receptor1_name=gaintable.receptor1[receptor1].data,
-                receptor2_name=gaintable.receptor2[receptor2].data,
-            ),
-        )
+        with warnings.catch_warnings():
+            # apply_ufunc throws a false warning, when it detects that
+            # one of the inputs (gain) has complex dtype, but outputs
+            # are all non-complex values
+            warnings.simplefilter("ignore", ComplexWarning)
 
-        flags[0, :, :, receptor1, receptor2] = results[0]
+            results = xr.apply_ufunc(
+                _flag_wrapper_ufunc_,
+                gaintable.gain[..., rec1idx, rec2idx],
+                gaintable.weight[..., rec1idx, rec2idx],
+                antenna_names_xdr,
+                input_core_dims=[["frequency"], ["frequency"], []],
+                output_core_dims=output_core_dims,
+                output_dtypes=output_dtypes,
+                vectorize=True,
+                dask="parallelized",
+                kwargs=dict(
+                    freq=freq,
+                    cfg=cfg,
+                    receptor1_name=gaintable["receptor1"][rec1idx].item(),
+                    receptor2_name=gaintable["receptor2"][rec2idx].item(),
+                ),
+            )
+
+        flags[..., rec1idx, rec2idx] = results[0]
 
         for i, name in enumerate(fit_names, start=1):
-            fits[name][0, :, :, receptor1, receptor2] = results[i]
+            fits[name][..., rec1idx, rec2idx] = results[i]
 
     new_weights = gaintable.weight
     new_weights = xr.where(flags, 0.0, new_weights)
@@ -714,6 +724,6 @@ def flag_on_gains(
         gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks).persist(),
+        gaintable.assign(weight=new_weights).chunk(original_chunks),
         fits,
     )

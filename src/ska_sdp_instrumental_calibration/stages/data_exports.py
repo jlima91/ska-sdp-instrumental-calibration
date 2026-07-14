@@ -123,7 +123,9 @@ def export_gaintable_stage(
             metadata_file_path,
             data_products=[
                 {
-                    "dp_path": f"{file_name}.{export_format}",
+                    "dp_path": os.path.relpath(
+                        gaintable_file_path, _output_dir_
+                    ),
                     "description": "Gaintable",
                 }
             ],
