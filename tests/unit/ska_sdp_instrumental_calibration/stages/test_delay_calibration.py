@@ -140,11 +140,7 @@ def test_should_perform_delay_calibration_using_gaintable(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_gain"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_baseline_table_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -157,8 +153,7 @@ def test_should_perform_delay_calibration_using_gaintable(
 def test_should_perform_delay_calibration_using_visibilities(
     parse_antenna_mock,
     apply_delay_mock,
-    create_baseline_table_from_vis_mock,
-    calculate_delays_from_gain_mock,
+    create_delaytable_from_vis_mock,
     reset_gaintable_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
@@ -167,18 +162,10 @@ def test_should_perform_delay_calibration_using_visibilities(
     modelvis = Mock(name="modelvis")
     initialtable_mock = Mock(name="initialtable")
     gaintable_mock = Mock(name="gaintable")
-    baselines_table_mock = Mock(name="baselines_table")
-    gaintable_without_delay_mock = Mock(name="gaintable_without_delay")
-    delay_correction_mock = Mock(name="delay_correction")
     delaytable_mock = Mock(name="delaytable")
 
     reset_gaintable_mock.return_value = initialtable_mock
-    create_baseline_table_from_vis_mock.return_value = baselines_table_mock
-    calculate_delays_from_gain_mock.return_value = delaytable_mock
-    apply_delay_mock.side_effect = [
-        gaintable_without_delay_mock,
-        delay_correction_mock,
-    ]
+    create_delaytable_from_vis_mock.return_value = delaytable_mock
 
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
@@ -196,26 +183,23 @@ def test_should_perform_delay_calibration_using_visibilities(
         use_k_type_solver=True,
     )
 
-    create_baseline_table_from_vis_mock.assert_called_once_with(
-        vis_mock, gaintable_mock, parse_antenna_mock.return_value
-    )
-    calculate_delays_from_gain_mock.assert_called_once_with(
-        baselines_table_mock, oversample
+    create_delaytable_from_vis_mock.assert_called_once_with(
+        vis_mock, gaintable_mock, parse_antenna_mock.return_value, oversample
     )
     apply_delay_mock.assert_has_calls(
         [
-            call(baselines_table_mock, delaytable_mock, inverse=True),
+            call(gaintable_mock, delaytable_mock, inverse=True),
             call(initialtable_mock, delaytable_mock),
         ]
     )
-    reset_gaintable_mock.assert_called_once_with(baselines_table_mock)
+    reset_gaintable_mock.assert_called_once_with(gaintable_mock)
     apply_gaintable_to_dataset_mock.assert_called_once_with(
-        vis_mock, delay_correction_mock, inverse=True
+        vis_mock, apply_delay_mock.return_value, inverse=True
     )
 
     assert output.vis == apply_gaintable_to_dataset_mock.return_value
-    assert output.delay == delay_correction_mock
-    assert output.gaintable == gaintable_without_delay_mock
+    assert output.delay == apply_delay_mock.return_value
+    assert output.gaintable == apply_delay_mock.return_value
 
 
 @patch(
@@ -240,11 +224,7 @@ def test_should_perform_delay_calibration_using_visibilities(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_gain"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_baseline_table_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -258,8 +238,7 @@ def test_should_perform_delay_calibration_using_visibilities(
 def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     parse_antenna_mock,
     apply_delay_mock,
-    create_baseline_table_from_vis_mock,
-    calculate_delays_from_gain_mock,
+    calculate_delay_mock,
     plot_gaintable_freq_mock,
     plot_station_delays_mock,
     get_plots_path_mock,
@@ -269,7 +248,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 ):
     delaytable_mock = Mock(name="delaytable")
     delayed_gaintable_mock = Mock(name="delayed_gaintable")
-    calculate_delays_from_gain_mock.return_value = delaytable_mock
+    calculate_delay_mock.return_value = delaytable_mock
     apply_delay_mock.return_value = delayed_gaintable_mock
 
     get_plots_path_mock.side_effect = [
@@ -377,11 +356,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_gain"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".create_baseline_table_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -395,8 +370,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 def test_should_export_gaintable_with_proper_suffix(
     parse_antenna_mock,
     apply_delay_mock,
-    create_baseline_table_from_vis_mock,
-    calculate_delays_from_gain_mock,
+    calculate_delay_mock,
     export_gaintable_mock,
     get_gaintables_path_mock,
     delay_mock,

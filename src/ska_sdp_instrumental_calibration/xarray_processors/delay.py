@@ -238,8 +238,8 @@ def calculate_gain_rot(gain, delay, offset, freq, inverse=False):
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay.T * freq.T))).T
 
 
-def create_baseline_table_from_vis(
-    vis: xr.Dataset, gaintable: xr.Dataset, refant: int
+def create_delaytable_from_vis(
+    vis: xr.Dataset, gaintable: xr.Dataset, refant: int, oversample: int
 ) -> xr.Dataset:
     """ "
     Calculates delays from visibility data
@@ -260,48 +260,28 @@ def create_baseline_table_from_vis(
     """
 
     baseline_ids = vis.baselineid[
-        (vis.antenna1 == refant) | (vis.antenna2 == refant)
+        (vis.antenna1 == refant) ^ (vis.antenna2 == refant)
     ]
 
     baselines = vis.vis.isel(
         baselineid=baseline_ids, polarisation=[0, 3]
     ).mean(dim="time")
 
-    refant_baseline_exists = (
-        (vis.antenna1 == refant) & (vis.antenna2 == refant)
-    ).any()
-
-    if not refant_baseline_exists:
-        refant_antenna_dim = baselines.dims[0]
-        baselines = baselines.reindex(
-            {
-                refant_antenna_dim: np.append(
-                    baselines[refant_antenna_dim].values, refant
-                )
-            }
-        )
-
-    baselines[refant, ...] = 1.0 + 0.0j
+    baselines = np.conj(baselines)
 
     weights = vis.weight.isel(
         baselineid=baseline_ids, polarisation=[0, 3]
     ).mean(dim="time")
 
-    baselines = np.conj(baselines)
+    nant, _, npol = baselines.shape
+    reshaped_baselines = np.ones_like(gaintable.gain)
+    reshaped_weights = np.ones_like(gaintable.weight)
 
-    weights[refant, ...] = 1.0
-
-    nant, nfreq, npol = baselines.shape
-    reshaped_baselines = np.zeros(
-        (1, nant, nfreq, npol, npol), dtype=baselines.dtype
-    )
-    reshaped_weights = np.zeros(
-        (1, nant, nfreq, npol, npol), dtype=weights.dtype
-    )
-
+    # We have assumed that the antennas are in order
+    ant_indices = [i for i in range(nant + 1) if i != refant]
     for idx in range(npol):
-        reshaped_baselines[0, :, :, idx, idx] = baselines[..., idx]
-        reshaped_weights[0, :, :, idx, idx] = weights[..., idx]
+        reshaped_baselines[0, ant_indices, :, idx, idx] = baselines[:, :, idx]
+        reshaped_weights[0, ant_indices, :, idx, idx] = weights[:, :, idx]
 
     baselines_table = gaintable.copy()
 
@@ -313,5 +293,6 @@ def create_baseline_table_from_vis(
     baselines_table = baselines_table.assign(
         weight=(gaintable.weight.dims, reshaped_weights)
     )
+    delaytable = calculate_delays_from_gain(baselines_table, oversample)
 
-    return baselines_table
+    return delaytable

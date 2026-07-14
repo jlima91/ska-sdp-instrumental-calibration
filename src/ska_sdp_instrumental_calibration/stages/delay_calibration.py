@@ -20,7 +20,7 @@ from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
     apply_delay_to_gaintable,
     calculate_delays_from_gain,
-    create_baseline_table_from_vis,
+    create_delaytable_from_vis,
 )
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path, get_plots_path
@@ -103,7 +103,9 @@ def delay_calibration_stage(
     refant = parse_antenna(refant, gaintable.configuration.names)
 
     if use_k_type_solver:
-        gaintable = create_baseline_table_from_vis(vis, gaintable, refant)
+        delaytable = create_delaytable_from_vis(
+            vis, gaintable, refant, oversample
+        )
 
     else:
         delay_solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
@@ -120,7 +122,7 @@ def delay_calibration_stage(
 
         _upstream_output_["bandpass_initialized_in_delay"] = True
 
-    delaytable = calculate_delays_from_gain(gaintable, oversample)
+        delaytable = calculate_delays_from_gain(gaintable, oversample)
 
     gaintable_without_delay = apply_delay_to_gaintable(
         gaintable, delaytable, inverse=True
