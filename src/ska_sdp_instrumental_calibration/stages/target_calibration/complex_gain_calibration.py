@@ -18,6 +18,8 @@ from ..configuration_models import PlotConfig, TargetRunSolverConfig
 
 logger = logging.getLogger()
 
+from ...scheduler import customDelay
+
 
 @ConfigurableStage(name="complex_gain_calibration")
 def complex_gain_calibration_stage(
@@ -125,7 +127,7 @@ def complex_gain_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(h5exp.export_gaintable_to_h5parm)(
+            customDelay.delayed(h5exp.export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

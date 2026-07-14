@@ -28,6 +28,8 @@ from .configuration_models import PlotConfig
 
 logger = logging.getLogger()
 
+from ..scheduler import customDelay
+
 
 @ConfigurableStage(name="delay_calibration")
 def delay_calibration_stage(
@@ -167,7 +169,7 @@ def delay_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            customDelay.delayed(export_gaintable_to_h5parm)(
                 delay_corrections, gaintable_file_path
             )
         )
