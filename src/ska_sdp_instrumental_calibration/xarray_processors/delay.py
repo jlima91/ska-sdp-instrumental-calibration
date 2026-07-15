@@ -263,23 +263,25 @@ def create_delaytable_from_vis(
         (vis.antenna1 == refant) ^ (vis.antenna2 == refant)
     ]
 
+    self_pols = [0, 3]
+
     baselines = vis.vis.isel(
-        baselineid=baseline_ids, polarisation=[0, 3]
+        baselineid=baseline_ids, polarisation=self_pols
     ).mean(dim="time")
 
     baselines = np.conj(baselines)
 
     weights = vis.weight.isel(
-        baselineid=baseline_ids, polarisation=[0, 3]
+        baselineid=baseline_ids, polarisation=self_pols
     ).mean(dim="time")
 
-    nant, _, npol = baselines.shape
+    nant, _, _ = baselines.shape
     reshaped_baselines = np.ones_like(gaintable.gain)
     reshaped_weights = np.ones_like(gaintable.weight)
 
     # We have assumed that the antennas are in order
     ant_indices = [i for i in range(nant + 1) if i != refant]
-    for idx in range(npol):
+    for idx in range(2):
         reshaped_baselines[0, ant_indices, :, idx, idx] = baselines[:, :, idx]
         reshaped_weights[0, ant_indices, :, idx, idx] = weights[:, :, idx]
 

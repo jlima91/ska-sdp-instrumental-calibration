@@ -188,7 +188,6 @@ def test_should_perform_delay_calibration_using_visibilities(
     )
     apply_delay_mock.assert_has_calls(
         [
-            call(gaintable_mock, delaytable_mock, inverse=True),
             call(initialtable_mock, delaytable_mock),
         ]
     )
@@ -199,7 +198,7 @@ def test_should_perform_delay_calibration_using_visibilities(
 
     assert output.vis == apply_gaintable_to_dataset_mock.return_value
     assert output.delay == apply_delay_mock.return_value
-    assert output.gaintable == apply_delay_mock.return_value
+    assert output.gaintable == gaintable_mock
 
 
 @patch(

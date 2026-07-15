@@ -124,11 +124,11 @@ def delay_calibration_stage(
 
         delaytable = calculate_delays_from_gain(gaintable, oversample)
 
-    gaintable_without_delay = apply_delay_to_gaintable(
-        gaintable, delaytable, inverse=True
-    )
+        gaintable_without_delay = apply_delay_to_gaintable(
+            gaintable, delaytable, inverse=True
+        )
 
-    _upstream_output_["gaintable"] = gaintable_without_delay
+        _upstream_output_["gaintable"] = gaintable_without_delay
 
     initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
