@@ -46,7 +46,7 @@ class SmoothingFit:
         self.order = order
         self.component = component
 
-    def fit(self, gains, weights):
+    def fit(self, gains, flags):
         """
         Fits a smooth curve on the gains.
 
@@ -54,8 +54,8 @@ class SmoothingFit:
         ----------
             gains: Array
                 Gains.
-            weights: Array
-                Weights of the gains.
+            flags: Array
+                Flags for the gains.
         Returns
         -------
             Dict of fits.
@@ -65,7 +65,7 @@ class SmoothingFit:
 
         for name, arr in components.items():
             vals = np.copy(arr)
-            np.putmask(vals, weights == 0, np.nan)
+            np.putmask(vals, flags, np.nan)
 
             fits[name] = generic_filter(
                 vals,
@@ -93,7 +93,7 @@ class PhasorPolyFit:
         self.order = order
         self.freq = freq
 
-    def fit(self, gains, weights, freq_guess):
+    def fit(self, gains, flags, freq_guess):
         """
         Fit a phasor model with polynomial envelope.
 
@@ -101,8 +101,8 @@ class PhasorPolyFit:
         ----------
             gains: Array
                 Gains.
-            weights: Array
-                Weights of the gains.
+            flags: Array
+                Flags for the gains.
             freq_guess: float
                 Initial frequency to begin.
 
@@ -110,7 +110,7 @@ class PhasorPolyFit:
         -------
             Fitted model.
         """
-        mask = weights != 0
+        mask = ~flags
         if mask.sum() < self.order + 2:
             return np.full_like(gains, np.nan, dtype=complex), freq_guess
 
@@ -189,7 +189,7 @@ class PhasorPolyFit:
         return np.concatenate([result.real, result.imag])
 
 
-class RMSFlagger:
+class MADFlagger:
     def __init__(self, n_sigma):
         """
         Performs RMS flagging.
@@ -202,7 +202,7 @@ class RMSFlagger:
         """
         self.n_sigma = n_sigma
 
-    def pre_flag(self, arr, weights):
+    def pre_flag(self, arr, flags):
         """
         Flag outliers using Median Absolute Deviation (MAD).
 
@@ -210,25 +210,24 @@ class RMSFlagger:
         ----------
             arr : ndarray
                 Input array containing the data to be flagged.
-            weights : ndarray
-                Weighting factors for each element in the input array.
+            flags : ndarray
+                Boolean mask indicating which elements are flagged.
 
         Returns
         -------
             ndarray
                 Boolean mask where True indicates an outlier based on n_sigma.
         """
-        valid = weights != 0
-        valid_weights = np.zeros_like(weights, dtype=float)
-        valid_weights[valid] = 1
+        valid = ~flags
+        arr[flags] = np.nan
         if not np.any(valid):
-            return np.zeros_like(weights, dtype=bool)
+            return np.zeros_like(flags, dtype=bool)
 
         med = np.nanmedian(arr[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid] - med))
-        return np.abs((arr - med) * valid_weights) > (self.n_sigma * sigma)
+        return np.abs(arr - med) > (self.n_sigma * sigma)
 
-    def flag(self, arr, weights):
+    def flag(self, arr, flags):
         """
         Does flagging using rms.
 
@@ -236,22 +235,20 @@ class RMSFlagger:
         ----------
             arr: Array
                 Diff of fit and gains.
-            weights: Array
-                Weights of gains.
-            detrend: Bool
-                Whether the array is detrended or not
+            flags: Array
+                Boolean mask indicating which elements are flagged.
+
         Returns
         -------
-            Array fo flags
+            Array of flags
         """
-        valid = weights != 0
-        valid_weights = np.zeros_like(weights, dtype=float)
-        valid_weights[valid] = 1
+        valid = ~flags
+        arr[flags] = np.nan
         if not np.any(valid):
-            return np.zeros_like(weights, dtype=bool), np.nan
+            return np.zeros_like(flags, dtype=bool), np.nan
 
         sigma = 1.4826 * np.nanmedian(np.abs(arr[valid]))
-        flags = np.abs(arr * valid_weights) > (self.n_sigma * sigma)
+        flags = np.abs(arr) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -281,7 +278,7 @@ class RollingRMSFlagger:
             np.convolve(pad**2, np.ones(self.window), "valid") / self.window
         )
 
-    def pre_flag(self, arr, weights):
+    def pre_flag(self, arr, flags):
         """
         Flag outliers based on the rolling RMS and MAD-derived threshold.
 
@@ -289,24 +286,24 @@ class RollingRMSFlagger:
         ----------
             arr : ndarray
                 Input array to be analyzed.
-            weights : ndarray
-                Weighting factors where zero indicates invalid data points.
+            flags : ndarray
+                Boolean mask indicating which elements are flagged.
 
         Returns
         -------
             Boolean mask identifying elements exceeding the n_sigma threshold.
         """
-        valid = weights != 0
-        valid_weights = np.zeros_like(weights, dtype=float)
-        valid_weights[valid] = 1
+        valid = ~flags
+        arr[flags] = np.nan
+
         rms = self._rms(arr)
 
         med = np.nanmedian(rms[valid])
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid] - med))
 
-        return ((rms - med) * valid_weights) > (self.n_sigma * sigma)
+        return np.abs(rms - med) > (self.n_sigma * sigma)
 
-    def flag(self, arr, weights):
+    def flag(self, arr, flags):
         """
         Does flagging using rolling rms.
 
@@ -314,19 +311,19 @@ class RollingRMSFlagger:
         ----------
             deterend: Array
                 Diff of fit and gains.
-            weights: Array
-                Weights of gains.
+            flags : ndarray
+                Boolean mask indicating which elements are flagged.
         Returns
         -------
-            Array fo flags
+            Array of flags
         """
-        valid = weights != 0
-        valid_weights = np.zeros_like(weights, dtype=float)
-        valid_weights[valid] = 1
+        valid = ~flags
+        arr[flags] = np.nan
+
         rms = self._rms(arr)
 
         sigma = 1.4826 * np.nanmedian(np.abs(rms[valid]))
-        flags = (rms * valid_weights) > (self.n_sigma * sigma)
+        flags = np.abs(rms) > (self.n_sigma * sigma)
 
         return flags, sigma
 
@@ -400,8 +397,8 @@ class GainFlagger:
         if n_sigma <= 0:
             raise ValueError("n_sigma must be greater than zero")
 
-        self.preflagger = RMSFlagger(n_sigma)
-        self.flaggers.append(RMSFlagger(n_sigma))
+        self.preflagger = MADFlagger(n_sigma)
+        self.flaggers.append(MADFlagger(n_sigma))
 
         if n_sigma_rolling:
             self.flaggers.append(
@@ -437,27 +434,31 @@ class GainFlagger:
         -------
             A tuple of updated weights, and final fits of soltype.
         """
-        weights = weights.copy()
+        flags = np.zeros_like(weights, dtype=bool)
+        flags[weights == 0] = True
+
         freq_guess = None
-        last_fit_components = None
+        last_fit_components = np.full_like(gains, np.nan, dtype=complex)
 
-        pre_flags = np.zeros_like(weights, dtype=bool)
-        flags = self.preflagger.pre_flag(np.abs(gains), weights)
-        pre_flags |= flags
+        data_components = self.soltype(gains)
 
-        weights[pre_flags] = 0
+        for arr in data_components.values():
+            temp_flags = self.preflagger.pre_flag(arr, flags)
+            flags |= temp_flags
 
         for cycle in range(self.max_ncycles):
-            if not np.any(weights):
+
+            # Exit if everything is flagged
+            if np.all(flags):
                 break
 
-            cycle_flags = pre_flags
+            cycle_flags = np.zeros_like(flags, dtype=bool)
             cycle_sigma = None
             components = {}
 
             if self.mode == "poly":
                 fitter = PhasorPolyFit(self.order, self.freq)
-                fit, freq_guess = fitter.fit(gains, weights, freq_guess)
+                fit, freq_guess = fitter.fit(gains, flags, freq_guess)
 
                 data_components = self.soltype(gains)
                 fit_components = self.soltype(fit)
@@ -470,7 +471,7 @@ class GainFlagger:
 
             elif self.mode == "smooth":
                 fitter = SmoothingFit(self.order, self.soltype)
-                fits = fitter.fit(gains, weights)
+                fits = fitter.fit(gains, flags)
 
                 data_components = self.soltype(gains)
                 components = {k: data_components[k] - fits[k] for k in fits}
@@ -478,14 +479,14 @@ class GainFlagger:
 
             for arr in components.values():
                 for flagger in self.flaggers:
-                    flags, sigma = flagger.flag(arr, weights)
-                    cycle_flags |= flags
+                    temp_flags, sigma = flagger.flag(arr, flags)
+                    cycle_flags |= temp_flags
                     if sigma is not None and not np.isnan(sigma):
                         cycle_sigma = sigma
 
-            weights[cycle_flags] = 0
+            flags |= cycle_flags
 
-            total_flagged = np.count_nonzero(weights == 0)
+            total_flagged = np.count_nonzero(flags)
 
             if not np.any(cycle_flags):
                 logger.info(
@@ -502,9 +503,7 @@ class GainFlagger:
                 )
                 break
 
-            percent_flagged = (
-                100.0 * np.count_nonzero(weights == 0) / weights.size
-            )
+            percent_flagged = 100.0 * np.count_nonzero(flags) / flags.size
 
             logger.info(
                 "Gain flagging cycle %d: antenna=%s receptors=[%s,%s] "
@@ -519,7 +518,7 @@ class GainFlagger:
                 self.mode,
             )
 
-        return weights, last_fit_components
+        return flags, last_fit_components
 
 
 def _flag_wrapper_ufunc_(
@@ -561,7 +560,7 @@ def _flag_wrapper_ufunc_(
           Size of the tuple depends on how many type of fits were applied.
     """
     flagger = GainFlagger(freq=freq, **cfg)
-    new_weights, fits = flagger.flag_dimension(
+    new_flags, fits = flagger.flag_dimension(
         gains,
         weights,
         antenna_name=antenna_name,
@@ -569,7 +568,7 @@ def _flag_wrapper_ufunc_(
         receptor2_name=receptor2_name,
     )
 
-    outputs = [new_weights]
+    outputs = [new_flags]
     for key in fits:
         outputs.append(fits[key])
 
@@ -638,7 +637,8 @@ def flag_on_gains(
     """
 
     original_chunks = gaintable.chunks
-    gaintable = gaintable.chunk({"frequency": -1})
+    # NOTE: Check for presist issue
+    gaintable = gaintable.chunk({"frequency": -1, "antenna": 1})
 
     freq = gaintable.frequency.data
     fit_names = _fit_names(soltype)
@@ -659,7 +659,7 @@ def flag_on_gains(
         name: xr.zeros_like(gaintable.gain, dtype=float) for name in fit_names
     }
 
-    all_flagged_weights = None
+    flags = xr.zeros_like(gaintable.weight, dtype=bool)
 
     for receptor1, receptor2 in np.ndindex(
         len(gaintable.receptor1), len(gaintable.receptor2)
@@ -685,23 +685,19 @@ def flag_on_gains(
             ),
         )
 
-        flagged = results[0]
-        all_flagged_weights = (
-            flagged
-            if all_flagged_weights is None
-            else all_flagged_weights * flagged
-        )
+        flags[0, :, :, receptor1, receptor2] = results[0]
 
         for i, name in enumerate(fit_names, start=1):
             fits[name][0, :, :, receptor1, receptor2] = results[i]
 
-    new_weights = gaintable.weight * all_flagged_weights
+    new_weights = gaintable.weight
+    new_weights = xr.where(flags, 0.0, new_weights)
 
     if apply_flag:
-        new_gain = xr.where(new_weights == 0, 0.0, gaintable.gain)
+        new_gain = xr.where(flags, 0.0, gaintable.gain)
         gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks),
+        gaintable.assign(weight=new_weights).chunk(original_chunks).persist(),
         fits,
     )

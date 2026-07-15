@@ -17,7 +17,7 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
     gaintable = gaintable.assign(weight=new_weight)
 
     expected_masked_gains = gaintable.gain.data.copy()
-    expected_masked_gains[:, :, :, 0, 1] = 0.0
+    expected_masked_gains[:, :, :, 0, 1] = np.nan
 
     filename = str(tmp_path / "gaintable.h5parm")
 

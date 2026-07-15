@@ -25,6 +25,10 @@ def test_should_flag_gains_for_amplitude():
     gains[5] = 0 + 100j
     weights = np.ones(10)
 
+    expected_weights = weights.copy()
+    expected_weights[5] = 0
+    expected_amp_fit = np.abs(init_gains)
+
     flagger_obj = GainFlagger(
         soltype=soltype,
         order=order,
@@ -35,25 +39,10 @@ def test_should_flag_gains_for_amplitude():
         freq=frequencies,
     )
 
-    updated_weights, fits = flagger_obj.flag_dimension(
-        gains, weights, None, None, None
-    )
+    flags, fits = flagger_obj.flag_dimension(gains, weights, None, None, None)
 
-    expected_weights = np.array(
-        [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            0.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-        ]
-    )
-    expected_amp_fit = np.abs(init_gains)
+    updated_weights = weights.copy()
+    updated_weights[flags] = 0
 
     np.testing.assert_allclose(
         fits["amp_fit"], expected_amp_fit, rtol=1e-5, atol=1e-6
@@ -75,8 +64,11 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
     init_gains = gains.copy()
     gains[5] = -200  # Outlier in both amp and phase
     gains[4] = -500j
-
     weights = np.ones(10)
+
+    expected_weights = weights.copy()
+    expected_weights[4] = 0
+    expected_weights[5] = 0
 
     flagger_obj = GainFlagger(
         soltype=soltype,
@@ -88,24 +80,10 @@ def test_should_flag_gains_for_both_phase_and_amplitude():
         freq=frequencies,
     )
 
-    updated_weights, fits = flagger_obj.flag_dimension(
-        gains, weights, None, None, None
-    )
+    flags, fits = flagger_obj.flag_dimension(gains, weights, None, None, None)
 
-    expected_weights = np.array(
-        [
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            0.0,
-            0.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-        ]
-    )
+    updated_weights = weights.copy()
+    updated_weights[flags] = 0
 
     expected_amp_fit = np.abs(init_gains)
 
@@ -147,7 +125,7 @@ def test_should_flag_gains_for_real_imag():
         frequencies,
     )
 
-    flagged_weights, fits = flagger_obj.flag_dimension(
+    flags, fits = flagger_obj.flag_dimension(
         gains,
         weights,
         antenna_name="a1",
@@ -155,7 +133,10 @@ def test_should_flag_gains_for_real_imag():
         receptor2_name="Y",
     )
 
-    np.testing.assert_allclose(flagged_weights, expected_weights)
+    updated_weights = weights.copy()
+    updated_weights[flags] = 0
+
+    np.testing.assert_allclose(updated_weights, expected_weights)
 
     assert "real_fit" in fits
     assert "imag_fit" in fits
@@ -326,7 +307,7 @@ def test_should_perform_gain_flagging(
     )
 
     assert apply_ufunc_mock.call_count == 2
-    where_mock.assert_called_once()
+    assert where_mock.call_count == 2
     gaintable_mock.assign.assert_called()
 
     assert "amp_fit" in fits
@@ -379,6 +360,8 @@ def test_should_perform_gain_flagging_without_apply(
     gaintable_mock = MagicMock(name="gaintable")
     gaintable_mock.chunk.return_value = gaintable_mock
     gaintable_mock.assign.return_value = gaintable_mock
+    gaintable_mock.persist.return_value = gaintable_mock
+
     gaintable_mock.chunks = {"frequency": 2}
 
     gaintable_mock.receptor1 = xr.DataArray(["X", "Y"], dims="id")
@@ -490,18 +473,18 @@ def test_should_perform_gain_flagging_without_apply(
         [
             [
                 [
+                    [[1, 0], [0, 0]],
+                    [[0, 1], [0, 0]],
+                    [[0, 0], [1, 0]],
+                    [[0, 0], [0, 1]],
                     [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[1, 1], [1, 1]],
                 ],
                 [
+                    [[1, 0], [0, 0]],
+                    [[0, 1], [0, 0]],
+                    [[0, 0], [1, 0]],
+                    [[0, 0], [0, 1]],
                     [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[0, 0], [0, 0]],
-                    [[1, 1], [1, 1]],
                 ],
             ]
         ]
@@ -522,7 +505,7 @@ def test_should_perform_gain_flagging_without_apply(
 
     gaintable_mock.chunk.assert_has_calls(
         [
-            mock.call({"frequency": -1}),
+            mock.call({"frequency": -1, "antenna": 1}),
             mock.call(gaintable.chunks),
         ]
     )
@@ -533,12 +516,11 @@ def test_phasor_polyfit_computes_freq_guess_when_none():
     freq = np.linspace(0, 1, 50)
     true_freq = 5.0
     gains = np.exp(1j * 2 * np.pi * true_freq * freq)
-    weights = np.ones_like(gains)
-
+    flags = np.zeros_like(freq, dtype=bool)
     fitter = PhasorPolyFit(order=1, freq=freq)
     model, estimated_freq = fitter.fit(
         gains,
-        weights,
+        flags,
         freq_guess=None,
     )
 
@@ -561,11 +543,11 @@ def test_phasor_polyfit_runtime_error_logged(curve_fit_mock, logger_mock):
 
     freq = np.linspace(0, 1, 20)
     gains = np.ones_like(freq, dtype=complex)
-    weights = np.ones_like(freq)
+    flags = np.zeros_like(freq, dtype=bool)
 
     fitter = PhasorPolyFit(order=1, freq=freq)
 
-    model, freq_guess = fitter.fit(gains, weights, freq_guess=None)
+    model, freq_guess = fitter.fit(gains, flags, freq_guess=None)
 
     curve_fit_mock.assert_called_once()
 
