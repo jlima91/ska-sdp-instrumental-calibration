@@ -6,6 +6,7 @@ import numpy as np
 from astropy.time import Time
 from dask.delayed import Delayed
 from matplotlib.colors import ListedColormap
+from ska_sdp_datamodels.calibration import GainTable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
@@ -16,10 +17,10 @@ from ._util import safe
 logger = setup_logger(__name__)
 
 
-class _BANDPASS_PLOTS__:
-    __model = namedtuple("__bp_plot_type__", ["name", "sols"])
-    GAINS = __model("gain", ["J_XX", "J_YY"])
-    LEAKAGES = __model("leakage", ["J_XY", "J_YX"])
+class _BANDPASS_PLOTS:
+    _model = namedtuple("bandpass_plot_type", ["name", "sols"])
+    GAINS = _model("gain", ["J_XX", "J_YY"])
+    LEAKAGES = _model("leakage", ["J_XY", "J_YX"])
 
 
 class PlotGaintable:
@@ -130,7 +131,7 @@ class PlotGaintable:
 
     def plot(
         self,
-        gaintable,
+        gaintable: GainTable,
         figure_title="",
         drop_cross_pols=False,
         fixed_axis=False,
@@ -138,9 +139,9 @@ class PlotGaintable:
         plot_all_stations=False,
     ) -> list[Delayed]:
         jones_sols = (
-            [_BANDPASS_PLOTS__.GAINS]
+            [_BANDPASS_PLOTS.GAINS]
             if drop_cross_pols
-            else [_BANDPASS_PLOTS__.GAINS, _BANDPASS_PLOTS__.LEAKAGES]
+            else [_BANDPASS_PLOTS.GAINS, _BANDPASS_PLOTS.LEAKAGES]
         )
 
         return [
@@ -159,12 +160,12 @@ class PlotGaintable:
     @safe
     def _plot_bandpass_terms(
         self,
-        gaintable,
-        figure_title,
-        fixed_axis,
-        phase_only,
-        plot_all_stations,
-        jones_term,
+        gaintable: GainTable,
+        figure_title: str,
+        fixed_axis: bool,
+        phase_only: bool,
+        plot_all_stations: bool,
+        jones_term: _BANDPASS_PLOTS._model,
     ):
         """
         Generate and save facet plots for gaintable phase and amplitude.
@@ -176,26 +177,24 @@ class PlotGaintable:
 
         Parameters
         ----------
-        gaintable : xarray.Dataset
+        gaintable
             The input gaintable dataset to plot.
-        figure_title : str, optional
+        figure_title
             A prefix for the main figure title. Defaults to "".
-        drop_cross_pols : bool, optional
+        drop_cross_pols
             If True, cross-polarization solutions (e.g., J_XY, J_YX) are
             dropped before plotting. Defaults to False.
-        fixed_axis : bool, optional
+        fixed_axis
             If True, the y-axis for the amplitude plot is fixed
             between 0 and 1. Defaults to False.
-        phase_only : bool, optional
+        phase_only
             If True, only the phase plot is generated and saved.
             Defaults to False.
-        plot_all_stations : bool, optional
+        plot_all_stations
             If True, calls the `_plot_all_stations` method to generate
             an additional overview plot. Defaults to False.
-
-        Returns
-        -------
-        None
+        jones_term
+            Metadata about the jones terms to plot (gains, leakages)
         """
         sol_term = jones_term.name
         figure_sub_title = sol_term.capitalize()
@@ -248,7 +247,7 @@ class PlotGaintable:
 
         plt.close()
 
-        if plot_all_stations and jones_term == _BANDPASS_PLOTS__.GAINS:
+        if plot_all_stations and jones_term == _BANDPASS_PLOTS.GAINS:
             self._plot_all_stations(gaintable)
 
         logger.info(f"Gaintable plots saved with prefix {self._path_prefix}.")

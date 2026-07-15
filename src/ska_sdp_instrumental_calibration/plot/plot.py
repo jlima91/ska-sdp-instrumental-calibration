@@ -2,6 +2,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
+from ska_sdp_datamodels.calibration import GainTable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
@@ -354,23 +355,27 @@ def plot_station_delays(delaytable, path_prefix):
 @customDelay.delayed
 @safe
 def plot_bandpass_stages(
-    gaintable, initialtable, rm_est, refant, plot_path_prefix
+    gaintable: GainTable,
+    initialtable: GainTable,
+    rm_est: np.ndarray,
+    refant: int,
+    plot_path_prefix: str,
 ):
     """
     Plot RM estimates of stations
 
     Parameters
     ----------
-        gaintable: Gaintable Dataset
-            Gaintable
-        initialtable: Gaintable Dataset
-            Initial gaintable
-        rm_est: xr.DataArray
-            rm estimate array.
-        refant: int
-            Reference antenna
-        plot_path_prefix: str
-            plot prefix
+    gaintable
+        Gaintable post channel RM calculation
+    initialtable
+        Initial gaintable before channel RM calculation
+    rm_est
+        RM estimate array.
+    refant
+        Reference antenna used during RM estimation
+    plot_path_prefix
+        plot prefix
     """
     x = gaintable.frequency.data / 1e6
     stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
@@ -438,45 +443,45 @@ def plot_bandpass_stages(
 @customDelay.delayed
 @safe
 def plot_rm_station(
-    gaintable,
-    rm_vals,
-    rm_spec,
-    rm_peak,
-    rm_est,
-    rm_est_refant,
-    J,
-    lambda_sq,
-    xlim,
-    stn,
-    plot_path_prefix,
+    gaintable: GainTable,
+    rm_vals: np.ndarray,
+    rm_spec: np.ndarray,
+    rm_peak: np.ndarray,
+    rm_est: np.ndarray,
+    rm_est_refant: np.ndarray,
+    J: np.ndarray,
+    lambda_sq: np.ndarray,
+    xlim: int,
+    stn: int,
+    plot_path_prefix: str,
 ):
     """
     Plot RM estimates of stations
 
     Parameters
     ----------
-        gaintable: Gaintable Dataset
-            Gaintable
-        rm_vals: xr.DataArray
-            rm value array.
-        rm_spec: xr.DataArray
-            rm spec array.
-        rm_peak: xr.DataArray
-            rm peak array.
-        rm_est: xr.DataArray
-            rm estimate array.
-        rm_est_refant: xr.DataArray
-            rm estimate of refant.
-        J: xr.DataArray
-            Jones array.
-        lambda_sq: xr.DataArray
-            lambda square array.
-        xlim: xr.DataArray
-            x-limit array.
-        stn: int
-            station number.
-        plot_path_prefix: str
-            plot prefix
+    gaintable
+        Gaintable
+    rm_vals
+        rm value array.
+    rm_spec
+        rm spec array.
+    rm_peak
+        rm peak array.
+    rm_est
+        rm estimate array.
+    rm_est_refant
+        rm estimate of refant.
+    J
+        Jones array.
+    lambda_sq
+        lambda square array.
+    xlim
+        x-limit array.
+    stn
+        station number.
+    plot_path_prefix
+        plot prefix
     """
     fig = plt.figure(figsize=(14, 12))
 

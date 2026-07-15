@@ -79,18 +79,23 @@ def simplify_baselines_dim(vis: xr.Dataset) -> xr.Dataset:
         )
 
 
-def parse_antenna(antenna, station_names: xr.DataArray):
+def parse_antenna(antenna: int | str, station_names: xr.DataArray) -> int:
     """
     Checks and converts a reference antenna identifier (index or name) to its
     corresponding index.
 
-    antenna : int or str
+    Parameters
+    ----------
+    antenna
         Reference antenna, specified either as an integer index or as a string
         name.
-    station_names : xr.DataArray
-        Array of station names, used to map string names to indices.
-    int
-        The index of the reference antenna.
+    station_names
+        Dataarray of station names, taken from the ska_sdp_datamodel.Configuration
+        datamodel
+
+    Returns
+    -------
+        The index of the antenna.
 
     Raises
     ------
@@ -109,7 +114,6 @@ def parse_antenna(antenna, station_names: xr.DataArray):
 
     if type(antenna) is str:
         try:
-
             station_index = station_names.where(
                 station_names == antenna, drop=True
             ).id.values[0]

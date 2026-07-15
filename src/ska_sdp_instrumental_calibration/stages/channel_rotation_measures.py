@@ -17,7 +17,10 @@ from ..scheduler import customDelay
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
-from ..xarray_processors.rotation_measures import model_rotations
+from ..xarray_processors.rotation_measures_new import (
+    get_plot_params_for_station,
+    model_rotations,
+)
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_DOCSTRING
 from ._utils import get_gaintables_path, get_plots_path
@@ -154,6 +157,10 @@ def generate_channel_rm_stage(
         refant=run_solver_config.refant,
         oversample=oversample,
     )
+    # predict_vis and plot_bandpass_stages expect station_rm (rm_est) as a
+    # dask array with only single dimension (antenna,)
+    # So selecting only the first solution interval
+    station_rm_est = rotations["rm_est"].isel(time=0).data
 
     modelvis = predict_vis(
         vis,
@@ -161,7 +168,7 @@ def generate_channel_rm_stage(
         initialtable.time.data,
         initialtable.soln_interval_slices,
         beam_factory,
-        station_rm=rotations.rm_est,
+        station_rm=station_rm_est,
     )
 
     if _upstream_output_["central_beams"] is not None:
@@ -187,14 +194,16 @@ def generate_channel_rm_stage(
             plot_bandpass_stages(
                 gaintable,
                 initialtable,
-                rotations.rm_est,
+                station_rm_est,
                 run_solver_config.refant,
                 plot_path_prefix=path_prefix,
             ),
             plot_rm_station(
                 initialtable,
-                **rotations.get_plot_params_for_station(
-                    plot_rm_config.station
+                **get_plot_params_for_station(
+                    rotations,
+                    plot_rm_config.station,
+                    refant,
                 ),
                 plot_path_prefix=path_prefix,
             ),

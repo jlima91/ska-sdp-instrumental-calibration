@@ -4,7 +4,6 @@ from typing import Optional, Sequence
 import dask.array as da
 import numpy as np
 import xarray as xr
-from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 
@@ -64,13 +63,13 @@ class DelayTable(xr.Dataset):
     @classmethod
     def constructor(
         cls,
-        delay: NDArray,
-        offset: NDArray,
-        time: NDArray,
-        antenna: NDArray,
-        pol: Sequence[str],
-        configuration: Optional[Configuration] = None,
-    ):
+        delay: np.ndarray,
+        offset: np.ndarray,
+        time: np.ndarray,
+        antenna: np.ndarray,
+        pol: list[str],
+        configuration: Configuration | None = None,
+    ) -> "DelayTable":
         """
         Create a DelayTable instance directly from numpy arrays.
 
@@ -109,30 +108,25 @@ class DelayTable(xr.Dataset):
             "data_model": "DelayTable",
             "configuration": configuration,
         }
-        return cls(datavars, coords=coords, attrs=attrs)
-
-    def __sizeof__(self):
-        """Override default method to return size of dataset
-        :return: int
-        """
-        return int(self.nbytes)
+        return cls(data_vars=datavars, coords=coords, attrs=attrs)
 
 
-def calculate_delays_from_gain(gaintable: GainTable, oversample) -> DelayTable:
+def calculate_delays_from_gain(
+    gaintable: GainTable, oversample: int
+) -> DelayTable:
     """
     Applies the delay to the given gaintable
 
     Parameters
     ----------
-    gaintable: xr.Dataset
+    gaintable
         Gaintable
-    oversample: int
+    oversample
         Oversample rate required for the delay
 
     Returns
     -------
-    xr.DataSet
-        delay
+        A dataset holding delay data
     """
     nstations = gaintable["antenna"].size
 
@@ -222,21 +216,22 @@ def _calculate_delays_ufunc_(
 
 
 def apply_delay_to_gaintable(
-    gaintable: xr.Dataset, delaytable: xr.Dataset, inverse: bool = False
-) -> xr.Dataset:
+    gaintable: GainTable, delaytable: DelayTable, inverse: bool = False
+) -> GainTable:
     """
     Applies the delay to the given gaintable
 
     Parameters
     ----------
-    gaintable: xr.Dataset
-        Gaintable
-    oversample: int
+    gaintable
+        Gaintable on which we need to apply delays
+    oversample
         Oversample rate required for the delay
+    inverse
+        Whether to invert the delayes before appluing
 
     Returns
     -------
-    xr.Dataset
         Gaintable with updated gains
     """
     new_gains = gaintable["gain"].copy()
@@ -360,7 +355,7 @@ def calculate_gain_rot(
     offset: float,
     freq: np.ndarray,
     inverse=False,
-):
+) -> np.ndarray:
     """
     Calculates gain rotation.
     The function assumes that for numpy arrays as input, the values
@@ -376,7 +371,6 @@ def calculate_gain_rot(
 
     Returns
     -------
-    np.ndarray (complex64)
         Array of calculated gain rotation
         Same shape and dtype as gain
     """

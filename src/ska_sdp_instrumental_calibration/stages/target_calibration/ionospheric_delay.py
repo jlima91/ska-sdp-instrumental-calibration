@@ -8,7 +8,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere
 from ...xarray_processors import with_chunks
-from ...xarray_processors.ionosphere_solvers import IonosphericSolver
+from ...xarray_processors.ionosphere_solvers_new import run_ionospheric_solver
 from .._utils import get_plots_path
 
 logger = logging.getLogger()
@@ -116,7 +116,7 @@ def ionospheric_delay_stage(
 
     initialtable = initialtable.pipe(with_chunks, vis_chunks)
 
-    gaintable = IonosphericSolver.solve(  # pylint: disable=E1121
+    gaintable = run_ionospheric_solver(  # pylint: disable=E1121
         vis,
         modelvis,
         initialtable,
