@@ -73,27 +73,23 @@ class DelayTable(xr.Dataset):
         """
         Create a DelayTable instance directly from numpy arrays.
 
-        :param delay: Per-antenna, per-polarisation group-delay in seconds
-            ``[ntimes, nants, npol]``
-        :type delay: ndarray
-
-        :param offset: Per-antenna, per-polarisation phase offset in cycles
-            ``[ntimes, nants, npol]``
-        :type offset: ndarray
-
-        :param time: Centroids of solutions, in seconds elapsed since the MJD
-            reference epoch ``[ntimes]``
-        :type time: ndarray
-
-        :param antenna: Integer antenna indices ``[nants]``
-        :type antenna: ndarray
-
-        :param pol: Polarisation labels, e.g. ``['XX', 'YY']``
-        :type pol: sequence of str
-
-        :param configuration: Configuration object describing the array
-            configuration
-        :type configuration: Configuration or None, optional
+        Parameters
+        ----------
+        delay
+            Per-antenna, per-polarisation group-delay in seconds
+            ``[ntimes, nants, npol]``.
+        offset
+            Per-antenna, per-polarisation phase offset in cycles
+            ``[ntimes, nants, npol]``.
+        time
+            Centroids of solutions, in seconds elapsed since the MJD
+            reference epoch ``[ntimes]``.
+        antenna
+            Integer antenna indices ``[nants]``.
+        pol
+            Polarisation labels, e.g. ``['XX', 'YY']``.
+        configuration
+            Configuration object describing the array configuration.
         """
         coords = {
             "time": time,
@@ -128,18 +124,23 @@ def calculate_delays_from_gain(
     -------
         A dataset holding delay data
     """
-    nstations = gaintable["antenna"].size
+    ntime = gaintable.sizes["time"]
+    nant = gaintable.sizes["antenna"]
+    # We only calculate delays based on diagonal terms
+    pols = ["XX", "YY"]
+
+    gain_gain_chunked = gaintable["gain"].chunk(
+        time=1, antenna=1, frequency=-1
+    )
+    gain_weight_chunk = gaintable["weight"].chunk(
+        time=1, antenna=1, frequency=-1
+    )
 
     apply_ufunc_results = {"delay": {}, "offset": {}}
-
     # We calculate delays only for XX and YY terms
-    for pol, receptor1, receptor2 in (("XX", 0, 0), ("YY", 1, 1)):
-        gain = gaintable["gain"][0, :, :, receptor1, receptor2].chunk(
-            antenna=1, frequency=-1
-        )
-        weight = gaintable["weight"][0, :, :, receptor1, receptor2].chunk(
-            antenna=1, frequency=-1
-        )
+    for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
+        gain = gain_gain_chunked[..., rec1idx, rec2idx]
+        weight = gain_weight_chunk[..., rec1idx, rec2idx]
         initial_offset = xr.zeros_like(gaintable["antenna"]).chunk(antenna=1)
 
         delay, offset = xr.apply_ufunc(
@@ -165,18 +166,18 @@ def calculate_delays_from_gain(
                 apply_ufunc_results["delay"]["XX"],
                 apply_ufunc_results["delay"]["YY"],
             ],
-            axis=1,
-        ).reshape(1, nstations, 2),
+            axis=-1,
+        ).reshape(ntime, nant, 2),
         offset=da.stack(
             [
                 apply_ufunc_results["offset"]["XX"],
                 apply_ufunc_results["offset"]["YY"],
             ],
-            axis=1,
-        ).reshape(1, nstations, 2),
-        time=gaintable["time"],
-        antenna=gaintable["antenna"],
-        pol=["XX", "YY"],
+            axis=-1,
+        ).reshape(ntime, nant, 2),
+        time=gaintable["time"].values,
+        antenna=gaintable["antenna"].values,
+        pol=pols,
         configuration=gaintable.attrs["configuration"],
     )
 
@@ -187,18 +188,30 @@ def _calculate_delays_ufunc_(
     offset: np.ndarray,
     frequency: np.ndarray,
     oversample: int,
-):
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    gain: np.ndarray (nant, freq) (np.complex64)
-    weight: np.ndarray (nant, freq) (float)
-    offset: np.ndarray (nant,) (float)
-    frequency: np.ndarray (freq) (float)
+    This function acts as a bridge between
+    calculate_delays_from_gain and numpy based
+    delay functions (coarse_delay, update_delay)
+
+    In apply_ufunc call, the dataset is chunked in time
+    and antenna, with chunksize=1,
+    So in this function, both time and nant will be 1
+
+    Parameters
+    ----------
+    gain: (time, nant, freq,) (np.complex64)
+    weight: (time, nant, freq,) (float)
+    offset: (time, nant,) (float)
+    frequency: (freq,) (float)
     oversample: int
 
-    In apply_ufunc call, the dataset might be chunked in antenna
-    So after distribution, nant will become 1
+    Returns
+    -------
+        delay: (time, nant,)
+        offset: (time, nant,)
     """
-    # Remove extra antenna dimension
+    # Remove extra time and antenna dimension
     gain = gain.flatten()
     weight = weight.flatten()
     offset = offset.flatten()
@@ -212,7 +225,11 @@ def _calculate_delays_ufunc_(
         delay_coarse,
     )
 
-    return delay, offset
+    # Bring back original (time, antenna) shape
+    # for apply_ufunc to broadcast nicely
+    # Note that delay and offset are already numpy arrays
+    # with shape (1,). So we need to add only one new axis.
+    return delay[np.newaxis], offset[np.newaxis]
 
 
 def apply_delay_to_gaintable(
@@ -225,8 +242,8 @@ def apply_delay_to_gaintable(
     ----------
     gaintable
         Gaintable on which we need to apply delays
-    oversample
-        Oversample rate required for the delay
+    delaytable
+        DelayTable which holds calculated delays
     inverse
         Whether to invert the delayes before appluing
 
@@ -237,12 +254,15 @@ def apply_delay_to_gaintable(
     new_gains = gaintable["gain"].copy()
 
     # We calculate delays only for XX and YY terms
-    for pol, receptor1, receptor2 in (("XX", 0, 0), ("YY", 1, 1)):
-        gain = gaintable["gain"][..., receptor1, receptor2]
+    for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
+        gain = gaintable["gain"][..., rec1idx, rec2idx]
         frequency = gaintable["frequency"]
         delay = delaytable["delay"].sel(pol=pol)
         offset = delaytable["offset"].sel(pol=pol)
 
+        # calculate_gain_rot can operate on a single gain value
+        # so no need to reshape/broadcast
+        # or specify input_core_dims
         delay_rotated_gain = xr.apply_ufunc(
             calculate_gain_rot,
             gain,
@@ -254,7 +274,7 @@ def apply_delay_to_gaintable(
             kwargs=dict(inverse=inverse),
         )
 
-        new_gains[..., receptor1, receptor2] = delay_rotated_gain
+        new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
 
     return gaintable.assign(gain=new_gains)
 
@@ -274,19 +294,18 @@ def update_delay(
     gains: np.ndarray. complex. (freq,)
     wgt: np.ndarray. float (freq,)
     freq: np.ndarray. float (freq,)
-    _offset: np.ndarray. float (,)
+    _offset: np.ndarray. float (1,)
         Calculated offset per station
-    delay: np.ndarray. float (,)
+    delay: np.ndarray. float (1,)
         Calculated delays per station
 
     Returns
     -------
         Updated delay and offset
-        np.ndarray, with last dimension of size 1
+        Each a np.ndarray, Shape: (1,)
     """
     gains_rot = calculate_gain_rot(gains, delay, _offset, freq, inverse=True)
 
-    # cycles = calculate_cycles(gains_rot)
     cycles = np.unwrap(np.angle(gains_rot)) / (2 * np.pi)
 
     denom = np.sum(wgt) * np.sum(wgt * freq * freq) - np.sum(
@@ -310,10 +329,6 @@ def update_delay(
     return delay + updated_delay, offset
 
 
-# def calculate_cycles(gains_rot):
-#     return np.unwrap(np.angle(gains_rot)) / (2 * np.pi)
-
-
 def coarse_delay(
     gains: np.ndarray, frequency: np.ndarray, oversample: int
 ) -> np.ndarray[float]:
@@ -330,7 +345,7 @@ def coarse_delay(
     Returns
     -------
         Delay value for given frequency range
-        np.ndarray, with last dimension of size 1
+        np.ndarray, Shape (1,)
     """
     nchan = frequency.size
     N = oversample * nchan
@@ -346,7 +361,7 @@ def coarse_delay(
         -N // 2 + np.arange(N)
     )
 
-    return delay[..., np.abs(delay_spec).argmax(axis=-1, keepdims=True)]
+    return delay[np.abs(delay_spec).argmax(axis=-1, keepdims=True)]
 
 
 def calculate_gain_rot(
