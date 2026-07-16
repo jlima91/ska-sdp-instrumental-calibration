@@ -18,7 +18,7 @@ def test_should_have_the_expected_default_configuration():
         "delay_calibration": {
             "oversample": 1,
             "plot_config": {"plot_table": True, "fixed_axis": False},
-            "use_k_type_solver": False,
+            "extract_delays_from_vis": False,
             "refant": 0,
             "niter": 200,
             "tol": 1e-06,
@@ -180,7 +180,7 @@ def test_should_perform_delay_calibration_using_visibilities(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     create_delaytable_from_vis_mock.assert_called_once_with(
@@ -272,7 +272,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     delay_calibration_stage(
@@ -281,7 +281,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     get_plots_path_mock.assert_has_calls(
@@ -401,7 +401,7 @@ def test_should_export_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     delay_calibration_stage(
@@ -410,7 +410,7 @@ def test_should_export_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     get_gaintables_path_mock.assert_has_calls(

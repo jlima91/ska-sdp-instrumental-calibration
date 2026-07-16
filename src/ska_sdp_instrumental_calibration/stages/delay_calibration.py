@@ -41,7 +41,7 @@ def delay_calibration_stage(
         int,
         Field(description="Oversample rate"),
     ] = 1,
-    use_k_type_solver: Annotated[
+    extract_delays_from_vis: Annotated[
         bool, Field(description="Use K-type solver for delay calibration")
     ] = False,
     refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
@@ -73,7 +73,7 @@ def delay_calibration_stage(
             eg: {plot_table: False, fixed_axis: False}
         oversample: int
             Oversample rate
-        use_k_type_solver: bool
+        extract_delays_from_vis: bool
             Use K-type solver for delay calibration
         refant: int | str
             Reference antenna for delay calibration
@@ -102,7 +102,7 @@ def delay_calibration_stage(
 
     refant = parse_antenna(refant, gaintable.configuration.names)
 
-    if use_k_type_solver:
+    if extract_delays_from_vis:
         delaytable = create_delaytable_from_vis(
             vis, gaintable, refant, oversample
         )

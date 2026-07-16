@@ -281,7 +281,7 @@ def create_delaytable_from_vis(
 
     # We have assumed that the antennas are in order
     ant_indices = [i for i in range(nant + 1) if i != refant]
-    for idx in range(2):
+    for idx in range(len(self_pols)):
         reshaped_baselines[0, ant_indices, :, idx, idx] = baselines[:, :, idx]
         reshaped_weights[0, ant_indices, :, idx, idx] = weights[:, :, idx]
 
