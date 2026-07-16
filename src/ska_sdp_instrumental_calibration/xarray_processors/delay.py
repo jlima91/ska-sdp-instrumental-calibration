@@ -261,15 +261,17 @@ def apply_delay_to_gaintable(
         offset = delaytable["offset"].sel(pol=pol)
 
         # calculate_gain_rot can operate on a single gain value
-        # so no need to reshape/broadcast
-        # or specify input_core_dims
+        # or a chunk along frequency dimension
+        # so no need to reshape/broadcast (no input_core_dims)
+        # Internally, this relies on dask.array.blockwise "align_arrays"
+        # which will align chunks across broadcasted dimensions
         delay_rotated_gain = xr.apply_ufunc(
             calculate_gain_rot,
             gain,
             delay,
             offset,
             frequency,
-            output_dtypes=[np.complex64],
+            output_dtypes=[gain.dtype],
             dask="parallelized",
             kwargs=dict(inverse=inverse),
         )
@@ -366,32 +368,37 @@ def coarse_delay(
 
 def calculate_gain_rot(
     gain: np.ndarray,
-    delay: float,
-    offset: float,
-    freq: np.ndarray,
+    delay: np.ndarray | float,
+    offset: np.ndarray | float,
+    frequency: np.ndarray,
     inverse=False,
 ) -> np.ndarray:
     """
     Calculates gain rotation.
     The function assumes that for numpy arrays as input, the values
-    are broadcastable across dimensions excluding the last one.
+    are broadcastable across all other dimensions
+    excluding the "freq" dimension.
 
     Parameters
     ----------
-    gain: np.ndarray. (complex64)
-    delay: float
-    offset: float
-    freq: np.ndarray. (float)
+    gain
+        Shape: (..., freq,) Dtype: complex64
+    delay
+        Shape: (..., 1) Dtype: float
+    offset
+        Shape: (..., 1) Dtype: float
+    frequency
+        Shape: (freq,) Dtype: float
     inverse: bool
+        Whether to invert the phases before applying
 
     Returns
     -------
         Array of calculated gain rotation
         Same shape and dtype as gain
     """
-
     sign = -1 if inverse else 1
-    return gain * np.exp(sign * 2j * np.pi * (offset + (delay * freq)))
+    return gain * np.exp(sign * 2j * np.pi * (offset + (delay * frequency)))
 
 
 def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> DelayTable:
