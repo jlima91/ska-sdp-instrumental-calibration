@@ -242,16 +242,19 @@ def create_delaytable_from_vis(
     vis: xr.Dataset, gaintable: xr.Dataset, refant: int, oversample: int
 ) -> xr.Dataset:
     """ "
-    Calculates delays from visibility data
+    Calculates delays from visibility data by processing each solution interval
 
     Parameters
     ----------
     vis: xarray
-        Visibility data
+        Visibility data. If backed by a dask array, can be chunked in time
+        and frequency axis.
     gaintable: xarray
-        Gaintable
+        Gaintable containing solution intervals.
     refant: int
         Reference antenna
+    oversample: int
+        Oversample rate required for the delay
 
     Returns
     -------
@@ -260,41 +263,74 @@ def create_delaytable_from_vis(
     """
 
     baseline_ids = vis.baselineid[
-        (vis.antenna1 == refant) ^ (vis.antenna2 == refant)
+        (vis.antenna1 == refant) | (vis.antenna2 == refant)
     ]
 
-    self_pols = [0, 3]
+    vis_chunks_per_solution = {"time": -1}
+    gaintable = gaintable.rename(time="solution_time")
 
-    baselines = vis.vis.isel(
-        baselineid=baseline_ids, polarisation=self_pols
-    ).mean(dim="time")
+    soln_interval_slices = gaintable.soln_interval_slices
 
-    baselines = np.conj(baselines)
+    delay_table_across_solutions = []
 
-    weights = vis.weight.isel(
-        baselineid=baseline_ids, polarisation=self_pols
-    ).mean(dim="time")
+    for idx, slc in enumerate(soln_interval_slices):
 
-    nant, _, _ = baselines.shape
-    reshaped_baselines = np.ones_like(gaintable.gain)
-    reshaped_weights = np.ones_like(gaintable.weight)
+        vis_per_solution = vis.isel(time=slc).chunk(vis_chunks_per_solution)
 
-    # We have assumed that the antennas are in order
-    ant_indices = [i for i in range(nant + 1) if i != refant]
-    for idx in range(len(self_pols)):
-        reshaped_baselines[0, ant_indices, :, idx, idx] = baselines[:, :, idx]
-        reshaped_weights[0, ant_indices, :, idx, idx] = weights[:, :, idx]
+        template_gaintable = gaintable.isel(solution_time=[idx])
 
-    baselines_table = gaintable.copy()
+        vis_refant = vis_per_solution.vis.isel(baselineid=baseline_ids).mean(
+            dim="time"
+        )
 
-    # assign requires explicit dims when passing numpy arrays with >1 dim
-    gain_dims = gaintable.gain.dims
-    baselines_table = baselines_table.assign(
-        gain=(gain_dims, reshaped_baselines)
-    )
-    baselines_table = baselines_table.assign(
-        weight=(gaintable.weight.dims, reshaped_weights)
-    )
-    delaytable = calculate_delays_from_gain(baselines_table, oversample)
+        vis_refant = vis_refant.conj()
 
-    return delaytable
+        weights = vis_per_solution.weight.isel(baselineid=baseline_ids).mean(
+            dim="time"
+        )
+
+        vis_refant[refant, ...] = 1.0 + 0.0j
+        weights[refant, ...] = 1.0
+
+        vis_refant_data = vis_refant.data.reshape(
+            template_gaintable.gain.shape
+        )
+        weight_data = weights.data.reshape(template_gaintable.weight.shape)
+
+        reshaped_vis_refant = xr.DataArray(
+            vis_refant_data,
+            dims=(
+                "solution_time",
+                "antenna",
+                "frequency",
+                "receptor1",
+                "receptor2",
+            ),
+        )
+        reshaped_weights = xr.DataArray(
+            weight_data,
+            dims=(
+                "solution_time",
+                "antenna",
+                "frequency",
+                "receptor1",
+                "receptor2",
+            ),
+        )
+        baselines_table = template_gaintable.assign(
+            gain=(
+                reshaped_vis_refant.transpose(*template_gaintable.gain.dims)
+            ),
+            weight=(
+                reshaped_weights.transpose(*template_gaintable.weight.dims)
+            ),
+        )
+        baselines_table = baselines_table.rename(solution_time="time")
+
+        delay_table_across_solutions.append(
+            calculate_delays_from_gain(baselines_table, oversample)
+        )
+
+    combined_delay_table = xr.concat(delay_table_across_solutions, dim="time")
+
+    return combined_delay_table

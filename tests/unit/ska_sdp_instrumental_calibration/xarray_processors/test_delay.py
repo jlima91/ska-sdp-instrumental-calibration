@@ -157,15 +157,22 @@ def test_create_delaytable_from_vis(generate_vis):
 
     vis, gaintable = generate_vis
     vis = simplify_baselines_dim(vis)
-    gaintable = gaintable.isel(time=slice(0, 1))
-    n_antennas = gaintable.dims["antenna"]
 
     actual_delaytable = create_delaytable_from_vis(
         vis, gaintable, refant, oversample
     )
 
-    assert actual_delaytable.delay.shape == (1, n_antennas, 2)
-    assert actual_delaytable.offset.shape == (1, n_antennas, 2)
+    assert isinstance(actual_delaytable, xr.Dataset)
+    assert actual_delaytable.delay.shape == (
+        gaintable.dims["time"],
+        gaintable.dims["antenna"],
+        2,
+    )
+    assert actual_delaytable.offset.shape == (
+        gaintable.dims["time"],
+        gaintable.dims["antenna"],
+        2,
+    )
 
     np.testing.assert_allclose(actual_delaytable.delay.values, 0.0, atol=1e-10)
     np.testing.assert_allclose(
