@@ -1,9 +1,11 @@
 import logging
+import warnings
 from typing import Optional, Sequence
 
 import dask.array as da
 import numpy as np
 import xarray as xr
+from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 
@@ -143,19 +145,26 @@ def calculate_delays_from_gain(
         weight = gain_weight_chunk[..., rec1idx, rec2idx]
         initial_offset = xr.zeros_like(gaintable["antenna"]).chunk(antenna=1)
 
-        delay, offset = xr.apply_ufunc(
-            _calculate_delays_ufunc_,
-            gain,
-            weight,
-            initial_offset,
-            input_core_dims=[["frequency"], ["frequency"], []],
-            output_core_dims=[[], []],
-            output_dtypes=[np.float64, np.float64],
-            dask="parallelized",
-            kwargs=dict(
-                frequency=gaintable["frequency"].data, oversample=oversample
-            ),
-        )
+        with warnings.catch_warnings():
+            # apply_ufunc throws a false warning, when it detects that
+            # one of the inputs (gain) has complex dtype, but outputs
+            # are all non-complex values
+            warnings.simplefilter("ignore", ComplexWarning)
+
+            delay, offset = xr.apply_ufunc(
+                _calculate_delays_ufunc_,
+                gain,
+                weight,
+                initial_offset,
+                input_core_dims=[["frequency"], ["frequency"], []],
+                output_core_dims=[[], []],
+                output_dtypes=[np.float64, np.float64],
+                dask="parallelized",
+                kwargs=dict(
+                    frequency=gaintable["frequency"].data,
+                    oversample=oversample,
+                ),
+            )
 
         apply_ufunc_results["delay"][pol] = delay
         apply_ufunc_results["offset"][pol] = offset
