@@ -88,6 +88,8 @@ class RotationMeasureData(xr.Dataset):
             data_model:     RotationMeasureData
     """
 
+    __slots__ = ()
+
     def __init__(self, data_vars=None, coords=None, attrs=None):
         super().__init__(data_vars=data_vars, coords=coords, attrs=attrs)
 
