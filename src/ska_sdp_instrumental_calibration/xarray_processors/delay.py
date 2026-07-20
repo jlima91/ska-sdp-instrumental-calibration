@@ -266,7 +266,6 @@ def create_delaytable_from_vis(
         (vis.antenna1 == refant) | (vis.antenna2 == refant)
     ]
 
-    vis_chunks_per_solution = {"time": -1}
     gaintable = gaintable.rename(time="solution_time")
 
     soln_interval_slices = gaintable.soln_interval_slices
@@ -275,55 +274,43 @@ def create_delaytable_from_vis(
 
     for idx, slc in enumerate(soln_interval_slices):
 
-        vis_per_solution = vis.isel(time=slc).chunk(vis_chunks_per_solution)
+        vis_per_solution = vis.isel(time=slc)
 
         template_gaintable = gaintable.isel(solution_time=[idx])
 
-        vis_refant = vis_per_solution.vis.isel(baselineid=baseline_ids).mean(
-            dim="time"
+        vis_refant = (
+            vis_per_solution["vis"]
+            .isel(baselineid=baseline_ids)
+            .mean(dim="time")
         )
 
         vis_refant = vis_refant.conj()
 
-        weights = vis_per_solution.weight.isel(baselineid=baseline_ids).mean(
-            dim="time"
+        weights = (
+            vis_per_solution["weight"]
+            .isel(baselineid=baseline_ids)
+            .mean(dim="time")
         )
 
         vis_refant[refant, ...] = 1.0 + 0.0j
         weights[refant, ...] = 1.0
 
         vis_refant_data = vis_refant.data.reshape(
-            template_gaintable.gain.shape
+            template_gaintable["gain"].shape
         )
-        weight_data = weights.data.reshape(template_gaintable.weight.shape)
+        weight_data = weights.data.reshape(template_gaintable["weight"].shape)
 
         reshaped_vis_refant = xr.DataArray(
             vis_refant_data,
-            dims=(
-                "solution_time",
-                "antenna",
-                "frequency",
-                "receptor1",
-                "receptor2",
-            ),
+            dims=template_gaintable["gain"].dims,
         )
         reshaped_weights = xr.DataArray(
             weight_data,
-            dims=(
-                "solution_time",
-                "antenna",
-                "frequency",
-                "receptor1",
-                "receptor2",
-            ),
+            dims=template_gaintable["weight"].dims,
         )
         baselines_table = template_gaintable.assign(
-            gain=(
-                reshaped_vis_refant.transpose(*template_gaintable.gain.dims)
-            ),
-            weight=(
-                reshaped_weights.transpose(*template_gaintable.weight.dims)
-            ),
+            gain=reshaped_vis_refant,
+            weight=reshaped_weights,
         )
         baselines_table = baselines_table.rename(solution_time="time")
 
