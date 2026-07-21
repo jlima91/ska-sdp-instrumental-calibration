@@ -1,11 +1,11 @@
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
+from ..scheduler import task_manager
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
@@ -187,7 +187,7 @@ def flag_gain_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            task_manager.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

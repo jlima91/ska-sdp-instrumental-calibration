@@ -1,12 +1,12 @@
 import logging
 from typing import Annotated
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
+from ..scheduler import task_manager
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path
@@ -92,7 +92,7 @@ def bandpass_initialisation_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            task_manager.delayed(export_gaintable_to_h5parm)(
                 _upstream_output_["gaintable"], gaintable_file_path
             )
         )

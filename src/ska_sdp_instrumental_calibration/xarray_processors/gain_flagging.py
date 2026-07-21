@@ -698,6 +698,6 @@ def flag_on_gains(
         gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks).persist(),
+        gaintable.assign(weight=new_weights).chunk(original_chunks),
         fits,
     )

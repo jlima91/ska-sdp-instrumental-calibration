@@ -5,7 +5,8 @@ from distributed import as_completed, futures_of, get_client
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
-from .tagger import Tags
+from ..tagger import Tags
+from .deferred_tasks import task_manager
 
 logger = logging.getLogger()
 
@@ -212,43 +213,43 @@ class InstrumentalDaskRunner(DaskRunner):
 
         return [stage(output) for output in outputs]
 
-    @classmethod
-    def _process_upstream_output(cls, output, is_client_present):
-        outputs = output if isinstance(output, list) else [output]
+    # @classmethod
+    # def _process_upstream_output(cls, output, is_client_present):
+    #     outputs = output if isinstance(output, list) else [output]
 
-        checkpoints = [
-            output[key] for output in outputs for key in output.checkpoint_keys
-        ]
-        compute_tasks = [
-            task for output in outputs for task in output.compute_tasks
-        ]
+    #     checkpoints = [
+    #         output[key] for output in outputs for key in output.checkpoint_keys
+    #     ]
+    #     compute_tasks = [
+    #         task for output in outputs for task in output.compute_tasks
+    #     ]
 
-        persisted_values = dask.persist(
-            *(checkpoints + compute_tasks), optimize_graph=True
-        )
+    #     persisted_values = dask.persist(
+    #         *(checkpoints + compute_tasks), optimize_graph=True
+    #     )
 
-        idx = 0
-        for output in outputs:
-            for key in output.checkpoint_keys:
-                output[key] = persisted_values[idx]
-                idx += 1
+    #     idx = 0
+    #     for output in outputs:
+    #         for key in output.checkpoint_keys:
+    #             output[key] = persisted_values[idx]
+    #             idx += 1
 
-        computed_tasks = persisted_values[idx:]
-        slider = 0
-        for output in outputs:
-            output.compute_outputs += computed_tasks[
-                slider : slider + len(output.compute_tasks)  # noqa E203
-            ]
-            slider += len(output.compute_tasks)
-            output.checkpoint_keys = []
-            output.stage_compute_tasks = []
+    #     computed_tasks = persisted_values[idx:]
+    #     slider = 0
+    #     for output in outputs:
+    #         output.compute_outputs += computed_tasks[
+    #             slider : slider + len(output.compute_tasks)  # noqa E203
+    #         ]
+    #         slider += len(output.compute_tasks)
+    #         output.checkpoint_keys = []
+    #         output.stage_compute_tasks = []
 
-        if is_client_present:
-            for task in as_completed(futures_of(persisted_values)):
-                if task.status == "error":
-                    raise task.result()
+    #     if is_client_present:
+    #         for task in as_completed(futures_of(persisted_values)):
+    #             if task.status == "error":
+    #                 raise task.result()
 
-        return outputs
+    #     return outputs
 
     def execute(self):
         """
@@ -286,7 +287,6 @@ class InstrumentalDaskRunner(DaskRunner):
             )
 
             output = self._execute_stage(stage, output)
-            output = self._process_upstream_output(output, is_client_present)
 
             logger.info(
                 f"Finished {stage.name}",
@@ -294,3 +294,5 @@ class InstrumentalDaskRunner(DaskRunner):
                     "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
                 },
             )
+
+        task_manager.compute()

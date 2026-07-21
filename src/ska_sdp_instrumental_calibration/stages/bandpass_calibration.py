@@ -1,13 +1,13 @@
 import logging
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
+from ..scheduler import task_manager
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ..xarray_processors.vis_filter import VisibilityFilter
@@ -141,7 +141,7 @@ def bandpass_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            task_manager.delayed(export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

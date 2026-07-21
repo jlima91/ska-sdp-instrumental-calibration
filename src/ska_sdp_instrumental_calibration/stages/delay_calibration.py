@@ -1,7 +1,6 @@
 import logging
 from typing import Annotated
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
@@ -16,6 +15,7 @@ from ..data_managers.data_export import (
 from ..data_managers.gaintable import reset_gaintable
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency, plot_station_delays
+from ..scheduler import task_manager
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
     apply_delay_to_gaintable,
@@ -108,6 +108,7 @@ def delay_calibration_stage(
         )
 
     else:
+
         delay_solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
         logger.info(
             "Delay Calibration will be done with solver: %s", delay_solver
@@ -133,8 +134,8 @@ def delay_calibration_stage(
     initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
     vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
-
     if plot_config.plot_table:
+
         path_prefix = get_plots_path(
             _qa_dir_, f"{prefix}/delay{call_counter_suffix}"
         )
@@ -170,7 +171,7 @@ def delay_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
+            task_manager.delayed(export_gaintable_to_h5parm)(
                 delay_corrections, gaintable_file_path
             )
         )

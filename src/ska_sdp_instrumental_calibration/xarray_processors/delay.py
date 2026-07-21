@@ -192,6 +192,7 @@ def coarse_delay(gains, oversample):
     np.array
         Array of coarse delays for all stations
     """
+
     nstations = len(gains.antenna)
     nchan = len(gains.frequency)
     frequency = gains.frequency
