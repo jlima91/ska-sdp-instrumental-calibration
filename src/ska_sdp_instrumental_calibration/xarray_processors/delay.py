@@ -410,21 +410,86 @@ def calculate_gain_rot(
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay * frequency)))
 
 
-def calculate_delays_from_vis(vis: xr.Dataset, refant: int) -> DelayTable:
+def create_delaytable_from_vis(
+    vis: xr.Dataset, gaintable: xr.Dataset, refant: int, oversample: int
+) -> xr.Dataset:
     """
-    Calculates delays from visibility data
+    Calculates delays from visibility data by processing each solution interval
 
     Parameters
     ----------
-    vis
-        Visibility data
-    refant
+    vis: xarray
+        Visibility data. If backed by a dask array, can be chunked in time
+        and frequency axis.
+    gaintable: xarray
+        Gaintable containing solution intervals.
+    refant: int
         Reference antenna
+    oversample: int
+        Oversample rate required for the delay
 
     Returns
     -------
+    xr.Dataset
         Dataset of calculated delays
     """
-    raise NotImplementedError(
-        "Calculating delays from visibility data is not implemented yet."
-    )
+
+    baseline_ids = vis.baselineid[
+        (vis.antenna1 == refant) | (vis.antenna2 == refant)
+    ]
+
+    gaintable = gaintable.rename(time="solution_time")
+
+    soln_interval_slices = gaintable.soln_interval_slices
+
+    delay_table_across_solutions = []
+
+    for idx, slc in enumerate(soln_interval_slices):
+
+        vis_per_solution = vis.isel(time=slc)
+
+        template_gaintable = gaintable.isel(solution_time=[idx])
+
+        vis_refant = (
+            vis_per_solution["vis"]
+            .isel(baselineid=baseline_ids)
+            .mean(dim="time")
+        )
+
+        vis_refant = vis_refant.conj()
+
+        weights = (
+            vis_per_solution["weight"]
+            .isel(baselineid=baseline_ids)
+            .mean(dim="time")
+        )
+
+        vis_refant[refant, ...] = 1.0 + 0.0j
+        weights[refant, ...] = 1.0
+
+        vis_refant_data = vis_refant.data.reshape(
+            template_gaintable["gain"].shape
+        )
+        weight_data = weights.data.reshape(template_gaintable["weight"].shape)
+
+        reshaped_vis_refant = xr.DataArray(
+            vis_refant_data,
+            dims=template_gaintable["gain"].dims,
+        )
+        reshaped_weights = xr.DataArray(
+            weight_data,
+            dims=template_gaintable["weight"].dims,
+        )
+        baselines_table = template_gaintable.assign(
+            gain=reshaped_vis_refant,
+            weight=reshaped_weights,
+        )
+        baselines_table = baselines_table.rename(solution_time="time")
+
+        delay_table_across_solutions.append(
+            calculate_delays_from_gain(baselines_table, oversample)
+        )
+
+    combined_delay_table = xr.concat(delay_table_across_solutions, dim="time")
+
+    return combined_delay_table

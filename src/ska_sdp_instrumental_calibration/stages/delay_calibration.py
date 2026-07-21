@@ -20,7 +20,7 @@ from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
     apply_delay_to_gaintable,
     calculate_delays_from_gain,
-    calculate_delays_from_vis,
+    create_delaytable_from_vis,
 )
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path, get_plots_path
@@ -43,7 +43,7 @@ def delay_calibration_stage(
         int,
         Field(description="Oversample rate"),
     ] = 1,
-    use_k_type_solver: Annotated[
+    extract_delays_from_vis: Annotated[
         bool, Field(description="Use K-type solver for delay calibration")
     ] = False,
     refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
@@ -75,7 +75,7 @@ def delay_calibration_stage(
             eg: {plot_table: False, fixed_axis: False}
         oversample: int
             Oversample rate
-        use_k_type_solver: bool
+        extract_delays_from_vis: bool
             Use K-type solver for delay calibration
         refant: int | str
             Reference antenna for delay calibration
@@ -104,8 +104,10 @@ def delay_calibration_stage(
 
     refant = parse_antenna(refant, gaintable.configuration.names)
 
-    if use_k_type_solver:
-        delaytable = calculate_delays_from_vis(vis, refant)
+    if extract_delays_from_vis:
+        delaytable = create_delaytable_from_vis(
+            vis, gaintable, refant, oversample
+        )
 
     else:
         delay_solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
@@ -120,6 +122,8 @@ def delay_calibration_stage(
             solver=delay_solver,
         )
 
+        _upstream_output_["bandpass_initialized_in_delay"] = True
+
         delaytable = calculate_delays_from_gain(gaintable, oversample)
 
         gaintable_without_delay = apply_delay_to_gaintable(
@@ -127,7 +131,6 @@ def delay_calibration_stage(
         )
 
         _upstream_output_["gaintable"] = gaintable_without_delay
-        _upstream_output_["bandpass_initialized_in_delay"] = True
 
     initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
