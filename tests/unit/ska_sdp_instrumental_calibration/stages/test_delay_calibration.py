@@ -18,7 +18,7 @@ def test_should_have_the_expected_default_configuration():
         "delay_calibration": {
             "oversample": 1,
             "plot_config": {"plot_table": True, "fixed_axis": False},
-            "use_k_type_solver": False,
+            "extract_delays_from_vis": False,
             "refant": 0,
             "niter": 200,
             "tol": 1e-06,
@@ -140,7 +140,7 @@ def test_should_perform_delay_calibration_using_gaintable(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -153,7 +153,7 @@ def test_should_perform_delay_calibration_using_gaintable(
 def test_should_perform_delay_calibration_using_visibilities(
     parse_antenna_mock,
     apply_delay_mock,
-    calculate_delays_from_vis_mock,
+    create_delaytable_from_vis_mock,
     reset_gaintable_mock,
     apply_gaintable_to_dataset_mock,
     plot_config,
@@ -165,7 +165,7 @@ def test_should_perform_delay_calibration_using_visibilities(
     delaytable_mock = Mock(name="delaytable")
 
     reset_gaintable_mock.return_value = initialtable_mock
-    calculate_delays_from_vis_mock.return_value = delaytable_mock
+    create_delaytable_from_vis_mock.return_value = delaytable_mock
 
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
@@ -180,14 +180,16 @@ def test_should_perform_delay_calibration_using_visibilities(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
-    calculate_delays_from_vis_mock.assert_called_once_with(
-        vis_mock, parse_antenna_mock.return_value
+    create_delaytable_from_vis_mock.assert_called_once_with(
+        vis_mock, gaintable_mock, parse_antenna_mock.return_value, oversample
     )
-    apply_delay_mock.assert_called_once_with(
-        initialtable_mock, delaytable_mock
+    apply_delay_mock.assert_has_calls(
+        [
+            call(initialtable_mock, delaytable_mock),
+        ]
     )
     reset_gaintable_mock.assert_called_once_with(gaintable_mock)
     apply_gaintable_to_dataset_mock.assert_called_once_with(
@@ -221,7 +223,7 @@ def test_should_perform_delay_calibration_using_visibilities(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -270,7 +272,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     delay_calibration_stage(
@@ -279,7 +281,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=False,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     get_plots_path_mock.assert_has_calls(
@@ -353,7 +355,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".calculate_delays_from_vis"
+    ".create_delaytable_from_vis"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
@@ -399,7 +401,7 @@ def test_should_export_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     delay_calibration_stage(
@@ -408,7 +410,7 @@ def test_should_export_gaintable_with_proper_suffix(
         oversample=oversample,
         plot_config=plot_config,
         export_gaintable=True,
-        use_k_type_solver=True,
+        extract_delays_from_vis=True,
     )
 
     get_gaintables_path_mock.assert_has_calls(
