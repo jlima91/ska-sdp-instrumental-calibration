@@ -13,27 +13,31 @@ from ..scheduler import customDelay
 logger = logging.getLogger()
 
 
-def log_flaging_statistics(weights, initial_weights):
+def log_flaging_statistics(
+    weights: xr.DataArray, initial_weights: xr.DataArray
+):
     """
     Builds the flagging statistics graph using native lazy operations,
     returning a delayed task for the logging side-effect.
+
+    Parameters
+    ----------
+    weights
+        A dask-backed dataarray holding new weight values post flagging
+        Dims: (time, antenna, frequency, receptor1, receptor2)
+    initial_weights
+        A dask-backed dataarray holding original weights pre flagging
+        Dims: (time, antenna, frequency, receptor1, receptor2)
     """
-    # 1. Native Xarray operations (These build a lazy Dask graph automatically)
     current_flagged = (
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
     ).sum(dim=["time", "frequency"])
 
-    # .size is a known integer metadata attribute; it does not trigger compute
     total_elements = weights[:, 0, :, 0, 0].size
-
-    # This remains a lazy 1D DataArray (reduced down to the antenna dimension)
     antna_percent_flagged = (current_flagged / total_elements) * 100
 
-    # 2. Isolate the side-effect and small-array math into a tiny delayed wrapper
     @customDelay.delayed
     def _execute_log(percentages):
-        # By the time this runs, Dask has evaluated 'percentages' into memory.
-        # We can safely use numpy operations here on the small 1D array.
         min_percent = float(percentages.min())
         max_percent = float(percentages.max())
         median_percent = float(np.median(percentages))
@@ -45,7 +49,6 @@ def log_flaging_statistics(weights, initial_weights):
             f" max: {max_percent:.2f}%."
         )
 
-    # 3. Return the delayed task so the scheduler can append it to the graph
     return _execute_log(antna_percent_flagged)
 
 
