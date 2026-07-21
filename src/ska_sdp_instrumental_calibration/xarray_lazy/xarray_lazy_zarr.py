@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-# This function is imported only for convinience
-from xarray.backends.api import delayed_close_after_writes
 from xarray.backends.common import ArrayWriter
 from xarray.backends.writers import _datatree_to_zarr as original_xdt_to_zarr
 from xarray.backends.writers import (
@@ -23,7 +21,7 @@ if TYPE_CHECKING:
     from xarray.core.types import ZarrStoreLike, ZarrWriteModes
 
 
-__all__ = ["delayed_close_after_writes", "xds_to_zarr", "xdt_to_zarr"]
+__all__ = ["xds_to_zarr", "xdt_to_zarr"]
 
 
 def _resolve_importable_name(o: type):
@@ -58,11 +56,10 @@ def xds_to_zarr(
 
     1. The "compute" parameter is removed as the this function is always
        supposed to be lazy. The dataset's datavars must be a dask-based.
-    2. Instead of returning a dask.delayed task, this returns raw store-map
-       arrays, and the zarr store object. This is needed so that users
-       can manipulate the store-map arrays themselves to create an efficient
-       dask graph. Users should also ensure that the zarr store is closed
-       post store-map computations are finished.
+    2. Instead of returning a dask.delayed task, this returns a dask array with
+       all store-map tasks, and underlying zarr store object.
+       Users can use the dask array to create more efficient
+       dask graphs.
 
     Please refer to Example section below.
 
@@ -79,21 +76,19 @@ def xds_to_zarr(
        user should convert the ``DataArray`` to a temporary ``Dataset``
        by calling :py:meth:`xarray.DataArray.to_dataset`,
        and then call this function on the new dataset.
+    3. Compared to the :py:func:`{original_function}`, here we do not call
+       :py:func:`_finalize_store` on writes and zstore objects.
+       As per zarr documentation, it is not required
+       to close ZarrStore/ZarrArrays.
+       But in case this causes any issues,
+       consider closing the zstore post writes are finished,
+       in a new dask delayed task.
 
     Example
     -------
-    >>> write_tasks1, zarr_store1 = delayed_xds_to_zarr(dataset1, mode="w")
-    >>> write_tasks2, zarr_store2 = delayed_xds_to_zarr(dataset2, mode="w")
-    >>> # Combine all task computations into a single graph
-    >>> persisted1, persisted2 = dask.persist(
-    ...     [write_tasks1, write_tasks2],
-    ...     optimize_graph=True)[0]
-    ... # Close all stores
-    ... close_tasks = [
-    ...     delayed_close_after_writes(persisted1, zarr_store1),
-    ...     delayed_close_after_writes(persisted2, zarr_store2)
-    ... ]
-    ... dask.compute(close_tasks)
+    >>> writes_arr1, _  = {current_function}(dataset1, mode="w")
+    >>> writes_arr2, _  = {current_function}(dataset2, mode="w")
+    >>> dask.compute(writes_arr1, writes_arr2)
     """
 
     # validate Dataset keys, DataArray names
@@ -141,6 +136,7 @@ def xds_to_zarr(
 
 xds_to_zarr.__doc__ = xds_to_zarr.__doc__.format(
     original_function=_resolve_importable_name(original_xds_to_zarr),
+    current_function=xds_to_zarr.__name__,
 )
 
 
@@ -172,12 +168,11 @@ def xdt_to_zarr(
     Works similar to :py:func:`{original_function}`, except:
 
     1. The "compute" parameter is removed as the this function is always
-       supposed to be lazy. The dataset's datavars must be a dask-based.
-    2. Instead of returning a dask.delayed task, this returns raw store-map
-       arrays, and the zarr store object. This is needed so that users
-       can manipulate the store-map arrays themselves to create an efficient
-       dask graph. Users should also ensure that the zarr store is closed
-       post store-map computations are finished.
+       supposed to be lazy. The datatree must be dask-backed.
+    2. Instead of returning a dask.delayed task, this returns a dask array with
+       all store-map tasks, and underlying zarr store object.
+       Users can use the dask array to create more efficient
+       dask graphs.
 
     Please refer to Example section below.
 
@@ -190,21 +185,19 @@ def xdt_to_zarr(
     -----
     1. The logic in this function must be kept up-to-date with
        the :py:func:`{original_function}`.
+    2. Compared to the :py:func:`{original_function}`, here we do not call
+       :py:func:`_finalize_store` on writes and root_store objects.
+       As per zarr documentation, it is not required
+       to close ZarrStore/ZarrArrays.
+       But in case this causes any issues,
+       consider closing the zstore post writes are finished,
+       in a new dask delayed task.
 
     Example
     -------
-    >>> write_tasks1, zarr_store1 = delayed_to_zarr(dataset1, mode="w")
-    >>> write_tasks2, zarr_store2 = delayed_to_zarr(dataset2, mode="w")
-    >>> # Combine all task computations into a single graph
-    >>> persisted1, persisted2 = dask.persist(
-    ...     [write_tasks1, write_tasks2],
-    ...     optimize_graph=True)[0]
-    ... # Close all stores
-    ... close_tasks = [
-    ...     delayed_close_after_writes(persisted1, zarr_store1),
-    ...     delayed_close_after_writes(persisted2, zarr_store2)
-    ... ]
-    ... dask.compute(close_tasks)
+    >>> writes_arr1, _  = {current_function}(datatree1, mode="w")
+    >>> writes_arr2, _  = {current_function}(datatree2, mode="w")
+    >>> dask.compute(writes_arr1, writes_arr2)
     """
 
     if group is not None:
@@ -276,4 +269,5 @@ def xdt_to_zarr(
 
 xdt_to_zarr.__doc__ = xdt_to_zarr.__doc__.format(
     original_function=_resolve_importable_name(original_xdt_to_zarr),
+    current_function=xdt_to_zarr.__name__,
 )

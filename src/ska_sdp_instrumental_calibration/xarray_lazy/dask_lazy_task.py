@@ -1,111 +1,82 @@
 import functools
+from typing import Any, Callable, Concatenate, ParamSpec
 
 import dask
 import dask.array as da
-import numpy as np
-import xarray as xr
+
+# P represents the rest of the arguments (types and names)
+P = ParamSpec("P")
 
 
 def dask_lazy_task(
-    func=None, *, dtype=object, chunks=None, **map_blocks_kwargs
-):
+    func: Callable[Concatenate[da.Array, P], Any]
+) -> Callable[Concatenate[da.Array, P], da.Array]:
     """
-    A unified replacement for dask.delayed designed specifically for Dask Arrays
-    and Xarray DataArrays. Abuses `da.map_blocks` to keep execution inside a native
-    Blockwise graph layer, guaranteeing perfect graph fusion.
+    A replacement for ``dask.delayed`` designed specifically for dask arrays.
+    Abuses :py:func:`dask.array.map_blocks` to keep execution inside a native
+    blockwise graph layer, guaranteeing perfect graph fusion.
+
+    This is useful to wrap operations which are "leaf" tasks in the larger dask graph.
+    Such tasks generally produce a side-effects (IO operation, like logs,plots,writing data).
+    The result of ``func`` is discarded, and instead we always return an empty np.ndarray.
+    If you wish to preserve the func's return value, then use native methods,
+    like :py:func:`dask.array.map_blocks`, :py:func:`dask.array.gufunc.apply_gufunc`.
+    If you want a function which instead works with dask-backed xarray objects,
+    see :py:func:`xarray_lazy_task`.
 
     Usage
     -----
     Can be used as a plain decorator, a parameterized decorator, or a direct function wrapper:
 
-        @dask_lazy_task
-        def export_numpy_data(np_arr, filename):
-            ...
+    >>> @dask_lazy_task
+    ... def export_numpy_data(np_arr, filename):
+    ...     ...
 
-        @dask_lazy_task(dtype=np.float64, chunks=(100,))
-        def process_math(np_arr):
-            ...
+    >>> lazy_func = dask_lazy_task(export_numpy_data)
 
-        lazy_func = dask_lazy_task(existing_numpy_func)
+    See Also
+    --------
+    dask.array.map_blocks
+    dask.array.gufunc.apply_gufunc
 
     Notes
     -----
-    1. Primary Input: The first positional argument (`obj`) must be a dask array or a dask-backed
-       ``xr.DataArray``.
-    1. Only DataArrays Allowed: If any Xarray object other than ``xr.DataArray`` (e.g., ``xr.Dataset``)
-       is passed into ``obj`` or ``*args``, a ValueError is raised immediately.
-    2. Input Unpacking: Dask collections are automatically collapsed to a single chunk
-       using ``.chunk(-1)`` for DataArrays and ``.rechunk(-1)`` for pure Dask Arrays.
-    3. Worker Context (NumPy): When running on a worker, all chunked inputs are passed into the
+    1. Primary Input: The first positional argument (`obj`) must be a dask array.
+    2. Flat Positional Arguments: Extra positional arguments (`*args`) must be a flat
+       tuple (no nested lists, dicts, or namedtuples).
+    3. Input rechunking: All dask collections are automatically collapsed to a single chunk
+    4. No dask in kwargs of ``func``: `xr.map_blocks` does not support dask-backed collections inside
+       `**kwargs`. All keyword arguments must be standard, non-dask Python primitives/objects.
+    5. Execution Context: When executed on a worker, all inputs are passed into the
        inner function as fully materialized, concrete NumPy arrays.
-    4. Shape Agnostic Receipts: By default, if ``chunks`` is not specified, the wrapper drops
-       all dimensions of the input array (``drop_axis``) to return a clean 0D scalar tracking receipt
-       containing the function's return string.
     """
-    if func is None:
-        return functools.partial(
-            dask_lazy_task, dtype=dtype, chunks=chunks, **map_blocks_kwargs
-        )
 
     @functools.wraps(func)
-    def wrapper(obj, *args, **kwargs):
-
-        def _process_input(item):
-            # 1. Reject non-DataArray Xarray objects immediately
-            if hasattr(item, "__module__") and "xarray" in item.__module__:
-                if not isinstance(item, xr.DataArray):
-                    raise ValueError(
-                        f"Invalid Xarray type '{type(item).__name__}' detected. "
-                        "Only xr.DataArray is supported by dask_lazy_task."
-                    )
-
-            # 2. Consolidate Dask collections to a single chunk (-1)
-            if dask.is_dask_collection(item):
-                if isinstance(item, xr.DataArray):
-                    return item.chunk(
-                        -1
-                    ).data  # Consolidate and extract underlying Dask Array
-                elif hasattr(item, "rechunk"):
-                    return item.rechunk(-1)  # Consolidate pure Dask Array
-            return item
-
+    def wrapper(obj: da.Array, *args: P.args, **kwargs: P.kwargs) -> da.Array:
         # Process the primary target object
-        collapsed_obj = _process_input(obj)
-
-        if not isinstance(collapsed_obj, da.Array):
-            raise TypeError(
-                "The primary input object must be a Dask Array or a dask-backed xr.DataArray."
-            )
+        # Here we assume that item is a dask.array-like
+        # which implements "rechunk()" function
+        collapsed_obj = obj.rechunk(-1)
 
         # Process the flat positional arguments array
-        processed_args = tuple(_process_input(arg) for arg in args)
+        processed_args = tuple(
+            arg.rechunk(-1) if dask.is_dask_collection(arg) else arg
+            for arg in args
+        )
 
-        # 3. Handle shape transformations for leaf tasks automatically
-        # If no custom shape output is requested, drop all dimensions to create a 0D scalar receipt
-        nonlocal chunks
-        if chunks is None and "drop_axis" not in map_blocks_kwargs:
-            map_blocks_kwargs["drop_axis"] = list(range(collapsed_obj.ndim))
-            chunks = ()
+        # The internal executor that runs inside the worker node context
+        def _dask_block_executor_(block, *exec_args, **exec_kwargs):
+            # discard function result
+            func(block, *exec_args, **exec_kwargs)
 
-        # 4. The internal executor that runs inside the worker node context
-        def _block_executor(block, *exec_args, **exec_kwargs):
-            # Arguments arrive here as fully concrete NumPy arrays
-            result = func(block, *exec_args, **exec_kwargs)
-
-            # Wrap non-array primitives into a NumPy array to satisfy da.map_blocks constraints
-            if not isinstance(result, np.ndarray):
-                return np.array(str(result), dtype=dtype)
-            return result
-
-        # 5. Delegate directly to the Dask Array Blockwise graph generator
+        # Delegate directly to the Dask Array Blockwise graph generator
         # Hand over processed_args as extra positional parameters to map_blocks
         return da.map_blocks(
-            _block_executor,
+            _dask_block_executor_,
             collapsed_obj,
             *processed_args,
-            dtype=dtype,
-            chunks=chunks,
-            **map_blocks_kwargs,
+            meta=da.asarray(None),
+            **kwargs,
         )
 
     return wrapper

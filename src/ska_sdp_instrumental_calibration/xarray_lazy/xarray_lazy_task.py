@@ -1,15 +1,31 @@
 import functools
+from typing import Any, Callable, Concatenate, ParamSpec, TypeVar
 
 import dask
 import dask.array as da
 import xarray as xr
 
+# T represents the type of the first argument
+T = TypeVar("T", xr.DataArray, xr.Dataset)
+# P represents the rest of the arguments (types and names)
+P = ParamSpec("P")
 
-def xarray_lazy_task(func=None, *, template=None):
+
+def xarray_lazy_task(
+    func: Callable[Concatenate[T, P], Any]
+) -> Callable[Concatenate[T, P], xr.DataArray]:
     """
-    A unified replacement for dask.delayed designed specifically for Xarray objects.
-    Abuses `xr.map_blocks` to force execution into a native Blockwise graph layer,
+    A replacement for dask.delayed designed specifically for Xarray objects.
+    Abuses :py:func:`xarray.map_blocks` to force execution into a native blockwise graph layer,
     guaranteeing perfect graph fusion and avoiding isolated graph recomputations.
+
+    This is useful to wrap operations which are "leaf" tasks in the larger dask graph.
+    Such tasks generally produce a side-effects (IO operation, like logs,plots,writing data).
+    The result of ``func`` is discarded, and instead we always return an empty xr.DataArray.
+    If you wish to preserve the func's return value, then use native methods,
+    like :py:func:`xarray.map_blocks`, :py:func:`xarray.apply_ufunc`.
+    If you want a function which instead works with pure dask arrays,
+    see :py:func:`dask_lazy_task`.
 
     Example
     -----
@@ -19,11 +35,12 @@ def xarray_lazy_task(func=None, *, template=None):
     ... def plot_gains(ds, filename):
     ...     ...
 
-    >>> @xarray_lazy_task(template=custom_output_template)
-    ... def compute_metrics(ds):
-    ...     ...
+    >>> lazy_func = xarray_lazy_task(plot_gains)
 
-    >>> lazy_func = xarray_lazy_task(existing_python_func)
+    See Also
+    --------
+    xarray.map_blocks
+    xarray.apply_ufunc
 
     Notes
     -----
@@ -34,44 +51,39 @@ def xarray_lazy_task(func=None, *, template=None):
     3. Xarray-Only for Dask Collections: Any dask-backed collection passed in `*args`
        MUST be wrapped as an Xarray object (Dataset or DataArray) so that `.chunk(-1)`
        can be called on it safely. Pure Dask Arrays or DataFrames are not supported.
-    4. No Dask in kwargs of ``func``: `xr.map_blocks` does not support dask-backed collections inside
+    4. No dask in kwargs of ``func``: `xr.map_blocks` does not support dask-backed collections inside
        `**kwargs`. All keyword arguments must be standard, non-dask Python primitives/objects.
     5. Execution Context: When executed on a worker, the function receives fully concrete,
-       in-memory Xarray objects for any chunked inputs passed to it.
+       in-memory Xarray objects for any inputs passed to it.
     """
-    if func is None:
-        return functools.partial(xarray_lazy_task, template=template)
 
     @functools.wraps(func)
-    def wrapper(obj, *args, **kwargs):
-        # 1. Consolidate the primary Xarray target object to a single chunk
+    def wrapper(obj: T, *args: P.args, **kwargs: P.kwargs) -> xr.DataArray:
+        # Consolidate the primary Xarray target object to a single chunk
         collapsed_obj = obj.chunk(-1)
 
-        # 2. Process flat positional arguments (Dask collections are strictly Xarray objects)
+        # Process flat positional arguments (Dask collections are strictly Xarray objects)
         processed_args = tuple(
             arg.chunk(-1) if dask.is_dask_collection(arg) else arg
             for arg in args
         )
 
-        # 3. Setup the default Dask-backed status receipt template
-        nonlocal template
-        if template is None:
-            dummy_dask_arr = da.from_array(["pending"], chunks=(1,))
-            template = xr.Dataset({"task_receipt": ("status", dummy_dask_arr)})
+        # Setup the default Dask-backed status receipt template
+        template = xr.DataArray(
+            da.asarray(["pending"]),
+            dims=["status"],
+            name="_xarray_block_template",
+        )
 
-        # 4. The internal executor that runs inside the worker node context
-        def _block_executor(block, *exec_args, **exec_kwargs):
-            result = func(block, *exec_args, **exec_kwargs)
+        # The internal executor that runs inside the worker node context
+        def _xarray_block_executor_(block, *exec_args, **exec_kwargs):
+            func(block, *exec_args, **exec_kwargs)
+            return xr.DataArray(["done"], dims=["status"])
 
-            # Wrap non-xarray primitives cleanly to match the default template schema
-            if not isinstance(result, (xr.Dataset, xr.DataArray)):
-                return xr.Dataset({"task_receipt": ("status", [str(result)])})
-            return result
-
-        # 5. Hand off directly to the Xarray Blockwise graph engine
+        # Hand off directly to the Xarray Blockwise graph engine
         # kwargs are passed through unmodified (no dask collections allowed here)
         return xr.map_blocks(
-            _block_executor,
+            _xarray_block_executor_,
             collapsed_obj,
             args=processed_args,
             kwargs=kwargs,
