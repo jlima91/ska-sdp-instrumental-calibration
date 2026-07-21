@@ -76,7 +76,7 @@ class TaskManager:
             for value in obj.values():
                 self._register_lazy_param(value)
 
-    def _get_persist_args(self, obj, persisted_values):
+    def _get_persist_args(self, obj):
         """
         Retrieves arguments from the tracked array.
 
@@ -84,32 +84,22 @@ class TaskManager:
         ----------
         obj : Any
             The object or collection to process.
-        persisted_values : dict
-            Dictionary of persisted Dask collections.
-
         Returns
         -------
         Any
             The arguments reference from the tracked array.
         """
-        if id(obj) in persisted_values:
-            return persisted_values[id(obj)]
+        if id(obj) in self._tracked_arrays:
+            return self._tracked_arrays[id(obj)]
         elif isinstance(obj, list):
-            return [
-                self._get_persist_args(item, persisted_values) for item in obj
-            ]
+            return [self._get_persist_args(item) for item in obj]
         elif isinstance(obj, tuple):
-            transformed = [
-                self._get_persist_args(item, persisted_values) for item in obj
-            ]
+            transformed = [self._get_persist_args(item) for item in obj]
             if hasattr(obj, "_fields"):
                 return type(obj)(*transformed)
             return tuple(transformed)
         elif isinstance(obj, dict):
-            return {
-                k: self._get_persist_args(v, persisted_values)
-                for k, v in obj.items()
-            }
+            return {k: self._get_persist_args(v) for k, v in obj.items()}
         return obj
 
     def compute(self):
@@ -121,12 +111,9 @@ class TaskManager:
         tuple
             The computed results of all deferred tasks.
         """
-        persisted_values = dask.persist(self._tracked_arrays)[0]
+        self._tracked_arrays = dask.persist(self._tracked_arrays)[0]
         results = dask.compute(
-            *[
-                task(lambda obj: self._get_persist_args(obj, persisted_values))
-                for task in self._deferred_tasks
-            ]
+            *[task(self._get_persist_args) for task in self._deferred_tasks]
         )
 
         self._deferred_tasks.clear()
