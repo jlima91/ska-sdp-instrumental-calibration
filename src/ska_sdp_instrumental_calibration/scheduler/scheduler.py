@@ -1,7 +1,6 @@
 import logging
 
-import dask
-from distributed import as_completed, futures_of, get_client
+from distributed import get_client
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
@@ -186,7 +185,10 @@ class UpstreamOutput:
         combined_gaintable = None
         for key in self.__calibration_tables:
             if combined_gaintable is None:
-                combined_gaintable = self.__stage_outputs[key]
+                # NOTE: multiply_gaintables mutates the first argument
+                # Make a copy of the very first argument before
+                # proceeding
+                combined_gaintable = self.__stage_outputs[key].copy()
             else:
                 combined_gaintable = multiply_gaintables(
                     combined_gaintable, self.__stage_outputs[key]
@@ -212,44 +214,6 @@ class InstrumentalDaskRunner(DaskRunner):
             return stage(outputs)
 
         return [stage(output) for output in outputs]
-
-    # @classmethod
-    # def _process_upstream_output(cls, output, is_client_present):
-    #     outputs = output if isinstance(output, list) else [output]
-
-    #     checkpoints = [
-    #         output[key] for output in outputs for key in output.checkpoint_keys
-    #     ]
-    #     compute_tasks = [
-    #         task for output in outputs for task in output.compute_tasks
-    #     ]
-
-    #     persisted_values = dask.persist(
-    #         *(checkpoints + compute_tasks), optimize_graph=True
-    #     )
-
-    #     idx = 0
-    #     for output in outputs:
-    #         for key in output.checkpoint_keys:
-    #             output[key] = persisted_values[idx]
-    #             idx += 1
-
-    #     computed_tasks = persisted_values[idx:]
-    #     slider = 0
-    #     for output in outputs:
-    #         output.compute_outputs += computed_tasks[
-    #             slider : slider + len(output.compute_tasks)  # noqa E203
-    #         ]
-    #         slider += len(output.compute_tasks)
-    #         output.checkpoint_keys = []
-    #         output.stage_compute_tasks = []
-
-    #     if is_client_present:
-    #         for task in as_completed(futures_of(persisted_values)):
-    #             if task.status == "error":
-    #                 raise task.result()
-
-    #     return outputs
 
     def execute(self):
         """
