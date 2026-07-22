@@ -1,4 +1,3 @@
-from functools import wraps
 from typing import Any, Callable
 
 import dask
@@ -18,11 +17,13 @@ class DeferredTask:
         Function to repack positional arguments.
     kwargs_repack : callable
         Function to repack keyword arguments.
-    token : str
-        Deterministic token identifying the task.
+    *args : tuple
+        Positional arguments for the function.
+    **kwargs : dict
+        Keyword arguments for the function.
     """
 
-    def __init__(self, func, args_repack, kwargs_repack, token):
+    def __init__(self, func, args_repack, kwargs_repack, args, kwargs):
         """
         Initialize a DeferredTask instance.
 
@@ -34,13 +35,17 @@ class DeferredTask:
             Function to repack positional arguments.
         kwargs_repack : callable
             Function to repack keyword arguments.
-        token : str
-            Deterministic token identifying the task.
+        args : tuple
+            Positional arguments for the function.
+        kwargs : dict
+            Keyword arguments for the function.
         """
         self.__func = func
+        self.__args = args
+        self.__kwargs = kwargs
         self.__r_args = args_repack
         self.__r_kwarg = kwargs_repack
-        self._token = token
+        self._token = tokenize(func, args, kwargs)
 
     def __eq__(self, other):
         """
@@ -70,6 +75,17 @@ class DeferredTask:
             The hash value of the task's token.
         """
         return hash(self._token)
+
+    def __call__(self):
+        """
+        Execute the deferred function with its arguments.
+
+        Returns
+        -------
+        Any
+            The result of the deferred function.
+        """
+        return self.__func(*self.__args, **self.__kwargs)
 
     def delayed(self, args, kwargs) -> Delayed:
         """
@@ -128,23 +144,28 @@ class TaskManager:
 
     def register(self, func: Callable, *args, **kwargs) -> DeferredTask:
         """
-        Decorator to register a function as a deferred task.
+        Register a function as a deferred task.
 
         Parameters
         ----------
         func : Callable
             The function to defer.
+        *args : tuple
+            Positional arguments for the function.
+        **kwargs : dict
+            Keyword arguments for the function.
 
         Returns
         -------
-        Callable
-            The wrapped function returning a DeferredTask.
+        DeferredTask
+            The registered deferred task.
         """
         lazy_args, args_repack = unpack_collections(*args)
         lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
-        token = tokenize(func, args, kwargs)
 
-        deferred_task = DeferredTask(func, args_repack, kwargs_repack, token)
+        deferred_task = DeferredTask(
+            func, args_repack, kwargs_repack, args, kwargs
+        )
 
         self._tracked_arrays[deferred_task] = {
             "args": lazy_args,
