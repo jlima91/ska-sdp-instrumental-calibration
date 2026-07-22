@@ -126,7 +126,7 @@ class TaskManager:
 
         return results
 
-    def register(self, func: Callable) -> Callable:
+    def register(self, func: Callable, *args, **kwargs) -> DeferredTask:
         """
         Decorator to register a function as a deferred task.
 
@@ -140,22 +140,15 @@ class TaskManager:
         Callable
             The wrapped function returning a DeferredTask.
         """
+        lazy_args, args_repack = unpack_collections(*args)
+        lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
+        token = tokenize(func, args, kwargs)
 
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            lazy_args, args_repack = unpack_collections(*args)
-            lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
-            token = tokenize(func, args, kwargs)
+        deferred_task = DeferredTask(func, args_repack, kwargs_repack, token)
 
-            deferred_task = DeferredTask(
-                func, args_repack, kwargs_repack, token
-            )
+        self._tracked_arrays[deferred_task] = {
+            "args": lazy_args,
+            "kwargs": lazy_kwargs,
+        }
 
-            self._tracked_arrays[deferred_task] = {
-                "args": lazy_args,
-                "kwargs": lazy_kwargs,
-            }
-
-            return deferred_task
-
-        return wrapper
+        return deferred_task

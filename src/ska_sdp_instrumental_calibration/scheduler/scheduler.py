@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 from typing import Callable
 
 from ska_sdp_func_python.calibration import multiply_gaintables
@@ -27,7 +28,12 @@ def delayed(func: Callable) -> Callable:
         The wrapped function returning a DeferredTask.
     """
 
-    return task_manager.register(func)
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+
+        return task_manager.register(func, *args, **kwargs)
+
+    return wrapper
 
 
 class UpstreamOutput:
