@@ -5,7 +5,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import PlotGaintableFrequency
-from ..scheduler import task_manager
+from ..scheduler import delayed
 from ..xarray_processors.gain_smoothing import sliding_window_smooth
 from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotSmoothGainsConfig
@@ -98,7 +98,7 @@ def smooth_gain_solution_stage(
             f"{prefix}/smooth_gain{call_counter_suffix}.gaintable.h5parm",
         )
         _upstream_output_.add_compute_tasks(
-            task_manager.delayed(export_gaintable_to_h5parm)(
+            delayed(export_gaintable_to_h5parm)(
                 _upstream_output_.gaintable, gaintable_file_path
             )
         )

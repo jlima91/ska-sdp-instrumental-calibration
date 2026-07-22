@@ -1,6 +1,5 @@
 import logging
 import warnings
-from typing import Optional, Sequence
 
 import dask.array as da
 import numpy as np
@@ -241,56 +240,6 @@ def _calculate_delays_ufunc_(
     return delay[np.newaxis], offset[np.newaxis]
 
 
-def _apply_delay_to_gaintable_(
-    gaintable: GainTable, delaytable: DelayTable, inverse: bool = False
-) -> GainTable:
-    """
-    Applies the delay to the given gaintable
-
-    Parameters
-    ----------
-    gaintable
-        Gaintable on which we need to apply delays
-    delaytable
-        DelayTable which holds calculated delays
-    inverse
-        Whether to invert the delayes before appluing
-
-    Returns
-    -------
-        Gaintable with updated gains
-    """
-    new_gains = gaintable["gain"].copy()
-
-    # We calculate delays only for XX and YY terms
-    for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
-        gain = gaintable["gain"][..., rec1idx, rec2idx]
-        frequency = gaintable["frequency"]
-        delay = delaytable["delay"].sel(pol=pol)
-        offset = delaytable["offset"].sel(pol=pol)
-
-        # calculate_gain_rot can operate on a single gain value
-        # or a chunk along frequency dimension
-        # so no need to reshape/broadcast (no input_core_dims)
-        # Internally, this relies on dask.array.blockwise "align_arrays"
-        # which will align chunks across broadcasted dimensions
-        delay_rotated_gain = xr.apply_ufunc(
-            calculate_gain_rot,
-            gain,
-            delay,
-            offset,
-            frequency,
-            output_dtypes=[gain.dtype],
-            dask="parallelized",
-            kwargs=dict(inverse=inverse),
-        )
-
-        new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
-
-    newtable = gaintable.copy()
-    return newtable.assign(gain=new_gains)
-
-
 def apply_delay_to_gaintable(
     gaintable: GainTable, delaytable: DelayTable, inverse: bool = False
 ) -> GainTable:
@@ -310,7 +259,6 @@ def apply_delay_to_gaintable(
     -------
         Gaintable with updated gains
     """
-    gaintable = gaintable.chunk({"frequency": -1})
     new_gains = gaintable["gain"].copy()
 
     # We calculate delays only for XX and YY terms

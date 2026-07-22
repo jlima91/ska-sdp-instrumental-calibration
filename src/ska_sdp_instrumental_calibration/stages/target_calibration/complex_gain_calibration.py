@@ -10,7 +10,7 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 
 from ...numpy_processors.solvers import Solver
 from ...plot import PlotGaintableTime
-from ...scheduler import task_manager
+from ...scheduler import delayed
 from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
 from .._utils import get_gaintables_path, get_plots_path
@@ -125,7 +125,7 @@ def complex_gain_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            task_manager.delayed(h5exp.export_gaintable_to_h5parm)(
+            delayed(h5exp.export_gaintable_to_h5parm)(
                 gaintable, gaintable_file_path
             )
         )

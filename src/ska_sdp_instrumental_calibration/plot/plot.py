@@ -8,7 +8,7 @@ from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
     generate_rotation_matrices,
 )
 
-from ..scheduler import task_manager
+from ..scheduler import delayed
 from ..xarray_processors import normalize_data
 from ._util import ecef_to_lla, safe
 from .plot_gaintable import PlotGaintableFrequency
@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-@task_manager.delayed
+@delayed
 @safe
 def plot_flag_gain(
     gaintable,
@@ -106,7 +106,7 @@ def plot_flag_gain(
         plt.close()
 
 
-@task_manager.delayed
+@delayed
 @safe
 def plot_curve_fit(
     gaintable,
@@ -301,7 +301,7 @@ def plot_curve_fit(
         plt.close()
 
 
-@task_manager.delayed
+@delayed
 @safe
 def plot_station_delays(delaytable, path_prefix):
     """
@@ -351,7 +351,7 @@ def plot_station_delays(delaytable, path_prefix):
     plt.close()
 
 
-@task_manager.delayed
+@delayed
 @safe
 def plot_bandpass_stages(
     gaintable, initialtable, rm_est, refant, plot_path_prefix
@@ -435,7 +435,7 @@ def plot_bandpass_stages(
     fig.savefig(f"{plot_path_prefix}-bandpass_stages.png")
 
 
-@task_manager.delayed
+@delayed
 @safe
 def plot_rm_station(
     gaintable,

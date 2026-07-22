@@ -1,13 +1,33 @@
 import logging
+from typing import Callable
 
-from distributed import get_client
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
 from ..tagger import Tags
-from .deferred_tasks import task_manager
+from .deferred_tasks import TaskManager
 
 logger = logging.getLogger()
+
+task_manager = TaskManager()
+
+
+def delayed(func: Callable) -> Callable:
+    """
+    Decorator to register a function as a deferred task.
+
+    Parameters
+    ----------
+    func : callable
+        The function to defer.
+
+    Returns
+    -------
+    callable
+        The wrapped function returning a DeferredTask.
+    """
+
+    return task_manager.register(func)
 
 
 class UpstreamOutput:
@@ -37,8 +57,6 @@ class UpstreamOutput:
         """
         self.__stage_outputs = {}
         self.stage_compute_tasks = []
-        self.checkpoint_keys = []
-        self.compute_outputs = []
         self.__call_count = {}
         self.__calibration_tables = []
 
@@ -165,18 +183,6 @@ class UpstreamOutput:
         """
         self.stage_compute_tasks.extend(args)
 
-    def add_checkpoint_key(self, *args):
-        """
-        Register keys that should be checkpointed.
-
-        Parameters
-        ----------
-        *args
-            One or more string keys identifying outputs that require
-            checkpointing or persistence.
-        """
-        self.checkpoint_keys.extend(args)
-
     @property
     def calibration_table(self):
         if len(self.__calibration_tables) == 0:
@@ -235,13 +241,6 @@ class InstrumentalDaskRunner(DaskRunner):
         stages : list of Stage
             A list of stage objects to be executed.
         """
-        is_client_present = False
-
-        try:
-            get_client()
-            is_client_present = True
-        except Exception:
-            pass
 
         output = UpstreamOutput()
         for stage in self.pipeline.executable_stages:

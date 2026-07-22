@@ -2,6 +2,7 @@ from functools import wraps
 from typing import Any, Callable
 
 import dask
+from dask.base import tokenize, unpack_collections
 from dask.delayed import Delayed
 
 
@@ -13,36 +14,82 @@ class DeferredTask:
     ----------
     func : callable
         The function to be deferred.
-    *args : tuple
-        Positional arguments for the function.
-    **kwargs : dict
-        Keyword arguments for the function.
+    args_repack : callable
+        Function to repack positional arguments.
+    kwargs_repack : callable
+        Function to repack keyword arguments.
+    token : str
+        Deterministic token identifying the task.
     """
 
-    def __init__(self, func, *args, **kwargs):
-        self.__func = func
-        self.__args = args
-        self.__kwargs = kwargs
-
-    def __call__(
-        self,
-        get_persist_args: Callable[[Any], Any],
-    ) -> Delayed:
+    def __init__(self, func, args_repack, kwargs_repack, token):
         """
-        Executes the deferred task using the provided callable.
+        Initialize a DeferredTask instance.
 
         Parameters
         ----------
-        get_persist_args : Callable
-            Callable to retrieve persisted arguments.
+        func : callable
+            The function to be deferred.
+        args_repack : callable
+            Function to repack positional arguments.
+        kwargs_repack : callable
+            Function to repack keyword arguments.
+        token : str
+            Deterministic token identifying the task.
+        """
+        self.__func = func
+        self.__r_args = args_repack
+        self.__r_kwarg = kwargs_repack
+        self._token = token
+
+    def __eq__(self, other):
+        """
+        Check equality based on the deterministic token.
+
+        Parameters
+        ----------
+        other : Any
+            The object to compare against.
+
+        Returns
+        -------
+        bool
+            True if tokens match, otherwise False.
+        """
+        if not isinstance(other, DeferredTask):
+            return NotImplemented
+        return self._token == other._token
+
+    def __hash__(self):
+        """
+        Compute the hash of the task using its token.
+
+        Returns
+        -------
+        int
+            The hash value of the task's token.
+        """
+        return hash(self._token)
+
+    def delayed(self, args, kwargs) -> Delayed:
+        """
+        Create a dask.delayed object for the task.
+
+        Parameters
+        ----------
+        args : list or tuple
+            Unpacked positional arguments.
+        kwargs : dict or tuple
+            Unpacked keyword arguments.
 
         Returns
         -------
         Delayed
-            The delayed function execution object.
+            The delayed dask computation object.
         """
-        args = get_persist_args(self.__args)
-        kwargs = get_persist_args(self.__kwargs)
+        args = self.__r_args(args)
+        kwargs = self.__r_kwarg(kwargs)[0]
+
         return dask.delayed(self.__func)(*args, **kwargs)
 
 
@@ -53,58 +100,13 @@ class TaskManager:
 
     def __init__(self):
         """
-        Initializes the TaskManager.
+        Initialize the TaskManager.
         """
-        self._deferred_tasks = []
-        self._tracked_arrays = {}
-
-    def _register_lazy_param(self, obj):
-        """
-        Recursively registers Dask collections for tracking.
-
-        Parameters
-        ----------
-        obj : Any
-            The object or collection to inspect and register.
-        """
-        if dask.is_dask_collection(obj):
-            self._tracked_arrays[id(obj)] = obj
-        elif isinstance(obj, (list, tuple, set)):
-            for item in obj:
-                self._register_lazy_param(item)
-        elif isinstance(obj, dict):
-            for value in obj.values():
-                self._register_lazy_param(value)
-
-    def _get_persist_args(self, obj):
-        """
-        Retrieves arguments from the tracked array.
-
-        Parameters
-        ----------
-        obj : Any
-            The object or collection to process.
-        Returns
-        -------
-        Any
-            The arguments reference from the tracked array.
-        """
-        if id(obj) in self._tracked_arrays:
-            return self._tracked_arrays[id(obj)]
-        elif isinstance(obj, list):
-            return [self._get_persist_args(item) for item in obj]
-        elif isinstance(obj, tuple):
-            transformed = [self._get_persist_args(item) for item in obj]
-            if hasattr(obj, "_fields"):
-                return type(obj)(*transformed)
-            return tuple(transformed)
-        elif isinstance(obj, dict):
-            return {k: self._get_persist_args(v) for k, v in obj.items()}
-        return obj
+        self._tracked_arrays: dict[DeferredTask, dict[str, Any]] = {}
 
     def compute(self):
         """
-        Persists tracked arrays and computes all deferred tasks.
+        Persist tracked arrays and compute all deferred tasks.
 
         Returns
         -------
@@ -112,39 +114,48 @@ class TaskManager:
             The computed results of all deferred tasks.
         """
         self._tracked_arrays = dask.persist(self._tracked_arrays)[0]
+
         results = dask.compute(
-            *[task(self._get_persist_args) for task in self._deferred_tasks]
+            *[
+                task.delayed(**persisted_value)
+                for task, persisted_value in self._tracked_arrays.items()
+            ]
         )
 
-        self._deferred_tasks.clear()
         self._tracked_arrays.clear()
 
         return results
 
-    def delayed(self, func: Callable) -> Callable:
+    def register(self, func: Callable) -> Callable:
         """
         Decorator to register a function as a deferred task.
 
         Parameters
         ----------
-        func : callable
+        func : Callable
             The function to defer.
 
         Returns
         -------
-        callable
+        Callable
             The wrapped function returning a DeferredTask.
         """
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            deferred_task = DeferredTask(func, *args, **kwargs)
-            self._deferred_tasks.append(deferred_task)
-            self._register_lazy_param(args)
-            self._register_lazy_param(kwargs)
+            lazy_args, args_repack = unpack_collections(*args)
+            lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
+            token = tokenize(func, args, kwargs)
+
+            deferred_task = DeferredTask(
+                func, args_repack, kwargs_repack, token
+            )
+
+            self._tracked_arrays[deferred_task] = {
+                "args": lazy_args,
+                "kwargs": lazy_kwargs,
+            }
+
             return deferred_task
 
         return wrapper
-
-
-task_manager = TaskManager()

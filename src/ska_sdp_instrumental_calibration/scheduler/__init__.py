@@ -1,9 +1,9 @@
-from .deferred_tasks import DeferredTask, task_manager
-from .scheduler import InstrumentalDaskRunner, UpstreamOutput
+from .deferred_tasks import DeferredTask
+from .scheduler import InstrumentalDaskRunner, UpstreamOutput, delayed
 
 __all__ = [
     "InstrumentalDaskRunner",
     "UpstreamOutput",
-    "task_manager",
+    "delayed",
     "DeferredTask",
 ]

@@ -6,7 +6,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
-from ..scheduler import task_manager
+from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ._utils import get_gaintables_path
@@ -57,7 +57,6 @@ def bandpass_initialisation_stage(
             Updated upstream_output with gaintable
     """
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     initialtable = _upstream_output_.gaintable
@@ -92,7 +91,7 @@ def bandpass_initialisation_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            task_manager.delayed(export_gaintable_to_h5parm)(
+            delayed(export_gaintable_to_h5parm)(
                 _upstream_output_["gaintable"], gaintable_file_path
             )
         )

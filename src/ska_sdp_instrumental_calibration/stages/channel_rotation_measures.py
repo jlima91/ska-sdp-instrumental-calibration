@@ -1,3 +1,5 @@
+# pylint: disable=W0101
+
 import logging
 from typing import Annotated, Literal
 
@@ -12,7 +14,7 @@ from ..plot import (
     plot_bandpass_stages,
     plot_rm_station,
 )
-from ..scheduler import task_manager
+from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
@@ -122,8 +124,8 @@ def generate_channel_rm_stage(
         dict
             Updated upstream_output with gaintable
     """
-    _upstream_output_.add_checkpoint_key("modelvis")
-    _upstream_output_.add_checkpoint_key("gaintable")
+
+    raise RuntimeWarning("This stage is not optimized for lazy dask execution")
 
     vis = _upstream_output_[visibility_key]
     prefix = _upstream_output_.ms_prefix
@@ -224,9 +226,7 @@ def generate_channel_rm_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            task_manager.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
+            delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
         )
 
     _upstream_output_["modelvis"] = modelvis

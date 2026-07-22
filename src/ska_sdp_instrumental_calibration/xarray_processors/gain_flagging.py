@@ -1,15 +1,16 @@
 import logging
 
-import dask
 import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
+from ..scheduler import delayed
+
 logger = logging.getLogger()
 
 
-@dask.delayed
+@delayed
 def log_flaging_statistics(weights, initial_weights):
     current_flagged = (
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]

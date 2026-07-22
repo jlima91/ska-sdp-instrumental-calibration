@@ -15,7 +15,7 @@ from ..data_managers.data_export import (
 from ..data_managers.gaintable import reset_gaintable
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..scheduler import task_manager
+from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
     apply_delay_to_gaintable,
@@ -90,7 +90,6 @@ def delay_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     vis = _upstream_output_.vis
     prefix = _upstream_output_.ms_prefix
     modelvis = _upstream_output_.modelvis
@@ -171,7 +170,7 @@ def delay_calibration_stage(
         )
 
         _upstream_output_.add_compute_tasks(
-            task_manager.delayed(export_gaintable_to_h5parm)(
+            delayed(export_gaintable_to_h5parm)(
                 delay_corrections, gaintable_file_path
             )
         )
