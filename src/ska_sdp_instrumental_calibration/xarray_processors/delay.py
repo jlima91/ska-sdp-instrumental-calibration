@@ -284,7 +284,7 @@ def create_delaytable_from_vis(
             .mean(dim="time")
         )
 
-        vis_refant = vis_refant.conj()
+        vis_refant[refant:, ...] = vis_refant[refant:, ...].conj()
 
         weights = (
             vis_per_solution["weight"]
