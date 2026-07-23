@@ -206,8 +206,7 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "smooth_gain_solution.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages." "smooth_gain_solution.delayed",
     side_effect=lambda x: x,
 )
 @patch(

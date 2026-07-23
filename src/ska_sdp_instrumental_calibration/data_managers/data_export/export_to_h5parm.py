@@ -1,6 +1,5 @@
 from typing import Iterable, Literal
 
-import dask
 import h5py
 import numpy as np
 import xarray as xr
@@ -167,7 +166,6 @@ def export_gaintable_to_h5parm(
         weight[...] = gaintable["weight"].data
 
 
-@dask.delayed
 def export_clock_to_h5parm(
     delaytable: xr.Dataset, filename: str, squeeze: bool = False
 ):

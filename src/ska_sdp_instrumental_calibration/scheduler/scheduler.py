@@ -30,7 +30,6 @@ def delayed(func: Callable) -> Callable:
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-
         return task_manager.register(func, *args, **kwargs)
 
     return wrapper
@@ -62,7 +61,6 @@ class UpstreamOutput:
         Initialize the UpstreamOutput container.
         """
         self.__stage_outputs = {}
-        self.stage_compute_tasks = []
         self.__call_count = {}
         self.__calibration_tables = []
 
@@ -176,18 +174,6 @@ class UpstreamOutput:
         list: Get the list of accumulated compute tasks.
         """
         return self.stage_compute_tasks
-
-    def add_compute_tasks(self, *args):
-        """
-        Register new compute tasks to the pipeline.
-
-        Parameters
-        ----------
-        *args
-            One or more task objects (e.g., Dask delayed objects) to add
-            to the execution queue.
-        """
-        self.stage_compute_tasks.extend(args)
 
     @property
     def calibration_table(self):

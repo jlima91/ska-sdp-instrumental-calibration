@@ -64,7 +64,6 @@ def smooth_gain_solution_stage(
     dict
         Updated upstream_output with gaintable
     """
-    _upstream_output_.add_checkpoint_key("gaintable")
     prefix = _upstream_output_.ms_prefix
 
     call_counter_suffix = ""
@@ -84,12 +83,9 @@ def smooth_gain_solution_stage(
             path_prefix=path_prefix,
             refant=_upstream_output_.refant,
         )
-
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                _upstream_output_.gaintable,
-                figure_title=plot_config.plot_title,
-            )
+        freq_plotter.plot(
+            _upstream_output_.gaintable,
+            figure_title=plot_config.plot_title,
         )
 
     if export_gaintable:
@@ -97,10 +93,8 @@ def smooth_gain_solution_stage(
             _qa_dir_,
             f"{prefix}/smooth_gain{call_counter_suffix}.gaintable.h5parm",
         )
-        _upstream_output_.add_compute_tasks(
-            delayed(export_gaintable_to_h5parm)(
-                _upstream_output_.gaintable, gaintable_file_path
-            )
+        delayed(export_gaintable_to_h5parm)(
+            _upstream_output_.gaintable, gaintable_file_path
         )
 
     _upstream_output_.increment_call_count("smooth")

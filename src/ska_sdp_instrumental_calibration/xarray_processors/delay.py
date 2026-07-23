@@ -8,6 +8,8 @@ from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 
+from ._utils import with_chunks
+
 logger = logging.getLogger()
 
 
@@ -286,8 +288,7 @@ def apply_delay_to_gaintable(
 
         new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
 
-    newtable = gaintable.copy()
-    return newtable.assign(gain=new_gains)
+    return gaintable.assign(gain=with_chunks(new_gains, gaintable.chunks))
 
 
 def update_delay(

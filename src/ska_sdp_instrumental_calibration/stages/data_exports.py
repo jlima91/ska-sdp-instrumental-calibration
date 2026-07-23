@@ -110,11 +110,9 @@ def export_gaintable_stage(
 
         logger.info(f"Writing solutions to {gaintable_file_path}")
 
-        export = delayed(export_functions[export_format])(
+        delayed(export_functions[export_format])(
             upstream_output.gaintable, gaintable_file_path
         )
-
-        final_upstream.add_compute_tasks(export)
 
     if export_metadata and INSTMetaData.can_create_metadata():
         metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)
@@ -127,6 +125,6 @@ def export_gaintable_stage(
                 }
             ],
         )
-        final_upstream.add_compute_tasks(inst_metadata.export())
+        inst_metadata.export()
 
     return final_upstream

@@ -17,13 +17,13 @@ class DeferredTask:
         Function to repack positional arguments.
     kwargs_repack : callable
         Function to repack keyword arguments.
-    *args : tuple
+    args : tuple
         Positional arguments for the function.
-    **kwargs : dict
+    kwargs : dict
         Keyword arguments for the function.
     """
 
-    def __init__(self, func, args_repack, kwargs_repack, args, kwargs):
+    def __init__(self, func, *args, **kwargs):
         """
         Initialize a DeferredTask instance.
 
@@ -31,21 +31,31 @@ class DeferredTask:
         ----------
         func : callable
             The function to be deferred.
-        args_repack : callable
-            Function to repack positional arguments.
-        kwargs_repack : callable
-            Function to repack keyword arguments.
         args : tuple
             Positional arguments for the function.
         kwargs : dict
             Keyword arguments for the function.
         """
+        lazy_args, args_repack = unpack_collections(args)
+        lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
+
         self.__func = func
         self.__args = args
         self.__kwargs = kwargs
+
+        self.__lazy_args = lazy_args
+        self.__lazy_kwargs = lazy_kwargs
+
         self.__r_args = args_repack
         self.__r_kwarg = kwargs_repack
         self._token = tokenize(func, args, kwargs)
+
+    @property
+    def params(self):
+        return {
+            "args": self.__lazy_args,
+            "kwargs": self.__lazy_kwargs,
+        }
 
     def __eq__(self, other):
         """
@@ -103,7 +113,7 @@ class DeferredTask:
         Delayed
             The delayed dask computation object.
         """
-        args = self.__r_args(args)
+        args = self.__r_args(args)[0]
         kwargs = self.__r_kwarg(kwargs)[0]
 
         return dask.delayed(self.__func)(*args, **kwargs)
@@ -131,14 +141,15 @@ class TaskManager:
         """
         self._tracked_arrays = dask.persist(self._tracked_arrays)[0]
 
-        results = dask.compute(
-            *[
-                task.delayed(**persisted_value)
-                for task, persisted_value in self._tracked_arrays.items()
-            ]
-        )
-
-        self._tracked_arrays.clear()
+        try:
+            results = dask.compute(
+                *[
+                    task.delayed(**persisted_value)
+                    for task, persisted_value in self._tracked_arrays.items()
+                ]
+            )
+        finally:
+            self._tracked_arrays.clear()
 
         return results
 
@@ -160,16 +171,9 @@ class TaskManager:
         DeferredTask
             The registered deferred task.
         """
-        lazy_args, args_repack = unpack_collections(*args)
-        lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
 
-        deferred_task = DeferredTask(
-            func, args_repack, kwargs_repack, args, kwargs
-        )
+        deferred_task = DeferredTask(func, *args, **kwargs)
 
-        self._tracked_arrays[deferred_task] = {
-            "args": lazy_args,
-            "kwargs": lazy_kwargs,
-        }
+        self._tracked_arrays[deferred_task] = deferred_task.params
 
         return deferred_task

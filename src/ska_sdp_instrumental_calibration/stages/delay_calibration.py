@@ -144,19 +144,15 @@ def delay_calibration_stage(
             refant=refant,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                delay_corrections,
-                figure_title="Delay",
-                fixed_axis=plot_config.fixed_axis,
-            )
+        freq_plotter.plot(
+            delay_corrections,
+            figure_title="Delay",
+            fixed_axis=plot_config.fixed_axis,
         )
 
-        _upstream_output_.add_compute_tasks(
-            plot_station_delays(
-                delaytable,
-                path_prefix,
-            )
+        plot_station_delays(
+            delaytable,
+            path_prefix,
         )
 
     if export_gaintable:
@@ -169,15 +165,11 @@ def delay_calibration_stage(
             _qa_dir_, f"{prefix}/delay{call_counter_suffix}.clock.h5parm"
         )
 
-        _upstream_output_.add_compute_tasks(
-            delayed(export_gaintable_to_h5parm)(
-                delay_corrections, gaintable_file_path
-            )
+        delayed(export_gaintable_to_h5parm)(
+            delay_corrections, gaintable_file_path
         )
 
-        _upstream_output_.add_compute_tasks(
-            export_clock_to_h5parm(delaytable, delaytable_file_path)
-        )
+        delayed(export_clock_to_h5parm)(delaytable, delaytable_file_path)
 
     _upstream_output_["vis"] = vis
     _upstream_output_["delay"] = delay_corrections

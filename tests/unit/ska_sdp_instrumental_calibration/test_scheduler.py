@@ -49,24 +49,15 @@ class TestUpstreamOutput:
         assert "x" in upstream_output
         assert "y" not in upstream_output
 
-    def test_add_compute_tasks_and_property(self):
-        upstream_output = UpstreamOutput()
-        task1 = MagicMock()
-        task2 = MagicMock()
-        upstream_output.add_compute_tasks(task1, task2)
-        assert task1 in upstream_output.compute_tasks
-        assert task2 in upstream_output.compute_tasks
-
-    def test_add_checkpoint_key(self):
-        upstream_output = UpstreamOutput()
-        upstream_output.add_checkpoint_key("key1", "key2")
-        assert "key1" in upstream_output.checkpoint_keys
-        assert "key2" in upstream_output.checkpoint_keys
-
-    @patch("ska_sdp_instrumental_calibration.scheduler.multiply_gaintables")
+    @patch(
+        "ska_sdp_instrumental_calibration.scheduler.scheduler"
+        ".multiply_gaintables"
+    )
     def test_build_calibration_table(self, multiply_mock):
         upstream_output = UpstreamOutput()
         delay_gaintable = MagicMock(name="delay")
+        delay_table_copy = MagicMock(name="delay_copy")
+        delay_gaintable.copy.return_value = delay_table_copy
         gaintable = MagicMock(name="gaintable")
         flux_gaintable = MagicMock(name="flux")
 
@@ -84,141 +75,27 @@ class TestUpstreamOutput:
         assert upstream_output.calibration_table == multiply_mock.return_value
         multiply_mock.assert_has_calls(
             [
-                call(delay_gaintable, flux_gaintable),
+                call(delay_table_copy, flux_gaintable),
                 call(multiply_mock.return_value, gaintable),
             ]
         )
 
 
 class TestInstrumentalDaskRunner:
-    @patch(
-        "ska_sdp_instrumental_calibration.scheduler.get_client",
-        side_effect=Exception("No client"),
-    )
-    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    def test_should_persist_checkpoints_and_computes(
-        self, mock_persist, mock_get_client
-    ):
+    @patch("ska_sdp_instrumental_calibration.scheduler.scheduler.task_manager")
+    def test_should_compute_tasks_on_execute(self, mock_task_manager):
         pipeline = MagicMock(name="pipeline")
 
         dummy_stage = MagicMock()
         dummy_stage.name = "stage1"
         pipeline.executable_stages = [dummy_stage]
-
-        # Create output object and checkpoint keys
-        output = MagicMock()
-        output.checkpoint_keys = ["vis1"]
-        output.compute_tasks = ["task1"]
-        output.__getitem__.return_value = "vis1_value"
-        output.__setitem__ = MagicMock()
-        output.compute_outputs = []
-        output.stage_compute_tasks = []
-        output.add_checkpoint_key = MagicMock()
-
-        dummy_stage.return_value = output
-
-        # Persist returns checkpoint and compute task values
-        mock_persist.return_value = ["vis1_value", "task1"]
 
         scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
         scheduler.execute()
 
         # Check persist called for both stages
-        mock_persist.assert_any_call(
-            "vis1_value", "task1", optimize_graph=True
-        )
+        mock_task_manager.compute.assert_called_once()
 
-        assert output.checkpoint_keys == []
-        assert output.stage_compute_tasks == []
-
-    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
-    @patch("ska_sdp_instrumental_calibration.scheduler.futures_of")
-    @patch("ska_sdp_instrumental_calibration.scheduler.as_completed")
-    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    def test_should_wait_and_throw_error_on_failure(
-        self, mock_persist, mock_as_completed, mock_futures_of, get_client_mock
-    ):
-        pipeline = MagicMock(name="pipeline")
-
-        dummy_stage = MagicMock()
-        dummy_stage.name = "stage1"
-        pipeline.executable_stages = [dummy_stage]
-
-        # Create output object and checkpoint keys
-        output = MagicMock()
-        output.checkpoint_keys = ["vis1"]
-        output.compute_tasks = ["task1"]
-        output.__getitem__.return_value = "vis1_value"
-        output.__setitem__ = MagicMock()
-        output.compute_outputs = []
-        output.stage_compute_tasks = []
-        output.add_checkpoint_key = MagicMock()
-
-        dummy_stage.return_value = output
-
-        # Persist returns checkpoint and compute task values
-        mock_persist.return_value = ["vis1_value", "task1"]
-
-        error = Exception("Task failed")
-        error_task = MagicMock()
-        error_task.status = "error"
-        error_task.result.side_effect = lambda: error
-        success_task = MagicMock()
-        success_task.status = "success"
-        success_task.result.return_value = "ok"
-
-        mock_delay1 = MagicMock()
-        mock_delay2 = MagicMock()
-
-        mock_futures_of.return_value = (mock_delay1, mock_delay2)
-        mock_as_completed.return_value = [error_task, success_task]
-
-        scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
-        # Create mock tasks
-
-        # Patch wait to return (done, not_done)
-        with pytest.raises(Exception) as _error:
-            scheduler.execute()
-        assert _error.value is error_task.result()
-
-        mock_futures_of.assert_called_once_with(["vis1_value", "task1"])
-        mock_as_completed.assert_called_once_with((mock_delay1, mock_delay2))
-
-    @patch("ska_sdp_instrumental_calibration.scheduler.get_client")
-    @patch("ska_sdp_instrumental_calibration.scheduler.futures_of")
-    @patch("ska_sdp_instrumental_calibration.scheduler.as_completed")
-    @patch("ska_sdp_instrumental_calibration.scheduler.dask.persist")
-    def test_should_wait_and_not_throw_error_on_success(
-        self, mock_persist, mock_as_completed, mock_futures_of, get_client_mock
-    ):
-        pipeline = MagicMock(name="pipeline")
-
-        dummy_stage = MagicMock()
-        dummy_stage.name = "stage1"
-        pipeline.executable_stages = [dummy_stage]
-
-        # Create output object and checkpoint keys
-        output = MagicMock()
-        output.checkpoint_keys = ["vis1"]
-        output.compute_tasks = ["task1"]
-        output.__getitem__.return_value = "vis1_value"
-        output.__setitem__ = MagicMock()
-        output.compute_outputs = []
-        output.stage_compute_tasks = []
-        output.add_checkpoint_key = MagicMock()
-
-        dummy_stage.return_value = output
-
-        scheduler = InstrumentalDaskRunner(_pipeline_=pipeline)
-
-        success_task = MagicMock()
-        success_task.status = "success"
-        success_task.result.return_value = "ok"
-
-        mock_as_completed.return_value = [success_task]
-
-        delayed_task = MagicMock()
-        mock_futures_of.return_value = (delayed_task,)
-
-        scheduler.execute()
-        mock_as_completed.assert_called_once_with((delayed_task,))
+    @pytest.mark.skip(reason="Need to implement")
+    def test_should_broadcast_and_aggregate():
+        pass

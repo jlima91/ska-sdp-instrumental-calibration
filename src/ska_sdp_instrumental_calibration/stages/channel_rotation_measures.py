@@ -1,5 +1,3 @@
-# pylint: disable=W0101
-
 import logging
 from typing import Annotated, Literal
 
@@ -125,8 +123,6 @@ def generate_channel_rm_stage(
             Updated upstream_output with gaintable
     """
 
-    raise RuntimeWarning("This stage is not optimized for lazy dask execution")
-
     vis = _upstream_output_[visibility_key]
     prefix = _upstream_output_.ms_prefix
     logger.info(f"Using {visibility_key} for calibration.")
@@ -184,21 +180,17 @@ def generate_channel_rm_stage(
         path_prefix = get_plots_path(
             _qa_dir_, f"{prefix}/channel_rm{call_counter_suffix}"
         )
-        _upstream_output_.add_compute_tasks(
-            plot_bandpass_stages(
-                gaintable,
-                initialtable,
-                rotations.rm_est,
-                run_solver_config.refant,
-                plot_path_prefix=path_prefix,
-            ),
-            plot_rm_station(
-                initialtable,
-                **rotations.get_plot_params_for_station(
-                    plot_rm_config.station
-                ),
-                plot_path_prefix=path_prefix,
-            ),
+        plot_bandpass_stages(
+            gaintable,
+            initialtable,
+            rotations.rm_est,
+            run_solver_config.refant,
+            plot_path_prefix=path_prefix,
+        )
+        plot_rm_station(
+            initialtable,
+            **rotations.get_plot_params_for_station(plot_rm_config.station),
+            plot_path_prefix=path_prefix,
         )
 
     if plot_table:
@@ -211,12 +203,10 @@ def generate_channel_rm_stage(
             refant=_upstream_output_.refant,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Channel Rotation Measure",
-                drop_cross_pols=True,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Channel Rotation Measure",
+            drop_cross_pols=True,
         )
 
     if export_gaintable:
@@ -225,9 +215,7 @@ def generate_channel_rm_stage(
             f"{prefix}/channel_rm{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.add_compute_tasks(
-            delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
-        )
+        delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
     _upstream_output_["modelvis"] = modelvis
     _upstream_output_["gaintable"] = gaintable

@@ -124,13 +124,11 @@ def bandpass_calibration_stage(
             refant=_upstream_output_.refant,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Bandpass",
-                fixed_axis=plot_config.fixed_axis,
-                plot_all_stations=True,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Bandpass",
+            fixed_axis=plot_config.fixed_axis,
+            plot_all_stations=True,
         )
 
     if export_gaintable:
@@ -139,9 +137,7 @@ def bandpass_calibration_stage(
             f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.add_compute_tasks(
-            delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
-        )
+        delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")

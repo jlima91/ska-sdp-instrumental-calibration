@@ -77,7 +77,6 @@ def complex_gain_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
     run_solver_config = run_solver_config.model_dump()
@@ -111,12 +110,10 @@ def complex_gain_calibration_stage(
             path_prefix=path_prefix, refant=run_solver_config["refant"]
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Complex Gain",
-                fixed_axis=plot_config.fixed_axis,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Complex Gain",
+            fixed_axis=plot_config.fixed_axis,
         )
 
     if export_gaintable:
@@ -124,10 +121,8 @@ def complex_gain_calibration_stage(
             _qa_dir_, "complex_gain.gaintable.h5parm"
         )
 
-        _upstream_output_.add_compute_tasks(
-            delayed(h5exp.export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
+        delayed(h5exp.export_gaintable_to_h5parm)(
+            gaintable, gaintable_file_path
         )
 
     _upstream_output_["gaintable"] = gaintable

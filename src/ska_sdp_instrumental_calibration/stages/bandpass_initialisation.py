@@ -90,10 +90,8 @@ def bandpass_initialisation_stage(
             _qa_dir_, f"{prefix}/bandpass_initialisation.gaintable.h5parm"
         )
 
-        _upstream_output_.add_compute_tasks(
-            delayed(export_gaintable_to_h5parm)(
-                _upstream_output_["gaintable"], gaintable_file_path
-            )
+        delayed(export_gaintable_to_h5parm)(
+            _upstream_output_["gaintable"], gaintable_file_path
         )
 
     return _upstream_output_

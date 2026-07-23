@@ -106,7 +106,7 @@ def test_should_perform_complex_gain_calibration(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
-    ".complex_gain_calibration.dask.delayed",
+    ".complex_gain_calibration.delayed",
     side_effect=lambda x: x,
 )
 @patch(

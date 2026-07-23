@@ -72,18 +72,15 @@ def export_visibilities_stage(
         path_prefix = get_visibilities_path(
             _output_dir_, f"{prefix}/{vis_prefix}{call_counter_suffix}.ms"
         )
-        _upstream_output_.add_compute_tasks(
-            delayed(export_visibility_to_ms)(path_prefix, [vis])
-        )
+        delayed(export_visibility_to_ms)(path_prefix, [vis])
 
     if data_to_export == "modelvis" or data_to_export == "all":
         modelvis = _upstream_output_["modelvis"]
         path_prefix = get_visibilities_path(
             _output_dir_, f"{prefix}/modelvis{call_counter_suffix}.ms"
         )
-        _upstream_output_.add_compute_tasks(
-            delayed(export_visibility_to_ms)(path_prefix, [modelvis])
-        )
+
+        delayed(export_visibility_to_ms)(path_prefix, [modelvis])
 
     _upstream_output_.increment_call_count("export_visibilities")
 
