@@ -150,7 +150,6 @@ def _load_data(
 ) -> UpstreamOutput:
 
     _upstream_output_ = UpstreamOutput()
-    _upstream_output_.add_checkpoint_key("gaintable")
     non_chunked_dims = {
         dim: -1
         for dim in [

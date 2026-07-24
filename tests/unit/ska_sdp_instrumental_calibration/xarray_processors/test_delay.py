@@ -1,4 +1,3 @@
-# pylint: disable = too-many-function-args
 import numpy as np
 import xarray as xr
 
@@ -20,14 +19,8 @@ def test_should_calculate_coarse_delay():
     nchan = 4
     frequency = np.linspace(100e6, 150e6, nchan)
     gains_per_station = np.ones(nchan) + 1j * np.ones(nchan)
-    gains = xr.DataArray(
-        np.stack([gains_per_station] * nstations),
-        dims=["antenna", "frequency"],
-        coords={"antenna": np.arange(nstations), "frequency": frequency},
-    )
-
     expected = np.zeros(nstations)
-    actual = coarse_delay(gains, oversample)
+    actual = coarse_delay(gains_per_station, frequency, oversample)
 
     assert np.allclose(expected, actual, atol=1e-11)
 
@@ -35,9 +28,9 @@ def test_should_calculate_coarse_delay():
 def test_calculate_gain_rotation():
     frequency = np.linspace(100e6, 200e6, 4).reshape(1, -1)
     f = np.linspace(4, 10, 4) + 1j * np.linspace(3, 9, 4)
-    gains = np.stack([f] * 2)
-    delay = np.ones(2)
-    offset = np.ones(2)
+    gains = f
+    delay = np.ones(1)
+    offset = np.ones(1)
 
     expected = [
         [
@@ -45,13 +38,7 @@ def test_calculate_gain_rotation():
             1.33012709 - 7.69615241j,
             -10.06217822 + 3.42820208j,
             10.00000017 + 8.99999981j,
-        ],
-        [
-            3.99999993 + 3.00000009j,
-            1.33012709 - 7.69615241j,
-            -10.06217822 + 3.42820208j,
-            10.00000017 + 8.99999981j,
-        ],
+        ]
     ]
     actual = calculate_gain_rot(gains, delay, offset, frequency, inverse=True)
 
@@ -61,10 +48,11 @@ def test_calculate_gain_rotation():
         expected, delay, offset, frequency, inverse=False
     )
 
-    np.testing.assert_allclose(actual, gains)
+    np.testing.assert_allclose(actual, [gains])
 
 
 def test_calculate_apply_delay():
+
     coords = {
         "antenna": ["antenna1", "antenna2"],
         "frequency": np.linspace(1.0010e8, 1.0019e8, 4, dtype=np.float64),

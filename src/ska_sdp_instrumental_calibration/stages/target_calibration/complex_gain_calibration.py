@@ -1,7 +1,6 @@
 import logging
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
@@ -11,6 +10,7 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 
 from ...numpy_processors.solvers import Solver
 from ...plot import PlotGaintableTime
+from ...scheduler import delayed
 from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
 from .._utils import get_gaintables_path, get_plots_path
@@ -77,7 +77,6 @@ def complex_gain_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
     run_solver_config = run_solver_config.model_dump()
@@ -111,12 +110,10 @@ def complex_gain_calibration_stage(
             path_prefix=path_prefix, refant=run_solver_config["refant"]
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Complex Gain",
-                fixed_axis=plot_config.fixed_axis,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Complex Gain",
+            fixed_axis=plot_config.fixed_axis,
         )
 
     if export_gaintable:
@@ -124,10 +121,8 @@ def complex_gain_calibration_stage(
             _qa_dir_, "complex_gain.gaintable.h5parm"
         )
 
-        _upstream_output_.add_compute_tasks(
-            dask.delayed(h5exp.export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
+        delayed(h5exp.export_gaintable_to_h5parm)(
+            gaintable, gaintable_file_path
         )
 
     _upstream_output_["gaintable"] = gaintable

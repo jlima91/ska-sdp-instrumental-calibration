@@ -28,8 +28,7 @@ def test_export_visibilities_stage_is_optional():
     "export_visibilities.export_visibility_to_ms"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -75,8 +74,7 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
     "export_visibilities.export_visibility_to_ms"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -118,8 +116,7 @@ def test_should_export_model_vis(
     "export_visibilities.export_visibility_to_ms"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -174,8 +171,7 @@ def test_should_export_both_vis_and_model_vis(
     "export_visibilities.export_visibility_to_ms"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
     side_effect=lambda x: x,
 )
 @patch(

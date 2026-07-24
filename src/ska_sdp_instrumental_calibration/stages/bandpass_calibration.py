@@ -1,13 +1,13 @@
 import logging
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
+from ..scheduler import delayed
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
 from ..xarray_processors.vis_filter import VisibilityFilter
@@ -83,7 +83,6 @@ def bandpass_calibration_stage(
     """
 
     # [TODO] if predict_vis stage is not run, obtain modelvis from data.
-    _upstream_output_.add_checkpoint_key("gaintable")
     modelvis = _upstream_output_.modelvis
     initialtable = _upstream_output_.gaintable
     prefix = _upstream_output_.ms_prefix
@@ -125,13 +124,11 @@ def bandpass_calibration_stage(
             refant=_upstream_output_.refant,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Bandpass",
-                fixed_axis=plot_config.fixed_axis,
-                plot_all_stations=True,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Bandpass",
+            fixed_axis=plot_config.fixed_axis,
+            plot_all_stations=True,
         )
 
     if export_gaintable:
@@ -140,11 +137,7 @@ def bandpass_calibration_stage(
             f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
-        )
+        delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")
