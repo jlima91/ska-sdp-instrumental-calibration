@@ -1,10 +1,25 @@
 import pytest
 from mock import MagicMock, call, patch
 
-from ska_sdp_instrumental_calibration.scheduler import (
+from ska_sdp_instrumental_calibration.scheduler.scheduler import (
     InstrumentalDaskRunner,
     UpstreamOutput,
+    delayed,
 )
+
+
+@patch("ska_sdp_instrumental_calibration.scheduler.scheduler.task_manager")
+@patch("ska_sdp_instrumental_calibration.scheduler.scheduler.DeferredTask")
+def test_delayed_wrapper(deferred_mock, task_manager_mock):
+    func = MagicMock(name="func")
+    res = delayed(func)("arg1", "arg2", key="kwarg")
+
+    deferred_mock.assert_called_once_with(func, "arg1", "arg2", key="kwarg")
+    task_manager_mock.register.assert_called_once_with(
+        deferred_mock.return_value
+    )
+
+    assert res == deferred_mock.return_value
 
 
 class TestUpstreamOutput:
@@ -97,5 +112,4 @@ class TestInstrumentalDaskRunner:
         mock_task_manager.compute.assert_called_once()
 
     @pytest.mark.skip(reason="Need to implement")
-    def test_should_broadcast_and_aggregate():
-        pass
+    def test_should_broadcast_and_aggregate(self): ...

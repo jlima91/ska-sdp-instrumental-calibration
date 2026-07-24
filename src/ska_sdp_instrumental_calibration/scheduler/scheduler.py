@@ -6,11 +6,10 @@ from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
 from ..tagger import Tags
-from .deferred_tasks import TaskManager
+from .deferred_tasks import DeferredTask
+from .task_manager import task_manager
 
 logger = logging.getLogger()
-
-task_manager = TaskManager()
 
 
 def delayed(func: Callable) -> Callable:
@@ -30,7 +29,10 @@ def delayed(func: Callable) -> Callable:
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        return task_manager.register(func, *args, **kwargs)
+        deferred_task = DeferredTask(func, *args, **kwargs)
+
+        task_manager.register(deferred_task)
+        return deferred_task
 
     return wrapper
 

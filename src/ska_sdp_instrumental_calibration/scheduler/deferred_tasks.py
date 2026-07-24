@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Callable
 
 import dask
 from dask.base import tokenize, unpack_collections
@@ -23,7 +23,7 @@ class DeferredTask:
         Keyword arguments for the function.
     """
 
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func: Callable, *args, **kwargs):
         """
         Initialize a DeferredTask instance.
 
@@ -117,63 +117,3 @@ class DeferredTask:
         kwargs = self.__r_kwarg(kwargs)[0]
 
         return dask.delayed(self.__func)(*args, **kwargs)
-
-
-class TaskManager:
-    """
-    Manages and computes deferred tasks and their Dask collections.
-    """
-
-    def __init__(self):
-        """
-        Initialize the TaskManager.
-        """
-        self._tracked_arrays: dict[DeferredTask, dict[str, Any]] = {}
-
-    def compute(self):
-        """
-        Persist tracked arrays and compute all deferred tasks.
-
-        Returns
-        -------
-        tuple
-            The computed results of all deferred tasks.
-        """
-        self._tracked_arrays = dask.persist(self._tracked_arrays)[0]
-
-        try:
-            results = dask.compute(
-                *[
-                    task.delayed(**persisted_value)
-                    for task, persisted_value in self._tracked_arrays.items()
-                ]
-            )
-        finally:
-            self._tracked_arrays.clear()
-
-        return results
-
-    def register(self, func: Callable, *args, **kwargs) -> DeferredTask:
-        """
-        Register a function as a deferred task.
-
-        Parameters
-        ----------
-        func : Callable
-            The function to defer.
-        *args : tuple
-            Positional arguments for the function.
-        **kwargs : dict
-            Keyword arguments for the function.
-
-        Returns
-        -------
-        DeferredTask
-            The registered deferred task.
-        """
-
-        deferred_task = DeferredTask(func, *args, **kwargs)
-
-        self._tracked_arrays[deferred_task] = deferred_task.params
-
-        return deferred_task

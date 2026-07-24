@@ -144,7 +144,9 @@ def calculate_delays_from_gain(
     for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
         gain = gain_gain_chunked[..., rec1idx, rec2idx]
         weight = gain_weight_chunk[..., rec1idx, rec2idx]
-        initial_offset = xr.zeros_like(gaintable["antenna"]).chunk(antenna=1)
+        initial_offset = xr.zeros_like(
+            gaintable["antenna"], dtype=np.float64
+        ).chunk(antenna=1)
 
         with warnings.catch_warnings():
             # apply_ufunc throws a false warning, when it detects that

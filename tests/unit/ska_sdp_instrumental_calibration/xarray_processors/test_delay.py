@@ -1,6 +1,4 @@
-# pylint: disable = too-many-function-args
 import numpy as np
-import pytest
 import xarray as xr
 
 from ska_sdp_instrumental_calibration.xarray_processors._utils import (
@@ -53,8 +51,8 @@ def test_calculate_gain_rotation():
     np.testing.assert_allclose(actual, [gains])
 
 
-@pytest.mark.skip(reason="fix test for apply ufunc")
 def test_calculate_apply_delay():
+
     coords = {
         "antenna": ["antenna1", "antenna2"],
         "frequency": np.linspace(1.0010e8, 1.0019e8, 4, dtype=np.float64),
