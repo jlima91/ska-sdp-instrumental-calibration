@@ -115,8 +115,7 @@ def test_should_not_initialize_gains_if_delay_calibration_is_done(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation.delayed",
     side_effect=lambda x: x,
 )
 @patch(

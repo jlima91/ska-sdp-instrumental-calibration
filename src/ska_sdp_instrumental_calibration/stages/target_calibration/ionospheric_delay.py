@@ -104,7 +104,6 @@ def ionospheric_delay_stage(
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     vis = _upstream_output_.vis
     modelvis = _upstream_output_.modelvis
     vis_chunks = _upstream_output_.chunks
@@ -137,12 +136,10 @@ def ionospheric_delay_stage(
             path_prefix=path_prefix,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Ionospheric",
-                fixed_axis=True,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Ionospheric",
+            fixed_axis=True,
         )
 
     return _upstream_output_

@@ -97,7 +97,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
         gaintable, figure_title="Plot Title"
     )
 
-    delayed_gain_plot.compute()
+    delayed_gain_plot()
 
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
@@ -208,7 +208,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     mock_facet_amp.reset_mock()
     mock_facet_phase.reset_mock()
-    delayed_leakage_plot.compute()
+    delayed_leakage_plot()
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         "Plot Title Leakage Solutions (Phase)", fontsize="x-large", y=1.02
     )
@@ -275,7 +275,7 @@ def test_should_plot_gaintable_for_time(np_mock):
         gaintable, figure_title="Plot Title"
     )
 
-    delayed_gain_plot.compute()
+    delayed_gain_plot()
 
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
@@ -388,7 +388,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     amp_subplot_spec_mock.is_first_col.assert_called_once()
     mock_facet_amp.reset_mock()
     mock_facet_phase.reset_mock()
-    delayed_leakage_plot.compute()
+    delayed_leakage_plot()
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Leakage Solutions (Phase)-"
@@ -451,7 +451,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
         gaintable, figure_title="Plot Title"
     )
 
-    delayed_plot_gain.compute()
+    delayed_plot_gain()
 
     gaintable.stack.assert_called_once_with(
         Jones_Solutions=("receptor1", "receptor2")
@@ -494,7 +494,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     phase_subplot_spec_mock.is_last_row.assert_called_once()
     phase_subplot_spec_mock.is_first_col.assert_called_once()
     mock_facet_phase.reset_mock()
-    delayed_plot_leakage.compute()
+    delayed_plot_leakage()
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Leakage Solutions (Phase)-"

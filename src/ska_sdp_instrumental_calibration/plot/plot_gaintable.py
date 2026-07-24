@@ -1,15 +1,14 @@
 from collections import namedtuple
 
-import dask
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.time import Time
-from dask.delayed import Delayed
 from matplotlib.colors import ListedColormap
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 from ..data_managers.gaintable import divide_bandpass_by_ref_ant_preserve_phase
+from ..scheduler import DeferredTask, delayed
 from ._util import safe
 
 logger = setup_logger(__name__)
@@ -135,7 +134,7 @@ class PlotGaintable:
         fixed_axis=False,
         phase_only=False,
         plot_all_stations=False,
-    ) -> list[Delayed]:
+    ) -> list[DeferredTask]:
         jones_sols = (
             [_BANDPASS_PLOTS__.GAINS]
             if drop_cross_pols
@@ -154,8 +153,8 @@ class PlotGaintable:
             for sol in jones_sols
         ]
 
-    @dask.delayed
-    # @safe
+    @delayed
+    @safe
     def _plot_bandpass_terms(
         self,
         gaintable,
@@ -851,7 +850,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
         # ionospheric diagnostics.
         return gaintable.isel(Jones_Solutions=[0])
 
-    @dask.delayed
+    @delayed
     @safe
     def _plot_bandpass_terms(
         self, gaintable, figure_title="", jones_term=None, **kwargs

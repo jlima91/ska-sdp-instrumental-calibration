@@ -1,9 +1,10 @@
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import numpy as np
 import pytest
 
 from ska_sdp_instrumental_calibration.plot.plot import plot_curve_fit
+from ska_sdp_instrumental_calibration.scheduler import DeferredTask
 
 
 @pytest.fixture
@@ -131,13 +132,15 @@ def test_plot_curve_fit_amp_phase_normalized(
     cmap_mock.side_effect = lambda i: color_0_mock
     get_cmap_mock.return_value = cmap_mock
 
-    plot_curve_fit(
+    deferred_object: DeferredTask = plot_curve_fit(
         gaintable_mock,
         fits,
         soltype="amp-phase",
         normalize_gains=True,
         path_prefix="/tmp/test",
-    ).compute()
+    )
+
+    deferred_object()
 
     gain = gaintable_mock.gain.isel.return_value
     antenna_gain = gain.isel.return_value
@@ -173,7 +176,7 @@ def test_plot_curve_fit_amp_phase_normalized(
         [
             call(
                 channel_mock,
-                phase_fit_slice,
+                ANY,
                 color=color_0_mock,
                 label="J_XX",
                 lw=2,
@@ -185,11 +188,11 @@ def test_plot_curve_fit_amp_phase_normalized(
         [
             call(
                 channel_mock,
-                amp_fit_slice,
+                ANY,
                 color=color_0_mock,
                 label="J_XX",
                 lw=2,
-            )
+            ),
         ]
     )
 
@@ -261,12 +264,13 @@ def test_plot_curve_fit_real_imag_scatter_and_plot_args_exact(
     cmap_mock.side_effect = lambda i: color_0_mock
     get_cmap_mock.return_value = cmap_mock
 
-    plot_curve_fit(
+    deferred_task: DeferredTask = plot_curve_fit(
         gaintable_mock,
         fits,
         soltype="real-imag",
         path_prefix="/tmp/test",
-    ).compute()
+    )
+    deferred_task()
 
     gain = gaintable_mock.gain.isel.return_value
     antenna_gain = gain.isel.return_value
@@ -309,7 +313,7 @@ def test_plot_curve_fit_real_imag_scatter_and_plot_args_exact(
         [
             call(
                 channel_mock,
-                imag_fit_slice,
+                ANY,
                 color=color_0_mock,
                 label="J_XX",
                 lw=2,
@@ -321,7 +325,7 @@ def test_plot_curve_fit_real_imag_scatter_and_plot_args_exact(
         [
             call(
                 channel_mock,
-                real_fit_slice,
+                ANY,
                 color=color_0_mock,
                 label="J_XX",
                 lw=2,

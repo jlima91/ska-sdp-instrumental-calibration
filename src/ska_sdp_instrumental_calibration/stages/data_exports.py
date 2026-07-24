@@ -3,7 +3,6 @@ import os
 from functools import reduce
 from typing import Annotated, Literal, Optional
 
-import dask
 import xarray as xr
 from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
@@ -16,7 +15,7 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..data_managers.sdm import get_gaintable_file_path
-from ..scheduler import UpstreamOutput
+from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 
 logger = logging.getLogger()
@@ -111,11 +110,9 @@ def export_gaintable_stage(
 
         logger.info(f"Writing solutions to {gaintable_file_path}")
 
-        export = dask.delayed(export_functions[export_format])(
+        delayed(export_functions[export_format])(
             upstream_output.gaintable, gaintable_file_path
         )
-
-        final_upstream.add_compute_tasks(export)
 
     if export_metadata and INSTMetaData.can_create_metadata():
         metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)
@@ -128,6 +125,6 @@ def export_gaintable_stage(
                 }
             ],
         )
-        final_upstream.add_compute_tasks(inst_metadata.export())
+        inst_metadata.export()
 
     return final_upstream

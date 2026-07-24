@@ -59,7 +59,7 @@ def test_generate_channel_rm_stage_is_optional():
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".dask.delayed",
+    ".delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -194,7 +194,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".dask.delayed",
+    ".delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -324,7 +324,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".dask.delayed",
+    ".delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -548,7 +548,7 @@ def test_should_plot_with_proper_suffix(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".dask.delayed",
+    ".delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -685,7 +685,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
-    ".dask.delayed",
+    ".delayed",
     side_effect=lambda x: x,
 )
 @patch(
