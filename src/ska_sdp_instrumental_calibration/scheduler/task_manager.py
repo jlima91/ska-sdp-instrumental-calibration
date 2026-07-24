@@ -31,7 +31,9 @@ class _TaskManager:
         tuple
             The computed results of all deferred tasks.
         """
-        self._tracked_arrays = dask.persist(self._tracked_arrays)[0]
+        self._tracked_arrays = dask.persist(
+            self._tracked_arrays, optimize_graph=True
+        )[0]
 
         try:
             results = dask.compute(

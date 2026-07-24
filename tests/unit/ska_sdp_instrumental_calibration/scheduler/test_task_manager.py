@@ -46,7 +46,8 @@ def test_should_compute_task(compute_mock, persist_mock):
         {
             task: task.params,
             task2: task2.params,
-        }
+        },
+        optimize_graph=True,
     )
 
     task.delayed.assert_called_once_with(key="p_arg_task")
