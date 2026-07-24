@@ -22,7 +22,7 @@ def test_should_create_lazy_params(unpack_collection_mock):
         [call(("arg1", "arg2")), call({"kwarg": "kwarg"})]
     )
 
-    assert def_task.params == {
+    assert def_task.dask_params == {
         "args": "lazy_args",
         "kwargs": "lazy_kwargs",
     }

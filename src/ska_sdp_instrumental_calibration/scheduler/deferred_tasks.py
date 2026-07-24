@@ -36,25 +36,25 @@ class DeferredTask:
         kwargs : dict
             Keyword arguments for the function.
         """
-        lazy_args, args_repack = unpack_collections(args)
-        lazy_kwargs, kwargs_repack = unpack_collections(kwargs)
+        dask_args, args_repack = unpack_collections(args)
+        dask_kwargs, kwargs_repack = unpack_collections(kwargs)
 
         self.__func = func
         self.__args = args
         self.__kwargs = kwargs
 
-        self.__lazy_args = lazy_args
-        self.__lazy_kwargs = lazy_kwargs
+        self.__dask_args = dask_args
+        self.__dask_kwargs = dask_kwargs
 
         self.__r_args = args_repack
         self.__r_kwarg = kwargs_repack
         self._token = tokenize(func, args, kwargs)
 
     @property
-    def params(self):
+    def dask_params(self):
         return {
-            "args": self.__lazy_args,
-            "kwargs": self.__lazy_kwargs,
+            "args": self.__dask_args,
+            "kwargs": self.__dask_kwargs,
         }
 
     def __eq__(self, other):

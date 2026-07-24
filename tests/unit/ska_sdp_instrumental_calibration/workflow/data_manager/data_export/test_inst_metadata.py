@@ -109,8 +109,7 @@ def test_should_export_metadata(path_exists_mock, metadata_mock, monkeypatch):
             {"dp_path": "dp_path2", "description": "description2"},
         ],
     )
-    deferred_task = inst_metadata.export()
-    deferred_task()
+    inst_metadata.export()
 
     mock_metadata_obj.set_execution_block_id.assert_called_once_with("eb-id")
     mock_metadata_obj.get_data.assert_called_once()

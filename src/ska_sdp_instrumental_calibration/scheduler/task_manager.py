@@ -6,7 +6,7 @@ from dask.delayed import Delayed
 
 class DeferredTask(Protocol):
     @property
-    def params(self) -> dict[str, Any]: ...
+    def dask_params(self) -> dict[str, Any]: ...
 
     def delayed(self, args: Any, kwargs: Any) -> Delayed: ...
 
@@ -54,10 +54,11 @@ class _TaskManager:
         Parameters
         ----------
         task : DeferredTask
-            The initialized task object containing params and a delayed method.
+            The initialized task object containing dask_params
+            and a delayed method.
         """
 
-        self._tracked_arrays[task] = task.params
+        self._tracked_arrays[task] = task.dask_params
 
 
 task_manager = _TaskManager()

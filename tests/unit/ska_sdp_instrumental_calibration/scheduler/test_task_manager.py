@@ -15,8 +15,8 @@ def test_should_register_task():
     task_manager.register(task2)
 
     assert task_manager._tracked_arrays == {
-        task: task.params,
-        task2: task2.params,
+        task: task.dask_params,
+        task2: task2.dask_params,
     }
 
 
@@ -44,8 +44,8 @@ def test_should_compute_task(compute_mock, persist_mock):
 
     persist_mock.assert_called_once_with(
         {
-            task: task.params,
-            task2: task2.params,
+            task: task.dask_params,
+            task2: task2.dask_params,
         },
         optimize_graph=True,
     )
