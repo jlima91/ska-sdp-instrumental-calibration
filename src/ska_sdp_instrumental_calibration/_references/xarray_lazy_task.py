@@ -5,6 +5,8 @@ import dask
 import dask.array as da
 import xarray as xr
 
+__all__ = ["xarray_lazy_task"]
+
 # T represents the type of the first argument
 T = TypeVar("T", xr.DataArray, xr.Dataset)
 # P represents the rest of the arguments (types and names)
@@ -16,12 +18,14 @@ def xarray_lazy_task(
 ) -> Callable[Concatenate[T, P], xr.DataArray]:
     """
     A replacement for dask.delayed designed specifically for Xarray objects.
-    Abuses :py:func:`xarray.map_blocks` to force execution into a native blockwise graph layer,
-    guaranteeing perfect graph fusion and avoiding isolated graph recomputations.
+    Abuses :py:func:`xarray.map_blocks` to force execution into a native
+    blockwise graph layer, guaranteeing perfect graph fusion and avoiding
+    isolated graph recomputations.
 
-    This is useful to wrap operations which are "leaf" tasks in the larger dask graph.
-    Such tasks generally produce a side-effects (IO operation, like logs,plots,writing data).
-    The result of ``func`` is discarded, and instead we always return an empty xr.DataArray.
+    This is useful to wrap operations which are "leaf" tasks in the larger
+    dask graph. Such tasks generally produce a side-effects (IO operation,
+    like logs,plots,writing data). The result of ``func`` is discarded, and
+    instead we always return an empty xr.DataArray.
     If you wish to preserve the func's return value, then use native methods,
     like :py:func:`xarray.map_blocks`, :py:func:`xarray.apply_ufunc`.
     If you want a function which instead works with pure dask arrays,
@@ -29,7 +33,8 @@ def xarray_lazy_task(
 
     Example
     -----
-    Can be used as a plain decorator, a parameterized decorator, or a direct function wrapper:
+    Can be used as a plain decorator, a parameterized decorator, or a direct
+    function wrapper:
 
     >>> @xarray_lazy_task
     ... def plot_gains(ds, filename):
@@ -44,17 +49,20 @@ def xarray_lazy_task(
 
     Notes
     -----
-    1. Primary Input: The first positional argument (`obj`) must be an Xarray Dataset
-       or DataArray. It is automatically consolidated via `.chunk(-1)`.
-    2. Flat Positional Arguments: Extra positional arguments (`*args`) must be a flat
-       tuple (no nested lists, dicts, or namedtuples).
-    3. Xarray-Only for Dask Collections: Any dask-backed collection passed in `*args`
-       MUST be wrapped as an Xarray object (Dataset or DataArray) so that `.chunk(-1)`
-       can be called on it safely. Pure Dask Arrays or DataFrames are not supported.
-    4. No dask in kwargs of ``func``: `xr.map_blocks` does not support dask-backed collections inside
-       `**kwargs`. All keyword arguments must be standard, non-dask Python primitives/objects.
-    5. Execution Context: When executed on a worker, the function receives fully concrete,
-       in-memory Xarray objects for any inputs passed to it.
+    1. Primary Input: The first positional argument (`obj`) must be an
+       Xarray Dataset or DataArray. It is automatically consolidated via
+       `.chunk(-1)`.
+    2. Flat Positional Arguments: Extra positional arguments (`*args`) must
+       be a flat tuple (no nested lists, dicts, or namedtuples).
+    3. Xarray-Only for Dask Collections: Any dask-backed collection passed
+       in `*args` MUST be wrapped as an Xarray object (Dataset or DataArray)
+       so that `.chunk(-1)` can be called on it safely. Pure Dask Arrays or
+       DataFrames are not supported.
+    4. No dask in kwargs of ``func``: `xr.map_blocks` does not support
+       dask-backed collections inside `**kwargs`. All keyword arguments
+       must be standard, non-dask Python primitives/objects.
+    5. Execution Context: When executed on a worker, the function receives
+       fully concrete, in-memory Xarray objects for any inputs passed to it.
     """
 
     @functools.wraps(func)
@@ -62,7 +70,8 @@ def xarray_lazy_task(
         # Consolidate the primary Xarray target object to a single chunk
         collapsed_obj = obj.chunk(-1)
 
-        # Process flat positional arguments (Dask collections are strictly Xarray objects)
+        # Process flat positional arguments (Dask collections are
+        # strictly Xarray objects)
         processed_args = tuple(
             arg.chunk(-1) if dask.is_dask_collection(arg) else arg
             for arg in args
@@ -81,7 +90,8 @@ def xarray_lazy_task(
             return xr.DataArray(["done"], dims=["status"])
 
         # Hand off directly to the Xarray Blockwise graph engine
-        # kwargs are passed through unmodified (no dask collections allowed here)
+        # kwargs are passed through unmodified (no dask collections
+        # allowed here)
         return xr.map_blocks(
             _xarray_block_executor_,
             collapsed_obj,

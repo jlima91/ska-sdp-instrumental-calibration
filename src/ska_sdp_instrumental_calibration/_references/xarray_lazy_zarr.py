@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from xarray import DataArray, Dataset, DataTree
 from xarray.backends.common import ArrayWriter
 from xarray.backends.writers import _datatree_to_zarr as original_xdt_to_zarr
 from xarray.backends.writers import (
@@ -16,12 +17,11 @@ if TYPE_CHECKING:
     from os import PathLike
 
     from dask.array import Array as DaskArray
-    from xarray import Dataset, DataTree
     from xarray.backends import ZarrStore
     from xarray.core.types import ZarrStoreLike, ZarrWriteModes
 
 
-__all__ = ["xds_to_zarr", "xdt_to_zarr"]
+__all__ = ["xds_to_zarr", "xdr_to_zarr", "xdt_to_zarr"]
 
 
 def _resolve_importable_name(o: type):
@@ -94,7 +94,8 @@ def xds_to_zarr(
     # validate Dataset keys, DataArray names
     _validate_dataset_names(dataset)
 
-    # Load empty arrays to avoid bug saving zero length dimensions (Issue #5741)
+    # Load empty arrays to avoid bug saving zero length dimensions
+    # (Issue #5741)
     # TODO: delete when min dask>=2023.12.1
     # https://github.com/dask/dask/pull/10506
     for v in dataset.variables.values():
@@ -137,6 +138,62 @@ def xds_to_zarr(
 xds_to_zarr.__doc__ = xds_to_zarr.__doc__.format(
     original_function=_resolve_importable_name(original_xds_to_zarr),
     current_function=xds_to_zarr.__name__,
+)
+
+
+def xdr_to_zarr(
+    dataarray: DataArray,
+    *args,
+    **kwargs,
+):
+    """
+    A function to write a dataarray to a zarr file.
+    The dataarray is first converted to a dataset (using the same
+    logic as :py:func:`{original_function}`) and
+    then we call :py:func:`{delegated_function}` to write the dataset to
+    a zarr file.
+
+    Parameters
+    ----------
+    dataarray
+        DataArray object to be written to zarr
+    args
+        args to be passed to :py:func:`{delegated_function}`
+    kwargs
+        kwargs to be passed to :py:func:`{delegated_function}`
+
+    See Also
+    --------
+    {original_function} : Reference for this function's logic.
+    {delegated_function} : For supported parameters
+    """
+    from xarray.backends.api import DATAARRAY_NAME, DATAARRAY_VARIABLE
+
+    if dataarray.name is None:
+        # If no name is set then use a generic xarray name
+        dataset = dataarray.to_dataset(name=DATAARRAY_VARIABLE)
+    elif (
+        dataarray.name in dataarray.coords or dataarray.name in dataarray.dims
+    ):
+        # The name is the same as one of the coords names, which the
+        # netCDF data model does not support, so rename it but keep
+        # track of the old name
+        dataset = dataarray.to_dataset(name=DATAARRAY_VARIABLE)
+        dataset.attrs[DATAARRAY_NAME] = dataarray.name
+    else:
+        # No problems with the name - so we're fine!
+        dataset = dataarray.to_dataset()
+
+    return xds_to_zarr(
+        dataset,
+        *args,
+        **kwargs,
+    )
+
+
+xdr_to_zarr.__doc__ = xdr_to_zarr.__doc__.format(
+    original_function=_resolve_importable_name(DataArray.to_zarr),
+    delegated_function=_resolve_importable_name(xds_to_zarr),
 )
 
 
@@ -207,18 +264,20 @@ def xdt_to_zarr(
 
     if append_dim is not None:
         raise NotImplementedError(
-            "specifying ``append_dim`` with ``DataTree.to_zarr`` has not been implemented"
+            "specifying ``append_dim`` with ``DataTree.to_zarr`` has not "
+            "been implemented"
         )
 
     if encoding is None:
         encoding = {}
 
-    # In the future, we may want to expand this check to insure all the provided encoding
-    # options are valid. For now, this simply checks that all provided encoding keys are
-    # groups in the datatree.
+    # In the future, we may want to expand this check to insure all the
+    # provided encoding options are valid. For now, this simply checks
+    # that all provided encoding keys are groups in the datatree.
     if set(encoding) - set(dt.groups):
         raise ValueError(
-            f"unexpected encoding group name(s) provided: {set(encoding) - set(dt.groups)}"
+            "unexpected encoding group name(s) provided: "
+            f"{set(encoding) - set(dt.groups)}"
         )
 
     root_store = get_writable_zarr_store(
