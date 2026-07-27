@@ -1,6 +1,5 @@
 from typing import Iterable, Literal
 
-import dask
 import h5py
 import numpy as np
 import xarray as xr
@@ -8,7 +7,6 @@ from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
 from ...logger import setup_logger
-from ...scheduler import customDelay
 from ...xarray_processors.delay import DelayTable
 
 logger = setup_logger("data_managers.data_export")
@@ -141,10 +139,8 @@ def export_gaintable_to_h5parm(
     gaintable_gain = gaintable["gain"].where(
         gaintable["weight"] != 0, np.nan, drop=False
     )
-    # NOTE: Here we force all of the 'weight' values to be 1
-    # to be compatible with DP3's handling of weights
-    gaintable_weight = xr.ones_like(gaintable["weight"])
-    gaintable = gaintable.assign(gain=gaintable_gain, weight=gaintable_weight)
+
+    gaintable = gaintable.assign(gain=gaintable_gain)
 
     # remove axes of length one if required
     if squeeze:
@@ -169,7 +165,6 @@ def export_gaintable_to_h5parm(
         weight[...] = gaintable["weight"].data
 
 
-@customDelay.delayed
 def export_clock_to_h5parm(
     delaytable: DelayTable, filename: str, squeeze: bool = False
 ):

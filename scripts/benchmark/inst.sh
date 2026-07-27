@@ -40,7 +40,14 @@ INST_MODULES="py-ska-sdp-benchmark-monitor py-ska-sdp-exec-batchlet py-ska-sdp-i
 module load $INST_MODULES
 
 # Some extra variables
-INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
+
+# For backward compatibility if benchmark script is run using git clone
+# instead of spack. See https://jira.skatelescope.org/browse/SDR-1734
+INST_CONFIG="${CODE_PATH}/../config/inst.yml"
+if [[ ! -f $INST_CONFIG ]]; then
+  INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
+fi
+
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
 INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
 

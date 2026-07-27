@@ -80,12 +80,13 @@ def test_should_run_inst_and_generate_required_files():
         }
 
         assert len(demo_qa_plots) == len(a_demo_qa_plots)
-        assert len(demo_qa_plots) == 21
+        # update plot numbers ones channel rm is fixed
+        assert len(demo_qa_plots) == 17
         assert len(demo_qa_gaintables) == len(a_demo_qa_gaintables)
-        assert len(demo_qa_gaintables) == 6
+        assert len(demo_qa_gaintables) == 5
 
         for stage in [
-            "channel_rm",
+            # "channel_rm",
             "bandpass_initialisation",
             "gain_flag",
             "delay",

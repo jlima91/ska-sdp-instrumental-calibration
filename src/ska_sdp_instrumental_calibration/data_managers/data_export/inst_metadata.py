@@ -1,8 +1,6 @@
 import logging
 import os
 
-import dask
-
 try:
     from ska_sdp_dataproduct_metadata import MetaData, ObsCore
 

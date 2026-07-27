@@ -1,14 +1,13 @@
 import logging
 import warnings
 
-import dask
 import numpy as np
 import xarray as xr
 from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
-from ..scheduler import customDelay
+from ..scheduler import delayed
 
 logger = logging.getLogger()
 
@@ -36,7 +35,7 @@ def log_flaging_statistics(
     total_elements = weights[:, 0, :, 0, 0].size
     antna_percent_flagged = (current_flagged / total_elements) * 100
 
-    @customDelay.delayed
+    @delayed
     def _execute_log(percentages):
         min_percent = float(percentages.min())
         max_percent = float(percentages.max())

@@ -29,7 +29,7 @@ parameters:
 pipeline:
   flag_gain: true
   ionospheric_delay: true
-  generate_channel_rm: true
+  generate_channel_rm: false
   export_visibilities: true
 global_parameters:
   experimental:

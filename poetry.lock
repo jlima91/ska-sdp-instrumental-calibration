@@ -813,34 +813,34 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [[package]]
 name = "dask"
-version = "2026.3.0"
+version = "2026.7.1"
 description = "Parallel PyData with Task Scheduling"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dask-2026.3.0-py3-none-any.whl", hash = "sha256:be614b9242b0b38288060fb2d7696125946469c98a1c30e174883fd199e0428d"},
-    {file = "dask-2026.3.0.tar.gz", hash = "sha256:f7d96c8274e8a900d217c1ff6ea8d1bbf0b4c2c21e74a409644498d925eb8f85"},
+    {file = "dask-2026.7.1-py3-none-any.whl", hash = "sha256:985ffd6c5e9d7979ede515e84ae8d39b647d6aa64f77600f15714ff65f578fe6"},
+    {file = "dask-2026.7.1.tar.gz", hash = "sha256:5727484427665f051e86bf87d021a64d6411141cdc8a20bfe3c1ad2968cc06b7"},
 ]
 
 [package.dependencies]
 click = ">=8.1"
 cloudpickle = ">=3.0.0"
-distributed = {version = ">=2026.3.0,<2026.3.1", optional = true, markers = "extra == \"distributed\""}
+distributed = {version = ">=2026.7.1,<2026.7.2", optional = true, markers = "extra == \"distributed\""}
 fsspec = ">=2021.9.0"
 importlib_metadata = {version = ">=4.13.0", markers = "python_version < \"3.12\""}
 numpy = {version = ">=1.24", optional = true, markers = "extra == \"array\""}
 packaging = ">=20.0"
 partd = ">=1.4.0"
-pyyaml = ">=5.3.1"
+pyyaml = ">=5.4.1"
 toolz = ">=0.12.0"
 
 [package.extras]
 array = ["numpy (>=1.24)"]
-complete = ["dask[array,dataframe,diagnostics,distributed]", "lz4 (>=4.3.2)", "pyarrow (>=16.0)"]
+complete = ["dask[array,dataframe,diagnostics,distributed]", "lz4 (>=4.3.2)"]
 dataframe = ["dask[array]", "pandas (>=2.0)", "pyarrow (>=16.0)"]
 diagnostics = ["bokeh (>=3.1.0)", "jinja2 (>=2.10.3)"]
-distributed = ["distributed (>=2026.3.0,<2026.3.1)"]
+distributed = ["distributed (>=2026.7.1,<2026.7.2)"]
 test = ["pandas[test]", "pre-commit", "pytest", "pytest-cov", "pytest-mock", "pytest-rerunfailures", "pytest-timeout", "pytest-xdist"]
 
 [[package]]
@@ -880,20 +880,20 @@ profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
 name = "distributed"
-version = "2026.3.0"
+version = "2026.7.1"
 description = "Distributed scheduler for Dask"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "distributed-2026.3.0-py3-none-any.whl", hash = "sha256:52518f4b3e6795e87b442e8f57788ba1ddc750c62d0835669c85927280d38f07"},
-    {file = "distributed-2026.3.0.tar.gz", hash = "sha256:4a8fc6102fededfbaae45288501276da2297a054d74eb6589f01b087c7f95c26"},
+    {file = "distributed-2026.7.1-py3-none-any.whl", hash = "sha256:64eaf4406a04ad26acdc5b8e32fad6bac522d07539225a530bab49610b0114a9"},
+    {file = "distributed-2026.7.1.tar.gz", hash = "sha256:f7c48ab6961734874521574d75898466703bce93f22f0cff5872c7e4ac6425d4"},
 ]
 
 [package.dependencies]
 click = ">=8.0"
 cloudpickle = ">=3.0.0"
-dask = ">=2026.3.0,<2026.3.1"
+dask = ">=2026.7.1,<2026.7.2"
 jinja2 = ">=2.10.3"
 locket = ">=1.0.0"
 msgpack = ">=1.0.2"
@@ -904,7 +904,6 @@ sortedcontainers = ">=2.0.5"
 tblib = ">=1.6.0,<3.2.0 || >3.2.0,<3.2.1 || >3.2.1"
 toolz = ">=0.12.0"
 tornado = ">=6.2.0"
-urllib3 = ">=1.26.5"
 zict = ">=3.0.0"
 
 [[package]]
@@ -1014,18 +1013,18 @@ reference = "skao"
 
 [[package]]
 name = "everybeam"
-version = "0.8.2"
+version = "0.8.3"
 description = "EveryBeam"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "everybeam-0.8.2-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:1c51def37ea699d71dbbd55a06e5d59af2b12eb61949b3d7508e38cc3f5ab048"},
-    {file = "everybeam-0.8.2-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:a12ba56490368a453ef53604014e715af7f3e7216bb609b55a4012952e0c9f79"},
-    {file = "everybeam-0.8.2-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:c27c90916cde24d520b93c12d00fb2a0dbcb7bfd2417bbb6520aebaba4ac0fd3"},
-    {file = "everybeam-0.8.2-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:07e592a01d72dd61f9cdd2a2915cc6ea8fbaf1ce0621e99c2ac1bbf7984ba59c"},
-    {file = "everybeam-0.8.2-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:9a84202bc4af88d824606378dc47eb242e0bb9aefc8efdddd3843ad055fc8d7c"},
-    {file = "everybeam-0.8.2.tar.gz", hash = "sha256:b6b2a3381101d8c5fa07eed5b8f82796dbee32638f669656dcf3d9a92d7f9730"},
+    {file = "everybeam-0.8.3-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:2dd0d504d03d60274cb020f871ae3b217bafdf72d4d44eb561956b77cbd4e15e"},
+    {file = "everybeam-0.8.3-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:65b69c4ddce24c1e151f5e8e8db68907a9a3c3eb5243a4b64e6ba2b2d51b3784"},
+    {file = "everybeam-0.8.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:7011cb5cbe372177f150ffc9dc40dd01fdc6ca976c85ae70a8dab67abda6e39d"},
+    {file = "everybeam-0.8.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:84b857e7b660b71aa0d2806721cf3a83c43edada6865a20cd9fd252b85d9ca04"},
+    {file = "everybeam-0.8.3-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:c329f7566db8e35fd7ddb3c76c2f07da41657f398b87e4c469a3c5c82e4ff193"},
+    {file = "everybeam-0.8.3.tar.gz", hash = "sha256:7cf995f99fa2143e9a74db65f7a4904f5e16e9e1e4123b855692a92d5bd8b0b8"},
 ]
 
 [package.dependencies]
@@ -3279,20 +3278,19 @@ yaml = ["pyyaml (>=6.0,<7.0)"]
 
 [[package]]
 name = "python-casacore"
-version = "3.7.1"
+version = "3.8.1"
 description = "A wrapper around CASACORE, the radio astronomy library"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"python-casacore\""
 files = [
-    {file = "python_casacore-3.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e5101fc6240b9283d4b7027c92125e6f267d507d77350101451fd7200e0645f"},
-    {file = "python_casacore-3.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5734c96278022600fe43d6b7488f045762ffb305bcca6779c8caf6f1a40b0555"},
-    {file = "python_casacore-3.7.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2805353e3f12d6c03c20267cfa6539b256c43f382ccb0f84436d99f36bd83520"},
-    {file = "python_casacore-3.7.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9f356b7f0e9a9dfb4a2d9e710586bada676a2f6c5fcf476e1f5fb6a86a01961a"},
-    {file = "python_casacore-3.7.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccaccb942b436dcc85795a7ebdcb73356b6dee00355426a303de0326b27adef1"},
-    {file = "python_casacore-3.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f88dddebed0a8e0d872b3cd49a5e06b4edfc5f86a054867eb7b36fbf85208721"},
-    {file = "python_casacore-3.7.1.tar.gz", hash = "sha256:6c4e060cba73c0ab9d944eb4b6aa97f20c12b761e671587f313bfc59e3a775c3"},
+    {file = "python_casacore-3.8.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c436666d9b18a73724148684fe5e7f18a889c1a3eba9730e5c0bd19b632d6306"},
+    {file = "python_casacore-3.8.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:e8472fb93848a90ebc89161e111804015481b08fd628e7df6d5262437b844b43"},
+    {file = "python_casacore-3.8.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:9cb9cecb4cb821a70ce4258dec0f5b3d5088a66317afc0df201ff19ebd4d5da9"},
+    {file = "python_casacore-3.8.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:cbdf22d3329eb7f550c279872d7c5a23eb307298bec86063bccec4683b4da989"},
+    {file = "python_casacore-3.8.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:bcfe0225a4a403ec72c0484d670ce573aa5172e192e80de8363f85ab98182bd2"},
+    {file = "python_casacore-3.8.1.tar.gz", hash = "sha256:757763cbf5bcb8e98b6809308de107bcb9b41982779b17f163ef20ca0ec18322"},
 ]
 
 [package.dependencies]
@@ -4833,15 +4831,15 @@ viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
 
 [[package]]
 name = "xarray"
-version = "2026.4.0"
+version = "2026.7.0"
 description = "N-D labeled arrays and datasets in Python"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 markers = "python_version >= \"3.11\""
 files = [
-    {file = "xarray-2026.4.0-py3-none-any.whl", hash = "sha256:d43751d9fb4a90f9249c30431684f00c41bc874f1edccd862631a40cbc0edf08"},
-    {file = "xarray-2026.4.0.tar.gz", hash = "sha256:c4ac9a01a945d90d5b1628e2af045099a9d4943536d4f2ee3ae963c3b222d15b"},
+    {file = "xarray-2026.7.0-py3-none-any.whl", hash = "sha256:bf9dd130b93806dc78e90c1b7ac24851b31557b888674c53622235691cf21824"},
+    {file = "xarray-2026.7.0.tar.gz", hash = "sha256:361b495928fdbf5b58d0969bb6775339019da5e93ca74d61ddf4eb5edd6ce604"},
 ]
 
 [package.dependencies]

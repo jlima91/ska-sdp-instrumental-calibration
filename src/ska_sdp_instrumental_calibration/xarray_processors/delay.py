@@ -1,6 +1,5 @@
 import logging
 import warnings
-from typing import Optional, Sequence
 
 import dask.array as da
 import numpy as np
@@ -8,6 +7,8 @@ import xarray as xr
 from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
+
+from ._utils import with_chunks
 
 logger = logging.getLogger()
 
@@ -143,7 +144,9 @@ def calculate_delays_from_gain(
     for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
         gain = gain_gain_chunked[..., rec1idx, rec2idx]
         weight = gain_weight_chunk[..., rec1idx, rec2idx]
-        initial_offset = xr.zeros_like(gaintable["antenna"]).chunk(antenna=1)
+        initial_offset = xr.zeros_like(
+            gaintable["antenna"], dtype=np.float64
+        ).chunk(antenna=1)
 
         with warnings.catch_warnings():
             # apply_ufunc throws a false warning, when it detects that
@@ -287,7 +290,7 @@ def apply_delay_to_gaintable(
 
         new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
 
-    return gaintable.assign(gain=new_gains)
+    return gaintable.assign(gain=with_chunks(new_gains, gaintable.chunks))
 
 
 def update_delay(
@@ -456,7 +459,7 @@ def create_delaytable_from_vis(
             .mean(dim="time")
         )
 
-        vis_refant = vis_refant.conj()
+        vis_refant[refant:, ...] = vis_refant[refant:, ...].conj()
 
         weights = (
             vis_per_solution["weight"]

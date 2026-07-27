@@ -63,14 +63,17 @@ def test_should_concat_gaintables_in_upstream_outputs(xarray_mock):
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports."
     "get_gaintable_file_path"
 )
 def test_should_export_gaintable_as_h5parm(
     prepare_model_mock,
-    dask_mock,
+    delayed_mock,
     concat_mock,
     export_gaintable_h5parm_mock,
 ):
@@ -88,14 +91,12 @@ def test_should_export_gaintable_as_h5parm(
         "field_a_export",
         "field_b_export",
     ]
-    delayed_mock = Mock(side_effect=lambda f: f)
-    dask_mock.delayed = delayed_mock
     prepare_model_mock.side_effect = [
         f"{sdm_path}/field_a/test_gains.h5parm",
         f"{sdm_path}/field_b/test_gains.h5parm",
     ]
 
-    actual_output = export_gaintable_stage(
+    export_gaintable_stage(
         [upstream_output1, upstream_output2, upstream_output3],
         _output_dir_="dir/to/save",
         file_name="test_gains",
@@ -110,15 +111,13 @@ def test_should_export_gaintable_as_h5parm(
             call(upstream_output3.gaintable, expected_path2),
         ]
     )
-    dask_mock.delayed.assert_has_calls(
+    delayed_mock.assert_has_calls(
         [
             call(export_gaintable_h5parm_mock),
             call(export_gaintable_h5parm_mock),
         ]
     )
 
-    assert "field_a_export" in actual_output.compute_tasks
-    assert "field_b_export" in actual_output.compute_tasks
     concat_mock.assert_has_calls(
         [
             call([upstream_output1, upstream_output2]),
@@ -153,19 +152,19 @@ def test_should_export_gaintable_as_h5parm(
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
 def test_should_export_gaintable_as_hdf5(
-    dask_mock, concat_mock, export_gaintable_hdf5_mock
+    delayed_mock, concat_mock, export_gaintable_hdf5_mock
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
     concat_mock.return_value = upstream_output
     export_gaintable_hdf5_mock.return_value = "field_a_export"
 
-    delayed_mock = Mock(side_effect=lambda f: f)
-    dask_mock.delayed = delayed_mock
-
-    actual_output = export_gaintable_stage(
+    export_gaintable_stage(
         [upstream_output],
         _output_dir_="dir/to/save",
         file_name="test_gains",
@@ -178,8 +177,7 @@ def test_should_export_gaintable_as_hdf5(
     export_gaintable_hdf5_mock.assert_called_once_with(
         upstream_output.gaintable, expected_path
     )
-    dask_mock.delayed.assert_called_once_with(export_gaintable_hdf5_mock)
-    assert "field_a_export" in actual_output.compute_tasks
+    delayed_mock.assert_called_once_with(export_gaintable_hdf5_mock)
 
 
 @patch(
@@ -190,9 +188,12 @@ def test_should_export_gaintable_as_hdf5(
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
 def test_should_export_metadata(
-    dask_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
+    delayed_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
 ):
     inst_metadata_mock.return_value = inst_metadata_mock
     inst_metadata_mock.can_create_metadata.return_value = True
@@ -203,10 +204,7 @@ def test_should_export_metadata(
         {"dp_path": "test_gains.h5parm", "description": "Gaintable"}
     ]
 
-    delayed_mock = Mock(side_effect=lambda f: f)
-    dask_mock.delayed = delayed_mock
-
-    actual_output = export_gaintable_stage(
+    export_gaintable_stage(
         [upstream_output],
         _output_dir_="dir/to/save",
         file_name="test_gains",
@@ -219,8 +217,10 @@ def test_should_export_metadata(
     inst_metadata_mock.assert_called_once_with(
         expected_path, data_products=dataproduct_mock.return_value
     )
-    assert export_gaintable_h5parm_mock() in actual_output.compute_tasks
-    assert inst_metadata_mock.export() in actual_output.compute_tasks
+    export_gaintable_h5parm_mock.assert_called_once_with(
+        upstream_output["gaintable"], "dir/to/save/field_a_test_gains.h5parm"
+    )
+    inst_metadata_mock.export.assert_called_once()
 
 
 @patch(
@@ -231,9 +231,12 @@ def test_should_export_metadata(
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
 )
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.dask")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
 def test_should_not_export_metadata_if_prerequisites_are_not_met(
-    dask_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
+    delayed_mock, concat_mock, inst_metadata_mock, export_gaintable_h5parm_mock
 ):
     inst_metadata_mock.can_create_metadata.return_value = False
     upstream_output = _get_prepopulated_upstream_output()
@@ -243,10 +246,7 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
         {"dp_path": "test_gains.h5parm", "description": "Gaintable"}
     ]
 
-    delayed_mock = Mock(side_effect=lambda f: f)
-    dask_mock.delayed = delayed_mock
-
-    actual_output = export_gaintable_stage(
+    export_gaintable_stage(
         [upstream_output],
         _output_dir_="dir/to/save",
         file_name="test_gains",
@@ -254,8 +254,9 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
         export_metadata=True,
     )
 
-    assert len(actual_output.compute_tasks) == 1
-    assert export_gaintable_h5parm_mock() in actual_output.compute_tasks
+    export_gaintable_h5parm_mock.assert_called_once_with(
+        upstream_output["gaintable"], "dir/to/save/field_a_test_gains.h5parm"
+    )
     inst_metadata_mock.assert_not_called()
 
 

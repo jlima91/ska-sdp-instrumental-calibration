@@ -39,10 +39,13 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
 
         weight_amp = amplitude["weight"][...]
         weight_phase = phase["weight"][...]
+
         # Assert that both amp and phase weights are equal
         np.testing.assert_allclose(weight_amp, weight_phase)
-        # Assert that all weights are 1, to align with DP3's behavior
-        np.testing.assert_allclose(weight_amp, 1)
+
+        # Assert that all weights equal to previous weights
+        new_weight = np.reshape(gaintable.weight.data, weight_amp.shape)
+        np.testing.assert_allclose(weight_amp, new_weight)
 
         # TODO: Add comparision for polarisation values.
         # Gaintable has "receptor1" and "receptor2", while h5parm has "pol"
