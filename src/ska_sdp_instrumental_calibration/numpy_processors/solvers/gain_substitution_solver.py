@@ -142,7 +142,7 @@ class GainSubstitution(Solver):
             vis_vis, vis_flags, vis_weight, model_vis, model_flags
         )
 
-        return gain_substitution(
+        _gain_gain, _gain_weight, _gain_residual = gain_substitution(
             gain_gain,
             gain_weight,
             gain_residual,
@@ -157,3 +157,16 @@ class GainSubstitution(Solver):
             tol=self.tol,
             refant=self.refant,
         )
+
+        # NOTE: gain substitution solver initialises gains and weights
+        # of cross pols to zero even if crosspols are turned off.
+        if not self.crosspol:
+
+            _gain_gain[..., 0, 1] = gain_gain[..., 0, 1]
+            _gain_gain[..., 1, 0] = gain_gain[..., 1, 0]
+            _gain_weight[..., 0, 1] = gain_weight[..., 0, 1]
+            _gain_weight[..., 1, 0] = gain_weight[..., 1, 0]
+            _gain_residual[..., 0, 1] = gain_residual[..., 0, 1]
+            _gain_residual[..., 1, 0] = gain_residual[..., 1, 0]
+
+        return (_gain_gain, _gain_weight, _gain_residual)
