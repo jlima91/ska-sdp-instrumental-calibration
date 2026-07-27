@@ -67,16 +67,13 @@ def xds_to_zarr(
     --------
     {original_function} : Reference for this function's logic.
     xarray.Dataset.to_zarr : For description of all parameters.
+    xdr_to_zarr, xdt_to_zarr : Equivalent functions for other xarray objects
 
     Notes
     -----
     1. The logic in this function must be kept up-to-date with
        the :py:func:`{original_function}`.
-    2. To use this function to write a :py:class:`xarray.DataArray` to zarr,
-       user should convert the ``DataArray`` to a temporary ``Dataset``
-       by calling :py:meth:`xarray.DataArray.to_dataset`,
-       and then call this function on the new dataset.
-    3. Compared to the :py:func:`{original_function}`, here we do not call
+    2. Compared to the :py:func:`{original_function}`, here we do not call
        :py:func:`_finalize_store` on writes and zstore objects.
        As per zarr documentation, it is not required
        to close ZarrStore/ZarrArrays.
@@ -237,6 +234,7 @@ def xdt_to_zarr(
     --------
     {original_function} : Reference for this function's logic.
     xarray.DataTree.to_zarr : For description of all parameters.
+    xdr_to_zarr, xds_to_zarr : Equivalent functions for other xarray objects
 
     Notes
     -----
