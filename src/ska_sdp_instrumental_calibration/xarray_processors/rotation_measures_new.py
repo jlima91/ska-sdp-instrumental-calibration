@@ -2,8 +2,7 @@
 
 __all__ = [
     "model_rotations",
-    "compute_rm_parameters",
-    "model_rotations_ufunc",
+    "RotationMeasureData",
     "get_plot_params_for_station",
 ]
 
