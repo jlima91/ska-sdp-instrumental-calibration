@@ -4,10 +4,16 @@ from functools import wraps
 import dask
 import dask.array as da
 
-# Efficient, immutable container for queued task recipes
+"""
+Original implementation.
+Now overriden ska_sdp_instrumental_calibration.scheduler.deferred_tasks.DeferredTask
+"""
 TaskRecipe = namedtuple("TaskRecipe", ["func", "args", "kwargs"])
 
-
+"""
+Original implementation.
+Now overriden by ska_sdp_instrumental_calibration.scheduler.task_manager._TaskManager
+"""
 class DeferredTaskManager:
     def __init__(self):
         self._registry: list[TaskRecipe] = list()

@@ -9,7 +9,9 @@ __all__ = ["dask_lazy_task"]
 # P represents the rest of the arguments (types and names)
 P = ParamSpec("P")
 
-
+"""
+More recent implmentation is available in SKA SDP Spectral Line Imaging
+"""
 def dask_lazy_task(func: Callable[P, Any]) -> Callable[P, da.Array]:
     """
     A replacement for ``dask.delayed`` designed specifically for dask arrays.
