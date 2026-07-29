@@ -136,7 +136,7 @@ class RotationMeasureData(xr.Dataset):
 
 
 def get_plot_params_for_station(
-    dataset: RotationMeasureData, antenna: int, refant: int, time: int = None
+    dataset: RotationMeasureData, antenna: int, refant: int, time: int = 0
 ) -> dict:
     """Extract plotting parameters natively retaining lazy Dask evaluation structures.
 

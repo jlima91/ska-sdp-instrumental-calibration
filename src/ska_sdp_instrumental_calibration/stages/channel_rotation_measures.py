@@ -194,7 +194,7 @@ def generate_channel_rm_stage(
             station_rm_est,
             run_solver_config.refant,
             plot_path_prefix=path_prefix,
-        ),
+        )
         plot_rm_station(
             initialtable,
             **get_plot_params_for_station(
