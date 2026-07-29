@@ -1,11 +1,11 @@
 import logging
 import os
 import shutil
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from string import Template
 
-import h5py
 import numpy
 import oskar  # pylint: disable=import-error
 import pandas as pd
@@ -17,20 +17,35 @@ from .constants import (
     CHANNEL_WIDTH_HZ,
     END_FREQ_HZ,
     INST_CAL_CONFIG,
-    N_STATIONS,
-    OBSERVING_TIME_MINS,
-    OUTLIER_AMPLITUDE,
-    OUTLIER_CHANNEL_INDICES,
-    OUTLIER_PHASE_DEG,
-    OUTLIER_STATION_INDICES,
     SAMPLING_TIME_SEC,
     SKY_MODEL,
     START_FREQ_HZ,
     TEL_MODEL,
 )
-from .generate_gaintable import calculate_gains
+from .generate_gaintable import generate_bandpass_gaintable
 
 logger = logging.getLogger("DATA-SIM")
+
+
+def add_gain_corruptions(ms_path, h5parm_path):
+    """Corrupt the MS visibilities in place with the bandpass gains from
+    the H5Parm, using DP3.
+    """
+    command = [
+        "DP3",
+        f"msin={ms_path}",
+        "msout=.",
+        "msout.datacolumn=DATA",
+        "steps=[applycal]",
+        "applycal.type=applycal",
+        f"applycal.parmdb={h5parm_path}",
+        "applycal.steps=[amplitude,phase]",
+        "applycal.amplitude.correction=amplitude000",
+        "applycal.phase.correction=phase000",
+        "applycal.invert=false",
+    ]
+    logger.info("Applying gain corruptions: %s", command)
+    subprocess.run(command, check=True)
 
 
 def add_field_id_and_scan_intent_to_source(ms_path, field_id, scan_intent):
@@ -148,16 +163,15 @@ def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
 
     tel_model = TEL_MODEL
     corrupted_tel_model = None
+
     if corrupt:
-        gaintable_path = generate_bandpass_gaintable(output_dir)
         corrupted_tel_model = Path(output_dir) / "corrupted_tel_model.tm"
+
         shutil.copytree(TEL_MODEL, corrupted_tel_model)
-        (corrupted_tel_model / "gain_model.h5").symlink_to(
-            Path(gaintable_path).resolve()
-        )
         (corrupted_tel_model / "cable_length_error_18s.txt").symlink_to(
             Path(CABLE_DELAYS).resolve()
         )
+
         tel_model = corrupted_tel_model
 
     sim_params = {
@@ -200,36 +214,14 @@ def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
 
     sim.run()
     add_field_id_and_scan_intent_to_source(ms_path, field_id, scan_intent)
+
+    if corrupt:
+        h5parm_path = generate_bandpass_gaintable(output_dir, start_time)
+        add_gain_corruptions(ms_path, h5parm_path)
+
     logger.info("Finished data generation, MS path: %s", ms_path)
 
     if corrupted_tel_model is not None:
         shutil.rmtree(corrupted_tel_model)
 
     return ms_path
-
-
-def generate_bandpass_gaintable(output_dir):
-    """Generate a synthetic bandpass gaintable"""
-
-    gain_xpol, gain_ypol, sim_freqs = calculate_gains(
-        n_stations=N_STATIONS,
-        start_frequency_hz=START_FREQ_HZ,
-        end_frequency_hz=END_FREQ_HZ,
-        channel_bandwidth_hz=CHANNEL_WIDTH_HZ,
-        sampling_time_sec=SAMPLING_TIME_SEC,
-        observing_time_mins=OBSERVING_TIME_MINS,
-        outlier_station_indices=OUTLIER_STATION_INDICES,
-        outlier_channel_indices=OUTLIER_CHANNEL_INDICES,
-        outlier_amplitude=OUTLIER_AMPLITUDE,
-        outlier_phase_deg=OUTLIER_PHASE_DEG,
-    )
-
-    gaintable_path = os.path.join(output_dir, "sim_gaintable.h5")
-    with h5py.File(gaintable_path, "w") as f:
-        f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
-        f.create_dataset("gain_xpol", data=gain_xpol)
-        f.create_dataset("gain_ypol", data=gain_ypol)
-
-    logger.info("Finished gaintable generation, path: %s", gaintable_path)
-
-    return gaintable_path

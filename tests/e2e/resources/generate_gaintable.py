@@ -13,14 +13,36 @@ The following effects can be simulated:
 - Gain outliers injected at explicit (station, channel) cells.
 """
 
+import logging
 import os
+import subprocess
+import sys
 
+import h5py
 import numpy as np
+import yaml
 from scipy.interpolate import BSpline
+
+from .constants import (
+    CHANNEL_WIDTH_HZ,
+    END_FREQ_HZ,
+    H5PARM_CONVERTER_SCRIPT,
+    N_STATIONS,
+    OBSERVING_TIME_MINS,
+    OUTLIER_AMPLITUDE,
+    OUTLIER_CHANNEL_INDICES,
+    OUTLIER_PHASE_DEG,
+    OUTLIER_STATION_INDICES,
+    SAMPLING_TIME_SEC,
+    START_FREQ_HZ,
+    TEL_MODEL,
+)
 
 SPLINE_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
 )
+
+logger = logging.getLogger("GAINTABLE-SIM")
 
 
 def cubic_Bezier(p0, p1, p2, p3, n, linear=True):
@@ -257,3 +279,60 @@ def calculate_gains(
     )
 
     return gain_xpol, gain_ypol, simulation_frequency_table
+
+
+def convert_gaintable_to_h5parm(output_dir, gaintable_path, start_time):
+    """Convert the OSKAR-format gaintable h5 into a DP3-compatible H5Parm
+    using the ska_low_sim converter script.
+    """
+    converter_config = {
+        "tel_model": str(TEL_MODEL),
+        "sampling_time_sec": SAMPLING_TIME_SEC,
+        "fields": {"EoR2": {"Cal1": {"transit_time": str(start_time)}}},
+    }
+    config_path = os.path.join(output_dir, "h5parm_converter_config.yaml")
+    with open(config_path, mode="w", encoding="utf-8") as config_file:
+        yaml.safe_dump(converter_config, config_file)
+
+    h5parm_path = os.path.join(output_dir, "sim_gaintable.h5parm")
+    command = [
+        sys.executable,
+        str(H5PARM_CONVERTER_SCRIPT),
+        config_path,
+        str(gaintable_path),
+        h5parm_path,
+    ]
+    logger.info("Converting gaintable to H5Parm: %s", command)
+    subprocess.run(command, check=True)
+
+    return h5parm_path
+
+
+def generate_bandpass_gaintable(output_dir, start_time):
+    """Generate a synthetic bandpass gaintable and convert it into a
+    DP3-compatible H5Parm.
+
+    Returns the path of the H5Parm file.
+    """
+    gain_xpol, gain_ypol, sim_freqs = calculate_gains(
+        n_stations=N_STATIONS,
+        start_frequency_hz=START_FREQ_HZ,
+        end_frequency_hz=END_FREQ_HZ,
+        channel_bandwidth_hz=CHANNEL_WIDTH_HZ,
+        sampling_time_sec=SAMPLING_TIME_SEC,
+        observing_time_mins=OBSERVING_TIME_MINS,
+        outlier_station_indices=OUTLIER_STATION_INDICES,
+        outlier_channel_indices=OUTLIER_CHANNEL_INDICES,
+        outlier_amplitude=OUTLIER_AMPLITUDE,
+        outlier_phase_deg=OUTLIER_PHASE_DEG,
+    )
+
+    gaintable_path = os.path.join(output_dir, "sim_gaintable.h5")
+    with h5py.File(gaintable_path, "w") as f:
+        f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
+        f.create_dataset("gain_xpol", data=gain_xpol)
+        f.create_dataset("gain_ypol", data=gain_ypol)
+
+    logger.info("Finished gaintable generation, path: %s", gaintable_path)
+
+    return convert_gaintable_to_h5parm(output_dir, gaintable_path, start_time)

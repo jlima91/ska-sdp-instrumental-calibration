@@ -23,7 +23,7 @@ parameters:
     refant: 0
     niter: 200
     tol: 1.0e-06
-    export_gaintable: true
+    export_gaintable: false
   bandpass_calibration:
     run_solver_config:
       solver: jones_substitution
@@ -36,20 +36,20 @@ parameters:
       uvdist: null
       exclude_baselines: null
     plot_config:
-      plot_table: true
+      plot_table: false
       fixed_axis: false
     visibility_key: vis
-    export_gaintable: true
+    export_gaintable: false
   delay_calibration:
     plot_config:
-      plot_table: true
+      plot_table: false
       fixed_axis: false
     oversample: 1
     export_gaintable: true
   flag_gain:
     plot_config:
-      curve_fit_plot: true
-      gain_flag_plot: true
+      curve_fit_plot: false
+      gain_flag_plot: false
     soltype: amplitude
     order: 3
     apply_flag: true
@@ -59,7 +59,7 @@ parameters:
     n_sigma_rolling: 0.0
     window_size: 11
     normalize_gains: false
-    export_gaintable: true
+    export_gaintable: false
   generate_channel_rm:
     run_solver_config:
       solver: jones_substitution
@@ -101,5 +101,5 @@ pipeline:
   flag_gain: true
   generate_channel_rm: false
   smooth_gain_solution: false
-  export_visibilities: true
+  export_visibilities: false
   export_gain_table: true

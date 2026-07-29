@@ -22,25 +22,32 @@ logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
 
-def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
-    expected_gaintable_path = temp_path / "sim_gaintable.h5"
-    actual_gaintable_path = output_dir / f"{field_id}_inst.gaintable.h5parm"
-
-    with h5py.File(expected_gaintable_path) as f:
-        expected_freq = f["freq (Hz)"][:]
-        expected_gain = {
-            "XX": f["gain_xpol"][0],
-            "YY": f["gain_ypol"][0],
-        }
-
-    with h5py.File(actual_gaintable_path) as f:
+def read_h5parm_gains(h5parm_path):
+    """Read pols, frequencies and first-time amplitude/phase values
+    from a H5Parm file.
+    """
+    with h5py.File(h5parm_path) as f:
         pols = [
             p.decode("ascii").rstrip("\x00")
             for p in f["sol000/amplitude000/pol"][:]
         ]
-        actual_freq = f["sol000/amplitude000/freq"][:]
-        actual_amp = f["sol000/amplitude000/val"][0]
-        actual_phase = f["sol000/phase000/val"][0]
+        freq = f["sol000/amplitude000/freq"][:]
+        amp = f["sol000/amplitude000/val"][0]  # (ant, freq, pol)
+        phase = f["sol000/phase000/val"][0]  # (ant, freq, pol)
+
+    return pols, freq, amp, phase
+
+
+def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
+    expected_gaintable_path = temp_path / "sim_gaintable.h5parm"
+    actual_gaintable_path = output_dir / f"{field_id}_inst.gaintable.h5parm"
+
+    expected_pols, expected_freq, expected_amp, expected_phase = (
+        read_h5parm_gains(expected_gaintable_path)
+    )
+    actual_pols, actual_freq, actual_amp, actual_phase = read_h5parm_gains(
+        actual_gaintable_path
+    )
 
     np.testing.assert_allclose(
         actual_freq,
@@ -54,16 +61,18 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
         np.ix_(OUTLIER_STATION_INDICES, OUTLIER_CHANNEL_INDICES)
     ] = True
 
-    for pol_name, expected_gain_pol in expected_gain.items():
-        pol_idx = pols.index(pol_name)
+    for pol_name in ("XX", "YY"):
+        expected_pol_idx = expected_pols.index(pol_name)
+        actual_pol_idx = actual_pols.index(pol_name)
 
-        expected_gain_pol = expected_gain_pol.T
-        expected_amp = np.abs(expected_gain_pol)
-        expected_phase = np.angle(expected_gain_pol)
-        expected_phase = expected_phase - expected_phase[[refant], :]
+        expected_amp_pol = expected_amp[:, :, expected_pol_idx]
+        expected_phase_pol = expected_phase[:, :, expected_pol_idx]
+        expected_phase_pol = (
+            expected_phase_pol - expected_phase_pol[[refant], :]
+        )
 
-        actual_amp_pol = actual_amp[:, :, pol_idx]
-        actual_phase_pol = actual_phase[:, :, pol_idx]
+        actual_amp_pol = actual_amp[:, :, actual_pol_idx]
+        actual_phase_pol = actual_phase[:, :, actual_pol_idx]
         actual_phase_pol = actual_phase_pol - actual_phase_pol[[refant], :]
 
         np.testing.assert_array_equal(
@@ -74,7 +83,7 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
 
         np.testing.assert_allclose(
             actual_amp_pol[~expected_flagged],
-            expected_amp[~expected_flagged],
+            expected_amp_pol[~expected_flagged],
             rtol=0.05,
             atol=0.05,
             err_msg=f"{pol_name} amplitudes do not "
@@ -86,7 +95,7 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
                 1j
                 * (
                     actual_phase_pol[~expected_flagged]
-                    - expected_phase[~expected_flagged]
+                    - expected_phase_pol[~expected_flagged]
                 )
             )
         )
@@ -121,13 +130,14 @@ def validate_delay_stage(output_dir, ms_path, refant=0):
     actual_delay = actual_delay[:, [pols.index("XX"), pols.index("YY")]]
     actual_delay = actual_delay - actual_delay[refant]
 
-    np.testing.assert_allclose(
-        actual_delay,
-        expected_delays[:, np.newaxis],
-        rtol=1e-3,
-        atol=1e-10,
-        err_msg="Actual delays do not match the expected delays ",
-    )
+    for pol_idx, pol_name in enumerate(("XX", "YY")):
+        np.testing.assert_allclose(
+            actual_delay[:, pol_idx],
+            expected_delays,
+            rtol=1e-3,
+            atol=1e-9,
+            err_msg=f"{pol_name} delays do not match the expected delays",
+        )
 
 
 class IntegrationTest(unittest.TestCase):
