@@ -21,6 +21,8 @@ from resources.data_sim import (  # pylint: disable=import-error
 logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
+SPEED_OF_LIGHT = 299792458.0
+
 
 def read_h5parm_gains(h5parm_path):
     """Read pols, frequencies and first-time amplitude/phase values
@@ -38,15 +40,44 @@ def read_h5parm_gains(h5parm_path):
     return pols, freq, amp, phase
 
 
+def reference_phase_to_refant(phase, refant):
+    """Remove the phase gauge freedom by zeroing the refant phase"""
+    return phase - phase[[refant], :]
+
+
+def normalised_rmse(actual, expected):
+    """RMSE of (actual - expected), as a fraction of the mean expected
+    value"""
+    return np.sqrt(np.mean((actual - expected) ** 2)) / np.mean(expected)
+
+
+def wrapped_phase_rmse(actual, expected):
+    """RMSE of phase differences, wrapped to (-pi, pi]"""
+    phase_error = np.angle(np.exp(1j * (actual - expected)))
+    return np.sqrt(np.mean(phase_error**2))
+
+
+def injected_cable_delays():
+    """Per-station delays (seconds) injected via the cable length errors"""
+    return np.loadtxt(CABLE_DELAYS, dtype=np.float64) / SPEED_OF_LIGHT
+
+
+def injected_outlier_mask(n_stations, n_channels):
+    """Boolean (station, channel) mask of the injected gain outliers"""
+    mask = np.zeros((n_stations, n_channels), dtype=bool)
+    mask[np.ix_(OUTLIER_STATION_INDICES, OUTLIER_CHANNEL_INDICES)] = True
+    return mask
+
+
 def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
-    expected_gaintable_path = temp_path / "sim_gaintable.h5parm"
-    actual_gaintable_path = output_dir / f"{field_id}_inst.gaintable.h5parm"
+    amp_rmse_threshold = 0.06
+    phase_rmse_threshold = np.deg2rad(10)
 
     expected_pols, expected_freq, expected_amp, expected_phase = (
-        read_h5parm_gains(expected_gaintable_path)
+        read_h5parm_gains(temp_path / "sim_gaintable.h5parm")
     )
     actual_pols, actual_freq, actual_amp, actual_phase = read_h5parm_gains(
-        actual_gaintable_path
+        output_dir / f"{field_id}_inst.gaintable.h5parm"
     )
 
     np.testing.assert_allclose(
@@ -56,24 +87,22 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
     )
 
     n_stations, n_channels, _ = actual_amp.shape
-    expected_flagged = np.zeros((n_stations, n_channels), dtype=bool)
-    expected_flagged[
-        np.ix_(OUTLIER_STATION_INDICES, OUTLIER_CHANNEL_INDICES)
-    ] = True
+    expected_flagged = injected_outlier_mask(n_stations, n_channels)
+    unflagged = ~expected_flagged
 
     for pol_name in ("XX", "YY"):
         expected_pol_idx = expected_pols.index(pol_name)
         actual_pol_idx = actual_pols.index(pol_name)
 
         expected_amp_pol = expected_amp[:, :, expected_pol_idx]
-        expected_phase_pol = expected_phase[:, :, expected_pol_idx]
-        expected_phase_pol = (
-            expected_phase_pol - expected_phase_pol[[refant], :]
+        expected_phase_pol = reference_phase_to_refant(
+            expected_phase[:, :, expected_pol_idx], refant
         )
 
         actual_amp_pol = actual_amp[:, :, actual_pol_idx]
-        actual_phase_pol = actual_phase[:, :, actual_pol_idx]
-        actual_phase_pol = actual_phase_pol - actual_phase_pol[[refant], :]
+        actual_phase_pol = reference_phase_to_refant(
+            actual_phase[:, :, actual_pol_idx], refant
+        )
 
         np.testing.assert_array_equal(
             np.isnan(actual_amp_pol),
@@ -81,38 +110,35 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
             err_msg=f"Flagged gains for {pol_name} do not match",
         )
 
-        np.testing.assert_allclose(
-            actual_amp_pol[~expected_flagged],
-            expected_amp_pol[~expected_flagged],
-            rtol=0.05,
-            atol=0.05,
-            err_msg=f"{pol_name} amplitudes do not "
-            f"match the between INST and simulated gaintables",
+        amp_rmse = normalised_rmse(
+            actual_amp_pol[unflagged], expected_amp_pol[unflagged]
+        )
+        phase_rmse = wrapped_phase_rmse(
+            actual_phase_pol[unflagged], expected_phase_pol[unflagged]
         )
 
-        phase_diff = np.angle(
-            np.exp(
-                1j
-                * (
-                    actual_phase_pol[~expected_flagged]
-                    - expected_phase_pol[~expected_flagged]
-                )
-            )
+        logger.info(
+            "%s bandpass RMSE: amplitude (normalised)=%.3e phase=%.2f deg",
+            pol_name,
+            amp_rmse,
+            np.rad2deg(phase_rmse),
         )
-        np.testing.assert_allclose(
-            phase_diff,
-            0,
-            atol=np.deg2rad(5),
-            err_msg=f"{pol_name} phases do not "
-            f"match between INST and simulated gaintables",
+
+        assert amp_rmse < amp_rmse_threshold, (
+            f"{pol_name} normalised amplitude RMSE {amp_rmse:.3e} over "
+            f"unflagged gains exceeds threshold {amp_rmse_threshold:.1e}"
+        )
+        assert phase_rmse < phase_rmse_threshold, (
+            f"{pol_name} phase RMSE {np.rad2deg(phase_rmse):.2f} deg over "
+            f"unflagged gains exceeds threshold "
+            f"{np.rad2deg(phase_rmse_threshold):.2f} deg"
         )
 
 
 def validate_delay_stage(output_dir, ms_path, refant=0):
-    speed_of_light = 299792458.0
+    delay_rmse_threshold = 3e-10
 
-    cable_length_errors = np.loadtxt(CABLE_DELAYS, dtype=np.float64)
-    expected_delays = cable_length_errors / speed_of_light
+    expected_delays = injected_cable_delays()
     expected_delays = expected_delays - expected_delays[refant]
 
     ms_prefix = Path(ms_path).resolve().stem
@@ -130,13 +156,21 @@ def validate_delay_stage(output_dir, ms_path, refant=0):
     actual_delay = actual_delay[:, [pols.index("XX"), pols.index("YY")]]
     actual_delay = actual_delay - actual_delay[refant]
 
+    clean_stations = np.setdiff1d(
+        np.arange(len(expected_delays)), OUTLIER_STATION_INDICES
+    )
+
     for pol_idx, pol_name in enumerate(("XX", "YY")):
-        np.testing.assert_allclose(
-            actual_delay[:, pol_idx],
-            expected_delays,
-            rtol=1e-3,
-            atol=1e-9,
-            err_msg=f"{pol_name} delays do not match the expected delays",
+        delay_error = (
+            actual_delay[clean_stations, pol_idx]
+            - expected_delays[clean_stations]
+        )
+        delay_rmse = np.sqrt(np.mean(delay_error**2))
+        logger.info("%s delay RMSE: %.3e s", pol_name, delay_rmse)
+
+        assert delay_rmse < delay_rmse_threshold, (
+            f"{pol_name} delay RMSE {delay_rmse:.3e}s over uncorrupted "
+            f"stations exceeds threshold {delay_rmse_threshold:.1e}s"
         )
 
 

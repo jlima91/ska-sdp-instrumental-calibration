@@ -21,6 +21,7 @@ from .constants import (
     SKY_MODEL,
     START_FREQ_HZ,
     TEL_MODEL,
+    TRANSIT_TIME,
 )
 from .generate_gaintable import generate_bandpass_gaintable
 
@@ -150,7 +151,7 @@ def migrate_sky_model(output_dir):
 def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
     """Generate calibrator data"""
 
-    transit_time = datetime.fromisoformat("2000-01-03 22:33:30.000")
+    transit_time = datetime.fromisoformat(TRANSIT_TIME)
     start_time = transit_time - timedelta(minutes=0.5)
     num_times = int(numpy.floor(60 / SAMPLING_TIME_SEC))
 
