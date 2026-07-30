@@ -86,6 +86,13 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
         err_msg="Frequencies don't match between INST and simulated gaintable",
     )
 
+    delay_phase_ramp = (
+        2
+        * np.pi
+        * expected_freq[np.newaxis, :]
+        * injected_cable_delays()[:, np.newaxis]
+    )
+
     n_stations, n_channels, _ = actual_amp.shape
     expected_flagged = injected_outlier_mask(n_stations, n_channels)
     unflagged = ~expected_flagged
@@ -96,7 +103,7 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
 
         expected_amp_pol = expected_amp[:, :, expected_pol_idx]
         expected_phase_pol = reference_phase_to_refant(
-            expected_phase[:, :, expected_pol_idx], refant
+            expected_phase[:, :, expected_pol_idx] + delay_phase_ramp, refant
         )
 
         actual_amp_pol = actual_amp[:, :, actual_pol_idx]
