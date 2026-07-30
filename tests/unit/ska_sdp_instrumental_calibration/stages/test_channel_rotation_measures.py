@@ -117,10 +117,10 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
 
-    model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
-    model_rotations_obj_mock.rm_est = rm_est_mock
-    model_rotations_mock.return_value = model_rotations_obj_mock
+    rm_est_mock.isel.return_value = rm_est_mock
+    rotations_mock = {"rm_est":  rm_est_mock}
+    model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [3, 3]
 
     upstream_output["gaintable"] = initial_table_mock
@@ -169,7 +169,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         initial_table_mock.time.data,
         initial_table_mock.soln_interval_slices,
         upstream_output["beams_factory"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.data,
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
@@ -258,10 +258,10 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     solver_factory_mock.get_solver.return_value = "jones_substitution"
     predict_vis_mock.return_value = new_model_vis_mock
 
-    model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
-    model_rotations_obj_mock.rm_est = rm_est_mock
-    model_rotations_mock.return_value = model_rotations_obj_mock
+    rm_est_mock.isel.return_value = rm_est_mock
+    rotations_mock = {"rm_est":  rm_est_mock}
+    model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [3, 3]
 
     apply_gaintable_mock.return_value = beam_model_vis
@@ -300,7 +300,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
         initial_table_mock.time.data,
         initial_table_mock.soln_interval_slices,
         upstream_output["beams_factory"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.data,
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(
@@ -375,7 +375,13 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     "ska_sdp_instrumental_calibration.stages."
     "channel_rotation_measures.Solver"
 )
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plot_params_for_station"
+
+)
 def test_should_plot_with_proper_suffix(
+    get_plot_params_for_station_mock,
     solver_factory_mock,
     apply_gaintable_mock,
     reset_gaintable_mock,
@@ -423,11 +429,10 @@ def test_should_plot_with_proper_suffix(
         "test_should_apply_beam_to_model_vis_when_beam_is_not_none"
     )
     rm_est_mock = Mock(name="rm est")
-    model_rotations_obj_mock.rm_est = rm_est_mock
-    model_rotations_obj_mock.get_plot_params_for_station = Mock(
-        name="get_plot_params_for_station", return_value={"rm_vals": "rm_vals"}
-    )
-    model_rotations_mock.return_value = model_rotations_obj_mock
+    rm_est_mock.isel.return_value = rm_est_mock
+    rotations_mock = {"rm_est":  rm_est_mock}
+    model_rotations_mock.return_value = rotations_mock
+    get_plot_params_for_station_mock.return_value={"rm_vals": "rm_vals"}
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
@@ -494,14 +499,14 @@ def test_should_plot_with_proper_suffix(
             call(
                 solved_gaintable_mock,
                 initial_table_mock,
-                rm_est_mock,
+                rm_est_mock.data,
                 2,
                 plot_path_prefix="/output/path/plots/channel_rm",
             ),
             call(
                 solved_gaintable_mock,
                 initial_table_mock,
-                rm_est_mock,
+                rm_est_mock.data,
                 2,
                 plot_path_prefix="/output/path/plots/channel_rm_1",
             ),
@@ -621,11 +626,11 @@ def test_should_export_gaintable_with_proper_suffix(
     initial_table_mock = Mock(name="initial gaintable")
     upstream_output["gaintable"] = initial_table_mock
 
-    model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
+    rm_est_mock.isel.return_value = rm_est_mock
+    rotations_mock = {"rm_est":  rm_est_mock}
+    model_rotations_mock.return_value = rotations_mock
     solver_factory_mock.get_solver.return_value = "jones_substitution"
-    model_rotations_obj_mock.rm_est = rm_est_mock
-    model_rotations_mock.return_value = model_rotations_obj_mock
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
@@ -742,10 +747,10 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
     initial_table_mock = MagicMock(name="initial gaintable")
     solved_gaintable_mock = Mock(name="run solver gaintable")
 
-    model_rotations_obj_mock = MagicMock(name="model rotation mock")
     rm_est_mock = Mock(name="rm est")
-    model_rotations_obj_mock.rm_est = rm_est_mock
-    model_rotations_mock.return_value = model_rotations_obj_mock
+    rm_est_mock.isel.return_value = rm_est_mock
+    rotations_mock = {"rm_est":  rm_est_mock}
+    model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [2, 2]
 
     solver_factory_mock.get_solver.return_value = "jones_substitution"
@@ -780,7 +785,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         initial_table_mock.time.data,
         initial_table_mock.soln_interval_slices,
         upstream_output["beams_factory"],
-        station_rm=rm_est_mock,
+        station_rm=rm_est_mock.data,
     )
 
     run_solver_mock.assert_called_once_with(

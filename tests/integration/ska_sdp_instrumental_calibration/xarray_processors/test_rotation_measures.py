@@ -3,8 +3,9 @@ import numpy as np
 import xarray as xr
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
-    ModelRotationData,
+    RotationMeasureData,
     model_rotations,
+    get_plot_params_for_station
 )
 
 
@@ -28,9 +29,9 @@ def test_model_rotations():
     weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
     gaintable = xr.Dataset(
         {
-            "gain": (["time", "antenna", "frequency", "rec1", "rec2"], gains),
+            "gain": (["time", "antenna", "frequency", "receptor1", "receptor2"], gains),
             "weight": (
-                ["time", "antenna", "frequency", "rec1", "rec2"],
+                ["time", "antenna", "frequency", "receptor1", "receptor2"],
                 weight,
             ),
         },
@@ -68,43 +69,45 @@ def test_should_return_plot_params_for_station():
     weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
     gaintable = xr.Dataset(
         {
-            "gain": (["time", "antenna", "frequency", "rec1", "rec2"], gains),
+            "gain": (["time", "antenna", "frequency", "receptor1", "receptor2"], gains),
             "weight": (
-                ["time", "antenna", "frequency", "rec1", "rec2"],
+                ["time", "antenna", "frequency", "receptor1", "receptor2"],
                 weight,
             ),
         },
         coords=coords,
     )
 
-    rot_data = ModelRotationData(gaintable, refant=0)
+    rot_data = model_rotations(gaintable)
 
-    rot_data.rm_spec = [1, 2]
+    # rot_data.rm_spec = [1, 2]
 
-    plot_params = rot_data.get_plot_params_for_station()
     stn = len(gaintable.antenna) - 1
+    plot_params = get_plot_params_for_station(rot_data,stn,0)
+
+    # raise Exception(plot_params)
 
     assert "J" in plot_params
     assert "lambda_sq" in plot_params
     assert "xlim" in plot_params
 
-    assert all(plot_params["rm_vals"] == rot_data.rm_vals)
-    assert plot_params["rm_spec"] == rot_data.rm_spec[stn]
-    assert plot_params["rm_peak"] == rot_data.rm_peak[stn]
-    assert plot_params["rm_est"] == rot_data.rm_est[stn]
-    assert plot_params["rm_est_refant"] == rot_data.rm_est[rot_data.refant]
+    assert all(plot_params["rm_vals"] == rot_data.resolution)
+    assert all(plot_params["rm_spec"] == rot_data.rm_spec[0, stn])
+    assert plot_params["rm_peak"] == rot_data.rm_peak[0, stn]
+    assert plot_params["rm_est"] == rot_data.rm_est[0, stn]
+    assert plot_params["rm_est_refant"] == rot_data.rm_est[0, 0]
     assert plot_params["stn"] == stn
 
-    rot_data = ModelRotationData(gaintable, refant=0)
+    rot_data = model_rotations(gaintable)
 
-    rot_data.rm_spec = [1, 2]
+    # rot_data.rm_spec = [1, 2]
 
-    plot_params = rot_data.get_plot_params_for_station(1)
+    plot_params = get_plot_params_for_station(rot_data, 1, 0)
     stn = 1
 
-    assert all(plot_params["rm_vals"] == rot_data.rm_vals)
-    assert plot_params["rm_spec"] == rot_data.rm_spec[stn]
-    assert plot_params["rm_peak"] == rot_data.rm_peak[stn]
-    assert plot_params["rm_est"] == rot_data.rm_est[stn]
-    assert plot_params["rm_est_refant"] == rot_data.rm_est[rot_data.refant]
+    assert all(plot_params["rm_vals"] == rot_data.resolution)
+    assert all(plot_params["rm_spec"] == rot_data.rm_spec[0, stn])
+    assert plot_params["rm_peak"] == rot_data.rm_peak[0, stn]
+    assert plot_params["rm_est"] == rot_data.rm_est[0, stn]
+    assert plot_params["rm_est_refant"] == rot_data.rm_est[0, 0]
     assert plot_params["stn"] == stn

@@ -4,7 +4,7 @@ import xarray as xr
 from mock import ANY, MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
-    ModelRotationData,
+    RotationMeasureData,
     fit_curve,
     get_rm_spec,
     get_stn_masks,
@@ -51,7 +51,7 @@ def setup_test_data():
 def test_model_rotation_data_initialization():
     nstations, nfreq, refant, mock_gaintable = setup_test_data()
 
-    rot_data = ModelRotationData(mock_gaintable, refant)
+    rot_data = RotationMeasureData(mock_gaintable, refant)
 
     assert rot_data.nstations == nstations
     assert rot_data.nfreq == nfreq
@@ -103,7 +103,7 @@ def test_model_rotation_data_value_error():
     )
     exception_caught = False
     try:
-        ModelRotationData(incorrect_gaintable, refant)
+        RotationMeasureData(incorrect_gaintable, refant)
     except ValueError as e:
         exception_caught = True
         assert str(e) == "gaintable must contain Jones matrices"
@@ -112,7 +112,7 @@ def test_model_rotation_data_value_error():
 
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.ModelRotationData"
+    "rotation_measures.RotationMeasureData"
 )
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors."
@@ -185,13 +185,13 @@ def test_model_rotations_function_without_fit(
     mock_update_jones_with_masks,
     mock_get_stn_masks,
     mock_calculate_phi_raw,
-    MockModelRotationData,
+    MockRotationMeasureData,
 ):
 
     mock_gaintable = MagicMock(spec=xr.Dataset)
     mock_gaintable.weight = MagicMock(name="gaintable_weight")
 
-    mock_rotations_instance = MagicMock(spec=ModelRotationData)
+    mock_rotations_instance = MagicMock(spec=RotationMeasureData)
     mock_rotations_instance.nstations = 3
     mock_rotations_instance.nfreq = 5
 
@@ -207,7 +207,7 @@ def test_model_rotations_function_without_fit(
     mock_rotations_instance.J = MagicMock(
         spec=da.Array, name="mock_J"
     )  # noqa: E501
-    MockModelRotationData.return_value = mock_rotations_instance
+    MockRotationMeasureData.return_value = mock_rotations_instance
     mock_norms_dask_array = MagicMock(
         spec=da.Array, name="mock_norms_dask_array"
     )
