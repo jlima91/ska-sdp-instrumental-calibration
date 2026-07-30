@@ -64,7 +64,7 @@ integration-test:
   script:
     - |
       export PYTHONPATH=$PWD/src/:$PYTHONPATH
-      python tests/e2e/inst_regression.py
+      python tests/e2e/cal_inst_regression.py
 
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
