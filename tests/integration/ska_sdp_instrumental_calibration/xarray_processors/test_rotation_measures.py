@@ -3,9 +3,8 @@ import numpy as np
 import xarray as xr
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
-    RotationMeasureData,
+    get_plot_params_for_station,
     model_rotations,
-    get_plot_params_for_station
 )
 
 
@@ -29,7 +28,10 @@ def test_model_rotations():
     weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
     gaintable = xr.Dataset(
         {
-            "gain": (["time", "antenna", "frequency", "receptor1", "receptor2"], gains),
+            "gain": (
+                ["time", "antenna", "frequency", "receptor1", "receptor2"],
+                gains,
+            ),
             "weight": (
                 ["time", "antenna", "frequency", "receptor1", "receptor2"],
                 weight,
@@ -42,7 +44,7 @@ def test_model_rotations():
     )
 
     actual_rm_est_computed = actual_rotations.rm_est.compute()
-    expected_rm_est = np.array([0, -94.9161247])
+    expected_rm_est = np.array([[0, -94.9161247]])
 
     np.testing.assert_allclose(
         actual_rm_est_computed, expected_rm_est, atol=1e-7
@@ -69,7 +71,10 @@ def test_should_return_plot_params_for_station():
     weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
     gaintable = xr.Dataset(
         {
-            "gain": (["time", "antenna", "frequency", "receptor1", "receptor2"], gains),
+            "gain": (
+                ["time", "antenna", "frequency", "receptor1", "receptor2"],
+                gains,
+            ),
             "weight": (
                 ["time", "antenna", "frequency", "receptor1", "receptor2"],
                 weight,
@@ -83,7 +88,7 @@ def test_should_return_plot_params_for_station():
     # rot_data.rm_spec = [1, 2]
 
     stn = len(gaintable.antenna) - 1
-    plot_params = get_plot_params_for_station(rot_data,stn,0)
+    plot_params = get_plot_params_for_station(rot_data, stn, 0)
 
     # raise Exception(plot_params)
 
