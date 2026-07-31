@@ -119,7 +119,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 
     rm_est_mock = Mock(name="rm est")
     rm_est_mock.isel.return_value = rm_est_mock
-    rotations_mock = {"rm_est":  rm_est_mock}
+    rotations_mock = {"rm_est": rm_est_mock}
     model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [3, 3]
 
@@ -260,7 +260,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
     rm_est_mock = Mock(name="rm est")
     rm_est_mock.isel.return_value = rm_est_mock
-    rotations_mock = {"rm_est":  rm_est_mock}
+    rotations_mock = {"rm_est": rm_est_mock}
     model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [3, 3]
 
@@ -378,7 +378,6 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 @patch(
     "ska_sdp_instrumental_calibration.stages."
     "channel_rotation_measures.get_plot_params_for_station"
-
 )
 def test_should_plot_with_proper_suffix(
     get_plot_params_for_station_mock,
@@ -423,16 +422,14 @@ def test_should_plot_with_proper_suffix(
     plot_gaintable_freq_mock.plot.return_value = ["GAIN_PLOT", "LEAKAGE_PLOT"]
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
 
-    model_rotations_obj_mock = MagicMock(name="model rotation mock")
-
     solver_factory_mock.get_solver.return_value = (
         "test_should_apply_beam_to_model_vis_when_beam_is_not_none"
     )
     rm_est_mock = Mock(name="rm est")
     rm_est_mock.isel.return_value = rm_est_mock
-    rotations_mock = {"rm_est":  rm_est_mock}
+    rotations_mock = {"rm_est": rm_est_mock}
     model_rotations_mock.return_value = rotations_mock
-    get_plot_params_for_station_mock.return_value={"rm_vals": "rm_vals"}
+    get_plot_params_for_station_mock.return_value = {"rm_vals": "rm_vals"}
 
     solved_gaintable_mock = Mock(name="run solver gaintable")
     run_solver_mock.return_value = solved_gaintable_mock
@@ -628,7 +625,7 @@ def test_should_export_gaintable_with_proper_suffix(
 
     rm_est_mock = Mock(name="rm est")
     rm_est_mock.isel.return_value = rm_est_mock
-    rotations_mock = {"rm_est":  rm_est_mock}
+    rotations_mock = {"rm_est": rm_est_mock}
     model_rotations_mock.return_value = rotations_mock
     solver_factory_mock.get_solver.return_value = "jones_substitution"
     parse_ref_ant_mock.side_effect = [2, 2, 2, 2]
@@ -749,7 +746,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
 
     rm_est_mock = Mock(name="rm est")
     rm_est_mock.isel.return_value = rm_est_mock
-    rotations_mock = {"rm_est":  rm_est_mock}
+    rotations_mock = {"rm_est": rm_est_mock}
     model_rotations_mock.return_value = rotations_mock
     parse_ref_ant_mock.side_effect = [2, 2]
 

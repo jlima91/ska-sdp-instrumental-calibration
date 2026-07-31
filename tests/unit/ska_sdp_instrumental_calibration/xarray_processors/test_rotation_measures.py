@@ -1,14 +1,17 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
-from mock import ANY, MagicMock, Mock, call, patch
+from mock import ANY, Mock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
     RotationMeasureData,
+    compute_rm_parameters,
     fit_curve,
+    get_plot_params_for_station,
     get_rm_spec,
     get_stn_masks,
     model_rotations,
+    model_rotations_ufunc,
     update_jones_with_masks,
 )
 
@@ -51,7 +54,7 @@ def setup_test_data():
 def test_model_rotation_data_initialization():
     nstations, nfreq, refant, mock_gaintable = setup_test_data()
 
-    rot_data = model_rotations(mock_gaintable, refant)
+    rot_data = model_rotations(mock_gaintable, refant=refant)
 
     assert len(rot_data.antenna) == nstations
     assert len(rot_data.frequency) == nfreq
@@ -85,6 +88,14 @@ def test_model_rotation_data_initialization():
         nstations,
     )
     assert rot_data.rm_spec is not None
+
+
+def test_should_generate_model_rotation_data_without_refinement():
+    _, __, ___, mock_gaintable = setup_test_data()
+
+    rot_data = model_rotations(mock_gaintable, refine_fit=False)
+
+    np.testing.assert_allclose(rot_data.const_rot, 0)
 
 
 def xtest_should_generate_rm_spec():
@@ -180,3 +191,89 @@ def test_should_fit_curve(curve_fit_mock):
     assert curve_fit_mock.call_args.kwargs["p0"][0] == rm_est_mock
     assert curve_fit_mock.call_args.kwargs["p0"][1] == 0
     np.testing.assert_allclose(out, expected)
+
+
+def test_should_compute_rm_parameters():
+    freq = [1.0e9, 1.1e9]
+    oversample = 2
+
+    l_sq, rm_vals = compute_rm_parameters(freq, oversample)
+
+    np.testing.assert_allclose(l_sq, [0.089876, 0.074277], rtol=10e-5)
+    np.testing.assert_allclose(
+        rm_vals, [-64.10984, -32.05492, 0.0, 32.054924], rtol=10e-5
+    )
+
+
+def test_should_get_plot_params_for_station():
+    resolutions = np.array([1, 2])
+    l_sq = np.array([1, 2])
+    rm_data = RotationMeasureData.constructor(
+        time=np.array([1, 2]),
+        antenna=np.array([1, 2]),
+        frequency=np.array([1, 2]),
+        resolution=resolutions,
+        receptor1=["XX"],
+        receptor2=["YY"],
+        lambda_sq=l_sq,
+        rm_spec=np.arange(8).reshape(2, 2, 2),
+        rm_est=np.arange(4).reshape(2, 2),
+        rm_peak=np.arange(4).reshape(2, 2),
+        const_rot=np.arange(4).reshape(2, 2),
+        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+    )
+
+    plot_params = get_plot_params_for_station(rm_data, 1, 0, time=None)
+    assert plot_params["stn"] == 1
+    assert plot_params["xlim"].compute() == 30
+    assert all(plot_params["rm_vals"] == resolutions)
+    assert all(plot_params["lambda_sq"] == l_sq)
+    np.testing.assert_allclose(plot_params["rm_spec"], [[2, 3], [6, 7]])
+    np.testing.assert_allclose(plot_params["rm_peak"], [1, 3])
+    np.testing.assert_allclose(plot_params["rm_est"], [1, 3])
+    np.testing.assert_allclose(plot_params["rm_est_refant"], [0, 2])
+
+
+def test_should_get_plot_params_for_station_and_time():
+    resolutions = np.array([1, 2])
+    l_sq = np.array([1, 2])
+    rm_data = RotationMeasureData.constructor(
+        time=np.array([1, 2]),
+        antenna=np.array([1, 2]),
+        frequency=np.array([1, 2]),
+        resolution=resolutions,
+        receptor1=["XX"],
+        receptor2=["YY"],
+        lambda_sq=l_sq,
+        rm_spec=np.arange(8).reshape(2, 2, 2),
+        rm_est=np.arange(4).reshape(2, 2),
+        rm_peak=np.arange(4).reshape(2, 2),
+        const_rot=np.arange(4).reshape(2, 2),
+        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+    )
+
+    plot_params = get_plot_params_for_station(rm_data, 1, 0)
+    assert plot_params["stn"] == 1
+    assert plot_params["xlim"].compute() == 10
+    assert all(plot_params["rm_vals"] == resolutions)
+    assert all(plot_params["lambda_sq"] == l_sq)
+    np.testing.assert_allclose(plot_params["rm_spec"], [2, 3])
+    np.testing.assert_allclose(plot_params["rm_peak"], [1])
+    np.testing.assert_allclose(plot_params["rm_est"], [1])
+    np.testing.assert_allclose(plot_params["rm_est_refant"], [0])
+
+
+def test_should_raise_value_error_for_freq_not_provided():
+    with pytest.raises(
+        ValueError,
+        match=r"frequency must be provided if rm_vals or lambda_sq are None",
+    ):
+        model_rotations_ufunc(
+            None,
+            None,
+            None,
+            None,
+            rm_vals=None,
+            lambda_sq=None,
+            frequency=None,
+        )

@@ -1,4 +1,5 @@
 """Post-calibration fits."""
+
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -19,70 +20,10 @@ logger = setup_logger(__name__)
 
 class RotationMeasureData(xr.Dataset):
     """
-    A specialized xarray Dataset subclass representing structural Rotation Measure
-    (RM) modeling outputs.
+    A dataset container for rotation measure data.
 
-    **Coordinates**
-
-    - time: time centroids of solutions, in seconds elapsed since the MJD
-      reference epoch, ``[ntimes]``.
-
-    - antenna: integer antenna indices starting at 0, ``[nants]``.
-
-    - frequency: center frequencies of the observations in Hz, ``[nchan]``.
-
-    - resolution: Faraday depth search grid space values in rad/m^2, ``[nres]``.
-
-    - receptor1:  polarisation hands of measured data polarisation, ``[nrec]``.
-      Most likely ``['X', 'Y']`` or ``['I']``.
-
-    - receptor2: polarisation hands of ideal/model data polarisation, ``[nrec]``.
-
-    **Data variables**
-
-    - lambda_sq: wavelength squared values calculated across the frequency axis,
-      real-valued ``[nchan]``.
-
-    - rm_spec: Faraday dispersion function complex spectrum profiles,
-      complex-valued ``[ntimes, nants, nres]``.
-
-    - rm_est: final non-linear optimized rotation measure parameter estimations,
-      real-valued ``[ntimes, nants]``.
-
-    - rm_peak: Peak rotation measure absolute maxima found within the search space,
-      real-valued ``[ntimes, nants]``.
-
-    - const_rot: constant intrinsic phase offset calculated post curve-fitting optimization,
-      real-valued ``[ntimes, nants]``.
-
-    - J: target Jones matrices corrected relative to the designated reference antenna,
-      complex-valued ``[ntimes, nants, nchan, nrec1, nrec2]``.
-
-    **Attributes**
-
-    - data_model: name of this class, used internally for saving to / loading
-      from files.
-
-    Here is an example::
-
-        <xarray.RotationMeasureData>
-        Dimensions:  (time: 1, antenna: 115, frequency: 256, resolution: 1024, receptor1: 2, receptor2: 2)
-        Coordinates:
-          * time        (time) float64 5.085e+09
-          * antenna     (antenna) int64 0 1 2 ... 113 114
-          * frequency   (frequency) float64 ...
-          * resolution  (resolution) float32 ...
-          * receptor1   (receptor1) int64 0 1
-          * receptor2   (receptor2) int64 0 1
-        Data variables:
-            lambda_sq   (frequency) float32 ...
-            rm_spec     (time, antenna, resolution) complex128 ...
-            rm_est      (time, antenna) float64 ...
-            rm_peak     (time, antenna) float64 ...
-            const_rot   (time, antenna) float64 ...
-            J           (time, antenna, frequency, receptor1, receptor2) complex128 ...
-        Attributes:
-            data_model:     RotationMeasureData
+    This class extends xarray.Dataset to store rotation measure data
+    and associated coordinates and attributes.
     """
 
     __slots__ = ()
@@ -107,8 +48,39 @@ class RotationMeasureData(xr.Dataset):
         J: np.ndarray | da.Array,
     ) -> "RotationMeasureData":
         """
-        A constructor method to assemble separate coordinate and data arrays
-        into a structural RotationMeasureData dataset container.
+        Assemble arrays into a RotationMeasureData dataset container.
+
+        Parameters
+        ----------
+        time : np.ndarray
+            Array of time coordinates.
+        antenna : np.ndarray
+            Array of antenna coordinates.
+        frequency : np.ndarray
+            Array of frequency coordinates.
+        resolution : np.ndarray
+            Array of resolution coordinates.
+        receptor1 : np.ndarray
+            Array of first receptor coordinates.
+        receptor2 : np.ndarray
+            Array of second receptor coordinates.
+        lambda_sq : np.ndarray
+            Array of squared wavelength values.
+        rm_spec : np.ndarray or da.Array
+            Rotation measure spectrum data array.
+        rm_est : np.ndarray or da.Array
+            Estimated rotation measure data array.
+        rm_peak : np.ndarray or da.Array
+            Peak rotation measure data array.
+        const_rot : np.ndarray or da.Array
+            Constant rotation data array.
+        J : np.ndarray or da.Array
+            Jones matrix data array.
+
+        Returns
+        -------
+        RotationMeasureData
+            The constructed rotation measure dataset.
         """
         data_vars = dict(
             lambda_sq=(["frequency"], lambda_sq),
@@ -138,7 +110,9 @@ class RotationMeasureData(xr.Dataset):
 def get_plot_params_for_station(
     dataset: RotationMeasureData, antenna: int, refant: int, time: int = 0
 ) -> dict:
-    """Extract plotting parameters natively retaining lazy Dask evaluation structures.
+    """
+    Extract plotting parameters natively retaining lazy Dask
+    evaluation structures.
 
     Parameters
     ----------
@@ -209,7 +183,9 @@ def compute_rm_parameters(
     rm_vals : np.ndarray
         Rotation measure search grid values. Shape: (resolution,)
     """
-    lambda_sq = ((const.c.value / frequency) ** 2).astype(np.float32)
+    lambda_sq = (
+        (const.c.value / frequency) ** 2  # pylint: disable=E1101
+    ).astype(np.float32)
 
     rm_res = 1 / oversample / (np.max(lambda_sq) - np.min(lambda_sq))
     rm_max = 1 / (lambda_sq[-2] - lambda_sq[-1])
@@ -351,7 +327,7 @@ def _model_rotation_block_(
     Processes one template block (time x antenna) at a time, converting
     xarray inputs to pure numpy for computation and wrapping the results back.
     """
-    # Extract coordinates directly from the template block to guarantee absolute consistency
+
     rm_vals = template_block.coords["resolution"].values
     lambda_sq = template_block["lambda_sq"].values
 
@@ -416,31 +392,38 @@ def model_rotations_ufunc(
 ) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """
     Calculate model rotations for a given antenna and solution interval (time)
-    using pure NumPy arrays. This can be treated as a ufunc, and can be used to broadcast computations
-    across stations and time.
+    using pure NumPy arrays. This can be treated as a ufunc, and can be
+    used to broadcast computations across stations and time.
 
     Parameters
     ----------
     gain
-        Calibrated gain matrix array for a single station block. Shape: (freq, rec1, rec2)
+        Calibrated gain matrix array for a single station block.
+        Shape: (freq, rec1, rec2)
     weight
-        Weight matrix array for a single station block. Shape: (freq, rec1, rec2)
+        Weight matrix array for a single station block.
+        Shape: (freq, rec1, rec2)
     gain_refant
-        Calibrated gain matrix array for the reference station. Shape: (freq, rec1, rec2)
+        Calibrated gain matrix array for the reference station.
+        Shape: (freq, rec1, rec2)
     weight_refant
-        Weight matrix array for the reference station. Shape: (freq, rec1, rec2)
+        Weight matrix array for the reference station.
+        Shape: (freq, rec1, rec2)
     rm_vals
         Pre-computed rotation measure search grid values. Shape: (resolution,).
     lambda_sq
         Pre-computed wavelength squared values. Shape: (freq,).
     frequency
-        Frequency values in Hz. Only utilized if rm_vals/lambda_sq must be computed. Shape: (freq,).
+        Frequency values in Hz. Only utilized if rm_vals/lambda_sq
+        must be computed. Shape: (freq,).
     oversample
-        Oversampling value used if parameters must be generated on the fly. Only utilized if rm_vals/lambda_sq must be computed.
+        Oversampling value used if parameters must be generated on the fly.
+        Only utilized if rm_vals/lambda_sq must be computed.
     peak_threshold
         Height of peak in the RM spectrum required for a rotation detection.
     refine_fit
-        Whether or not to refine the RM spectrum peak locations with a nonlinear optimisation.
+        Whether or not to refine the RM spectrum peak locations with a
+        nonlinear optimisation.
 
     Returns
     -------
