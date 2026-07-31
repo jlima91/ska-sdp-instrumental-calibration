@@ -22,6 +22,7 @@ logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
 SPEED_OF_LIGHT = 299792458.0
+VALIDATION_STATIONS = [1, 8, 17]
 
 
 def read_h5parm_gains(h5parm_path):
@@ -46,13 +47,13 @@ def reference_phase_to_refant(phase, refant):
 
 
 def normalised_rmse(actual, expected):
-    """RMSE of (actual - expected), as a fraction of the mean expected
-    value"""
+    """RMSE of (actual - expected), as a fraction of the band mean"""
     return np.sqrt(np.mean((actual - expected) ** 2)) / np.mean(expected)
 
 
 def wrapped_phase_rmse(actual, expected):
-    """RMSE of phase differences, wrapped to (-pi, pi]"""
+    """RMSE of phase differences across one station's channels, wrapped
+    to (-pi, pi]"""
     phase_error = np.angle(np.exp(1j * (actual - expected)))
     return np.sqrt(np.mean(phase_error**2))
 
@@ -70,8 +71,8 @@ def injected_outlier_mask(n_stations, n_channels):
 
 
 def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
-    amp_rmse_threshold = 0.06
-    phase_rmse_threshold = np.deg2rad(10)
+    amp_rmse_threshold = 0.03
+    phase_rmse_threshold = np.deg2rad(2)
 
     expected_pols, expected_freq, expected_amp, expected_phase = (
         read_h5parm_gains(temp_path / "sim_gaintable.h5parm")
@@ -95,7 +96,6 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
 
     n_stations, n_channels, _ = actual_amp.shape
     expected_flagged = injected_outlier_mask(n_stations, n_channels)
-    unflagged = ~expected_flagged
 
     for pol_name in ("XX", "YY"):
         expected_pol_idx = expected_pols.index(pol_name)
@@ -117,33 +117,36 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
             err_msg=f"Flagged gains for {pol_name} do not match",
         )
 
-        amp_rmse = normalised_rmse(
-            actual_amp_pol[unflagged], expected_amp_pol[unflagged]
-        )
-        phase_rmse = wrapped_phase_rmse(
-            actual_phase_pol[unflagged], expected_phase_pol[unflagged]
-        )
+        for station in VALIDATION_STATIONS:
+            amp_rmse = normalised_rmse(
+                actual_amp_pol[station], expected_amp_pol[station]
+            )
+            phase_rmse = wrapped_phase_rmse(
+                actual_phase_pol[station], expected_phase_pol[station]
+            )
 
-        logger.info(
-            "%s bandpass RMSE: amplitude (normalised)=%.3e phase=%.2f deg",
-            pol_name,
-            amp_rmse,
-            np.rad2deg(phase_rmse),
-        )
+            logger.info(
+                "%s station %02d bandpass RMSE: "
+                "amplitude (normalised)=%.3e phase=%.2f deg",
+                pol_name,
+                station,
+                amp_rmse,
+                np.rad2deg(phase_rmse),
+            )
 
-        assert amp_rmse < amp_rmse_threshold, (
-            f"{pol_name} normalised amplitude RMSE {amp_rmse:.3e} over "
-            f"unflagged gains exceeds threshold {amp_rmse_threshold:.1e}"
-        )
-        assert phase_rmse < phase_rmse_threshold, (
-            f"{pol_name} phase RMSE {np.rad2deg(phase_rmse):.2f} deg over "
-            f"unflagged gains exceeds threshold "
-            f"{np.rad2deg(phase_rmse_threshold):.2f} deg"
-        )
+            assert amp_rmse < amp_rmse_threshold, (
+                f"{pol_name} station {station} normalised amplitude RMSE "
+                f"{amp_rmse:.3e} exceeds threshold {amp_rmse_threshold:.1e}"
+            )
+            assert phase_rmse < phase_rmse_threshold, (
+                f"{pol_name} station {station} phase RMSE "
+                f"{np.rad2deg(phase_rmse):.2f} deg exceeds threshold "
+                f"{np.rad2deg(phase_rmse_threshold):.2f} deg"
+            )
 
 
 def validate_delay_stage(output_dir, ms_path, refant=0):
-    delay_rmse_threshold = 3e-10
+    delay_rmse_threshold = 6e-11
 
     expected_delays = injected_cable_delays()
     expected_delays = expected_delays - expected_delays[refant]
@@ -183,9 +186,9 @@ def validate_delay_stage(output_dir, ms_path, refant=0):
 
 class IntegrationTest(unittest.TestCase):
     def test_instrumental_calibration_integration(self):
-        """Run integration test for Instrumental claibration Pipeline"""
+        """Run integration test for Instrumental calibration Pipeline"""
         logger.info(
-            "Run integration test for Instrumental claibration Pipeline"
+            "Run integration test for Instrumental calibration Pipeline"
         )
         field_id = "CAL_FIELD"
         scan_intent = "CALIBRATE_BANDPASS#ON_SOURCE"

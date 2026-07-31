@@ -159,7 +159,7 @@ def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
         numpy.floor((END_FREQ_HZ - START_FREQ_HZ) / CHANNEL_WIDTH_HZ)
     )
 
-    ms_name = "corrupted_visibility.ms" if corrupt else "test_visbility.ms"
+    ms_name = "corrupted_visibility.ms" if corrupt else "test_visibility.ms"
     ms_path = os.path.join(output_dir, ms_name)
 
     tel_model = TEL_MODEL

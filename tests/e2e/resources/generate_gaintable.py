@@ -9,7 +9,7 @@ Authored by:
 The following effects can be simulated:
 - Bandpass amplitude shape across frequency, fitted to
   measured data and perturbed across stations.
-- Bandpass phase slopes across frequency (bazier curves)
+- Bandpass phase slopes across frequency (Bezier curves)
 - Gain outliers injected at explicit (station, channel) cells.
 """
 
