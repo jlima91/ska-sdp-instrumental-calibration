@@ -1,3 +1,5 @@
+from typing import TypeVar
+
 import numpy as np
 import xarray as xr
 
@@ -5,16 +7,18 @@ from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger("xarray_processors._utils")
 
+T_xarray_obj = TypeVar("XarrayObject", xr.DataArray, xr.Dataset, xr.DataTree)
 
-def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
+
+def with_chunks(obj: T_xarray_obj, chunks: dict) -> T_xarray_obj:
     """
     Rechunk a DataArray along dimensions specified in `chunks` dict.
 
     Parameters
     ----------
-    dataarray : xarray.DataArray
+    obj
         Input DataArray (can be Dask-backed or not).
-    chunks: dict
+    chunks
         A dictionary mapping dimension names to chunk sizes.
 
     Returns
@@ -22,11 +26,11 @@ def with_chunks(dataarray: xr.DataArray, chunks: dict) -> xr.DataArray:
     xarray.DataArray
         Rechunked DataArray if applicable.
     """
-    relevant_chunks = {
-        dim: chunks[dim] for dim in dataarray.dims if dim in chunks
-    }
+    # Use sizes instead of dims, to avoid potential regression
+    # when dataset/datatree's dims property changes in future
+    relevant_chunks = {dim: chunks[dim] for dim in obj.sizes if dim in chunks}
 
-    return dataarray.chunk(relevant_chunks) if relevant_chunks else dataarray
+    return obj.chunk(relevant_chunks) if relevant_chunks else obj
 
 
 def normalize_data(data):

@@ -963,8 +963,7 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
         associated metadata pickle files.
     vis_chunks : dict
         The chunking scheme to apply when opening the dataset (e.g.,
-        ``{'time': 1, 'frequency': 10}``). Passed directly to
-        ``xr.open_dataset``.
+        ``{'time': 1, 'frequency': 10}``).
 
     Returns
     -------
@@ -976,9 +975,10 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )
 
-    zarr_data = xr.open_dataset(
-        vis_zarr_file, chunks=vis_chunks, engine="zarr"
-    )
+    # open with zarr's default chunks,
+    # then rechunk in-memory
+    zarr_data = xr.open_dataset(vis_zarr_file, chunks={}, engine="zarr")
+    zarr_data = with_chunks(zarr_data, vis_chunks)
 
     with open(attributes_file, "rb") as file:
         attrs = pickle.load(file)

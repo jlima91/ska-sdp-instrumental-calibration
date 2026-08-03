@@ -8,6 +8,8 @@ from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 
+from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
+
 from ._utils import with_chunks
 
 logger = logging.getLogger()
@@ -263,7 +265,9 @@ def apply_delay_to_gaintable(
     -------
         Gaintable with updated gains
     """
-    new_gains = gaintable["gain"].copy()
+    # Storing and manpulating dask array directly to avoid complications
+    # of merging coordinates when using xr.concat
+    gain_da_per_pol: dict[str, da.Array] = dict()
 
     # We calculate delays only for XX and YY terms
     for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
@@ -288,9 +292,23 @@ def apply_delay_to_gaintable(
             kwargs=dict(inverse=inverse),
         )
 
-        new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
+        # Expected shape of delay_rotated_gain: (time, ant, freq)
+        gain_da_per_pol[pol] = delay_rotated_gain.data
 
-    return gaintable.assign(gain=with_chunks(new_gains, gaintable.chunks))
+    _new_gain_da = stack_2x2(
+        gain_da_per_pol["XX"], None, None, gain_da_per_pol["YY"]
+    )
+
+    return gaintable.assign(
+        gain=with_chunks(
+            xr.DataArray(
+                _new_gain_da,
+                dims=gaintable["gain"].dims,
+                coords=gaintable["gain"].coords,
+            ),
+            gaintable.chunks,
+        )
+    )
 
 
 def update_delay(
