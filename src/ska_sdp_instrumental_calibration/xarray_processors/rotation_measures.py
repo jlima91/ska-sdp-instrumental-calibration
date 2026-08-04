@@ -19,11 +19,61 @@ logger = setup_logger(__name__)
 
 
 class RotationMeasureData(xr.Dataset):
-    """
-    A dataset container for rotation measure data.
+    """A specialized xarray Dataset subclass representing structural
+    Rotation Measure (RM) modeling outputs.
 
-    This class extends xarray.Dataset to store rotation measure data
-    and associated coordinates and attributes.
+    **Coordinates**
+    - time: time centroids of solutions, in seconds elapsed since the MJD
+      reference epoch, ``[ntimes]``.
+    - antenna: integer antenna indices starting at 0, ``[nants]``.
+    - frequency: center frequencies of the observations in Hz, ``[nchan]``.
+    - resolution: Faraday depth search grid space values in rad/m^2,
+      ``[nres]``.
+    - receptor1: polarisation hands of measured data polarisation,
+      ``[nrec]``. Most likely ``['X', 'Y']`` or ``['I']``.
+    - receptor2: polarisation hands of ideal/model data polarisation,
+      ``[nrec]``.
+
+    **Data variables**
+    - lambda_sq: wavelength squared values calculated across the
+      frequency axis, real-valued ``[nchan]``.
+    - rm_spec: Faraday dispersion function complex spectrum profiles,
+      complex-valued ``[ntimes, nants, nres]``.
+    - rm_est: final non-linear optimized rotation measure parameter
+      estimations, real-valued ``[ntimes, nants]``.
+    - rm_peak: Peak rotation measure absolute maxima found within the search
+      space, real-valued ``[ntimes, nants]``.
+    - const_rot: constant intrinsic phase offset calculated post
+      curve-fitting optimization, real-valued ``[ntimes, nants]``.
+    - J: target Jones matrices corrected relative to the designated
+      reference antenna, complex-valued
+      ``[ntimes, nants, nchan, nrec1, nrec2]``.
+
+    **Attributes**
+    - data_model: name of this class, used internally for saving to /
+      loading from files.
+
+    Here is an example::
+
+        <xarray.RotationMeasureData>
+        Dimensions:  (time: 1, antenna: 115, frequency: 256,
+                      resolution: 1024, receptor1: 2, receptor2: 2)
+        Coordinates:
+          * time        (time) float64 5.085e+09
+          * antenna     (antenna) int64 0 1 2 ... 113 114
+          * frequency   (frequency) float64 ...
+          * resolution  (resolution) float32 ...
+          * receptor1   (receptor1) int64 0 1
+          * receptor2   (receptor2) int64 0 1
+        Data variables:
+            lambda_sq   (frequency) float32 ...
+            rm_spec     (time, antenna, resolution) complex128 ...
+            rm_est      (time, antenna) float64 ...
+            rm_peak     (time, antenna) float64 ...
+            const_rot   (time, antenna) float64 ...
+            J           (time, antenna, frequency, receptor1, receptor2) ...
+        Attributes:
+            data_model:     RotationMeasureData
     """
 
     __slots__ = ()
