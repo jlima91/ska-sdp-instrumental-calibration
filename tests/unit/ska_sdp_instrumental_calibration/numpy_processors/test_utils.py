@@ -59,7 +59,9 @@ def test_stack_2x2_only_xx():
 
 
 def test_stack_2x2_raises_when_all_none():
-    with pytest.raises(ValueError, match="At least one input array must be provided"):
+    with pytest.raises(
+        ValueError, match="At least one input array must be provided"
+    ):
         stack_2x2()
 
 
