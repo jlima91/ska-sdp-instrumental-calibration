@@ -12,7 +12,9 @@ def stack_2x2(
     yx: T_AnyArray = None,
     yy: T_AnyArray = None,
 ) -> T_AnyArray:
-    """Stacks four ND-array blocks into a 2x2 matrix along trailing axes (-2, -1).
+    """
+    Stacks four ND-array blocks into a 2x2 matrix
+    along trailing axes (-2, -1).
 
     Missing (None) inputs are automatically replaced with zero arrays.
     Supports both Dask and NumPy arrays.

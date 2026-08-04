@@ -256,7 +256,12 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     }
 
     weight_flag_1 = xr.DataArray(
-        [[[False, False, False, True, False], [False, False, False, True, False]]],
+        [
+            [
+                [False, False, False, True, False],
+                [False, False, False, True, False],
+            ]
+        ],
         dims=dims2,
         coords=coords2,
     )
@@ -268,7 +273,12 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     )
 
     weight_flag_2 = xr.DataArray(
-        [[[False, True, False, False, False], [False, True, False, False, False]]],
+        [
+            [
+                [False, True, False, False, False],
+                [False, True, False, False, False],
+            ]
+        ],
         dims=dims2,
         coords=coords2,
     )
@@ -322,7 +332,9 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     expected_weight[:, :, 1, 1, 1] = 0.0
     np.testing.assert_allclose(result_gaintable.weight.data, expected_weight)
 
-    expected_gain = np.ones((1, nstations, nfreq, 2, 2), dtype=np.complex128) + 1j
+    expected_gain = (
+        np.ones((1, nstations, nfreq, 2, 2), dtype=np.complex128) + 1j
+    )
     expected_gain[:, :, 3, 0, 0] = 0.0j
     expected_gain[:, :, 1, 1, 1] = 0.0j
     np.testing.assert_allclose(result_gaintable.gain.data, expected_gain)

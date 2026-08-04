@@ -1,9 +1,5 @@
 # Changelog
 
-## Development
-
-1. Add "task manager" for managing dask computations
-
 ## 1.3.0
 
 ### Features
