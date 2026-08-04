@@ -16,8 +16,8 @@ parameters:
     element_response_model: oskar_dipole_cos
     lsm_csv_path: $SKY_MODEL_PATH
     export_sky_model: false
-    fov: 15.0
-    flux_limit: 0.01
+    fov: 5.0
+    flux_limit: 0.5
     alpha0: -0.78
   bandpass_initialisation:
     refant: 0

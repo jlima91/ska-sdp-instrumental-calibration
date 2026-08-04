@@ -66,7 +66,7 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
     np.testing.assert_allclose(
         actual_time,
         expected_time,
-        err_msg="Frequencies don't match between INST and simulated gaintable",
+        err_msg="Times don't match between INST and simulated gaintable",
     )
 
     for pol_name in ("XX", "YY"):

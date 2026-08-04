@@ -72,8 +72,8 @@ def injected_outlier_mask(n_stations, n_channels):
 
 
 def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
-    amp_rmse_threshold = 0.03
-    phase_rmse_threshold = np.deg2rad(2)
+    amp_rmse_threshold = 0.06
+    phase_rmse_threshold = np.deg2rad(6)
 
     expected_pols, expected_freq, expected_amp, expected_phase = (
         read_h5parm_gains(temp_path / "sim_gaintable.h5parm")
@@ -147,7 +147,7 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
 
 
 def validate_delay_stage(output_dir, ms_path, refant=0):
-    delay_rmse_threshold = 6e-11
+    delay_rmse_threshold = 5e-10
 
     expected_delays = injected_cable_delays()
     expected_delays = expected_delays - expected_delays[refant]

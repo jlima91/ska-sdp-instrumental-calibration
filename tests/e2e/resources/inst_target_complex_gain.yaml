@@ -15,8 +15,8 @@ parameters:
     element_response_model: oskar_dipole_cos
     lsm_csv_path: $SKY_MODEL_PATH
     export_sky_model: false
-    fov: 10.0
-    flux_limit: 0.25
+    fov: 5.0
+    flux_limit: 0.5
     alpha0: -0.78
   complex_gain_calibration:
     run_solver_config:
