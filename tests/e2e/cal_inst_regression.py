@@ -11,6 +11,7 @@ from resources.constants import (  # pylint: disable=import-error
     CABLE_DELAYS,
     OUTLIER_CHANNEL_INDICES,
     OUTLIER_STATION_INDICES,
+    SKY_MODEL,
 )
 from resources.data_sim import (  # pylint: disable=import-error
     generate_calibrator_data,
@@ -202,7 +203,7 @@ class IntegrationTest(unittest.TestCase):
                 temp_path, field_id, scan_intent, corrupt=True
             )
 
-            lsm_path = migrate_sky_model(temp_path)
+            lsm_path = migrate_sky_model(SKY_MODEL, temp_path)
             inst_config_path = init_cal_config(
                 temp_path, ms_path=input_ms_path, lsm_path=lsm_path
             )

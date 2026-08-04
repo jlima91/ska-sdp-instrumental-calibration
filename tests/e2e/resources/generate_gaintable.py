@@ -15,6 +15,7 @@ The following effects can be simulated:
 
 import logging
 import os
+import random
 import subprocess
 import sys
 
@@ -37,6 +38,11 @@ from .constants import (
     START_FREQ_HZ,
     TEL_MODEL,
 )
+
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+
 
 SPLINE_DATA_PATH = os.path.join(
     os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
@@ -198,6 +204,120 @@ def add_gain_outliers(
     return gain
 
 
+def create_gaussian_noise(size, mu, sigma):
+    """Return an array containing statistical noise with
+    a Gaussian (normal) distribution with mean centred
+    at given value.
+
+    Parameters
+    ----------
+    size : size of the array
+    mu : mean value of the Gaussian distribution
+    sigma : standard deviation of the Gaussian distribution
+
+    Returns
+    -------
+    noise : array containing the noise
+    """
+    noise = np.zeros(size)
+    for i in range(size):
+        noise[i] = random.gauss(mu, sigma)
+    return noise
+
+
+def time_variant_effects(
+    calibration_time, n_stations, number_of_cal_time_samples
+):
+    """
+    Calculates time variatnt effects added to the bandpass
+
+    Returns
+    -------
+    phase_time_variation_profile
+        np.ndarrays[float] of shape (time_samples, n_stations)
+    """
+
+    phase_time_variation_profile = np.zeros(
+        (len(calibration_time), n_stations), dtype=np.float64
+    )
+    phase_variation_frequency = 1 / create_gaussian_noise(
+        n_stations, number_of_cal_time_samples * 0.5, 30
+    )  # 0.5 is the number of scans in 3000 seconds with 30 samples sigma.
+
+    phase_function_amplitude = 1  # Amplitude of function.
+    phase_function_phase = create_gaussian_noise(
+        n_stations, 0, 0.2
+    )  # Phase of function in radians.
+    phase_fuction_offset = 0  # Offset of function.
+
+    phase_time_variation_profile = phase_fuction_offset + (
+        phase_function_amplitude
+        * np.sin(
+            2
+            * np.pi
+            * phase_variation_frequency
+            * calibration_time[:, np.newaxis]
+            + phase_function_phase
+        )
+    )
+
+    return phase_time_variation_profile
+
+
+def calculate_time_variant_phase(
+    n_stations,
+    start_frequency_hz,
+    end_frequency_hz,
+    channel_bandwidth_hz,
+    sampling_time_sec,
+    observing_time_mins,
+):
+    # -------------- Unpack parameters ---------------- #
+    simulation_start_frequency = start_frequency_hz * 1e-6
+    simulation_end_frequency = end_frequency_hz * 1e-6
+    correlated_channel_bandwidth = channel_bandwidth_hz * 1e-6
+    observing_time_cal = observing_time_mins * 60
+
+    # ---------------- Setup ---------------------#
+
+    number_of_cal_time_samples = int(observing_time_cal // sampling_time_sec)
+
+    # TODO: Verify what is the correct way to call arange
+    simulation_frequency_table = np.arange(
+        simulation_start_frequency,
+        simulation_end_frequency,
+        correlated_channel_bandwidth,
+    )
+
+    shape = (
+        number_of_cal_time_samples,
+        len(simulation_frequency_table),
+        n_stations,
+    )
+
+    calibration_time = np.arange(
+        0, number_of_cal_time_samples * sampling_time_sec, sampling_time_sec
+    )
+
+    phase_time_variation_profile = time_variant_effects(
+        calibration_time=calibration_time,
+        n_stations=n_stations,
+        number_of_cal_time_samples=number_of_cal_time_samples,
+    )
+
+    gain_xpol = np.broadcast_to(
+        (np.exp(1j * phase_time_variation_profile))[:, np.newaxis, :],
+        shape,
+    ).copy()
+
+    gain_ypol = np.broadcast_to(
+        (np.exp(1j * phase_time_variation_profile))[:, np.newaxis, :],
+        shape,
+    ).copy()
+
+    return gain_xpol, gain_ypol, simulation_frequency_table
+
+
 def calculate_gains(
     n_stations,
     start_frequency_hz,
@@ -325,6 +445,33 @@ def generate_bandpass_gaintable(output_dir, start_time):
         outlier_channel_indices=OUTLIER_CHANNEL_INDICES,
         outlier_amplitude=OUTLIER_AMPLITUDE,
         outlier_phase_deg=OUTLIER_PHASE_DEG,
+    )
+
+    gaintable_path = os.path.join(output_dir, "sim_gaintable.h5")
+    with h5py.File(gaintable_path, "w") as f:
+        f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
+        f.create_dataset("gain_xpol", data=gain_xpol)
+        f.create_dataset("gain_ypol", data=gain_ypol)
+
+    logger.info("Finished gaintable generation, path: %s", gaintable_path)
+
+    return convert_gaintable_to_h5parm(output_dir, gaintable_path, start_time)
+
+
+def generate_target_gaintable(output_dir, start_time):
+    """Generate a synthetic bandpass gaintable and convert it into a
+    DP3-compatible H5Parm.
+
+    Returns the path of the H5Parm file.
+    """
+
+    gain_xpol, gain_ypol, sim_freqs = calculate_time_variant_phase(
+        n_stations=N_STATIONS,
+        start_frequency_hz=START_FREQ_HZ,
+        end_frequency_hz=END_FREQ_HZ,
+        channel_bandwidth_hz=CHANNEL_WIDTH_HZ,
+        sampling_time_sec=SAMPLING_TIME_SEC,
+        observing_time_mins=OBSERVING_TIME_MINS,
     )
 
     gaintable_path = os.path.join(output_dir, "sim_gaintable.h5")
