@@ -7,17 +7,16 @@ from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 from ska_sdp_datamodels.calibration import GainTable
 
-from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
-from ska_sdp_instrumental_calibration.xarray_processors._utils import (
-    with_chunks,
-)
-
+from ..numpy_processors._utils import stack_2x2
 from ..scheduler import delayed
+from ._utils import with_chunks
 
 logger = logging.getLogger()
 
 
-def log_flaging_statistics(weights, initial_weights):
+def log_flaging_statistics(
+    weights: xr.DataArray, initial_weights: xr.DataArray
+):
     """
     Calculate and log the percentage of flagged data.
 
@@ -34,24 +33,23 @@ def log_flaging_statistics(weights, initial_weights):
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
     ).sum(dim=["time", "frequency"])
 
-    antna_percent_flagged = (
-        current_flagged / weights[:, 0, :, 0, 0].size
-    ) * 100
+    total_elements = weights[:, 0, :, 0, 0].size
+    antna_percent_flagged = (current_flagged / total_elements) * 100
 
     @delayed
     def log_stats(_antenna_percnt_flags):
-        min_percent = _antenna_percnt_flags.min()
-        median_percent = np.median(_antenna_percnt_flags.data)
-        max_percent = _antenna_percnt_flags.max()
+        min_percent = float(_antenna_percnt_flags.min())
+        max_percent = float(_antenna_percnt_flags.max())
+        median_percent = float(np.median(_antenna_percnt_flags))
 
         logger.info(
             f"Gain flagging: Statistics "
-            f" min: {min_percent.data:.2f}%,"
+            f" min: {min_percent:.2f}%,"
             f" median: {median_percent:.2f}%,"
-            f" max: {max_percent.data:.2f}%."
+            f" max: {max_percent:.2f}%."
         )
 
-    log_stats(antna_percent_flagged)
+    return log_stats(antna_percent_flagged)
 
 
 class SmoothingFit:
@@ -686,16 +684,16 @@ def flag_on_gains(
         name: dict() for name in fit_names
     }
 
-    for receptor1, receptor2 in np.ndindex(
-        len(gaintable.receptor1), len(gaintable.receptor2)
+    for rec1idx, rec2idx in np.ndindex(
+        gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]
     ):
-        if skip_cross_pol and receptor1 != receptor2:
+        if skip_cross_pol and rec1idx != rec2idx:
             continue
 
         results = xr.apply_ufunc(
             _flag_wrapper_ufunc_,
-            gaintable.gain[..., receptor1, receptor2],
-            gaintable.weight[..., receptor1, receptor2],
+            gaintable["gain"][..., rec1idx, rec2idx],
+            gaintable["weight"][..., rec1idx, rec2idx],
             antenna_names_xdr,
             input_core_dims=[["frequency"], ["frequency"], []],
             output_core_dims=output_core_dims,
@@ -705,12 +703,12 @@ def flag_on_gains(
             kwargs=dict(
                 freq=gaintable["frequency"].values,
                 cfg=cfg,
-                receptor1_name=gaintable.receptor1[receptor1].data,
-                receptor2_name=gaintable.receptor2[receptor2].data,
+                receptor1_name=gaintable["receptor1"][rec1idx].data,
+                receptor2_name=gaintable["receptor2"][rec2idx].data,
             ),
         )
 
-        key = (receptor1, receptor2)
+        key = (rec1idx, rec2idx)
         flag_da_per_pol[key] = results[0].data
         for i, name in enumerate(fit_names, start=1):
             fits_per_fitnames_per_pol[name][key] = results[i].data
@@ -728,12 +726,12 @@ def flag_on_gains(
         coords=gaintable["weight"].coords,
     )
     gaintable = gaintable.assign(
-        weight=xr.where(flags_xdr, 0.0, gaintable.weight)
+        weight=xr.where(flags_xdr, 0.0, gaintable["weight"])
     )
 
     if apply_flag:
         gaintable = gaintable.assign(
-            gain=xr.where(flags_xdr, 0.0j, gaintable.gain)
+            gain=xr.where(flags_xdr, 0.0j, gaintable["gain"])
         )
 
     # Assemble fits DataArrays
