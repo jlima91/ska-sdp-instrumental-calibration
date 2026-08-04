@@ -1,8 +1,7 @@
-import mock
 import numpy as np
 import pytest
 import xarray as xr
-from mock import MagicMock, patch
+from mock import patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.gain_flagging import (
     GainFlagger,
@@ -205,19 +204,9 @@ def test_should_throw_exception_if_window_size_is_even():
 
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors."
-    "gain_flagging.xr.where"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
     "gain_flagging.xr.apply_ufunc"
 )
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "gain_flagging.GainFlagger"
-)
-def test_should_perform_gain_flagging(
-    gain_flagger_mock, apply_ufunc_mock, where_mock
-):
+def test_should_perform_gain_flagging(apply_ufunc_mock):
 
     soltype = "amplitude"
 
@@ -243,45 +232,49 @@ def test_should_perform_gain_flagging(
         "receptor2": ["X", "Y"],
     }
 
-    gaintable_mock = MagicMock(name="gaintable")
-    gaintable_mock.chunk.return_value = gaintable_mock
-    gaintable_mock.assign.return_value = gaintable_mock
-    gaintable_mock.chunks = {"frequency": 2}
+    gaintable = xr.Dataset(
+        {
+            "gain": xr.DataArray(gain_data, coords=coords, dims=dims),
+            "weight": xr.DataArray(
+                np.ones((1, nstations, nfreq, 2, 2)),
+                coords=coords,
+                dims=dims,
+            ),
+            "configuration": xr.DataArray(
+                np.arange(nstations),
+                dims=("id",),
+                coords={"names": ("id", antenna_coords)},
+            ),
+        }
+    ).chunk({"frequency": 2})
 
-    gaintable_mock.receptor1 = xr.DataArray(["X", "Y"], dims="id")
-    gaintable_mock.receptor2 = xr.DataArray(["X", "Y"], dims="id")
-
-    gaintable_mock.gain = xr.DataArray(gain_data, coords=coords, dims=dims)
-
-    gaintable_mock.weight = xr.DataArray(
-        np.ones((1, nstations, nfreq, 2, 2)),
-        coords=coords,
-        dims=dims,
-    )
-
-    dims2 = ("antenna", "frequency")
-    coords2 = {"antenna": antenna_coords, "frequency": freq_coords}
+    dims2 = ("time", "antenna", "frequency")
+    coords2 = {
+        "time": [0],
+        "antenna": antenna_coords,
+        "frequency": freq_coords,
+    }
 
     weight_flag_1 = xr.DataArray(
-        [[1, 1, 1, 0, 1], [1, 1, 1, 0, 1]],
+        [[[False, False, False, True, False], [False, False, False, True, False]]],
         dims=dims2,
         coords=coords2,
     )
 
     amp_fit_1 = xr.DataArray(
-        [[0.1, 0.1, 0.1, 0.0, 0.1], [0.1, 0.1, 0.1, 0.0, 0.1]],
+        [[[0.1, 0.1, 0.1, 0.0, 0.1], [0.1, 0.1, 0.1, 0.0, 0.1]]],
         dims=dims2,
         coords=coords2,
     )
 
     weight_flag_2 = xr.DataArray(
-        [[1, 0, 1, 1, 1], [1, 0, 1, 1, 1]],
+        [[[False, True, False, False, False], [False, True, False, False, False]]],
         dims=dims2,
         coords=coords2,
     )
 
     amp_fit_2 = xr.DataArray(
-        [[0.3, 0.0, 0.3, 0.3, 0.3], [0.3, 0.0, 0.3, 0.3, 0.3]],
+        [[[0.3, 0.0, 0.3, 0.3, 0.3], [0.3, 0.0, 0.3, 0.3, 0.3]]],
         dims=dims2,
         coords=coords2,
     )
@@ -291,10 +284,8 @@ def test_should_perform_gain_flagging(
         (weight_flag_2, amp_fit_2),
     ]
 
-    where_mock.return_value = "NEW_GAIN"
-
     result_gaintable, fits = flag_on_gains(
-        gaintable_mock,
+        gaintable,
         soltype,
         order,
         max_ncycles,
@@ -307,8 +298,6 @@ def test_should_perform_gain_flagging(
     )
 
     assert apply_ufunc_mock.call_count == 2
-    assert where_mock.call_count == 2
-    gaintable_mock.assign.assert_called()
 
     assert "amp_fit" in fits
     assert "phase_fit" not in fits
@@ -318,21 +307,33 @@ def test_should_perform_gain_flagging(
     assert fits["amp_fit"].shape == (1, nstations, nfreq, 2, 2)
 
     np.testing.assert_allclose(
-        fits["amp_fit"][0, :, :, 0, 0],
-        amp_fit_1.data,
+        fits["amp_fit"][0, :, :, 0, 0].data,
+        amp_fit_1.data[0],
     )
+    np.testing.assert_allclose(
+        fits["amp_fit"][0, :, :, 1, 1].data,
+        amp_fit_2.data[0],
+    )
+    np.testing.assert_allclose(fits["amp_fit"][..., 0, 1].data, 0.0)
+    np.testing.assert_allclose(fits["amp_fit"][..., 1, 0].data, 0.0)
+
+    expected_weight = np.ones((1, nstations, nfreq, 2, 2), dtype=np.float64)
+    expected_weight[:, :, 3, 0, 0] = 0.0
+    expected_weight[:, :, 1, 1, 1] = 0.0
+    np.testing.assert_allclose(result_gaintable.weight.data, expected_weight)
+
+    expected_gain = np.ones((1, nstations, nfreq, 2, 2), dtype=np.complex128) + 1j
+    expected_gain[:, :, 3, 0, 0] = 0.0j
+    expected_gain[:, :, 1, 1, 1] = 0.0j
+    np.testing.assert_allclose(result_gaintable.gain.data, expected_gain)
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors.gain_flagging"
-    ".GainFlagger"
-)
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors.gain_flagging"
     ".xr.apply_ufunc"
 )
 def test_should_perform_gain_flagging_without_apply(
-    apply_ufunc_mock, gain_flagger_mock
+    apply_ufunc_mock,
 ):
     soltype = "real-imag"
     order = 1
@@ -357,92 +358,107 @@ def test_should_perform_gain_flagging_without_apply(
         "receptor2": ["X", "Y"],
     }
 
-    gaintable_mock = MagicMock(name="gaintable")
-    gaintable_mock.chunk.return_value = gaintable_mock
-    gaintable_mock.assign.return_value = gaintable_mock
-    gaintable_mock.persist.return_value = gaintable_mock
+    gaintable = xr.Dataset(
+        {
+            "gain": xr.DataArray(gain_data, coords=coords, dims=dims),
+            "weight": xr.DataArray(
+                np.ones((1, nstations, nfreq, 2, 2)),
+                coords=coords,
+                dims=dims,
+            ),
+            "configuration": xr.DataArray(
+                np.arange(nstations),
+                dims=("id",),
+                coords={"names": ("id", antenna_coords)},
+            ),
+        }
+    ).chunk({"frequency": 2})
+    original_chunks = gaintable.chunksizes
 
-    gaintable_mock.chunks = {"frequency": 2}
-
-    gaintable_mock.receptor1 = xr.DataArray(["X", "Y"], dims="id")
-    gaintable_mock.receptor2 = xr.DataArray(["X", "Y"], dims="id")
-
-    gaintable_mock.gain = xr.DataArray(gain_data, coords=coords, dims=dims)
-
-    gaintable_mock.weight = xr.DataArray(
-        np.ones((1, nstations, nfreq, 2, 2)),
-        coords=coords,
-        dims=dims,
-    )
-
-    dims_flag = ("antenna", "frequency")
-    coords_flag = {"antenna": antenna_coords, "frequency": freq_coords}
+    dims_flag = ("time", "antenna", "frequency")
+    coords_flag = {
+        "time": [0],
+        "antenna": antenna_coords,
+        "frequency": freq_coords,
+    }
 
     apply_ufunc_mock.side_effect = [
         (
             xr.DataArray(
-                [[0, 1, 1, 1, 1], [0, 1, 1, 1, 1]],
+                np.array(
+                    [[0, 1, 1, 1, 1], [0, 1, 1, 1, 1]],
+                    dtype=bool,
+                ).reshape(1, nstations, nfreq),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
-                dims=dims_flag,
-                coords=coords_flag,
-            ),
-        ),
-        (
-            xr.DataArray(
-                [[1, 0, 1, 1, 1], [1, 0, 1, 1, 1]],
-                dims=dims_flag,
-                coords=coords_flag,
-            ),
-            xr.DataArray(
-                np.zeros((nstations, nfreq)),
-                dims=dims_flag,
-                coords=coords_flag,
-            ),
-            xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
         ),
         (
             xr.DataArray(
-                [[1, 1, 0, 1, 1], [1, 1, 0, 1, 1]],
+                np.array(
+                    [[1, 0, 1, 1, 1], [1, 0, 1, 1, 1]],
+                    dtype=bool,
+                ).reshape(1, nstations, nfreq),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
         ),
         (
             xr.DataArray(
-                [[1, 1, 1, 0, 1], [1, 1, 1, 0, 1]],
+                np.array(
+                    [[1, 1, 0, 1, 1], [1, 1, 0, 1, 1]],
+                    dtype=bool,
+                ).reshape(1, nstations, nfreq),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
             xr.DataArray(
-                np.zeros((nstations, nfreq)),
+                np.zeros((1, nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+        ),
+        (
+            xr.DataArray(
+                np.array(
+                    [[1, 1, 1, 0, 1], [1, 1, 1, 0, 1]],
+                    dtype=bool,
+                ).reshape(1, nstations, nfreq),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((1, nstations, nfreq)),
+                dims=dims_flag,
+                coords=coords_flag,
+            ),
+            xr.DataArray(
+                np.zeros((1, nstations, nfreq)),
                 dims=dims_flag,
                 coords=coords_flag,
             ),
@@ -450,7 +466,7 @@ def test_should_perform_gain_flagging_without_apply(
     ]
 
     gaintable, fits = flag_on_gains(
-        gaintable_mock,
+        gaintable,
         soltype,
         order,
         max_ncycles,
@@ -463,11 +479,6 @@ def test_should_perform_gain_flagging_without_apply(
     )
 
     assert apply_ufunc_mock.call_count == 4
-
-    assert gaintable_mock.assign.call_count == 1
-
-    assign_kwargs = gaintable_mock.assign.call_args.kwargs
-    assert "weight" in assign_kwargs
 
     expected_weights = np.array(
         [
@@ -490,25 +501,17 @@ def test_should_perform_gain_flagging_without_apply(
         ]
     )
 
-    np.testing.assert_array_equal(
-        assign_kwargs["weight"].data,
-        expected_weights,
-    )
+    np.testing.assert_array_equal(gaintable.weight.data, expected_weights)
+    np.testing.assert_allclose(gaintable.gain.data, gain_data)
 
     assert "real_fit" in fits
     assert "imag_fit" in fits
     assert "amp_fit" not in fits
     assert "phase_fit" not in fits
 
-    assert fits["real_fit"].shape == gaintable_mock.gain.shape
-    assert fits["imag_fit"].shape == gaintable_mock.gain.shape
-
-    gaintable_mock.chunk.assert_has_calls(
-        [
-            mock.call({"frequency": -1, "antenna": 1}),
-            mock.call(gaintable.chunks),
-        ]
-    )
+    assert fits["real_fit"].shape == gaintable.gain.shape
+    assert fits["imag_fit"].shape == gaintable.gain.shape
+    assert gaintable.chunksizes == original_chunks
 
 
 def test_phasor_polyfit_computes_freq_guess_when_none():

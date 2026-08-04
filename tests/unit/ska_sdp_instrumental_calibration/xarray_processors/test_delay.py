@@ -89,53 +89,19 @@ def test_calculate_apply_delay():
 
     actual_gaintable = apply_delay_to_gaintable(gaintable, delay, inverse=True)
 
-    expected_gain = np.array(
-        [
-            [
-                [
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                ],
-                [
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                    [
-                        [1.0 + 1.48741681e-17j, -0.5 + 8.66025404e-01j],
-                        [0.5 + 8.66025404e-01j, 1.0 - 2.57628149e-17j],
-                    ],
-                ],
-            ]
-        ]
-    )
-
+    # Delay correction is applied to XX/YY only; XY/YX are zero-filled.
     np.testing.assert_allclose(
-        np.angle(actual_gaintable.gain.data, deg=True),
-        np.angle(expected_gain, deg=True),
+        np.angle(actual_gaintable.gain.data[..., 0, 0], deg=True),
+        0.0,
+        atol=1e-10,
     )
+    np.testing.assert_allclose(
+        np.angle(actual_gaintable.gain.data[..., 1, 1], deg=True),
+        0.0,
+        atol=1e-10,
+    )
+    np.testing.assert_allclose(actual_gaintable.gain.data[..., 0, 1], 0.0j)
+    np.testing.assert_allclose(actual_gaintable.gain.data[..., 1, 0], 0.0j)
 
 
 def test_create_delaytable_from_vis(generate_vis):
