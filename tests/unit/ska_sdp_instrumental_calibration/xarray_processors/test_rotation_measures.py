@@ -98,22 +98,20 @@ def test_should_generate_model_rotation_data_without_refinement():
     np.testing.assert_allclose(rot_data.const_rot, 0)
 
 
-def xtest_should_generate_rm_spec():
-    phi_raw = np.zeros((2, 3))
-    mask = np.array([[True, True, False], [False, True, True]])
-    phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+def test_should_generate_rm_spec():
+    resolutions = np.array([0, 1, 1])
 
-    expected = np.array(
-        [[1.5, 4.5], [2.5, 5.5]], dtype=np.float64
-    )  # pylint: disable=no-member
+    l_sq = np.array([0, 1, 0])
+    phi_raw = np.array([0, 100, 1000])
+    mask = np.array([True, False, False])
 
-    out = get_rm_spec(  # pylint: disable=no-member
-        phi_raw, mask, phasor
-    ).compute()  # pylint: disable=no-member
-    np.testing.assert_allclose(out, expected)
+    expected = np.array([1.0 + 0.0j, 1.0 + 0.0j, 1.0 + 0.0j])
+
+    out = get_rm_spec(phi_raw, mask, resolutions, l_sq, chunk_size=3)
+    np.testing.assert_allclose(out, expected, rtol=1e-6)
 
 
-def test_should_calculate_phi_raw():
+def test_should_update_jones_with_mask():
     nstations = 2
     nfreq = 2
 
