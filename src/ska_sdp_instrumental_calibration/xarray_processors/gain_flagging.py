@@ -684,11 +684,8 @@ def flag_on_gains(
         name: dict() for name in fit_names
     }
 
-    for pol, rec1idx, rec2idx in (
-        ("XX", 0, 0),
-        ("XY", 0, 1),
-        ("YX", 1, 0),
-        ("YY", 1, 1),
+    for rec1idx, rec2idx in np.ndindex(
+        gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]
     ):
         if skip_cross_pol and rec1idx != rec2idx:
             continue
@@ -711,16 +708,17 @@ def flag_on_gains(
             ),
         )
 
-        flag_da_per_pol[pol] = results[0].data
+        key = (rec1idx, rec2idx)
+        flag_da_per_pol[key] = results[0].data
         for i, name in enumerate(fit_names, start=1):
-            fits_per_fitnames_per_pol[name][pol] = results[i].data
+            fits_per_fitnames_per_pol[name][key] = results[i].data
 
     # Assemble flags DataArray
     flags_da = stack_2x2(
-        xx=flag_da_per_pol.get("XX"),
-        xy=flag_da_per_pol.get("XY"),
-        yx=flag_da_per_pol.get("YX"),
-        yy=flag_da_per_pol.get("YY"),
+        xx=flag_da_per_pol.get((0, 0)),
+        xy=flag_da_per_pol.get((0, 1)),
+        yx=flag_da_per_pol.get((1, 0)),
+        yy=flag_da_per_pol.get((1, 1)),
     )
     flags_xdr = xr.DataArray(
         flags_da,
@@ -740,10 +738,10 @@ def flag_on_gains(
     fits: dict[str, xr.DataArray] = dict()
     for name in fit_names:
         fit_da = stack_2x2(
-            xx=fits_per_fitnames_per_pol[name].get("XX"),
-            xy=fits_per_fitnames_per_pol[name].get("XY"),
-            yx=fits_per_fitnames_per_pol[name].get("YX"),
-            yy=fits_per_fitnames_per_pol[name].get("YY"),
+            xx=fits_per_fitnames_per_pol[name].get((0, 0)),
+            xy=fits_per_fitnames_per_pol[name].get((0, 1)),
+            yx=fits_per_fitnames_per_pol[name].get((1, 0)),
+            yy=fits_per_fitnames_per_pol[name].get((1, 1)),
         )
         fits[name] = xr.DataArray(
             fit_da,
