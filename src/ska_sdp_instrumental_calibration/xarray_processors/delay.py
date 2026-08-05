@@ -7,6 +7,7 @@ import xarray as xr
 from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
+from ska_sdp_datamodels.visibility import Visibility
 
 from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
 
@@ -432,26 +433,25 @@ def calculate_gain_rot(
 
 
 def create_delaytable_from_vis(
-    vis: xr.Dataset, gaintable: xr.Dataset, refant: int, oversample: int
-) -> xr.Dataset:
-    """ "
+    vis: Visibility, gaintable: GainTable, refant: int, oversample: int
+) -> DelayTable:
+    """
     Calculates delays from visibility data by processing each solution interval
 
     Parameters
     ----------
-    vis: xarray
+    vis
         Visibility data. If backed by a dask array, can be chunked in time
         and frequency axis.
-    gaintable: xarray
+    gaintable
         Gaintable containing solution intervals.
-    refant: int
+    refant
         Reference antenna
-    oversample: int
+    oversample
         Oversample rate required for the delay
 
     Returns
     -------
-    xr.Dataset
         Dataset of calculated delays
     """
 

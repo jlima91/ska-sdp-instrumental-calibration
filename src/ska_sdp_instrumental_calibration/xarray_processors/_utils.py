@@ -23,7 +23,6 @@ def with_chunks(obj: T_xarray_obj, chunks: dict) -> T_xarray_obj:
 
     Returns
     -------
-    xarray.DataArray
         Rechunked DataArray if applicable.
     """
     # Use sizes instead of dims, to avoid potential regression
