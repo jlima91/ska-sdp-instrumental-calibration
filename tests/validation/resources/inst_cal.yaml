@@ -1,0 +1,105 @@
+global_parameters:
+  experimental:
+    pipeline: []
+parameters:
+  load_data:
+    nchannels_per_chunk: 32
+    ntimes_per_ms_chunk: 5
+    cache_directory: null
+    ack: false
+    datacolumn: DATA
+    field_id: 0
+    data_desc_id: 0
+  predict_vis:
+    use_everybeam: true
+    normalise_at_beam_centre: true
+    element_response_model: oskar_dipole_cos
+    lsm_csv_path: $SKY_MODEL_PATH
+    export_sky_model: false
+    fov: 5.0
+    flux_limit: 0.5
+    alpha0: -0.78
+  bandpass_initialisation:
+    refant: 0
+    niter: 200
+    tol: 1.0e-06
+    export_gaintable: false
+  bandpass_calibration:
+    run_solver_config:
+      solver: jones_substitution
+      refant: 0
+      niter: 50
+      phase_only: false
+      tol: 0.001
+      crosspol: false
+    visibility_filters:
+      uvdist: null
+      exclude_baselines: null
+    plot_config:
+      plot_table: false
+      fixed_axis: false
+    visibility_key: vis
+    export_gaintable: false
+  delay_calibration:
+    plot_config:
+      plot_table: false
+      fixed_axis: false
+    oversample: 1
+    export_gaintable: true
+  flag_gain:
+    plot_config:
+      curve_fit_plot: false
+      gain_flag_plot: false
+    soltype: amplitude
+    order: 3
+    apply_flag: true
+    skip_cross_pol: true
+    max_ncycles: 5
+    n_sigma: 8
+    n_sigma_rolling: 0.0
+    window_size: 11
+    normalize_gains: false
+    export_gaintable: false
+  generate_channel_rm:
+    run_solver_config:
+      solver: jones_substitution
+      refant: 0
+      niter: 50
+      phase_only: false
+      tol: 0.001
+      crosspol: false
+    plot_rm_config:
+      plot_rm: false
+      station: 0
+    oversample: 5
+    peak_threshold: 0.5
+    refine_fit: true
+    visibility_key: vis
+    plot_table: false
+    export_gaintable: false
+  smooth_gain_solution:
+    plot_config:
+      plot_table: false
+      plot_path_prefix: smoothed-gain
+      plot_title: Smoothed Gain
+    window_size: 1
+    mode: median
+    export_gaintable: false
+  export_visibilities:
+    data_to_export: modelvis
+    apply_gaintable_to_vis: false
+  export_gain_table:
+    file_name: inst.gaintable
+    export_format: h5parm
+    export_metadata: false
+pipeline:
+  load_data: true
+  predict_vis: true
+  delay_calibration: true
+  bandpass_initialisation: true
+  bandpass_calibration: true
+  flag_gain: true
+  generate_channel_rm: false
+  smooth_gain_solution: false
+  export_visibilities: false
+  export_gain_table: true
