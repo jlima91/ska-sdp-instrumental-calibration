@@ -679,10 +679,8 @@ def flag_on_gains(
     output_dtypes = [bool] + [np.float64] * len(fit_names)
 
     # Dictionaries to collect computed blocks
-    flag_da_per_pol: dict[str, da.Array] = dict()
-    fits_per_fitnames_per_pol: dict[str, dict[str, da.Array]] = {
-        name: dict() for name in fit_names
-    }
+    flag_da_per_pol = dict()
+    fits_per_fitnames_per_pol = {name: dict() for name in fit_names}
 
     for rec1idx, rec2idx in np.ndindex(
         gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]

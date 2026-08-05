@@ -51,11 +51,13 @@ def test_calculate_gain_rotation():
     np.testing.assert_allclose(actual, [gains])
 
 
-def test_calculate_apply_delay():
+def test_calculate_and_apply_delay():
 
     coords = {
         "antenna": ["antenna1", "antenna2"],
         "frequency": np.linspace(1.0010e8, 1.0019e8, 4, dtype=np.float64),
+        "receptor1": ["X", "Y"],
+        "receptor2": ["X", "Y"],
     }
 
     # gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
@@ -68,12 +70,12 @@ def test_calculate_apply_delay():
             * 16,
             dtype=np.complex128,
         ).reshape(1, 2, 4, 2, 2),
-        dims=["time", "antenna", "frequency", "rec1", "rec2"],
+        dims=["time", "antenna", "frequency", "receptor1", "receptor2"],
     )
 
     weights = xr.DataArray(
         np.ones(32, dtype=np.float64).reshape(1, 2, 4, 2, 2),
-        dims=["time", "antenna", "frequency", "rec1", "rec2"],
+        dims=["time", "antenna", "frequency", "receptor1", "receptor2"],
     )
 
     gaintable = xr.Dataset(
