@@ -226,8 +226,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
     ".parse_antenna"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.bandpass_calibration"
-    ".dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.bandpass_calibration.delayed",
     side_effect=lambda x: x,
 )
 @patch(

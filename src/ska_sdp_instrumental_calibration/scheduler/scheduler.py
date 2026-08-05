@@ -1,13 +1,40 @@
 import logging
+from functools import wraps
+from typing import Callable
 
-import dask
-from distributed import as_completed, futures_of, get_client
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
-from .tagger import Tags
+from ..tagger import Tags
+from .deferred_tasks import DeferredTask
+from .task_manager import task_manager
 
 logger = logging.getLogger()
+
+
+def delayed(func: Callable) -> Callable:
+    """
+    Decorator to register a function as a deferred task.
+
+    Parameters
+    ----------
+    func : callable
+        The function to defer.
+
+    Returns
+    -------
+    callable
+        The wrapped function returning a DeferredTask.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        deferred_task = DeferredTask(func, *args, **kwargs)
+
+        task_manager.register(deferred_task)
+        return deferred_task
+
+    return wrapper
 
 
 class UpstreamOutput:
@@ -36,9 +63,6 @@ class UpstreamOutput:
         Initialize the UpstreamOutput container.
         """
         self.__stage_outputs = {}
-        self.stage_compute_tasks = []
-        self.checkpoint_keys = []
-        self.compute_outputs = []
         self.__call_count = {}
         self.__calibration_tables = []
 
@@ -153,30 +177,6 @@ class UpstreamOutput:
         """
         return self.stage_compute_tasks
 
-    def add_compute_tasks(self, *args):
-        """
-        Register new compute tasks to the pipeline.
-
-        Parameters
-        ----------
-        *args
-            One or more task objects (e.g., Dask delayed objects) to add
-            to the execution queue.
-        """
-        self.stage_compute_tasks.extend(args)
-
-    def add_checkpoint_key(self, *args):
-        """
-        Register keys that should be checkpointed.
-
-        Parameters
-        ----------
-        *args
-            One or more string keys identifying outputs that require
-            checkpointing or persistence.
-        """
-        self.checkpoint_keys.extend(args)
-
     @property
     def calibration_table(self):
         if len(self.__calibration_tables) == 0:
@@ -185,7 +185,10 @@ class UpstreamOutput:
         combined_gaintable = None
         for key in self.__calibration_tables:
             if combined_gaintable is None:
-                combined_gaintable = self.__stage_outputs[key]
+                # NOTE: multiply_gaintables mutates the first argument
+                # Make a copy of the very first argument before
+                # proceeding
+                combined_gaintable = self.__stage_outputs[key].copy()
             else:
                 combined_gaintable = multiply_gaintables(
                     combined_gaintable, self.__stage_outputs[key]
@@ -212,44 +215,6 @@ class InstrumentalDaskRunner(DaskRunner):
 
         return [stage(output) for output in outputs]
 
-    @classmethod
-    def _process_upstream_output(cls, output, is_client_present):
-        outputs = output if isinstance(output, list) else [output]
-
-        checkpoints = [
-            output[key] for output in outputs for key in output.checkpoint_keys
-        ]
-        compute_tasks = [
-            task for output in outputs for task in output.compute_tasks
-        ]
-
-        persisted_values = dask.persist(
-            *(checkpoints + compute_tasks), optimize_graph=True
-        )
-
-        idx = 0
-        for output in outputs:
-            for key in output.checkpoint_keys:
-                output[key] = persisted_values[idx]
-                idx += 1
-
-        computed_tasks = persisted_values[idx:]
-        slider = 0
-        for output in outputs:
-            output.compute_outputs += computed_tasks[
-                slider : slider + len(output.compute_tasks)  # noqa E203
-            ]
-            slider += len(output.compute_tasks)
-            output.checkpoint_keys = []
-            output.stage_compute_tasks = []
-
-        if is_client_present:
-            for task in as_completed(futures_of(persisted_values)):
-                if task.status == "error":
-                    raise task.result()
-
-        return outputs
-
     def execute(self):
         """
         Execute the provided list of pipeline stages.
@@ -270,13 +235,6 @@ class InstrumentalDaskRunner(DaskRunner):
         stages : list of Stage
             A list of stage objects to be executed.
         """
-        is_client_present = False
-
-        try:
-            get_client()
-            is_client_present = True
-        except Exception:
-            pass
 
         output = UpstreamOutput()
         for stage in self.pipeline.executable_stages:
@@ -286,7 +244,6 @@ class InstrumentalDaskRunner(DaskRunner):
             )
 
             output = self._execute_stage(stage, output)
-            output = self._process_upstream_output(output, is_client_present)
 
             logger.info(
                 f"Finished {stage.name}",
@@ -294,3 +251,5 @@ class InstrumentalDaskRunner(DaskRunner):
                     "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
                 },
             )
+
+        task_manager.compute()

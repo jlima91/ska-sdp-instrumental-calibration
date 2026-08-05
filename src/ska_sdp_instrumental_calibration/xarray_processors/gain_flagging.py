@@ -1,16 +1,44 @@
 import logging
 
-import dask
 import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
+from ..scheduler import delayed
+
 logger = logging.getLogger()
 
 
-@dask.delayed
+@delayed
+def log_stats(antenna_flags):
+    min_percent = antenna_flags.min()
+    median_percent = np.median(antenna_flags.data)
+    max_percent = antenna_flags.max()
+
+    logger.info(
+        f"Gain flagging: Statistics "
+        f" min: {min_percent.data:.2f}%,"
+        f" median: {median_percent:.2f}%,"
+        f" max: {max_percent.data:.2f}%."
+    )
+
+
 def log_flaging_statistics(weights, initial_weights):
+    """
+    Calculate and log the percentage of flagged data.
+
+    Parameters
+    ----------
+    weights : array-like
+        The current weight array after flagging operations.
+    initial_weights : array-like
+        The initial weight array prior to any flagging.
+
+    Returns
+    -------
+    None
+    """
     current_flagged = (
         weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
     ).sum(dim=["time", "frequency"])
@@ -19,16 +47,7 @@ def log_flaging_statistics(weights, initial_weights):
         current_flagged / weights[:, 0, :, 0, 0].size
     ) * 100
 
-    min_percent = antna_percent_flagged.min()
-    median_percent = np.median(antna_percent_flagged.data)
-    max_percent = antna_percent_flagged.max()
-
-    logger.info(
-        f"Gain flagging: Statistics "
-        f" min: {min_percent.data:.2f}%,"
-        f" median: {median_percent:.2f}%,"
-        f" max: {max_percent.data:.2f}%."
-    )
+    log_stats(antna_percent_flagged)
 
 
 class SmoothingFit:
@@ -698,6 +717,6 @@ def flag_on_gains(
         gaintable = gaintable.assign(gain=new_gain)
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks).persist(),
+        gaintable.assign(weight=new_weights).chunk(original_chunks),
         fits,
     )

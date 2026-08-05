@@ -1,11 +1,11 @@
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
+from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
@@ -124,7 +124,6 @@ def flag_gain_stage(
             Updated upstream_output with gaintable
     """
 
-    _upstream_output_.add_checkpoint_key("gaintable")
     initialtable = _upstream_output_.gaintable
     prefix = _upstream_output_.ms_prefix
 
@@ -145,23 +144,20 @@ def flag_gain_stage(
         apply_flag,
     )
 
-    _upstream_output_.add_compute_tasks(
-        log_flaging_statistics(
-            gaintable.weight,
-            initialtable.weight,
-        )
+    log_flaging_statistics(
+        gaintable.weight,
+        initialtable.weight,
     )
 
     if plot_config.gain_flag_plot:
         path_prefix = get_plots_path(
             _qa_dir_, f"{prefix}/gain_flagging{call_counter_suffix}"
         )
-        _upstream_output_.add_compute_tasks(
-            plot_flag_gain(
-                gaintable,
-                path_prefix,
-                figure_title="Gain Flagging",
-            )
+
+        plot_flag_gain(
+            gaintable,
+            path_prefix,
+            figure_title="Gain Flagging",
         )
 
     if plot_config.curve_fit_plot:
@@ -169,15 +165,13 @@ def flag_gain_stage(
             _qa_dir_, f"{prefix}/curve_fit_gain{call_counter_suffix}"
         )
 
-        _upstream_output_.add_compute_tasks(
-            plot_curve_fit(
-                gaintable,
-                fits,
-                soltype,
-                path_prefix,
-                normalize_gains,
-                figure_title="Curve fit of Gain Flagging",
-            )
+        plot_curve_fit(
+            gaintable,
+            fits,
+            soltype,
+            path_prefix,
+            normalize_gains,
+            figure_title="Curve fit of Gain Flagging",
         )
 
     if export_gaintable:
@@ -186,11 +180,7 @@ def flag_gain_stage(
             f"{prefix}/gain_flag{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
-        )
+        delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("gain_flag")

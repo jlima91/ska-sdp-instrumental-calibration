@@ -16,7 +16,6 @@ def mock_upstream_output():
     mock_output["modelvis"] = MagicMock(name="model_vis")
     mock_output["chunks"] = MagicMock(name="chunks")
     mock_output["timeslice"] = "timeslice"
-    mock_output.add_compute_tasks = MagicMock(name="add_compute_tasks")
 
     return mock_output
 
@@ -154,9 +153,4 @@ def test_solver_runs_and_plots_gaintable(
     )
     plot_gain_target_iono_mock.plot.assert_called_once_with(
         mock_gaintable, figure_title="Ionospheric", fixed_axis=True
-    )
-
-    mock_upstream_output.add_compute_tasks.assert_called_once_with(
-        "PLOT_GAIN",
-        "PLOT_LEAKAGE",
     )

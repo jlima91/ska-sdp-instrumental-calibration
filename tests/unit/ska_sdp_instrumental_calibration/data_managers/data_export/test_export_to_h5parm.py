@@ -291,10 +291,9 @@ def test_should_export_clock_to_h5parm(
     )
     renamed_delaytable_mock.squeeze.return_value = renamed_delaytable_mock
 
-    delayed_call = export_to_h5parm.export_clock_to_h5parm(
+    export_to_h5parm.export_clock_to_h5parm(
         delaytable_mock, "filename", squeeze=True
     )
-    delayed_call.compute()
 
     delaytable_mock.rename.assert_called_once_with({"antenna": "ant"})
     renamed_delaytable_mock.assign_coords.assert_has_calls(

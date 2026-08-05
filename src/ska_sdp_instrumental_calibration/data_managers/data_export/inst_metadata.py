@@ -1,8 +1,6 @@
 import logging
 import os
 
-import dask
-
 try:
     from ska_sdp_dataproduct_metadata import MetaData, ObsCore
 
@@ -56,7 +54,6 @@ class INSTMetaData:
         )
         self.__metadata.output_path = path
 
-    @dask.delayed
     def export(self):
         """
         Exports INST metadata.

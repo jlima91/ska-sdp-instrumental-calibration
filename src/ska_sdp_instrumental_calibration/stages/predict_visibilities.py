@@ -143,7 +143,6 @@ def predict_visibilities(
     dict
         Updated upstream_output containing with modelvis.
     """
-    _upstream_output_.add_checkpoint_key("modelvis")
     vis = _upstream_output_.vis
     gaintable = _upstream_output_.gaintable
 
@@ -202,7 +201,6 @@ def predict_visibilities(
             modelvis, central_beams, inverse=True
         )
         _upstream_output_["central_beams"] = central_beams
-        _upstream_output_.add_checkpoint_key("central_beams")
         _upstream_output_["vis"] = vis
 
     _upstream_output_["modelvis"] = modelvis

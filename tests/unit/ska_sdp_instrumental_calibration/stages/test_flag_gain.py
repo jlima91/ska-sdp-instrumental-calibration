@@ -37,6 +37,9 @@ def test_flag_gain_stage_is_optional():
     assert not flag_gain_stage.__stage__.is_enabled
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.stages.flag_gain.log_flaging_statistics"
+)
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.flag_on_gains")
@@ -46,6 +49,7 @@ def test_should_perform_flagging_on_gains(
     flag_on_gains_mock,
     plot_curve_mock,
     plot_flag_mock,
+    log_flag_stat_mock,
     plot_config,
 ):
     upstream_output = UpstreamOutput()
@@ -115,8 +119,11 @@ def test_should_perform_flagging_on_gains(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.flag_gain.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.flag_gain.delayed",
     side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.flag_gain.log_flaging_statistics"
 )
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.get_gaintables_path")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
@@ -132,6 +139,7 @@ def test_should_export_gaintable_with_proper_suffix(
     plot_curve_mock,
     plot_flag_mock,
     get_gaintables_path_mock,
+    log_flagging_stat_mock,
     delayed_mock,
     plot_config,
 ):
@@ -231,12 +239,15 @@ def test_should_export_gaintable_with_proper_suffix(
 
 
 @patch(
-    "ska_sdp_instrumental_calibration.stages.flag_gain.dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.flag_gain.delayed",
     side_effect=lambda x: x,
 )
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.get_plots_path")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.flag_gain.log_flaging_statistics"
+)
 @patch(
     "ska_sdp_instrumental_calibration.stages.flag_gain"
     ".export_gaintable_to_h5parm"
@@ -245,6 +256,7 @@ def test_should_export_gaintable_with_proper_suffix(
 def test_should_plot_flag_on_gain(
     flag_on_gains_mock,
     export_gaintable_mock,
+    log_statistic_mock,
     plot_curve_mock,
     plot_flag_mock,
     get_plots_path_mock,

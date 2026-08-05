@@ -1,7 +1,6 @@
 import logging
 from typing import Annotated, Literal
 
-import dask
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
 
@@ -13,10 +12,14 @@ from ..plot import (
     plot_bandpass_stages,
     plot_rm_station,
 )
+from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
-from ..xarray_processors.rotation_measures import model_rotations
+from ..xarray_processors.rotation_measures import (
+    get_plot_params_for_station,
+    model_rotations,
+)
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_DOCSTRING
 from ._utils import get_gaintables_path, get_plots_path
@@ -122,8 +125,6 @@ def generate_channel_rm_stage(
         dict
             Updated upstream_output with gaintable
     """
-    _upstream_output_.add_checkpoint_key("modelvis")
-    _upstream_output_.add_checkpoint_key("gaintable")
 
     vis = _upstream_output_[visibility_key]
     prefix = _upstream_output_.ms_prefix
@@ -153,6 +154,10 @@ def generate_channel_rm_stage(
         refant=run_solver_config.refant,
         oversample=oversample,
     )
+    # predict_vis and plot_bandpass_stages expect station_rm (rm_est) as a
+    # dask array with only single dimension (antenna,)
+    # So selecting only the first solution interval
+    station_rm_est = rotations["rm_est"].isel(time=0).data
 
     modelvis = predict_vis(
         vis,
@@ -160,7 +165,7 @@ def generate_channel_rm_stage(
         initialtable.time.data,
         initialtable.soln_interval_slices,
         beam_factory,
-        station_rm=rotations.rm_est,
+        station_rm=station_rm_est,
     )
 
     if _upstream_output_["central_beams"] is not None:
@@ -182,21 +187,22 @@ def generate_channel_rm_stage(
         path_prefix = get_plots_path(
             _qa_dir_, f"{prefix}/channel_rm{call_counter_suffix}"
         )
-        _upstream_output_.add_compute_tasks(
-            plot_bandpass_stages(
-                gaintable,
-                initialtable,
-                rotations.rm_est,
-                run_solver_config.refant,
-                plot_path_prefix=path_prefix,
+
+        plot_bandpass_stages(
+            gaintable,
+            initialtable,
+            station_rm_est,
+            run_solver_config.refant,
+            plot_path_prefix=path_prefix,
+        )
+        plot_rm_station(
+            initialtable,
+            **get_plot_params_for_station(
+                rotations,
+                plot_rm_config.station,
+                refant,
             ),
-            plot_rm_station(
-                initialtable,
-                **rotations.get_plot_params_for_station(
-                    plot_rm_config.station
-                ),
-                plot_path_prefix=path_prefix,
-            ),
+            plot_path_prefix=path_prefix,
         )
 
     if plot_table:
@@ -209,12 +215,10 @@ def generate_channel_rm_stage(
             refant=_upstream_output_.refant,
         )
 
-        _upstream_output_.add_compute_tasks(
-            *freq_plotter.plot(
-                gaintable,
-                figure_title="Channel Rotation Measure",
-                drop_cross_pols=True,
-            )
+        freq_plotter.plot(
+            gaintable,
+            figure_title="Channel Rotation Measure",
+            drop_cross_pols=True,
         )
 
     if export_gaintable:
@@ -223,11 +227,7 @@ def generate_channel_rm_stage(
             f"{prefix}/channel_rm{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.add_compute_tasks(
-            dask.delayed(export_gaintable_to_h5parm)(
-                gaintable, gaintable_file_path
-            )
-        )
+        delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
     _upstream_output_["modelvis"] = modelvis
     _upstream_output_["gaintable"] = gaintable

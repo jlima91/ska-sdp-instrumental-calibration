@@ -341,8 +341,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     ".export_clock_to_h5parm"
 )
 @patch(
-    "ska_sdp_instrumental_calibration.stages.delay_calibration"
-    ".dask.delayed",
+    "ska_sdp_instrumental_calibration.stages.delay_calibration.delayed",
     side_effect=lambda x: x,
 )
 @patch(
@@ -435,5 +434,10 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     delay_mock.assert_has_calls(
-        [call(export_gaintable_mock), call(export_gaintable_mock)]
+        [
+            call(export_gaintable_mock),
+            call(export_clock_mock),
+            call(export_gaintable_mock),
+            call(export_clock_mock),
+        ]
     )
