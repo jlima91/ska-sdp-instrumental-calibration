@@ -22,7 +22,11 @@ import sys
 import h5py
 import numpy as np
 import yaml
-from resources import H5PARM_CONVERTER_SCRIPT, SPLINE_DATA_PATH, TEL_MODEL
+from resources import (  # pylint: disable=import-error
+    H5PARM_CONVERTER_SCRIPT,
+    SPLINE_DATA_PATH,
+    TEL_MODEL,
+)
 from scipy.interpolate import BSpline
 
 from .constants import (

@@ -10,7 +10,7 @@ import numpy
 import oskar  # pylint: disable=import-error
 import pandas as pd
 from casacore.tables import table
-from resources import (
+from resources import (  # pylint: disable=import-error
     CABLE_DELAYS,
     INST_CAL_CONFIG,
     INST_TARGET_CONFIG,
