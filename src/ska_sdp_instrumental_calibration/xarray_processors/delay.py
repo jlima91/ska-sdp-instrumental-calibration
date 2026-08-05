@@ -146,7 +146,8 @@ def calculate_delays_from_gain(
     # We only calculate delays based on diagonal terms
     for rec1idx, rec2idx in ((0, 0), (1, 1)):
         pols.append(
-            f"{gaintable['receptor1'][rec1idx].item()}{gaintable['receptor2'][rec2idx].item()}"
+            f"{gaintable['receptor1'][rec1idx].item()}"
+            f"{gaintable['receptor2'][rec2idx].item()}"
         )
 
         gain = gain_gain_chunked[..., rec1idx, rec2idx]

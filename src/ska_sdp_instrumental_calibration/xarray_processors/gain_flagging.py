@@ -1,6 +1,5 @@
 import logging
 
-import dask.array as da
 import numpy as np
 import xarray as xr
 from scipy.ndimage import generic_filter
