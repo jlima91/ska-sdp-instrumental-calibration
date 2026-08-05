@@ -22,12 +22,12 @@ import sys
 import h5py
 import numpy as np
 import yaml
+from resources import H5PARM_CONVERTER_SCRIPT, SPLINE_DATA_PATH, TEL_MODEL
 from scipy.interpolate import BSpline
 
 from .constants import (
     CHANNEL_WIDTH_HZ,
     END_FREQ_HZ,
-    H5PARM_CONVERTER_SCRIPT,
     N_STATIONS,
     OBSERVING_TIME_MINS,
     OUTLIER_AMPLITUDE,
@@ -36,17 +36,12 @@ from .constants import (
     OUTLIER_STATION_INDICES,
     SAMPLING_TIME_SEC,
     START_FREQ_HZ,
-    TEL_MODEL,
 )
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 
-
-SPLINE_DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
-)
 
 logger = logging.getLogger("GAINTABLE-SIM")
 

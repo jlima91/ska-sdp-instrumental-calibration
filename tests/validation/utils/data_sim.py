@@ -10,20 +10,22 @@ import numpy
 import oskar  # pylint: disable=import-error
 import pandas as pd
 from casacore.tables import table
+from resources import (
+    CABLE_DELAYS,
+    INST_CAL_CONFIG,
+    INST_TARGET_CONFIG,
+    SKY_MODEL,
+    TEL_MODEL,
+)
 from ska_sdp_datamodels.global_sky_model import LocalSkyModel
 
 from .constants import (
-    CABLE_DELAYS,
     CHANNEL_WIDTH_HZ,
     END_FREQ_HZ,
     EOR2_CAL_DEC,
     EOR2_CAL_RA,
-    INST_CAL_CONFIG,
-    INST_TARGET_CONFIG,
     SAMPLING_TIME_SEC,
-    SKY_MODEL,
     START_FREQ_HZ,
-    TEL_MODEL,
     TRANSIT_TIME,
 )
 from .generate_gaintable import (

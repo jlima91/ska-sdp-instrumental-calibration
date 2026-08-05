@@ -7,8 +7,8 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from resources.constants import SKY_MODEL  # pylint: disable=import-error
-from resources.data_sim import (  # pylint: disable=import-error
+from resources import SKY_MODEL  # pylint: disable=import-error
+from utils.data_sim import (  # pylint: disable=import-error
     generate_target_data,
     init_target_config,
     migrate_sky_model,
@@ -17,7 +17,6 @@ from resources.data_sim import (  # pylint: disable=import-error
 logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
-SPEED_OF_LIGHT = 299792458.0
 VALIDATION_STATIONS = [1, 8, 17]
 
 
@@ -93,8 +92,8 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
             )
 
 
-class IntegrationTest(unittest.TestCase):
-    def test_target_instrumental_calibration_integration(self):
+class TargetCalibration(unittest.TestCase):
+    def test_target_complex_gain_calibration(self):
         """Run integration test for Instrumental calibration Pipeline"""
         logger.info(
             "Run integration test for Instrumental calibration Pipeline"

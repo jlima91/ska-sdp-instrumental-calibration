@@ -7,13 +7,13 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from resources.constants import (  # pylint: disable=import-error
-    CABLE_DELAYS,
+from resources import CABLE_DELAYS, SKY_MODEL  # pylint: disable=import-error
+from utils.constants import (  # pylint: disable=import-error
     OUTLIER_CHANNEL_INDICES,
     OUTLIER_STATION_INDICES,
-    SKY_MODEL,
+    SPEED_OF_LIGHT,
 )
-from resources.data_sim import (  # pylint: disable=import-error
+from utils.data_sim import (  # pylint: disable=import-error
     generate_calibrator_data,
     init_cal_config,
     migrate_sky_model,
@@ -22,7 +22,6 @@ from resources.data_sim import (  # pylint: disable=import-error
 logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
-SPEED_OF_LIGHT = 299792458.0
 VALIDATION_STATIONS = [1, 8, 17]
 
 
@@ -185,7 +184,7 @@ def validate_delay_stage(output_dir, ms_path, refant=0):
         )
 
 
-class IntegrationTest(unittest.TestCase):
+class INSTClibration(unittest.TestCase):
     def test_instrumental_calibration_integration(self):
         """Run integration test for Instrumental calibration Pipeline"""
         logger.info(
