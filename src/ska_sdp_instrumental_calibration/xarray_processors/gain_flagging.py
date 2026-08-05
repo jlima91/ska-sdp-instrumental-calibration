@@ -681,9 +681,9 @@ def flag_on_gains(
     flag_da_per_pol = dict()
     fits_per_fitnames_per_pol = {name: dict() for name in fit_names}
 
-    for rec1idx, rec2idx in np.ndindex(
-        gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]
-    ):
+    # Iterate over each pol in gaintable
+    # gaintable is assumed be of shape [..., 2, 2]
+    for rec1idx, rec2idx in np.ndindex(2, 2):
         if skip_cross_pol and rec1idx != rec2idx:
             continue
 
