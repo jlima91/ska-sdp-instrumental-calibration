@@ -1,7 +1,9 @@
 import logging
+import warnings
 
 import numpy as np
 import xarray as xr
+from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 from ska_sdp_datamodels.calibration import GainTable
@@ -687,23 +689,29 @@ def flag_on_gains(
         if skip_cross_pol and rec1idx != rec2idx:
             continue
 
-        results = xr.apply_ufunc(
-            _flag_wrapper_ufunc_,
-            gaintable["gain"][..., rec1idx, rec2idx],
-            gaintable["weight"][..., rec1idx, rec2idx],
-            antenna_names_xdr,
-            input_core_dims=[["frequency"], ["frequency"], []],
-            output_core_dims=output_core_dims,
-            output_dtypes=output_dtypes,
-            vectorize=True,
-            dask="parallelized",
-            kwargs=dict(
-                freq=gaintable["frequency"].values,
-                cfg=cfg,
-                receptor1_name=gaintable["receptor1"][rec1idx].data,
-                receptor2_name=gaintable["receptor2"][rec2idx].data,
-            ),
-        )
+        with warnings.catch_warnings():
+            # apply_ufunc throws a false warning, when it detects that
+            # one of the inputs (gain) has complex dtype, but outputs
+            # are all non-complex values
+            warnings.simplefilter("ignore", ComplexWarning)
+
+            results = xr.apply_ufunc(
+                _flag_wrapper_ufunc_,
+                gaintable["gain"][..., rec1idx, rec2idx],
+                gaintable["weight"][..., rec1idx, rec2idx],
+                antenna_names_xdr,
+                input_core_dims=[["frequency"], ["frequency"], []],
+                output_core_dims=output_core_dims,
+                output_dtypes=output_dtypes,
+                vectorize=True,
+                dask="parallelized",
+                kwargs=dict(
+                    freq=gaintable["frequency"].values,
+                    cfg=cfg,
+                    receptor1_name=gaintable["receptor1"][rec1idx].data,
+                    receptor2_name=gaintable["receptor2"][rec2idx].data,
+                ),
+            )
 
         key = (rec1idx, rec2idx)
         flag_da_per_pol[key] = results[0].data
