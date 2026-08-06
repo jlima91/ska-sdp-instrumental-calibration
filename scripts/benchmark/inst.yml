@@ -3,11 +3,26 @@ global_parameters:
     pipeline: []
 parameters:
   load_data:
-    nchannels_per_chunk: 64
+    nchannels_per_chunk: 16
     ntimes_per_ms_chunk: 20
   predict_vis:
     fov: 10.0
-    flux_limit: 1.0
+  bandpass_initialisation:
+    export_gaintable: false
+  bandpass_calibration:
+    plot_config:
+      plot_table: false
+      fixed_axis: false
+    export_gaintable: false
+  delay_calibration:
+    plot_config:
+      plot_table: false
+      fixed_axis: false
+    export_gaintable: false
+  export_gain_table:
+    file_name: gaintable
+    export_format: h5parm
+    export_metadata: false
 pipeline:
   load_data: true
   predict_vis: true

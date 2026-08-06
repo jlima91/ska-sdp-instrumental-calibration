@@ -1,154 +1,253 @@
 """Post-calibration fits."""
 
-__all__ = ["model_rotations"]
-
-
-import dask
 import dask.array as da
 import numpy as np
+import xarray as xr
 from astropy import constants as const
 from scipy.optimize import curve_fit
 from ska_sdp_datamodels.calibration import GainTable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
-logger = setup_logger("processing_tasks.post_processing")
+__all__ = [
+    "RotationMeasureData",
+    "get_plot_params_for_station",
+    "model_rotations",
+]
+
+logger = setup_logger(__name__)
 
 
-@dask.delayed
-def compute_J(gain: np.ndarray, refant: int) -> np.ndarray:
+class RotationMeasureData(xr.Dataset):
+    """A specialized xarray Dataset subclass representing structural
+    Rotation Measure (RM) modeling outputs.
+
+    **Coordinates**
+    - time: time centroids of solutions, in seconds elapsed since the MJD
+      reference epoch, ``[ntimes]``.
+    - antenna: integer antenna indices starting at 0, ``[nants]``.
+    - frequency: center frequencies of the observations in Hz, ``[nchan]``.
+    - resolution: Faraday depth search grid space values in rad/m^2,
+      ``[nres]``.
+    - receptor1: polarisation hands of measured data polarisation,
+      ``[nrec]``. Most likely ``['X', 'Y']`` or ``['I']``.
+    - receptor2: polarisation hands of ideal/model data polarisation,
+      ``[nrec]``.
+
+    **Data variables**
+    - lambda_sq: wavelength squared values calculated across the
+      frequency axis, real-valued ``[nchan]``.
+    - rm_spec: Faraday dispersion function complex spectrum profiles,
+      complex-valued ``[ntimes, nants, nres]``.
+    - rm_est: final non-linear optimized rotation measure parameter
+      estimations, real-valued ``[ntimes, nants]``.
+    - rm_peak: Peak rotation measure absolute maxima found within the search
+      space, real-valued ``[ntimes, nants]``.
+    - const_rot: constant intrinsic phase offset calculated post
+      curve-fitting optimization, real-valued ``[ntimes, nants]``.
+    - J: target Jones matrices corrected relative to the designated
+      reference antenna, complex-valued
+      ``[ntimes, nants, nchan, nrec1, nrec2]``.
+
+    **Attributes**
+    - data_model: name of this class, used internally for saving to /
+      loading from files.
+
+    Here is an example::
+
+        <xarray.RotationMeasureData>
+        Dimensions:  (time: 1, antenna: 115, frequency: 256,
+                      resolution: 1024, receptor1: 2, receptor2: 2)
+        Coordinates:
+          * time        (time) float64 5.085e+09
+          * antenna     (antenna) int64 0 1 2 ... 113 114
+          * frequency   (frequency) float64 ...
+          * resolution  (resolution) float32 ...
+          * receptor1   (receptor1) int64 0 1
+          * receptor2   (receptor2) int64 0 1
+        Data variables:
+            lambda_sq   (frequency) float32 ...
+            rm_spec     (time, antenna, resolution) complex128 ...
+            rm_est      (time, antenna) float64 ...
+            rm_peak     (time, antenna) float64 ...
+            const_rot   (time, antenna) float64 ...
+            J           (time, antenna, frequency, receptor1, receptor2) ...
+        Attributes:
+            data_model:     RotationMeasureData
     """
-    Compute rotation matrix from gain values
-    w.r.t. a reference antenna
 
-    Parameters
-    ----------
-    gain
-        gain values of shape (time, station, frequency, p, q)
-    refant
-        Refernce antenna
+    __slots__ = ()
 
-    Returns
-    -------
-        Rotation matrix (J) of shape (station, frequency, p, q)
-    """
-    # TODO: Validate: Do we only always compute this for time=0,
-    # or this logic assumes that time axis must be of length 1?
-    return np.einsum(
-        "fpx,sfqx->sfpq",
-        gain[0, refant].conj(),
-        gain[0, :],
-        dtype=gain.dtype,
-    )
+    def __init__(self, data_vars=None, coords=None, attrs=None):
+        super().__init__(data_vars=data_vars, coords=coords, attrs=attrs)
 
-
-class ModelRotationData:
-    """
-    Create Model Rotation Data
-
-    Parameters
-    ----------
-    gaintable
-        Calibrated gaintable of shape
-        (time, stations, frequency, 2, 2)
-    refant
-        Reference antenna.
-    oversample
-        Oversampling value used in the rotation
-        calculatiosn. Note that setting this value to some higher
-        integer may result in high memory usage.
-    """
-
-    def __init__(self, gaintable: GainTable, refant: int, oversample: int = 5):
-        if gaintable.gain.shape[3] != 2 or gaintable.gain.shape[4] != 2:
-            raise ValueError("gaintable must contain Jones matrices")
-
-        self.refant = refant
-        self.nstations = len(gaintable.antenna)
-        self.nfreq = len(gaintable.frequency)
-
-        lambda_sq_npa = (
-            (
-                const.c.value  # pylint: disable=no-member
-                / gaintable.frequency.data
-            )
-            ** 2
-        ).astype(np.float32)
-
-        self.rm_res = (
-            1 / oversample / (np.max(lambda_sq_npa) - np.min(lambda_sq_npa))
-        )
-        self.rm_max = 1 / (lambda_sq_npa[-2] - lambda_sq_npa[-1])
-        self.rm_max = np.ceil(self.rm_max / self.rm_res) * self.rm_res
-
-        self.rm_vals = da.arange(
-            -self.rm_max,
-            self.rm_max,
-            self.rm_res,
-            dtype=np.float32,
-        )
-        self.lambda_sq = da.from_array(lambda_sq_npa)
-
-        self.phasor = da.exp(
-            da.einsum("i,j->ij", -1j * self.rm_vals, self.lambda_sq)
-        )
-
-        self.rm_spec = None
-        self.rm_est = da.zeros(self.nstations, dtype=np.float32)
-        self.rm_peak = da.zeros(self.nstations, dtype=np.float32)
-        self.const_rot = da.zeros(self.nstations, dtype=np.float32)
-
-        # Ensure that J calculations happens as a single task
-        # else numpy einsum blows up the number of tasks
-        self.J = da.from_delayed(
-            compute_J(gaintable.gain.data, refant),
-            (gaintable.gain.shape[1:]),
-            gaintable.gain.dtype,
-            name="rm_J",
-        )
-
-    def get_plot_params_for_station(self, stn=None):
+    @classmethod
+    def constructor(
+        cls,
+        time: np.ndarray,
+        antenna: np.ndarray,
+        frequency: np.ndarray,
+        resolution: np.ndarray,
+        receptor1: np.ndarray,
+        receptor2: np.ndarray,
+        lambda_sq: np.ndarray,
+        rm_spec: np.ndarray | da.Array,
+        rm_est: np.ndarray | da.Array,
+        rm_peak: np.ndarray | da.Array,
+        const_rot: np.ndarray | da.Array,
+        J: np.ndarray | da.Array,
+    ) -> "RotationMeasureData":
         """
-        Getter for plot params for any particular station.
+        Assemble arrays into a RotationMeasureData dataset container.
 
         Parameters
         ----------
-            stn: int
-                Station number.
+        time : np.ndarray
+            Array of time coordinates.
+        antenna : np.ndarray
+            Array of antenna coordinates.
+        frequency : np.ndarray
+            Array of frequency coordinates.
+        resolution : np.ndarray
+            Array of resolution coordinates.
+        receptor1 : np.ndarray
+            Array of first receptor coordinates.
+        receptor2 : np.ndarray
+            Array of second receptor coordinates.
+        lambda_sq : np.ndarray
+            Array of squared wavelength values.
+        rm_spec : np.ndarray or da.Array
+            Rotation measure spectrum data array.
+        rm_est : np.ndarray or da.Array
+            Estimated rotation measure data array.
+        rm_peak : np.ndarray or da.Array
+            Peak rotation measure data array.
+        const_rot : np.ndarray or da.Array
+            Constant rotation data array.
+        J : np.ndarray or da.Array
+            Jones matrix data array.
+
         Returns
         -------
-            rm_vals: dask.array
-                rm value array.
-            rm_spec: dask.array
-                rm spec array.
-            rm_peak: dask.array
-                rm peak array.
-            rm_est: dask.array
-                rm estimate array.
-            rm_est_refant: dask.array
-                rm estimate of refant.
-            J: dask.array
-                Jones array.
-            lambda_sq: dask.array
-                lambda square array.
-            xlim: dask.array
-                x-limit array.
-            stn: int
-                Station number.
+        RotationMeasureData
+            The constructed rotation measure dataset.
         """
-        stn = stn if stn is not None else (self.nstations - 1)
+        data_vars = dict(
+            lambda_sq=(["frequency"], lambda_sq),
+            rm_spec=(["time", "antenna", "resolution"], rm_spec),
+            rm_est=(["time", "antenna"], rm_est),
+            rm_peak=(["time", "antenna"], rm_peak),
+            const_rot=(["time", "antenna"], const_rot),
+            J=(["time", "antenna", "frequency", "receptor1", "receptor2"], J),
+        )
 
-        return {
-            "rm_vals": self.rm_vals,
-            "rm_spec": self.rm_spec[stn],
-            "rm_peak": self.rm_peak[stn],
-            "rm_est": self.rm_est[stn],
-            "rm_est_refant": self.rm_est[self.refant],
-            "J": self.J[stn],
-            "lambda_sq": self.lambda_sq,
-            "xlim": 10 * da.max(da.abs(self.rm_est)),
-            "stn": stn,
+        coords = dict(
+            time=time,
+            antenna=antenna,
+            frequency=frequency,
+            resolution=resolution,
+            receptor1=receptor1,
+            receptor2=receptor2,
+        )
+
+        attrs = {
+            "data_model": "RotationMeasureData",
         }
+
+        return cls(data_vars=data_vars, coords=coords, attrs=attrs)
+
+
+def get_plot_params_for_station(
+    dataset: RotationMeasureData, antenna: int, refant: int, time: int = 0
+) -> dict:
+    """
+    Extract plotting parameters natively retaining lazy Dask
+    evaluation structures.
+
+    Parameters
+    ----------
+    dataset
+        Dataset containing results of model rotation calculation
+    antenna
+        Antenna (station) number to plot
+    refant
+        Reference antenna used during computation
+    time
+        Solution interval index to filter on
+
+    Returns
+    -------
+        A dictionary with following keys and values data types:
+
+        - stn: int
+        - rm_vals: np.ndarray
+        - lambda_sq: dask.array
+        - rm_spec: dask.array
+        - rm_peak: dask.array
+        - rm_est: dask.array
+        - rm_est_refant: dask.array
+        - J: dask.array
+        - xlim: dask.array
+    """
+    ds = dataset.isel(time=time) if time is not None else dataset
+
+    rm_spec = ds["rm_spec"].isel(antenna=antenna).data
+    rm_peak = ds["rm_peak"].isel(antenna=antenna).data
+    rm_est = ds["rm_est"].isel(antenna=antenna).data
+    rm_est_refant = ds["rm_est"].isel(antenna=refant).data
+    J_val = ds["J"].isel(antenna=antenna).data
+
+    # Access the underlying dask array via .data to chain graph tasks lazily
+    xlim = 10 * da.max(da.abs(ds["rm_est"].data))
+
+    return {
+        "stn": antenna,
+        "rm_vals": ds.coords["resolution"].data,
+        "lambda_sq": ds["lambda_sq"].data,
+        "rm_spec": rm_spec,
+        "rm_peak": rm_peak,
+        "rm_est": rm_est,
+        "rm_est_refant": rm_est_refant,
+        "J": J_val,
+        "xlim": xlim,
+    }
+
+
+def compute_rm_parameters(
+    frequency: np.ndarray, oversample: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compute wavelength squared and rotation measure arrays using NumPy.
+
+    Parameters
+    ----------
+    frequency : np.ndarray
+        Frequency values in Hz. Shape: (freq,)
+    oversample : int
+        Oversampling factor.
+
+    Returns
+    -------
+    lambda_sq : np.ndarray
+        Wavelength squared values. Shape: (freq,)
+    rm_vals : np.ndarray
+        Rotation measure search grid values. Shape: (resolution,)
+    """
+    lambda_sq = (
+        (const.c.value / frequency) ** 2  # pylint: disable=E1101
+    ).astype(np.float32)
+
+    rm_res = 1 / oversample / (np.max(lambda_sq) - np.min(lambda_sq))
+    rm_max = 1 / (lambda_sq[-2] - lambda_sq[-1])
+    rm_max = np.ceil(rm_max / rm_res) * rm_res
+
+    rm_vals = np.arange(
+        -rm_max,
+        rm_max,
+        rm_res,
+        dtype=np.float32,
+    )
+    return lambda_sq, rm_vals
 
 
 def model_rotations(
@@ -157,7 +256,7 @@ def model_rotations(
     refine_fit: bool = True,
     refant: int = 0,
     oversample: int = 5,
-) -> ModelRotationData:
+) -> RotationMeasureData:
     """
     Fit a rotation measure for each station Jones matrix.
 
@@ -185,7 +284,7 @@ def model_rotations(
         Whether or not to refine the RM spectrum peak locations
         with a nonlinear optimisation of the station RM values.
     refant
-        Reference antenna
+        Reference antenna index
     oversample
         Oversampling value used in the rotation
         calculation. This determines the resolution of phasor.
@@ -194,199 +293,396 @@ def model_rotations(
 
     Returns
     -------
-        A container whose rm_est attribute contains
-        the estimated rotations. It also contains other
-        data useful for plots.
+        A dataset holding RM estimates and other data computed
     """
-    rotations = ModelRotationData(gaintable, refant, oversample)
+    gaintable = gaintable.chunk(time=1, antenna=1, frequency=-1)
+    gaintable_refant = gaintable.isel(antenna=refant, drop=True)
 
-    norms = da.linalg.norm(rotations.J, axis=(2, 3), keepdims=True)
-    mask = da.from_delayed(
-        get_stn_masks(gaintable.weight, refant),
-        (
-            rotations.nstations,
-            rotations.nfreq,
+    lambda_sq, rm_vals_coords = compute_rm_parameters(
+        gaintable["frequency"].values, oversample
+    )
+
+    n_time = gaintable.sizes["time"]
+    n_ant = gaintable.sizes["antenna"]
+    n_res = rm_vals_coords.size
+    n_freq = gaintable.sizes["frequency"]
+    n_rec1 = gaintable.sizes["receptor1"]
+    n_rec2 = gaintable.sizes["receptor2"]
+
+    time_chunks = gaintable.chunks["time"]
+    ant_chunks = gaintable.chunks["antenna"]
+
+    rm_spec_da = da.empty(
+        (n_time, n_ant, n_res),
+        chunks=(time_chunks, ant_chunks, n_res),
+        dtype=np.complex128,
+    )
+    rm_est_da = da.empty(
+        (n_time, n_ant),
+        chunks=(time_chunks, ant_chunks),
+        dtype=np.float64,
+    )
+    rm_peak_da = da.empty(
+        (n_time, n_ant),
+        chunks=(time_chunks, ant_chunks),
+        dtype=np.float64,
+    )
+    const_rot_da = da.empty(
+        (n_time, n_ant),
+        chunks=(time_chunks, ant_chunks),
+        dtype=np.float64,
+    )
+    J_da = da.empty(
+        (n_time, n_ant, n_freq, n_rec1, n_rec2),
+        chunks=(time_chunks, ant_chunks, n_freq, n_rec1, n_rec2),
+        dtype=gaintable["gain"].dtype,
+    )
+
+    template = RotationMeasureData.constructor(
+        time=gaintable.coords["time"].values,
+        antenna=gaintable.coords["antenna"].values,
+        frequency=gaintable.coords["frequency"].values,
+        resolution=rm_vals_coords,
+        receptor1=gaintable.coords["receptor1"].values,
+        receptor2=gaintable.coords["receptor2"].values,
+        lambda_sq=lambda_sq,
+        rm_spec=rm_spec_da,
+        rm_est=rm_est_da,
+        rm_peak=rm_peak_da,
+        const_rot=const_rot_da,
+        J=J_da,
+    )
+
+    result_ds = template.map_blocks(
+        _model_rotation_block_,
+        args=(gaintable, gaintable_refant),
+        kwargs=dict(
+            peak_threshold=peak_threshold,
+            refine_fit=refine_fit,
         ),
-        bool,
+        template=template,
     )
 
-    mask = mask & (norms[:, :, 0, 0] > 0)
+    return result_ds
 
-    rotations.J = da.from_delayed(
-        update_jones_with_masks(rotations.J, mask, norms, rotations.nstations),
-        rotations.J.shape,
-        rotations.J.dtype,
+
+def _model_rotation_block_(
+    template_block: xr.Dataset,
+    gaintable: xr.Dataset,
+    gaintable_refant: xr.Dataset,
+    peak_threshold: float = 0.5,
+    refine_fit: bool = True,
+) -> xr.Dataset:
+    """
+    Processes one template block (time x antenna) at a time, converting
+    xarray inputs to pure numpy for computation and wrapping the results back.
+    """
+
+    rm_vals = template_block.coords["resolution"].values
+    lambda_sq = template_block["lambda_sq"].values
+
+    # Drop 1-element time and antenna dimensions for core block extraction
+    gaintable_squeezed = gaintable.squeeze(dim=["time", "antenna"])
+    gaintable_refant_squeezed = gaintable_refant.squeeze(dim="time")
+
+    # Extract raw NumPy arrays from the squeezed Xarray Datasets
+    gain = gaintable_squeezed["gain"].values
+    weight = gaintable_squeezed["weight"].values
+    gain_refant = gaintable_refant_squeezed["gain"].values
+    weight_refant = gaintable_refant_squeezed["weight"].values
+
+    J, rm_spec, rm_est, rm_peak, const_rot = model_rotations_ufunc(
+        gain=gain,
+        weight=weight,
+        gain_refant=gain_refant,
+        weight_refant=weight_refant,
+        rm_vals=rm_vals,
+        lambda_sq=lambda_sq,
+        peak_threshold=peak_threshold,
+        refine_fit=refine_fit,
     )
 
-    phi_raw = da.from_delayed(
-        calculate_phi_raw(rotations.J),
-        (rotations.nstations, rotations.nfreq),
-        np.float32,
+    block_ds = template_block.assign(
+        rm_spec=(
+            ["time", "antenna", "resolution"],
+            rm_spec[np.newaxis, np.newaxis, :],
+        ),
+        rm_est=(
+            ["time", "antenna"],
+            np.array([[rm_est]], dtype=np.float64),
+        ),
+        rm_peak=(
+            ["time", "antenna"],
+            np.array([[rm_peak]], dtype=np.float64),
+        ),
+        const_rot=(
+            ["time", "antenna"],
+            np.array([[const_rot]], dtype=np.float64),
+        ),
+        J=(
+            ["time", "antenna", "frequency", "receptor1", "receptor2"],
+            J[np.newaxis, np.newaxis, ...],
+        ),
     )
 
-    rotations.rm_spec = get_rm_spec(phi_raw, mask, rotations.phasor)
+    return block_ds
 
-    abs_rm_spec = da.abs(rotations.rm_spec)
 
-    rotations.rm_est = da.where(
-        da.max(abs_rm_spec, axis=1) > peak_threshold,
-        rotations.rm_vals[da.argmax(abs_rm_spec, axis=1)],
-        0,
+def model_rotations_ufunc(
+    gain: np.ndarray,
+    weight: np.ndarray,
+    gain_refant: np.ndarray,
+    weight_refant: np.ndarray,
+    rm_vals: np.ndarray = None,
+    lambda_sq: np.ndarray = None,
+    frequency: np.ndarray = None,
+    oversample: int = 5,
+    peak_threshold: float = 0.5,
+    refine_fit: bool = True,
+) -> tuple[np.ndarray, np.ndarray, float, float, float]:
+    """
+    Calculate model rotations for a given antenna and solution interval (time)
+    using pure NumPy arrays. This can be treated as a ufunc, and can be
+    used to broadcast computations across stations and time.
+
+    Parameters
+    ----------
+    gain
+        Calibrated gain matrix array for a single station block.
+        Shape: (freq, rec1, rec2)
+    weight
+        Weight matrix array for a single station block.
+        Shape: (freq, rec1, rec2)
+    gain_refant
+        Calibrated gain matrix array for the reference station.
+        Shape: (freq, rec1, rec2)
+    weight_refant
+        Weight matrix array for the reference station.
+        Shape: (freq, rec1, rec2)
+    rm_vals
+        Pre-computed rotation measure search grid values. Shape: (resolution,).
+    lambda_sq
+        Pre-computed wavelength squared values. Shape: (freq,).
+    frequency
+        Frequency values in Hz. Only utilized if rm_vals/lambda_sq
+        must be computed. Shape: (freq,).
+    oversample
+        Oversampling value used if parameters must be generated on the fly.
+        Only utilized if rm_vals/lambda_sq must be computed.
+    peak_threshold
+        Height of peak in the RM spectrum required for a rotation detection.
+    refine_fit
+        Whether or not to refine the RM spectrum peak locations with a
+        nonlinear optimisation.
+
+    Returns
+    -------
+        J
+            Rotation matrix w.r.t. reference antenna. Shape: (freq, rec1, rec2)
+        rm_spec
+            Array of complex RM spectrum values. Shape: (resolution,)
+        rm_est
+            Final optimized rotation measure estimation.
+        rm_peak
+            Initial peak rotation measure estimation.
+        const_rot
+            Constant phase rotation tracking value.
+    """
+    if rm_vals is None or lambda_sq is None:
+        if frequency is None:
+            raise ValueError(
+                "frequency must be provided if rm_vals or lambda_sq are None"
+            )
+        lambda_sq, rm_vals = compute_rm_parameters(frequency, oversample)
+
+    J = np.einsum(
+        "fpx,fqx->fpq",
+        gain_refant.conj(),
+        gain,
+        dtype=gain.dtype,
+    )  # Shape: (freq,rec1,rec2)
+
+    norms = np.linalg.norm(
+        J, axis=(1, 2), keepdims=True
+    )  # Shape: (freq,rec1,rec2)
+    mask = get_stn_masks(weight, weight_refant)  # Shape: (freq,)
+    mask = mask & (norms[:, 0, 0] > 0)  # Shape: (freq,)
+
+    J = update_jones_with_masks(J, mask, norms)  # Shape: (freq,rec1,rec2)
+    phi_raw = calculate_phi_raw(J)  # Shape: (freq,)
+
+    rm_spec = get_rm_spec(
+        phi_raw, mask, rm_vals, lambda_sq
+    )  # Shape: (resolution,)
+    abs_rm_spec = np.abs(rm_spec)
+
+    rm_est = (
+        rm_vals[np.argmax(abs_rm_spec)]
+        if np.max(abs_rm_spec) > peak_threshold
+        else 0.0
     )
 
-    rotations.rm_peak = rotations.rm_est
+    rm_peak = rm_est
+    const_rot = 0.0
 
     if refine_fit:
-        exp_stack = da.hstack((da.cos(phi_raw), da.sin(phi_raw)))
-        fit_rm = da.from_delayed(
-            fit_curve(
-                rotations.lambda_sq,
-                exp_stack,
-                rotations.rm_peak,
-                rotations.nstations,
-            ),
-            (2, rotations.nstations),
-            np.float32,
-        )
-        rotations.rm_est = fit_rm[0]
-        rotations.const_rot = fit_rm[1]
+        rm_est, const_rot = fit_curve(lambda_sq, phi_raw, rm_peak)
 
-    # further stages expects this to not be chunked
-    rotations.rm_est = rotations.rm_est.rechunk(-1)
-
-    return rotations
+    return J, rm_spec, rm_est, rm_peak, const_rot
 
 
-@dask.delayed
-def calculate_phi_raw(jones):
-    co_sum = jones[:, :, 0, 0] + jones[:, :, 1, 1]
-    cross_diff = 1j * (jones[:, :, 0, 1] - jones[:, :, 1, 0])
+def calculate_phi_raw(jones: np.ndarray) -> np.ndarray[float]:
+    """
+    Parameters
+    ----------
+    jones
+        Jones array for given antenna (freq, rec1, rec2)
+
+    Returns
+    -------
+        Raw phase angle (freq). float
+    """
+    co_sum = jones[:, 0, 0] + jones[:, 1, 1]
+    cross_diff = 1j * (jones[:, 0, 1] - jones[:, 1, 0])
     return 0.5 * (
         np.unwrap(np.angle(co_sum + cross_diff))
         - np.unwrap(np.angle(co_sum - cross_diff))
     )
 
 
-@dask.delayed
-def update_jones_with_masks(jones, mask, norms, nstations):
+def update_jones_with_masks(
+    jones: np.ndarray, mask: np.ndarray, norms: np.ndarray
+):
     """
     Update the Jones array for mask values
+    Note that this function mutates jones array in place
+
     Parameters
     ----------
-        jones: np.array
-            Jones array.
-        mask: np.array
-            Mask for stations.
-        norms: np.array
-            Normalization array.
-        nstations: int
-            Number of stations.
+    jones
+        Jones array which is mutated (freq, rec1, rec2)
+    mask
+        Mask for stations. (freq)
+    norms
+        Normalization array. (freq, rec1, rec2)
+
     Returns
     -------
-        Array of updated jones values.
+        Array of updated jones values. Same as input jones.
     """
-    for stn in range(nstations):
-        jones[stn, mask[stn], :, :] *= np.sqrt(2) / norms[stn, mask[stn], :, :]
-
+    jones[mask, :, :] *= np.sqrt(2) / norms[mask, :, :]
     return jones
 
 
-@dask.delayed
-def get_stn_masks(weight, refant):
+def get_stn_masks(weight_ant: np.ndarray, weight_refant: np.ndarray):
     """
-    Gets station masks.
+    Gets station masks for given antenna
 
     Parameters
     ----------
-        weight: np.array
-            Weight.
-        refant: int
-            Reference antenna.
-     Returns
-     -------
-        Array of masks for stations.
+    weight_ant
+        Weight of current antenna. (freq, rec1, rec2)
+    weight_refant
+        Reference antenna Weight. (freq, rec1, rec2)
+
+    Returns
+    -------
+    Mask for current antenna. (freq)
     """
-    if np.all(weight[0, refant, :, 0, 1] == 0) & np.all(
-        weight[0, refant, :, 1, 0] == 0
+    if np.all(weight_refant[:, 0, 1] == 0) & np.all(
+        weight_refant[:, 1, 0] == 0
     ):
         return (
-            (weight[0, :, :, 0, 0] > 0)
-            & (weight[0, :, :, 1, 1] > 0)
-            & (weight[0, refant, :, 0, 0] > 0)
-            & (weight[0, refant, :, 1, 1] > 0)
+            (weight_ant[:, 0, 0] > 0)
+            & (weight_ant[:, 1, 1] > 0)
+            & (weight_refant[:, 0, 0] > 0)
+            & (weight_refant[:, 1, 1] > 0)
         )
-
-    return np.all(weight[0, :] > 0, axis=(2, 3)) & np.all(
-        weight[0, refant] > 0, axis=(1, 2)
+    return np.all(weight_ant > 0, axis=(1, 2)) & np.all(
+        weight_refant > 0, axis=(1, 2)
     )
 
 
 def get_rm_spec(
-    phi_raw: da.Array, mask: da.Array, phasor: da.Array
-) -> da.Array:
+    phi_raw: np.ndarray,
+    mask: np.ndarray,
+    rm_vals: np.ndarray,
+    lambda_sq: np.ndarray,
+    chunk_size=4096,
+) -> np.ndarray[complex]:
     """
-    Calculate RM spec.
+    Calculate RM spec for current antenna
 
     Parameters
     ----------
     phi_raw
-        Phi raw value. Shape: ``(nstations, nchannels)``
+        Phi raw value. Shape: ``(freq,)``. float
     mask
-        Mask. Shape: ``(nstations, nchannels)``
-    phasor
-        Phasor. Shape: ``(resolution, nchannels)``
+        Mask. Shape: ``(freq,)``. bool.
+    rm_vals
+        Rotation measure values. ``(resolution,)``. float
+    lambda_sq
+        Wavelength squared. ``(freq,)``. float
+    chunk_size
+        Max resolution to compute at a time. Used for memory efficiency.
 
     Returns
     -------
-        Array of RM spec. Shape: ``(nstations, resolution)``
+        Array of RM spec. Shape: ``(resolution)``. complex
     """
-    # Compute the complex exponential for all stations and frequencies at once
-    phi_exp = da.exp(1j * phi_raw)
+    resolution = rm_vals.shape[0]
 
-    # Keep values where mask is True, 0 elsewhere
-    masked_phi = da.where(mask, phi_exp, 0).astype(np.complex64)
+    phi_exp = np.exp(1j * phi_raw)
+    masked_phi = np.where(mask, phi_exp, 0j)
+    counts = mask.sum(dtype=np.float32)
 
-    # (stn, f) @ (f, r) -> (stn, r)
-    result = masked_phi @ phasor.T
+    result = np.empty((resolution,), dtype=np.complex128)
 
-    # counts shape: (stn, 1) to allow broadcasting
-    counts = mask.sum(axis=1, dtype=np.float32)[:, None]
+    # Process the resolution axis in chunks
+    for i in range(0, resolution, chunk_size):
+        end = min(i + chunk_size, resolution)
+        rm_chunk = rm_vals[i:end]
 
-    return (result / counts).astype(np.complex64)
+        # Intermediate array shape: (nchannels, chunk_size)
+        # Instead of allocating (nchannels, resolution) all at once
+        phasor_chunk = np.exp(
+            -1j * lambda_sq[:, np.newaxis] * rm_chunk[np.newaxis, :]
+        )
+        result[i:end] = masked_phi @ phasor_chunk
+
+    return result / counts
 
 
-@dask.delayed
-def fit_curve(lambda_sq, exp_stack, rm_est, nstations):
+def fit_curve(
+    lambda_sq: np.ndarray, phi_raw: np.ndarray, rm_est: float
+) -> tuple[float, float]:
     """
     Fits the curve
 
     Parameters
     ----------
-        lambda_sq: np.array
-            Lambda square
-        exp_stack: np.array
-            exp stack
-        rm_est: np.array
-            rm estimate
-        nstations: int
-            Number of stations
+    lambda_sq
+        Wavelength square. (freq,) float
+    phi_raw
+        Raw phase angle (freq,) float
+    rm_est
+        Initial rm estimate for current station.
+        Shape: ()
+
     Returns
     -------
-        Array after fitting the curve.
+        (rm_est, const_rot)
+        New rotation measure estimate and constant rotation values
+        post curve fitting
     """
-    return np.array(
-        [
-            (popt[0], popt[1])
-            for popt, _ in [
-                curve_fit(
-                    lambda wl2, rm, phi0: np.hstack(
-                        (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
-                    ),
-                    lambda_sq,
-                    exp_stack[stn],
-                    p0=[rm_est[stn], 0],
-                )
-                for stn in range(nstations)
-            ]
-        ]
-    ).T
+    exp_stack = np.hstack([np.cos(phi_raw), np.sin(phi_raw)])
+
+    popt, _ = curve_fit(
+        lambda wl2, rm, phi0: np.hstack(
+            (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
+        ),
+        lambda_sq,
+        exp_stack,
+        p0=[rm_est, 0],
+    )
+    return float(popt[0]), float(popt[1])
