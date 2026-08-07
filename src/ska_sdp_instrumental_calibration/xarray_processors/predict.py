@@ -45,6 +45,7 @@ def _predict_vis_ufunc(
     # Need to remove extra frequency dimension from uvw
     uvw_shape = uvw.shape
     uvw = uvw.reshape(uvw_shape[0], *uvw_shape[2:])
+    logger.info("======= RUNNING PREDICT ======= ")
 
     return local_sky_model.create_vis(
         uvw,
@@ -164,10 +165,13 @@ def predict_vis(
         local_sky_model = gsm.get_local_sky_model(
             soln_time[idx], vis.configuration.location
         )
+        uvw = vis.uvw.isel(time=slc)
+        original_chunks = uvw.chunksizes
+        uvw = uvw.chunk({dim: -1 for dim in uvw.dims})
 
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
-            vis.uvw.isel(time=slc),
+            uvw,
             *common_input_args,
             input_core_dims=[
                 ["baselineid", "spatial"],
@@ -189,6 +193,10 @@ def predict_vis(
                 local_sky_model=local_sky_model,
             ),
         )
+        predicted_per_soln_time = predicted_per_soln_time.pipe(
+            with_chunks, original_chunks
+        )
+
         predicted_per_soln_time = predicted_per_soln_time.transpose(
             "time", "baselineid", "frequency", "polarisation"
         )
