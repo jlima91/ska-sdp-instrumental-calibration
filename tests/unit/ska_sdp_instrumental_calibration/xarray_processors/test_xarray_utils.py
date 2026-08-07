@@ -10,14 +10,108 @@ from ska_sdp_instrumental_calibration.xarray_processors._utils import (
 )
 
 
-def test_should_chunk_xarray_object_with_valid_chunks():
-    data = xr.DataArray(np.arange(12).reshape(4, 3), dims=["a", "b"])
+def test_with_chunks_rechunks_dataarray_when_relevant_dim_exists():
+    data = xr.DataArray(
+        np.arange(12).reshape(3, 4),
+        dims=("time", "frequency"),
+    ).chunk({"time": 3, "frequency": 4})
 
-    chunks = {"a": 2, "c": 4}
+    result = with_chunks(data, {"frequency": 2, "antenna": 1})
 
-    new_data = with_chunks(data, chunks)
+    assert result is not data
+    assert result.chunksizes["time"] == (3,)
+    assert result.chunksizes["frequency"] == (2, 2)
 
-    assert dict(new_data.chunksizes) == {"a": (2, 2), "b": (3,)}
+
+def test_with_chunks_returns_same_dataarray_when_no_relevant_dim():
+    data = xr.DataArray(
+        np.arange(12).reshape(3, 4),
+        dims=("time", "frequency"),
+    ).chunk({"time": 3, "frequency": 4})
+
+    result = with_chunks(data, {"antenna": 1})
+
+    assert result is data
+
+
+def test_with_chunks_rechunks_dataset_when_relevant_dim_exists():
+    dataset = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                np.ones((2, 6), dtype=np.complex128),
+                dims=("time", "frequency"),
+            ),
+            "weight": xr.DataArray(
+                np.ones((2, 6), dtype=np.float64),
+                dims=("time", "frequency"),
+            ),
+        }
+    ).chunk({"time": 2, "frequency": 6})
+
+    result = with_chunks(dataset, {"frequency": 3})
+
+    assert result is not dataset
+    assert result.chunksizes["time"] == (2,)
+    assert result.chunksizes["frequency"] == (3, 3)
+
+
+def test_with_chunks_returns_same_dataset_when_no_relevant_dim():
+    dataset = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                np.ones((2, 6), dtype=np.complex128),
+                dims=("time", "frequency"),
+            ),
+        }
+    ).chunk({"time": 2, "frequency": 6})
+
+    result = with_chunks(dataset, {"antenna": 1})
+
+    assert result is dataset
+
+
+@pytest.mark.skipif(
+    not hasattr(xr, "DataTree"),
+    reason="xarray.DataTree is not available in this xarray version",
+)
+def test_with_chunks_returns_same_datatree_for_direct_dim_key():
+    dataset = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                np.ones((2, 6), dtype=np.float64),
+                dims=("time", "frequency"),
+            )
+        }
+    ).chunk({"time": 2, "frequency": 6})
+    tree = xr.DataTree.from_dict({"node": dataset})
+    before_chunks = tree.chunksizes
+
+    result = with_chunks(tree, {"frequency": 3})
+
+    assert result is tree
+    assert result.chunksizes["/node"]["time"] == (2,)
+    assert result.chunksizes["/node"]["frequency"] == (6,)
+    assert result.chunksizes == before_chunks
+
+
+@pytest.mark.skipif(
+    not hasattr(xr, "DataTree"),
+    reason="xarray.DataTree is not available in this xarray version",
+)
+def test_with_chunks_returns_same_datatree_when_no_relevant_dim():
+    dataset = xr.Dataset(
+        {
+            "gain": xr.DataArray(
+                np.ones((2, 6), dtype=np.float64),
+                dims=("time", "frequency"),
+            )
+        }
+    ).chunk({"time": 2, "frequency": 6})
+    tree = xr.DataTree.from_dict({"node": dataset})
+
+    result = with_chunks(tree, {"antenna": 1})
+
+    assert result is tree
 
 
 def test_should_parse_reference_antenna():

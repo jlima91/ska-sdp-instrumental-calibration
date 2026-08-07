@@ -7,6 +7,9 @@ import xarray as xr
 from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
+from ska_sdp_datamodels.visibility import Visibility
+
+from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
 
 from ._utils import with_chunks
 
@@ -129,8 +132,6 @@ def calculate_delays_from_gain(
     """
     ntime = gaintable.sizes["time"]
     nant = gaintable.sizes["antenna"]
-    # We only calculate delays based on diagonal terms
-    pols = ["XX", "YY"]
 
     gain_gain_chunked = gaintable["gain"].chunk(
         time=1, antenna=1, frequency=-1
@@ -140,8 +141,15 @@ def calculate_delays_from_gain(
     )
 
     apply_ufunc_results = {"delay": {}, "offset": {}}
-    # We calculate delays only for XX and YY terms
-    for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
+    pols = []
+
+    # We only calculate delays based on diagonal terms
+    for rec1idx, rec2idx in ((0, 0), (1, 1)):
+        pols.append(
+            f"{gaintable['receptor1'][rec1idx].item()}"
+            f"{gaintable['receptor2'][rec2idx].item()}"
+        )
+
         gain = gain_gain_chunked[..., rec1idx, rec2idx]
         weight = gain_weight_chunk[..., rec1idx, rec2idx]
         initial_offset = xr.zeros_like(
@@ -169,21 +177,22 @@ def calculate_delays_from_gain(
                 ),
             )
 
-        apply_ufunc_results["delay"][pol] = delay
-        apply_ufunc_results["offset"][pol] = offset
+        key = (rec1idx, rec2idx)
+        apply_ufunc_results["delay"][key] = delay
+        apply_ufunc_results["offset"][key] = offset
 
     return DelayTable.constructor(
         delay=da.stack(
             [
-                apply_ufunc_results["delay"]["XX"],
-                apply_ufunc_results["delay"]["YY"],
+                apply_ufunc_results["delay"][(0, 0)],
+                apply_ufunc_results["delay"][(1, 1)],
             ],
             axis=-1,
         ).reshape(ntime, nant, 2),
         offset=da.stack(
             [
-                apply_ufunc_results["offset"]["XX"],
-                apply_ufunc_results["offset"]["YY"],
+                apply_ufunc_results["offset"][(0, 0)],
+                apply_ufunc_results["offset"][(1, 1)],
             ],
             axis=-1,
         ).reshape(ntime, nant, 2),
@@ -263,14 +272,17 @@ def apply_delay_to_gaintable(
     -------
         Gaintable with updated gains
     """
-    new_gains = gaintable["gain"].copy()
+    # Storing and manpulating dask array directly to avoid complications
+    # of merging coordinates when using xr.concat
+    gain_da_per_pol: dict[tuple, da.Array] = dict()
 
-    # We calculate delays only for XX and YY terms
-    for pol, rec1idx, rec2idx in (("XX", 0, 0), ("YY", 1, 1)):
+    # We calculate delays only for diagonal terms
+    # gaintable stores them in 2x2 matrix (receptor1, receptor2)
+    # while delaytable stores them in 1x2 array
+    for delay_pol_idx, rec1idx, rec2idx in ((0, 0, 0), (1, 1, 1)):
         gain = gaintable["gain"][..., rec1idx, rec2idx]
-        frequency = gaintable["frequency"]
-        delay = delaytable["delay"].sel(pol=pol)
-        offset = delaytable["offset"].sel(pol=pol)
+        delay = delaytable["delay"].isel(pol=delay_pol_idx)
+        offset = delaytable["offset"].isel(pol=delay_pol_idx)
 
         # calculate_gain_rot can operate on a single gain value
         # or a chunk along frequency dimension
@@ -282,15 +294,29 @@ def apply_delay_to_gaintable(
             gain,
             delay,
             offset,
-            frequency,
+            gaintable["frequency"],
             output_dtypes=[gain.dtype],
             dask="parallelized",
             kwargs=dict(inverse=inverse),
         )
 
-        new_gains[..., rec1idx, rec2idx] = delay_rotated_gain
+        # Expected shape of delay_rotated_gain: (time, ant, freq)
+        gain_da_per_pol[(rec1idx, rec2idx)] = delay_rotated_gain.data
 
-    return gaintable.assign(gain=with_chunks(new_gains, gaintable.chunks))
+    _new_gain_da = stack_2x2(
+        gain_da_per_pol[(0, 0)], None, None, gain_da_per_pol[(1, 1)]
+    )
+
+    return gaintable.assign(
+        gain=with_chunks(
+            xr.DataArray(
+                _new_gain_da,
+                dims=gaintable["gain"].dims,
+                coords=gaintable["gain"].coords,
+            ),
+            gaintable.chunks,
+        )
+    )
 
 
 def update_delay(
@@ -414,26 +440,25 @@ def calculate_gain_rot(
 
 
 def create_delaytable_from_vis(
-    vis: xr.Dataset, gaintable: xr.Dataset, refant: int, oversample: int
-) -> xr.Dataset:
+    vis: Visibility, gaintable: GainTable, refant: int, oversample: int
+) -> DelayTable:
     """
     Calculates delays from visibility data by processing each solution interval
 
     Parameters
     ----------
-    vis: xarray
+    vis
         Visibility data. If backed by a dask array, can be chunked in time
         and frequency axis.
-    gaintable: xarray
+    gaintable
         Gaintable containing solution intervals.
-    refant: int
+    refant
         Reference antenna
-    oversample: int
+    oversample
         Oversample rate required for the delay
 
     Returns
     -------
-    xr.Dataset
         Dataset of calculated delays
     """
 

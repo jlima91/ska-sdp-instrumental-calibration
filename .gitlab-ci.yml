@@ -8,6 +8,8 @@ stages:
   - scan
   - publish
   - pages
+  - integration-setup
+  - integration-test
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -28,3 +30,44 @@ include:
       - 'gitlab-ci/includes/finaliser.gitlab-ci.yml'
       # SonarQube Scan
       - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
+
+integration-setup:
+  stage: integration-setup
+  script:
+    - |
+      VERSION=$(git -c 'versionsort.suffix=-' \
+      ls-remote --exit-code --refs --sort='version:refname' --tags https://gitlab.com/ska-telescope/sdp/ska-sdp-spack.git '*.*.*' \
+      | tail --lines=1 \
+      | cut --delimiter='/' --fields=3)
+
+      COMMIT_SHORT_SHA=$(git ls-remote https://gitlab.com/ska-telescope/sdp/ska-sdp-spack.git HEAD | cut -c 1-8)
+      echo "SKA_SDP_SPACK_IMAGE=registry.gitlab.com/ska-telescope/sdp/ska-sdp-spack/ska-sdp-spack-ubuntu:${VERSION}-dev.c${COMMIT_SHORT_SHA}" > build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never
+
+integration-test:
+  image:
+    name: $SKA_SDP_SPACK_IMAGE
+  variables:
+    FF_KUBERNETES_HONOR_ENTRYPOINT: true
+  tags:
+    - ${SKA_DEFAULT_RUNNER}
+  dependencies:
+    - integration-setup
+  stage: integration-test
+  script:
+    - |
+      export PYTHONPATH=$PWD/src/:$PYTHONPATH
+      python -m unittest discover tests/validation/ -p "*.py"
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never

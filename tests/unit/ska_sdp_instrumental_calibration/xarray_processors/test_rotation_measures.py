@@ -1,14 +1,17 @@
-import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
-from mock import ANY, MagicMock, Mock, call, patch
+from mock import ANY, Mock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
-    ModelRotationData,
+    RotationMeasureData,
+    compute_rm_parameters,
     fit_curve,
+    get_plot_params_for_station,
     get_rm_spec,
     get_stn_masks,
     model_rotations,
+    model_rotations_ufunc,
     update_jones_with_masks,
 )
 
@@ -31,12 +34,12 @@ def setup_test_data():
     mock_gaintable = xr.Dataset(
         {
             "gain": (
-                ("time", "antenna", "frequency", "pol1", "pol2"),
+                ("time", "antenna", "frequency", "receptor1", "receptor2"),
                 gain_data,
             ),
             "weight": (
-                ("time", "antenna", "frequency"),
-                np.ones((1, nstations, nfreq)),
+                ("time", "antenna", "frequency", "receptor1", "receptor2"),
+                np.ones((1, nstations, nfreq, 2, 2)),
             ),
         },
         coords={
@@ -51,11 +54,10 @@ def setup_test_data():
 def test_model_rotation_data_initialization():
     nstations, nfreq, refant, mock_gaintable = setup_test_data()
 
-    rot_data = ModelRotationData(mock_gaintable, refant)
+    rot_data = model_rotations(mock_gaintable, refant=refant)
 
-    assert rot_data.nstations == nstations
-    assert rot_data.nfreq == nfreq
-    assert rot_data.refant == refant
+    assert len(rot_data.antenna) == nstations
+    assert len(rot_data.frequency) == nfreq
 
     expected_lambda_sq = [
         8.98755179,
@@ -72,222 +74,44 @@ def test_model_rotation_data_initialization():
 
     np.testing.assert_allclose(rot_data.lambda_sq, expected_lambda_sq)
 
-    assert rot_data.rm_res > 0
-    assert rot_data.rm_max > 0
-    assert len(rot_data.rm_vals) > 0
-    assert rot_data.phasor.shape == (len(rot_data.rm_vals), nfreq)
-
-    assert rot_data.J.shape == (nstations, nfreq, 2, 2)
-    assert rot_data.rm_est.shape == (nstations,)
-    assert rot_data.rm_peak.shape == (nstations,)
-    assert rot_data.const_rot.shape == (nstations,)
-    assert rot_data.rm_spec is None
-
-
-def test_model_rotation_data_value_error():
-    nstations, nfreq, refant, _ = setup_test_data()
-
-    incorrect_gain_data = np.random.rand(1, nstations, nfreq, 1, 1)
-    incorrect_gaintable = xr.Dataset(
-        {
-            "gain": (
-                ("time", "antenna", "frequency", "pol1", "pol2"),
-                incorrect_gain_data,
-            )
-        },
-        coords={
-            "time": [0],
-            "antenna": [f"ant{i}" for i in range(nstations)],
-            "frequency": np.linspace(1e8, 2e8, nfreq),
-        },
+    assert rot_data.J.shape == (1, nstations, nfreq, 2, 2)
+    assert rot_data.rm_est.shape == (
+        1,
+        nstations,
     )
-    exception_caught = False
-    try:
-        ModelRotationData(incorrect_gaintable, refant)
-    except ValueError as e:
-        exception_caught = True
-        assert str(e) == "gaintable must contain Jones matrices"
-    assert exception_caught, "ValueError was not raised when expected"
+    assert rot_data.rm_peak.shape == (
+        1,
+        nstations,
+    )
+    assert rot_data.const_rot.shape == (
+        1,
+        nstations,
+    )
+    assert rot_data.rm_spec is not None
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.ModelRotationData"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.calculate_phi_raw"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.get_stn_masks"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.update_jones_with_masks"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.get_rm_spec"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.fit_curve"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.from_delayed"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.linalg.norm"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.abs"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.max"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.argmax"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.where"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.cos"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.sin"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors."
-    "rotation_measures.dask.array.hstack"
-)
-def test_model_rotations_function_without_fit(
-    mock_dask_hstack,
-    mock_dask_sin,
-    mock_dask_cos,
-    mock_dask_where,
-    mock_dask_argmax,
-    mock_dask_max,
-    mock_dask_abs,
-    mock_norm,
-    mock_from_delayed,
-    mock_fit_curve,
-    mock_get_rm_spec,
-    mock_update_jones_with_masks,
-    mock_get_stn_masks,
-    mock_calculate_phi_raw,
-    MockModelRotationData,
-):
+def test_should_generate_model_rotation_data_without_refinement():
+    _, __, ___, mock_gaintable = setup_test_data()
 
-    mock_gaintable = MagicMock(spec=xr.Dataset)
-    mock_gaintable.weight = MagicMock(name="gaintable_weight")
+    rot_data = model_rotations(mock_gaintable, refine_fit=False)
 
-    mock_rotations_instance = MagicMock(spec=ModelRotationData)
-    mock_rotations_instance.nstations = 3
-    mock_rotations_instance.nfreq = 5
-
-    mock_rotations_instance.rm_vals = MagicMock(
-        spec=da.Array, name="mock_rm_vals"
-    )
-    mock_rotations_instance.phasor = MagicMock(
-        spec=da.Array, name="mock_phasor"
-    )
-    mock_rotations_instance.lambda_sq = MagicMock(
-        spec=da.Array, name="mock_lambda_sq"
-    )
-    mock_rotations_instance.J = MagicMock(
-        spec=da.Array, name="mock_J"
-    )  # noqa: E501
-    MockModelRotationData.return_value = mock_rotations_instance
-    mock_norms_dask_array = MagicMock(
-        spec=da.Array, name="mock_norms_dask_array"
-    )
-    mock_norms_dask_array.__getitem__.return_value = MagicMock(  # noqa: E501
-        spec=da.Array, name="mock_norms_slice"
-    )
-    mock_norms_dask_array.__getitem__.return_value.__gt__.return_value = (
-        MagicMock(spec=da.Array, name="mock_norms_gt_result")  # noqa: E501
-    )
-    mock_norm.return_value = mock_norms_dask_array
-    mock_mask_dask_array = MagicMock(
-        spec=da.Array, name="mock_mask_dask_array"
-    )
-    mock_rm_spec_dask_array = MagicMock(
-        spec=da.Array, name="mock_rm_spec_dask_array"
-    )
-    mock_fit_rm_dask_array = MagicMock(
-        spec=da.Array, name="mock_fit_rm_dask_array"
-    )
-
-    mock_phi_raw = MagicMock(spec=da.Array, name="mock_phi_raw")
-
-    mock_from_delayed.side_effect = [
-        mock_mask_dask_array,
-        mock_rotations_instance.J,
-        mock_phi_raw,
-        mock_rm_spec_dask_array,
-        mock_fit_rm_dask_array,
-    ]
-
-    mock_mask_dask_array.__and__.return_value = MagicMock(
-        spec=da.Array, name="final_mask_dask_array"
-    )
-
-    mock_fit_rm_dask_array.__getitem__.side_effect = lambda idx: MagicMock(
-        spec=da.Array
-    )  # noqa: E501
-
-    mock_get_stn_masks.return_value = np.ones((3, 5), dtype=bool)
-    mock_update_jones_with_masks.return_value = mock_rotations_instance.J
-    mock_get_rm_spec.return_value = np.random.random((3, 199))
-    mock_fit_curve.return_value = np.array([0.123, 0.456])
-
-    mock_dask_abs.return_value = MagicMock(spec=da.Array)
-    mock_dask_max_result = MagicMock(
-        spec=da.Array, name="mock_dask_max_result"
-    )
-
-    mock_dask_max_result.__gt__.return_value = MagicMock(
-        spec=da.Array, name="mock_dask_max_gt_result"
-    )
-    mock_dask_max.return_value = mock_dask_max_result
-    mock_dask_argmax.return_value = MagicMock(spec=da.Array)
-
-    mock_rotations_instance.rm_vals.__getitem__.return_value = MagicMock(
-        spec=da.Array, name="mock_rm_vals_indexed_result"
-    )
-
-    model_rotations(
-        mock_gaintable, peak_threshold=0.5, refine_fit=False, refant=1
-    )
-    mock_fit_curve.assert_not_called()
+    np.testing.assert_allclose(rot_data.const_rot, 0)
 
 
 def test_should_generate_rm_spec():
-    phi_raw = np.zeros((2, 3))
-    mask = np.array([[True, True, False], [False, True, True]])
-    phasor = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+    resolutions = np.array([0, 1, 1])
 
-    expected = np.array(
-        [[1.5, 4.5], [2.5, 5.5]], dtype=np.float64
-    )  # pylint: disable=no-member
+    l_sq = np.array([0, 1, 0])
+    phi_raw = np.array([0, 100, 1000])
+    mask = np.array([True, False, False])
 
-    out = get_rm_spec(  # pylint: disable=no-member
-        phi_raw, mask, phasor
-    ).compute()  # pylint: disable=no-member
-    np.testing.assert_allclose(out, expected)
+    expected = np.array([1.0 + 0.0j, 1.0 + 0.0j, 1.0 + 0.0j])
+
+    out = get_rm_spec(phi_raw, mask, resolutions, l_sq, chunk_size=3)
+    np.testing.assert_allclose(out, expected, rtol=1e-6)
 
 
-def test_should_calculate_phi_raw():
+def test_should_update_jones_with_mask():
     nstations = 2
     nfreq = 2
 
@@ -322,8 +146,8 @@ def test_should_calculate_phi_raw():
     ]
 
     out = update_jones_with_masks(  # pylint: disable=no-member
-        jones, mask, norms, nstations
-    ).compute()  # pylint: disable=no-member
+        jones, mask, norms
+    )  # pylint: disable=no-member
     np.testing.assert_allclose(out, jones_expected)
 
 
@@ -336,29 +160,8 @@ def test_get_station_masks_when_refant_weights_are_all_zeros():
     weight[0, 1, :, 1, 1] = 1
     refant = 1
 
-    expected = (
-        (weight[0, :, :, 0, 0] > 0)
-        & (weight[0, :, :, 1, 1] > 0)
-        & (weight[0, refant, :, 0, 0] > 0)
-        & (weight[0, refant, :, 1, 1] > 0)
-    )
-
-    out = get_stn_masks(weight, refant).compute()
-    np.testing.assert_array_equal(out, expected)
-
-
-def test_get_station_masks_when_refant_weights_are_non_zero():
-    ntime, nstn, nfreq, npol1, npol2 = (1, 2, 2, 2, 2)
-    weight = np.ones((ntime, nstn, nfreq, npol1, npol2))
-    weight[0, 0, :, 0, 1] = 2
-    refant = 0
-
-    expected = np.all(weight[0, :] > 0, axis=(2, 3)) & np.all(
-        weight[0, refant] > 0, axis=(1, 2)
-    )
-
-    out = get_stn_masks(weight, refant).compute()
-    np.testing.assert_array_equal(out, expected)
+    out = get_stn_masks(weight[0, 0, ...], weight[0, refant, ...])
+    np.testing.assert_array_equal(out, [True, True])
 
 
 @patch(
@@ -366,9 +169,8 @@ def test_get_station_masks_when_refant_weights_are_non_zero():
     ".rotation_measures.curve_fit"
 )
 def test_should_fit_curve(curve_fit_mock):
-    nstations = 2
     lambda_sq_mock = Mock(name="lambda sq")
-    exp_stack_mock = [Mock(name="exp stack 0"), Mock(name="exp stack 1")]
+    exp_stack = [-1, 0]
     rm_est_mock = [Mock(name="rm est 0"), Mock(name="rm est 1")]
 
     curve_fit_mock.side_effect = [
@@ -377,21 +179,99 @@ def test_should_fit_curve(curve_fit_mock):
     ]
 
     out = fit_curve(  # pylint: disable=no-member
-        lambda_sq_mock, exp_stack_mock, rm_est_mock, nstations
-    ).compute()
-
-    expected = np.array([[2.0, 3.0], [1.0, 1.5]])
-
-    curve_fit_mock.assert_has_calls(
-        [
-            call(
-                ANY, lambda_sq_mock, exp_stack_mock[0], p0=[rm_est_mock[0], 0]
-            ),
-            call(
-                ANY, lambda_sq_mock, exp_stack_mock[1], p0=[rm_est_mock[1], 0]
-            ),
-        ]
+        lambda_sq_mock, [np.pi], rm_est_mock
     )
 
-    assert curve_fit_mock.call_count == nstations
+    expected = np.array([2.0, 1.0])
+
+    curve_fit_mock.assert_called_once_with(ANY, lambda_sq_mock, ANY, p0=ANY)
+    assert all(curve_fit_mock.call_args.args[2].astype(int) == exp_stack)
+    assert curve_fit_mock.call_args.kwargs["p0"][0] == rm_est_mock
+    assert curve_fit_mock.call_args.kwargs["p0"][1] == 0
     np.testing.assert_allclose(out, expected)
+
+
+def test_should_compute_rm_parameters():
+    freq = [1.0e9, 1.1e9]
+    oversample = 2
+
+    l_sq, rm_vals = compute_rm_parameters(freq, oversample)
+
+    np.testing.assert_allclose(l_sq, [0.089876, 0.074277], rtol=10e-5)
+    np.testing.assert_allclose(
+        rm_vals, [-64.10984, -32.05492, 0.0, 32.054924], rtol=10e-5
+    )
+
+
+def test_should_get_plot_params_for_station():
+    resolutions = np.array([1, 2])
+    l_sq = np.array([1, 2])
+    rm_data = RotationMeasureData.constructor(
+        time=np.array([1, 2]),
+        antenna=np.array([1, 2]),
+        frequency=np.array([1, 2]),
+        resolution=resolutions,
+        receptor1=["XX"],
+        receptor2=["YY"],
+        lambda_sq=l_sq,
+        rm_spec=np.arange(8).reshape(2, 2, 2),
+        rm_est=np.arange(4).reshape(2, 2),
+        rm_peak=np.arange(4).reshape(2, 2),
+        const_rot=np.arange(4).reshape(2, 2),
+        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+    )
+
+    plot_params = get_plot_params_for_station(rm_data, 1, 0, time=None)
+    assert plot_params["stn"] == 1
+    assert plot_params["xlim"].compute() == 30
+    assert all(plot_params["rm_vals"] == resolutions)
+    assert all(plot_params["lambda_sq"] == l_sq)
+    np.testing.assert_allclose(plot_params["rm_spec"], [[2, 3], [6, 7]])
+    np.testing.assert_allclose(plot_params["rm_peak"], [1, 3])
+    np.testing.assert_allclose(plot_params["rm_est"], [1, 3])
+    np.testing.assert_allclose(plot_params["rm_est_refant"], [0, 2])
+
+
+def test_should_get_plot_params_for_station_and_time():
+    resolutions = np.array([1, 2])
+    l_sq = np.array([1, 2])
+    rm_data = RotationMeasureData.constructor(
+        time=np.array([1, 2]),
+        antenna=np.array([1, 2]),
+        frequency=np.array([1, 2]),
+        resolution=resolutions,
+        receptor1=["XX"],
+        receptor2=["YY"],
+        lambda_sq=l_sq,
+        rm_spec=np.arange(8).reshape(2, 2, 2),
+        rm_est=np.arange(4).reshape(2, 2),
+        rm_peak=np.arange(4).reshape(2, 2),
+        const_rot=np.arange(4).reshape(2, 2),
+        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+    )
+
+    plot_params = get_plot_params_for_station(rm_data, 1, 0)
+    assert plot_params["stn"] == 1
+    assert plot_params["xlim"].compute() == 10
+    assert all(plot_params["rm_vals"] == resolutions)
+    assert all(plot_params["lambda_sq"] == l_sq)
+    np.testing.assert_allclose(plot_params["rm_spec"], [2, 3])
+    np.testing.assert_allclose(plot_params["rm_peak"], [1])
+    np.testing.assert_allclose(plot_params["rm_est"], [1])
+    np.testing.assert_allclose(plot_params["rm_est_refant"], [0])
+
+
+def test_should_raise_value_error_for_freq_not_provided():
+    with pytest.raises(
+        ValueError,
+        match=r"frequency must be provided if rm_vals or lambda_sq are None",
+    ):
+        model_rotations_ufunc(
+            None,
+            None,
+            None,
+            None,
+            rm_vals=None,
+            lambda_sq=None,
+            frequency=None,
+        )

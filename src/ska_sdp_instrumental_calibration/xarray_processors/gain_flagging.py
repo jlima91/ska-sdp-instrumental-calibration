@@ -6,8 +6,11 @@ import xarray as xr
 from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
+from ska_sdp_datamodels.calibration import GainTable
 
+from ..numpy_processors._utils import stack_2x2
 from ..scheduler import delayed
+from ._utils import with_chunks
 
 logger = logging.getLogger()
 
@@ -36,10 +39,10 @@ def log_flaging_statistics(
     antna_percent_flagged = (current_flagged / total_elements) * 100
 
     @delayed
-    def _execute_log(percentages):
-        min_percent = float(percentages.min())
-        max_percent = float(percentages.max())
-        median_percent = float(np.median(percentages))
+    def log_stats(_antenna_percnt_flags):
+        min_percent = float(_antenna_percnt_flags.min())
+        max_percent = float(_antenna_percnt_flags.max())
+        median_percent = float(np.median(_antenna_percnt_flags))
 
         logger.info(
             f"Gain flagging: Statistics "
@@ -48,7 +51,7 @@ def log_flaging_statistics(
             f" max: {max_percent:.2f}%."
         )
 
-    return _execute_log(antna_percent_flagged)
+    return log_stats(antna_percent_flagged)
 
 
 class SmoothingFit:
@@ -575,7 +578,7 @@ def _flag_wrapper_ufunc_(
     -------
         A variable length tuple of numpy arrays, containing:
 
-        - New flags with shape (freq)
+        - New flags. Shape: (freq,). Dtype: bool
         - Curve fits corresponding to each solution (amp / phase / real / imag)
           Size of the tuple depends on how many type of fits were applied.
     """
@@ -605,7 +608,7 @@ def _fit_names(soltype: str):
 
 
 def flag_on_gains(
-    gaintable: xr.Dataset,
+    gaintable: GainTable,
     soltype: str,
     order: int,
     max_ncycles: int,
@@ -615,7 +618,7 @@ def flag_on_gains(
     normalize_gains: bool,
     skip_cross_pol: bool,
     apply_flag: bool,
-) -> xr.Dataset:
+) -> tuple[GainTable, dict[str, xr.DataArray]]:
     """
     Solves for gain flagging on gaintable for every receptor combination.
     Optionally applies the weights to the gains.
@@ -650,20 +653,19 @@ def flag_on_gains(
 
     Returns
     -------
-        gaintable: Gaintable
-            Updated gaintable with weights.
-        fits: dict
-            All fits generated.
+        gaintable
+            Updated gaintable. Weights are updated as per the flags
+            and optionally gains are flagged.
+        fits
+            A mapping from fitting type (name) to the dataarray containing
+            the fits value
     """
     original_chunks = gaintable.chunksizes
     gaintable = gaintable.chunk(time=1, antenna=1, frequency=-1)
-
-    freq = gaintable["frequency"].values
     # Create a datarray to store antenna names
     # Rename "id" dimension from configuration to "antenna"
     # to match with gaintable's dimensions
     antenna_names_xdr = gaintable.configuration["names"].rename(id="antenna")
-
     fit_names = _fit_names(soltype)
     cfg = dict(
         soltype=soltype,
@@ -675,17 +677,15 @@ def flag_on_gains(
     )
 
     output_core_dims = [["frequency"]] * (1 + len(fit_names))
-    output_dtypes = [gaintable["weight"].dtype] + [float] * len(fit_names)
+    output_dtypes = [bool] + [np.float64] * len(fit_names)
 
-    fits = {
-        name: xr.zeros_like(gaintable["gain"], dtype=float)
-        for name in fit_names
-    }
-    flags = xr.zeros_like(gaintable["weight"], dtype=bool)
+    # Dictionaries to collect computed blocks
+    flag_da_per_pol = dict()
+    fits_per_fitnames_per_pol = {name: dict() for name in fit_names}
 
-    for rec1idx, rec2idx in np.ndindex(
-        gaintable.sizes["receptor1"], gaintable.sizes["receptor2"]
-    ):
+    # Iterate over each pol in gaintable
+    # gaintable is assumed be of shape [..., 2, 2]
+    for rec1idx, rec2idx in np.ndindex(2, 2):
         if skip_cross_pol and rec1idx != rec2idx:
             continue
 
@@ -697,8 +697,8 @@ def flag_on_gains(
 
             results = xr.apply_ufunc(
                 _flag_wrapper_ufunc_,
-                gaintable.gain[..., rec1idx, rec2idx],
-                gaintable.weight[..., rec1idx, rec2idx],
+                gaintable["gain"][..., rec1idx, rec2idx],
+                gaintable["weight"][..., rec1idx, rec2idx],
                 antenna_names_xdr,
                 input_core_dims=[["frequency"], ["frequency"], []],
                 output_core_dims=output_core_dims,
@@ -706,26 +706,55 @@ def flag_on_gains(
                 vectorize=True,
                 dask="parallelized",
                 kwargs=dict(
-                    freq=freq,
+                    freq=gaintable["frequency"].values,
                     cfg=cfg,
-                    receptor1_name=gaintable["receptor1"][rec1idx].item(),
-                    receptor2_name=gaintable["receptor2"][rec2idx].item(),
+                    receptor1_name=gaintable["receptor1"][rec1idx].data,
+                    receptor2_name=gaintable["receptor2"][rec2idx].data,
                 ),
             )
 
-        flags[..., rec1idx, rec2idx] = results[0]
-
+        key = (rec1idx, rec2idx)
+        flag_da_per_pol[key] = results[0].data
         for i, name in enumerate(fit_names, start=1):
-            fits[name][..., rec1idx, rec2idx] = results[i]
+            fits_per_fitnames_per_pol[name][key] = results[i].data
 
-    new_weights = gaintable.weight
-    new_weights = xr.where(flags, 0.0, new_weights)
+    # Assemble flags DataArray
+    flags_da = stack_2x2(
+        xx=flag_da_per_pol.get((0, 0)),
+        xy=flag_da_per_pol.get((0, 1)),
+        yx=flag_da_per_pol.get((1, 0)),
+        yy=flag_da_per_pol.get((1, 1)),
+    )
+    flags_xdr = xr.DataArray(
+        flags_da,
+        dims=gaintable["weight"].dims,
+        coords=gaintable["weight"].coords,
+    )
+    gaintable = gaintable.assign(
+        weight=xr.where(flags_xdr, 0.0, gaintable["weight"])
+    )
 
     if apply_flag:
-        new_gain = xr.where(flags, 0.0, gaintable.gain)
-        gaintable = gaintable.assign(gain=new_gain)
+        gaintable = gaintable.assign(
+            gain=xr.where(flags_xdr, 0.0j, gaintable["gain"])
+        )
+
+    # Assemble fits DataArrays
+    fits: dict[str, xr.DataArray] = dict()
+    for name in fit_names:
+        fit_da = stack_2x2(
+            xx=fits_per_fitnames_per_pol[name].get((0, 0)),
+            xy=fits_per_fitnames_per_pol[name].get((0, 1)),
+            yx=fits_per_fitnames_per_pol[name].get((1, 0)),
+            yy=fits_per_fitnames_per_pol[name].get((1, 1)),
+        )
+        fits[name] = xr.DataArray(
+            fit_da,
+            dims=gaintable["weight"].dims,
+            coords=gaintable["weight"].coords,
+        )
 
     return (
-        gaintable.assign(weight=new_weights).chunk(original_chunks),
+        with_chunks(gaintable, original_chunks),
         fits,
     )

@@ -16,7 +16,7 @@ from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.predict import predict_vis
-from ..xarray_processors.rotation_measures_new import (
+from ..xarray_processors.rotation_measures import (
     get_plot_params_for_station,
     model_rotations,
 )
