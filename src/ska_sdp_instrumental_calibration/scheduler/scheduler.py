@@ -238,7 +238,6 @@ class InstrumentalDaskRunner(DaskRunner):
         """
 
         output = UpstreamOutput()
-        computes = []
         for stage in self.pipeline.executable_stages:
             logger.info(
                 f"Starting {stage.name}",

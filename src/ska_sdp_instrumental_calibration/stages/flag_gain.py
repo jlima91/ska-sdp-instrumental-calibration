@@ -14,7 +14,7 @@ from ._utils import get_gaintables_path, get_plots_path
 from .configuration_models import PlotFlagGainConfig
 
 
-@ConfigurableStage(name="flag_gain", optional=False)
+@ConfigurableStage(name="flag_gain", optional=True)
 def flag_gain_stage(
     _upstream_output_,
     _qa_dir_,
