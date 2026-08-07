@@ -1045,3 +1045,19 @@ def read_ms_field_id(ms_path: str):
         field_id = tb.getcol("NAME")[0]
 
     return field_id if field_id else "UNKNOWN_FIELD"
+
+
+def read_antenna_response_data(ms_path: str):
+
+    with table(f"{ms_path}/FIELD", readonly=True) as tb:
+        delay_dir = tb.getcol("DELAY_DIR").flatten()
+
+    with table(f"{ms_path}/PHASED_ARRAY", readonly=True) as tb:
+        coordinate_axes = tb.getcol("COORDINATE_AXES")[0].T
+        element_offset = tb.getcol("ELEMENT_OFFSET")[0].T
+
+    return dict(
+        delay_dir=delay_dir,
+        coordinate_axes=coordinate_axes,
+        element_offset=element_offset,
+    )

@@ -9,6 +9,7 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel
+from ..data_managers.visibility import read_antenna_response_data
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis
@@ -175,11 +176,16 @@ def predict_visibilities(
         logger.info("Using EveryBeam model in predict")
         eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
+        # extract stuff from eb_ms, and attach it to vis.configuration
+        cc = vis.configuration.assign_attrs(
+            **read_antenna_response_data(eb_ms)
+        )
+
         beams_factory = BeamsFactory(
             nstations=vis.configuration.id.size,
             array_location=vis.configuration.location,
             direction=vis.phasecentre,
-            ms_path=eb_ms,
+            cc=cc,
             element_response_model=element_response_model,
         )
 

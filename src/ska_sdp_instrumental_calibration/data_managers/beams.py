@@ -69,7 +69,7 @@ class BeamsLow:
         array_location: EarthLocation,
         direction: SkyCoord,
         frequency: np.ndarray,
-        ms_path: str,
+        cc: str,
         soln_time: float,
         element_response_model: str,
     ):
@@ -77,7 +77,6 @@ class BeamsLow:
         self.array_location = array_location
         self.beam_direction = direction
         self.frequency = frequency
-        self.beam_ms = ms_path
         self.element_response_model = element_response_model
 
         self.delay_dir_itrf = None
@@ -94,9 +93,41 @@ class BeamsLow:
             self.beam_direction, self.solution_time
         )
 
-        self.telescope = eb.load_telescope(  # pylint: disable=I1101
-            self.beam_ms,
-            element_response_model=element_response_model,
+        root_node = eb.StationNode()
+
+        # taql 'select str(COORDINATE_AXES,20.15) from OSKAR_MOCK.ms/PHASED_ARRAY'
+        coordinate_axes = cc.attrs["coordinate_axes"]
+
+        # taql 'select str(ELEMENT_OFFSET,20.15) from OSKAR_MOCK.ms/PHASED_ARRAY limit 1'
+        element_offsets = cc.attrs["element_offset"]
+
+        # Extracted using: taql 'select str(DELAY_DIR,20.15) from OSKAR_MOCK.ms/FIELD'
+        delay_directions = cc.attrs["delay_dir"]
+
+        for i in cc.id:
+            position = cc.xyz[i].data
+            station_node = eb.StationNode(
+                coordinate_system=eb.StationCoordinateSystem(
+                    position, coordinate_axes
+                ),
+                name=f"{cc.names[i].data}",
+            )
+
+            for offset in element_offsets:
+                station_node.add_child_element(offset)
+
+            root_node.add_child_node(station_node, position)
+
+        options = eb.Options()
+        options.element_response_model = (
+            eb.ElementResponseModel.oskar_dipole_cos
+        )
+
+        self.telescope = eb.create_telescope(
+            eb.TelescopeType.OSKAR,
+            options,
+            root_node,
+            delay_directions=delay_directions,
         )
 
         self.scale = np.ones(
@@ -230,7 +261,7 @@ class BeamsFactory:
     nstations: int
     array_location: EarthLocation
     direction: SkyCoord
-    ms_path: str
+    cc: str
     element_response_model: str
 
     def get_beams_low(self, frequency, soln_time) -> BeamsLow:

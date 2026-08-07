@@ -165,13 +165,10 @@ def predict_vis(
         local_sky_model = gsm.get_local_sky_model(
             soln_time[idx], vis.configuration.location
         )
-        uvw = vis.uvw.isel(time=slc)
-        original_chunks = uvw.chunksizes
-        uvw = uvw.chunk({dim: -1 for dim in uvw.dims})
 
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
-            uvw,
+            vis.uvw.isel(time=slc),
             *common_input_args,
             input_core_dims=[
                 ["baselineid", "spatial"],
@@ -192,9 +189,6 @@ def predict_vis(
                 **input_kwargs,
                 local_sky_model=local_sky_model,
             ),
-        )
-        predicted_per_soln_time = predicted_per_soln_time.pipe(
-            with_chunks, original_chunks
         )
 
         predicted_per_soln_time = predicted_per_soln_time.transpose(
