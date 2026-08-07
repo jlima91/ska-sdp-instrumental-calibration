@@ -24,15 +24,27 @@ PROJECT_ID="62495323" # Replace with your GitLab project ID
 read local_ref ignored_inputs
 # Get the name of the branch being pushed
 branch=$(git rev-parse --symbolic --abbrev-ref "$local_ref")
+branch_encoded=$(jq -rn --arg v "$branch" '$v|@uri')
 
-# Fetch the latest pipeline for the specified branch
+# Prefer MR pipeline for open MRs on this branch, then fall back to branch pipeline
 echo -e "\nPulling pipeline info...\n"
-pipeline_info=$(curl -s "${GITLAB_ENDPOINT}/projects/${PROJECT_ID}/pipelines/latest?ref=${branch}")
+mr_info=$(curl -s "${GITLAB_ENDPOINT}/projects/${PROJECT_ID}/merge_requests?state=opened&source_branch=${branch_encoded}&per_page=1")
+mr_iid=$(echo "$mr_info" | jq -r '.[0].iid // empty')
+
+if [[ -n "$mr_iid" ]]; then
+    echo "Open MR detected for branch ${branch}: !${mr_iid}"
+    mr_pipelines=$(curl -s "${GITLAB_ENDPOINT}/projects/${PROJECT_ID}/merge_requests/${mr_iid}/pipelines?per_page=1")
+    pipeline_info=$(echo "$mr_pipelines" | jq -c 'if length > 0 then .[0] else {} end')
+    pipeline_context="merge request !${mr_iid}"
+else
+    pipeline_info=$(curl -s "${GITLAB_ENDPOINT}/projects/${PROJECT_ID}/pipelines/latest?ref=${branch_encoded}")
+    pipeline_context="branch ${branch}"
+fi
 
 # Extract the pipeline ID and status
-pipeline_id=$(echo $pipeline_info | jq -r '.id')
-pipeline_status=$(echo $pipeline_info | jq -r '.status')
-pipeline_url=$(echo $pipeline_info | jq -r '.web_url')
+pipeline_id=$(echo "$pipeline_info" | jq -r '.id // "null"')
+pipeline_status=$(echo "$pipeline_info" | jq -r '.status // "unknown"')
+pipeline_url=$(echo "$pipeline_info" | jq -r '.web_url // empty')
 
 PROCEED_TO_PUSH=1
 # Check pipeline status
@@ -45,7 +57,7 @@ if [[ $pipeline_id != "null" ]]; then
         PROCEED_TO_PUSH=0
     fi
 else
-    echo -e "No pipeline found for branch ${branch}.\nThis might be due to this is a new branch.\n"
+    echo -e "No pipeline found for ${pipeline_context}.\n"
     PROCEED_TO_PUSH=0
 fi
 
