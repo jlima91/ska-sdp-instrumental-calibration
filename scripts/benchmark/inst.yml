@@ -4,9 +4,6 @@ global_parameters:
 parameters:
   load_data:
     nchannels_per_chunk: 16
-    ntimes_per_ms_chunk: 20
-  predict_vis:
-    fov: 10.0
   bandpass_initialisation:
     export_gaintable: false
   bandpass_calibration:
