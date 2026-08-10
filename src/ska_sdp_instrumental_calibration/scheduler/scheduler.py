@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Callable
+from typing import Any, Callable, ParamSpec
 
 from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
@@ -11,19 +11,20 @@ from .task_manager import task_manager
 
 logger = logging.getLogger()
 
+P = ParamSpec("Delayed Func Params")
 
-def delayed(func: Callable) -> Callable:
+
+def delayed(func: Callable[P, Any]) -> Callable[P, DeferredTask]:
     """
     Decorator to register a function as a deferred task.
 
     Parameters
     ----------
-    func : callable
+    func
         The function to defer.
 
     Returns
     -------
-    callable
         The wrapped function returning a DeferredTask.
     """
 

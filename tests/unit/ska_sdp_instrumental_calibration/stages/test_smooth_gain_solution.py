@@ -126,7 +126,7 @@ def test_should_plot_the_smoothed_gain_solution(
     )
 
     get_plots_path_mock.assert_called_once_with(
-        "./output/path", "ms_prefix_some/path"
+        "./output/path", "ms_prefix/some/path"
     )
     plot_gaintable_freq_mock.assert_called_once_with(
         path_prefix="./output/path/plots/some/path",
@@ -184,8 +184,8 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
 
     get_plots_path_mock.assert_has_calls(
         [
-            call("./output/path", "ms_prefix_some/path"),
-            call("./output/path", "ms_prefix_some/path_1"),
+            call("./output/path", "ms_prefix/some/path"),
+            call("./output/path", "ms_prefix/some/path_1"),
         ]
     )
 

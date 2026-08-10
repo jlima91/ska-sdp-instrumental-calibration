@@ -1,15 +1,12 @@
-import os
-
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.data_exports import (
+    INST_METADATA_FILE,
     concat_gaintables,
     export_gaintable_stage,
 )
 from ska_sdp_instrumental_calibration.tagger import Tags
-
-INST_METADATA_FILE = "ska-data-product.yaml"
 
 
 def test_should_have_the_expected_default_configuration():
@@ -172,10 +169,8 @@ def test_should_export_gaintable_as_hdf5(
         export_metadata=False,
     )
 
-    expected_path = os.path.join("dir/to/save", "field_a_test_gains.hdf5")
-
     export_gaintable_hdf5_mock.assert_called_once_with(
-        upstream_output.gaintable, expected_path
+        upstream_output.gaintable, "dir/to/save/field_a_test_gains.hdf5"
     )
     delayed_mock.assert_called_once_with(export_gaintable_hdf5_mock)
 
@@ -201,7 +196,7 @@ def test_should_export_metadata(
     concat_mock.return_value = upstream_output
     dataproduct_mock = Mock(name="dataproducts")
     dataproduct_mock.return_value = [
-        {"dp_path": "test_gains.h5parm", "description": "Gaintable"}
+        {"dp_path": "field_a_test_gains.h5parm", "description": "Gaintable"}
     ]
 
     export_gaintable_stage(
@@ -212,10 +207,9 @@ def test_should_export_metadata(
         export_metadata=True,
     )
 
-    expected_path = os.path.join("dir/to/save", INST_METADATA_FILE)
-
     inst_metadata_mock.assert_called_once_with(
-        expected_path, data_products=dataproduct_mock.return_value
+        f"dir/to/save/{INST_METADATA_FILE}",
+        data_products=dataproduct_mock.return_value,
     )
     export_gaintable_h5parm_mock.assert_called_once_with(
         upstream_output["gaintable"], "dir/to/save/field_a_test_gains.h5parm"

@@ -93,8 +93,8 @@ def parse_antenna(antenna: int | str, station_names: xr.DataArray) -> int:
         Reference antenna, specified either as an integer index or as a string
         name.
     station_names
-        Dataarray of station names, taken from the ska_sdp_datamodel.Configuration
-        datamodel
+        Dataarray of station names, taken from the
+        ``ska_sdp_datamodels.configuration.Configuration`` datamodel
 
     Returns
     -------

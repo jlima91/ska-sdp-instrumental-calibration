@@ -13,10 +13,6 @@ class DeferredTask:
     ----------
     func : callable
         The function to be deferred.
-    args_repack : callable
-        Function to repack positional arguments.
-    kwargs_repack : callable
-        Function to repack keyword arguments.
     args : tuple
         Positional arguments for the function.
     kwargs : dict
@@ -26,15 +22,6 @@ class DeferredTask:
     def __init__(self, func: Callable, *args, **kwargs):
         """
         Initialize a DeferredTask instance.
-
-        Parameters
-        ----------
-        func : callable
-            The function to be deferred.
-        args : tuple
-            Positional arguments for the function.
-        kwargs : dict
-            Keyword arguments for the function.
         """
         dask_args, args_repack = unpack_collections(args)
         dask_kwargs, kwargs_repack = unpack_collections(kwargs)
