@@ -32,9 +32,8 @@ def load_data_stage(
     ntimes_per_ms_chunk: Annotated[
         int,
         Field(
-            description="""Number of time slots to include in each chunk
-            while reading from measurement set and writing in zarr file.
-            This is also the size of time chunk used across the pipeline.""",
+            description="""Number of visibility time slots to include in each
+            time chunk of zarr file."""
         ),
     ] = 5,
     cache_directory: Annotated[
@@ -42,11 +41,11 @@ def load_data_stage(
         Field(
             description="""Cache directory containing previously stored
             visibility datasets as zarr files. The directory should contain
-            a subdirectory with same name as the input target ms file name,
-            which internally contains the zarr and pickle files.
+            a subdirectory with same name as the input ms file name, which
+            internally contains the zarr and pickle files.
             If None, the input ms will be converted to zarr file,
-            and this zarr file will be stored in a new 'cache'
-            subdirectory under the provided output directory.""",
+            and this zarr file will be stored in a new '.cache'
+            subdirectory under the provided output directory."""
         ),
     ] = None,
     timeslice: Annotated[
@@ -62,33 +61,27 @@ def load_data_stage(
     ] = 120.0,
     ack: Annotated[
         bool,
-        Field(
-            description="""Ask casacore to acknowledge each table operation""",
-        ),
+        Field(description="Ask casacore to acknowledge each table operation."),
     ] = False,
     datacolumn: Annotated[
         Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
         Field(
-            description="""MS data column to read visibility data from.""",
+            description="Measurement set data column name to read data from."
         ),
     ] = "DATA",
     field_id: Annotated[
         int,
-        Field(
-            description="""Field ID of the data in measurement set""",
-        ),
+        Field(description="Field ID of the data in measurement set"),
     ] = 0,
     data_desc_id: Annotated[
         int,
         Field(
-            description="""Data Description ID of the data in
-            measurement set""",
+            description="Data Description ID of the data in measurement set"
         ),
     ] = 0,
 ):
     """
-    This stage loads the target visibility data from either (in order of
-    preference):
+    This stage loads the visibility data from either (in order of preference):
 
     1. An existing dataset stored as a zarr file inside the 'cache_directory'.
     2. From input MSv2 measurement set. Here it will create an intemediate
@@ -102,20 +95,19 @@ def load_data_stage(
         Output from the upstream stage
     _output_dir_: str
         Piper builtin. Stores the output directory path.
-    input: CLIArgument
+    input_ms: CLIArgument
         Input measurementset.
     nchannels_per_chunk: int
         Number of frequency channels per chunk in the
-        written zarr file.
-    ntimes_per_ms_chunk: int
-        Number of time dimension to include in each chunk
-        while reading from measurement set and writing in zarr file.
-        This value is used across the pipeline,
+        written zarr file. This value is used across the pipeline,
         i.e. for zarr file and for the visibility dataset.
+    ntimes_per_ms_chunk: int
+        Number of visibility time slots to include in each
+        time chunk of zarr file
     cache_directory: str
         Cache directory containing previously stored
         visibility datasets as zarr files. The directory should contain
-        a subdirectory with same name as the input target ms file name, which
+        a subdirectory with same name as the input ms file name, which
         internally contains the zarr and pickle files.
         If None, the input ms will be converted to zarr file,
         and this zarr file will be stored in a new 'cache'
@@ -148,18 +140,21 @@ def load_data_stage(
     non_chunked_dims = {
         dim: -1
         for dim in [
+            "time",
             "baselineid",
             "polarisation",
             "spatial",
         ]
     }
-
     vis_chunks = {
         **non_chunked_dims,
-        "time": ntimes_per_ms_chunk,
         "frequency": nchannels_per_chunk,
     }
-
+    zarr_chunks = {
+        **vis_chunks,
+        "time": ntimes_per_ms_chunk,
+    }
+    # Its expected that later stages follow same chunking pattern
     _upstream_output_["chunks"] = vis_chunks
 
     if cache_directory is None:
@@ -181,16 +176,20 @@ def load_data_stage(
             "Writing converted visibilities to cache dir: %s",
             vis_cache_directory,
         )
+        writer = write_ms_to_zarr(
+            input_ms,
+            vis_cache_directory,
+            zarr_chunks,
+            ack=ack,
+            datacolumn=datacolumn,
+            field_id=field_id,
+            data_desc_id=data_desc_id,
+        )
+        logger.warning(
+            "Triggering eager compute to dump visibilities to zarr."
+        )
         with dask.annotate(resources={"process": 1}):
-            write_ms_to_zarr(
-                input_ms,
-                vis_cache_directory,
-                vis_chunks,
-                ack=ack,
-                datacolumn=datacolumn,
-                field_id=field_id,
-                data_desc_id=data_desc_id,
-            )
+            dask.compute(writer)
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
     gaintable = create_gaintable_from_visibility(vis, timeslice, "G")

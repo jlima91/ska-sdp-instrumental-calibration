@@ -1,5 +1,6 @@
 import os
 
+import dask
 import numpy as np
 import pytest
 from mock import MagicMock, patch
@@ -68,7 +69,8 @@ def test_visibility_write_and_read(tmp_path, generate_vis, generate_ms):
         "frequency": 2,
     }
 
-    write_ms_to_zarr(ms_path, cache_dir, zarr_chunks)
+    writer = write_ms_to_zarr(ms_path, cache_dir, zarr_chunks)
+    dask.compute(writer)
 
     assert check_if_cache_files_exist(cache_dir)
 
@@ -124,7 +126,8 @@ def test_visibility_write_and_read_for_multiple_ms_input(
         "frequency": 2,
     }
 
-    write_ms_to_zarr([ms_path, ms_path], cache_dir, zarr_chunks)
+    writer = write_ms_to_zarr([ms_path, ms_path], cache_dir, zarr_chunks)
+    dask.compute(writer)
 
     assert check_if_cache_files_exist(cache_dir)
 

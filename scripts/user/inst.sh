@@ -255,7 +255,7 @@ if not $disable_dask_cluster:
     batchlet_config["dask_params"] = {
         "threads_per_worker": $threads_per_worker,
         "memory_per_worker": "$memory_per_worker",
-        "resources_per_worker": "process=1",
+        "resources_per_worker": "process=$threads_per_worker",
         "worker_scratch_directory": "$temp_dir",
         "use_entry_node": True,
         "dask_cli_option": "--dask-scheduler",

@@ -75,8 +75,8 @@ cat <<EOF > $BATCHLET_CONFIG
   ],
   "dask_params": {
     "threads_per_worker": 4,
-    "memory_per_worker": "48GB",
-    "resources_per_worker": "process=1",
+    "memory_per_worker": "32GB",
+    "resources_per_worker": "process=4",
     "worker_scratch_directory": "$WORK_PATH",
     "use_entry_node": true,
     "dask_cli_option": "--dask-scheduler",
