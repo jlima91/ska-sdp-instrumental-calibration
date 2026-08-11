@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1
+
+1. Update all main dependencies. Added limits for breaking dependencies.
+
 ## 1.4.0
 
 ### Features
