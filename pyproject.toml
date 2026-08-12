@@ -1,7 +1,7 @@
 [tool.poetry]
 include = ["MANIFEST.skao.int"]
 name = "ska-sdp-instrumental-calibration"
-version = "1.4.1"
+version = "1.4.2"
 description = "SKA SDP Instrumental Calibration Pipeline"
 authors = [
     "Daniel Mitchell <daniel.mitchell@csiro.au>",
@@ -36,9 +36,11 @@ numpy = ">=1.26"
 # Error: MPL backend has no renderer
 matplotlib = ">=3.9.1, <3.11"
 python-casacore = ">=3.7.1"
+# datamodels and func-python removed LocalSkyComponent
+# and related functions. Thus limiting the versions.
 ska-sdp-datamodels = ">=1.4.0, <3"
-ska-sdp-func = ">=1.2"
 ska-sdp-func-python = ">=1.0.4, <2"
+ska-sdp-func = ">=1.2"
 ska-sdp-exec-piper = ">=2.1.0"
 ska-sdp-dataproduct-metadata = ">=1.0"
 

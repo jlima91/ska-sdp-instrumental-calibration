@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2
+
+1. Update benchmarking script to align with latest pipeline.
+2. Update development instructions.
+
 ## 1.4.1
 
 1. Update all main dependencies. Added limits for breaking dependencies.
