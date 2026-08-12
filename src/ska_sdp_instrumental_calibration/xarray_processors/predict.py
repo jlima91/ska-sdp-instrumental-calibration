@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import dask.array as da
 import numpy as np
@@ -66,8 +67,8 @@ def predict_vis(
     gsm: GlobalSkyModel,
     soln_time: np.ndarray,
     soln_interval_slices: list[slice],
-    beams_factory: BeamsFactory = None,
-    station_rm: xr.DataArray = None,
+    beams_factory: Optional[BeamsFactory] = None,
+    station_rm: Optional[xr.DataArray] = None,
 ) -> Visibility:
     """
     Predict visibilities from a Global Sky Model (Distributed).

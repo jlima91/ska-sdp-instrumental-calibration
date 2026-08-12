@@ -7,6 +7,8 @@ from astropy.coordinates import ITRS, AltAz, SkyCoord
 from astropy.coordinates.earth import EarthLocation
 from astropy.time import Time
 
+from .telescope import Telescope
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,20 +67,17 @@ class BeamsLow:
 
     def __init__(
         self,
-        nstations: int,
         array_location: EarthLocation,
         direction: SkyCoord,
         frequency: np.ndarray,
-        ms_path: str,
+        telescope: Telescope,
         soln_time: float,
-        element_response_model: str,
     ):
-        self.nstations = nstations
+
         self.array_location = array_location
         self.beam_direction = direction
         self.frequency = frequency
-        self.beam_ms = ms_path
-        self.element_response_model = element_response_model
+        self.telescope = telescope
 
         self.delay_dir_itrf = None
 
@@ -94,16 +93,11 @@ class BeamsLow:
             self.beam_direction, self.solution_time
         )
 
-        self.telescope = eb.load_telescope(  # pylint: disable=I1101
-            self.beam_ms,
-            element_response_model=element_response_model,
-        )
-
         self.scale = np.ones(
             (self.frequency.size,),
             dtype=self.frequency.dtype,
         )
-        if type(self.telescope) is eb.OSKAR:  # pylint: disable=I1101
+        if self.telescope.type is eb.OSKAR:  # pylint: disable=I1101
             """
             Set normalisation scaling to the Frobenius norm of the zenith
             response divided by sqrt(2).
@@ -140,7 +134,7 @@ class BeamsLow:
             )
 
             for chan, freq in enumerate(self.frequency):
-                J = self.telescope.station_response(
+                J = self.telescope.single_station_response(
                     self.solution_time_mjd_seconds,
                     stn,
                     freq,
@@ -193,45 +187,20 @@ class BeamsLow:
         # Get the component direction in ITRF
         dir_itrf = radec_to_xyz(direction, self.solution_time)
 
-        beams = np.empty(
-            (
-                self.nstations,
-                self.frequency.size,
-                2,
-                2,
-            ),
-            dtype=np.complex128,
+        return self.telescope.stations_response(
+            self.solution_time_mjd_seconds,
+            self.frequency,
+            dir_itrf,
+            self.delay_dir_itrf,
+            self.scale,
         )
-
-        # NOTE: Check if station names can be used instead of
-        # station indices
-        for stn in range(self.nstations):
-            for chan, freq in enumerate(self.frequency):
-                beams[stn, chan, :, :] = (
-                    self.telescope.station_response(
-                        self.solution_time_mjd_seconds,
-                        stn,
-                        freq,
-                        dir_itrf,
-                        self.delay_dir_itrf,
-                    )
-                    * self.scale[chan]
-                )
-
-        return beams
 
 
 @dataclass
 class BeamsFactory:
-    """
-    Dataclass to denote a beam.
-    """
-
-    nstations: int
     array_location: EarthLocation
     direction: SkyCoord
-    ms_path: str
-    element_response_model: str
+    telescope: Telescope
 
     def get_beams_low(self, frequency, soln_time) -> BeamsLow:
         """
@@ -249,5 +218,9 @@ class BeamsFactory:
             A BeamsLow Object for the given frequency range and solution time.
         """
         return BeamsLow(
-            **self.__dict__, frequency=frequency, soln_time=soln_time
+            telescope=self.telescope,
+            array_location=self.array_location,
+            direction=self.direction,
+            frequency=frequency,
+            soln_time=soln_time,
         )
