@@ -133,15 +133,15 @@ class BeamsLow:
                 self.solution_time,
             )
 
-            for chan, freq in enumerate(self.frequency):
-                J = self.telescope.single_station_response(
-                    solution_time=self.solution_time_mjd_seconds,
-                    station_idx=stn,
-                    frequency=freq,
-                    station0=dir_itrf_zen,
-                    tile0=dir_itrf_zen,
-                )
-                self.scale[chan] = np.sqrt(2) / np.linalg.norm(J)
+            jones = self.telescope.station_response(
+                solution_time=self.solution_time_mjd_seconds,
+                station_idx=stn,
+                frequencies=self.frequency,
+                station0=dir_itrf_zen,
+                tile0=dir_itrf_zen,
+            ).squeeze(axis=0)
+
+            self.scale = np.sqrt(2) / np.linalg.norm(jones, axis=(1, 2))
 
     def validate_direction_above_horizon(self, direction: SkyCoord) -> AltAz:
         """

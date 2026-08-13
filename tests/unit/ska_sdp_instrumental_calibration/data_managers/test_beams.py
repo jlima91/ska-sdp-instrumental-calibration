@@ -86,7 +86,7 @@ def test_oskar_scale_computation(
     radec_to_xyz_mock.return_value = np.array([1.0, 0.0, 0.0])
 
     mock_telescope = MagicMock(name="telescope")
-    mock_telescope.single_station_response.return_value = np.ones((2, 2))
+    mock_telescope.station_response.return_value = np.ones((1, 3, 2, 2))
     mock_telescope.type = OSKAR
 
     freqs = np.array([100e6, 200e6, 300e6])
@@ -113,7 +113,13 @@ def test_oskar_scale_computation(
         obstime=mock_time,
         location=mock_array_location,
     )
-    assert mock_telescope.single_station_response.call_count == len(freqs)
+    mock_telescope.station_response.assert_called_once_with(
+        solution_time=bl.solution_time_mjd_seconds,
+        station_idx=0,
+        frequencies=freqs,
+        station0=radec_to_xyz_mock.return_value,
+        tile0=radec_to_xyz_mock.return_value,
+    )
 
 
 @patch("ska_sdp_instrumental_calibration.data_managers.beams.AltAz")

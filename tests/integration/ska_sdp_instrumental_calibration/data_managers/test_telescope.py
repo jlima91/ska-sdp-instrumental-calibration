@@ -161,7 +161,11 @@ def test_should_validate_station_response_for_single_station():
             loaded_telescope.station_response(
                 time, 0, frequency, direction, direction
             ),
-            created_telescope.single_station_response(
-                time, frequency, direction, direction, station_idx=0
-            ),
+            created_telescope.station_response(
+                time,
+                frequency,
+                direction,
+                direction,
+                station_idx=0,
+            ).squeeze(axis=(0, 1)),
         )

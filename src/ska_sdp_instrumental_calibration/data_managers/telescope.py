@@ -122,10 +122,11 @@ class Telescope:
     def station_response(
         self,
         solution_time: np.float64 | float,
-        frequencies: npt.NDArray,
+        frequencies: npt.NDArray | float | np.float64,
         station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         tile0: Annotated[npt.NDArray, "shape (3,)"],
         scale: Optional[npt.NDArray] = None,
+        station_idx: Optional[int] = None,
     ):
         """
         Calculate the station response beams for all stations and frequencies.
@@ -152,10 +153,13 @@ class Telescope:
 
         self._ensure_telescope()
         frequencies = np.atleast_1d(frequencies)
+        stations = (
+            range(self._nstations) if station_idx is None else [station_idx]
+        )
 
         beams = np.empty(
             (
-                self._nstations,
+                len(stations),
                 frequencies.size,
                 2,
                 2,
@@ -165,9 +169,9 @@ class Telescope:
 
         get_response = self._telescope.station_response
 
-        for stn in range(self._nstations):
+        for station_idx, stn in enumerate(stations):
             for chan, freq in enumerate(frequencies):
-                beams[stn, chan, :, :] = get_response(
+                beams[station_idx, chan, :, :] = get_response(
                     solution_time,
                     stn,
                     freq,
@@ -179,41 +183,3 @@ class Telescope:
             beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
 
         return beams
-
-    def single_station_response(
-        self,
-        solution_time: np.float64 | float,
-        frequency: np.float64 | float,
-        station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
-        tile0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
-        station_idx: int,
-    ):
-        """
-        Calculate the response for a single station at a specific frequency.
-
-        Parameters
-        ----------
-        solution_time : float
-            The time for which to evaluate the response.
-        frequency : float
-            The frequency in Hz.
-        station0 : array_like
-            Direction of the station beam.
-        tile0 : array_like
-            Direction of the tile beam.
-        station_idx : int
-            Index of the station.
-
-        Returns
-        -------
-        ndarray
-            The 2x2 Jones matrix representing the station response.
-        """
-        self._ensure_telescope()
-        return self._telescope.station_response(
-            solution_time,
-            station_idx,
-            frequency,
-            station0,
-            tile0,
-        )
