@@ -70,8 +70,8 @@ class BeamsLow:
         array_location: EarthLocation,
         direction: SkyCoord,
         frequency: np.ndarray,
-        telescope: Telescope,
         soln_time: float,
+        telescope: Telescope,
     ):
 
         self.array_location = array_location
@@ -135,11 +135,11 @@ class BeamsLow:
 
             for chan, freq in enumerate(self.frequency):
                 J = self.telescope.single_station_response(
-                    self.solution_time_mjd_seconds,
-                    stn,
-                    freq,
-                    dir_itrf_zen,
-                    dir_itrf_zen,
+                    solution_time=self.solution_time_mjd_seconds,
+                    station_idx=stn,
+                    frequency=freq,
+                    station0=dir_itrf_zen,
+                    tile0=dir_itrf_zen,
                 )
                 self.scale[chan] = np.sqrt(2) / np.linalg.norm(J)
 
@@ -187,12 +187,12 @@ class BeamsLow:
         # Get the component direction in ITRF
         dir_itrf = radec_to_xyz(direction, self.solution_time)
 
-        return self.telescope.stations_response(
-            self.solution_time_mjd_seconds,
-            self.frequency,
-            dir_itrf,
-            self.delay_dir_itrf,
-            self.scale,
+        return self.telescope.station_response(
+            solution_time=self.solution_time_mjd_seconds,
+            frequencies=self.frequency,
+            station0=dir_itrf,
+            tile0=self.delay_dir_itrf,
+            scale=self.scale,
         )
 
 
@@ -218,9 +218,9 @@ class BeamsFactory:
             A BeamsLow Object for the given frequency range and solution time.
         """
         return BeamsLow(
-            telescope=self.telescope,
             array_location=self.array_location,
             direction=self.direction,
             frequency=frequency,
             soln_time=soln_time,
+            telescope=self.telescope,
         )

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 import everybeam as eb
 import numpy as np
@@ -33,7 +33,7 @@ class Telescope:
         self.response_data = read_antenna_response_data(ms_path)
         self._nstations = 0
 
-    def _create_station(
+    def _create_station_node(
         self,
         name: str,
         position: Annotated[npt.NDArray[np.float64], "shape (3,)"],
@@ -87,7 +87,7 @@ class Telescope:
         for name, pos, axes, offsets in zip(
             station_names, positions, coordinate_axes, element_offsets
         ):
-            station_node = self._create_station(name, pos, axes, offsets)
+            station_node = self._create_station_node(name, pos, axes, offsets)
             add_child_node(station_node, pos)
         options = eb.Options()
         options.element_response_model = self._element_response_model
@@ -121,15 +121,38 @@ class Telescope:
 
     def station_response(
         self,
-        solution_time,
-        frequencies,
-        station0,
-        tile0,
-        scale,
+        solution_time: np.float64 | float,
+        frequencies: npt.NDArray,
+        station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
+        tile0: Annotated[npt.NDArray, "shape (3,)"],
+        scale: Optional[npt.NDArray] = None,
     ):
-        self._ensure_telescope()
+        """
+        Calculate the station response beams for all stations and frequencies.
 
-        # Pre-allocate the array
+        Parameters
+        ----------
+        solution_time : float or np.float64
+            Timestamp for the solution.
+        frequencies : npt.NDArray
+            1D array of frequencies.
+        station0 : npt.NDArray[np.float64]
+            Direction vector for station beam pointing, shape (3,).
+        tile0 : npt.NDArray[np.float64]
+            Direction vector for tile beam pointing, shape (3,).
+        scale : npt.NDArray, optional
+            Scaling array per frequency to apply to beams, default is None.
+
+        Returns
+        -------
+        npt.NDArray[np.complex128]
+            Complex beam matrices with shape
+            (nstations, nfrequencies, 2, 2).
+        """
+
+        self._ensure_telescope()
+        frequencies = np.atleast_1d(frequencies)
+
         beams = np.empty(
             (
                 self._nstations,
@@ -152,17 +175,18 @@ class Telescope:
                     tile0,
                 )
 
-        beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
+        if scale is not None:
+            beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
 
         return beams
 
     def single_station_response(
         self,
-        solution_time,
-        station_idx,
-        frequency,
-        station0,
-        tile0,
+        solution_time: np.float64 | float,
+        frequency: np.float64 | float,
+        station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
+        tile0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
+        station_idx: int,
     ):
         """
         Calculate the response for a single station at a specific frequency.
@@ -171,14 +195,14 @@ class Telescope:
         ----------
         solution_time : float
             The time for which to evaluate the response.
-        station_idx : int
-            Index of the station.
         frequency : float
             The frequency in Hz.
         station0 : array_like
             Direction of the station beam.
         tile0 : array_like
             Direction of the tile beam.
+        station_idx : int
+            Index of the station.
 
         Returns
         -------

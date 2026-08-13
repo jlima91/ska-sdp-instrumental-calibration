@@ -24,6 +24,9 @@ def test_should_have_the_expected_default_configuration():
 
 
 @patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.Telescope"
+)
+@patch(
     "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
@@ -35,9 +38,7 @@ def test_should_have_the_expected_default_configuration():
     "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 def test_should_predict_visibilities(
-    predict_vis_mock,
-    global_sky_model_mock,
-    beams_factory_mock,
+    predict_vis_mock, global_sky_model_mock, beams_factory_mock, telescope_mock
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
@@ -76,17 +77,22 @@ def test_should_predict_visibilities(
         upstream_output.gaintable.soln_interval_slices,
         beams_factory_mock.return_value,
     )
+    telescope_mock.assert_called_once_with(
+        input[0],
+        "dipole_model",
+    )
     beams_factory_mock.assert_called_once_with(
-        nstations=upstream_output.vis.configuration.id.size,
         array_location=upstream_output.vis.configuration.location,
         direction=upstream_output.vis.phasecentre,
-        ms_path=input[0],
-        element_response_model="dipole_model",
+        telescope=telescope_mock.return_value,
     )
 
     assert result.modelvis == [1, 2, 3]
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.Telescope"
+)
 @patch(
     "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
@@ -99,9 +105,7 @@ def test_should_predict_visibilities(
     "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
 )
 def test_should_update_call_count(
-    predict_vis_mock,
-    global_sky_model_mock,
-    beams_factory_mock,
+    predict_vis_mock, global_sky_model_mock, beams_factory_mock, telescope_mock
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
@@ -134,6 +138,9 @@ def test_should_update_call_count(
 
 
 @patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.Telescope"
+)
+@patch(
     "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
@@ -158,6 +165,7 @@ def test_should_normalise_at_beam_centre(
     predict_vis_mock,
     global_sky_model_mock,
     beams_factory_mock,
+    telescope_mock,
 ):
     upstream_output = _get_prepopulated_upstream_output()
     vis = Mock(name="Visibilities")
@@ -315,6 +323,9 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
 
 
 @patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.Telescope"
+)
+@patch(
     "ska_sdp_instrumental_calibration.stages.predict_visibilities"
     ".BeamsFactory"
 )
@@ -344,6 +355,7 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
     predict_vis_mock,
     global_sky_model_mock,
     beams_factory_mock,
+    telescope_mock,
 ):
 
     global_sky_model_mock.return_value = global_sky_model_mock
