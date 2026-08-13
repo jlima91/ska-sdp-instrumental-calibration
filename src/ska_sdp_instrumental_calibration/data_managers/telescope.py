@@ -153,31 +153,19 @@ class Telescope:
 
         self._ensure_telescope()
         frequencies = np.atleast_1d(frequencies)
+        solution_times = np.atleast_1d(solution_time)
+
         stations = (
             range(self._nstations) if station_idx is None else [station_idx]
         )
 
-        beams = np.empty(
-            (
-                len(stations),
-                frequencies.size,
-                2,
-                2,
-            ),
-            dtype=np.complex128,
-        )
-
-        get_response = self._telescope.station_response
-
-        for station_idx, stn in enumerate(stations):
-            for chan, freq in enumerate(frequencies):
-                beams[station_idx, chan, :, :] = get_response(
-                    solution_time,
-                    stn,
-                    freq,
-                    station0,
-                    tile0,
-                )
+        beams = self._telescope.station_response(
+            solution_times,
+            stations,
+            frequencies,
+            station0,
+            tile0,
+        ).squeeze(axis=0)
 
         if scale is not None:
             beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
