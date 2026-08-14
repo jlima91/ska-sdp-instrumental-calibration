@@ -139,15 +139,15 @@ class BeamsLow:
                 self.solution_time,
             )
 
-            for chan, freq in enumerate(self.frequency):
-                J = self.telescope.station_response(
-                    self.solution_time_mjd_seconds,
-                    stn,
-                    freq,
-                    dir_itrf_zen,
-                    dir_itrf_zen,
-                )
-                self.scale[chan] = np.sqrt(2) / np.linalg.norm(J)
+            jones = self.telescope.station_response(
+                [self.solution_time_mjd_seconds],
+                [stn],
+                self.frequency,
+                dir_itrf_zen,
+                dir_itrf_zen,
+            ).squeeze(axis=(0, 1))
+
+            self.scale = np.sqrt(2) / np.linalg.norm(jones, axis=(1, 2))
 
     def validate_direction_above_horizon(self, direction: SkyCoord) -> AltAz:
         """
@@ -192,33 +192,15 @@ class BeamsLow:
         """
         # Get the component direction in ITRF
         dir_itrf = radec_to_xyz(direction, self.solution_time)
+        beams = self.telescope.station_response(
+            [self.solution_time_mjd_seconds],
+            range(self.nstations),
+            self.frequency,
+            dir_itrf,
+            self.delay_dir_itrf,
+        ).squeeze(axis=0)
 
-        beams = np.empty(
-            (
-                self.nstations,
-                self.frequency.size,
-                2,
-                2,
-            ),
-            dtype=np.complex128,
-        )
-
-        # NOTE: Check if station names can be used instead of
-        # station indices
-        for stn in range(self.nstations):
-            for chan, freq in enumerate(self.frequency):
-                beams[stn, chan, :, :] = (
-                    self.telescope.station_response(
-                        self.solution_time_mjd_seconds,
-                        stn,
-                        freq,
-                        dir_itrf,
-                        self.delay_dir_itrf,
-                    )
-                    * self.scale[chan]
-                )
-
-        return beams
+        return beams * self.scale[np.newaxis, :, np.newaxis, np.newaxis]
 
 
 @dataclass
