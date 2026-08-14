@@ -29,8 +29,8 @@ class Telescope:
         self._element_response_model = getattr(
             eb.ElementResponseModel, element_response_model
         )
+        self.ms_path = ms_path
 
-        self.response_data = read_antenna_response_data(ms_path)
         self._nstations = 0
 
     def _create_station_node(
@@ -75,11 +75,12 @@ class Telescope:
         """
         Create an OSKAR telescope model containing multiple stations.
         """
-        station_names = self.response_data["station_names"]
-        positions = self.response_data["positions"]
-        coordinate_axes = self.response_data["coordinate_axes"]
-        element_offsets = self.response_data["element_offsets"]
-        delay_directions = self.response_data["delay_directions"]
+        response_data = read_antenna_response_data(self.ms_path)
+        station_names = response_data["station_names"]
+        positions = response_data["positions"]
+        coordinate_axes = response_data["coordinate_axes"]
+        element_offsets = response_data["element_offsets"]
+        delay_directions = response_data["delay_directions"]
 
         self._nstations = station_names.size
         root_node = eb.StationNode()
