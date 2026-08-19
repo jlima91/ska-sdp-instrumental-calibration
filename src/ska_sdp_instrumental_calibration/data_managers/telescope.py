@@ -169,17 +169,13 @@ class Telescope:
             dtype=np.complex128,
         )
 
-        get_response = self._telescope.station_response
-
-        for station_idx, stn in enumerate(stations):
-            for chan, freq in enumerate(frequencies):
-                beams[station_idx, chan, :, :] = get_response(
-                    solution_time,
-                    stn,
-                    freq,
-                    station0,
-                    tile0,
-                )
+        beams = self._telescope.station_response(
+            [solution_time],
+            stations,
+            frequencies,
+            station0,
+            tile0,
+        ).squeeze(axis=0)
 
         if scale is not None:
             beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
