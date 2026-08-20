@@ -74,10 +74,10 @@ def test_should_load_data_from_existing_cached_zarr_file(
     read_data_mock.assert_called_once_with(
         "/cache/dir/path/vis.ms_fid2_ddid4",
         {
+            "time": -1,
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": times_per_ms_chunk,
             "frequency": frequency_per_chunk,
         },
     )
@@ -176,10 +176,10 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     read_data_mock.assert_called_once_with(
         "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
         {
+            "time": -1,
             "baselineid": -1,
             "polarisation": -1,
             "spatial": -1,
-            "time": times_per_ms_chunk,
             "frequency": frequency_per_chunk,
         },
     )

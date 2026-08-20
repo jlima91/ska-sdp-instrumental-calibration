@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.4.2
+
+1. Update benchmarking script to align with latest pipeline.
+2. Update development instructions.
+
+## 1.4.1
+
+1. Update all main dependencies. Added limits for breaking dependencies.
+
+## 1.4.0
+
+### Features
+
+1. Delay Calibration with delays derived from visibilities.
+2. Remove `ionospheric-delay-calibration` from default Instrumental Calibration workflow
+2. Plot gains and leakages separately for gaintables.
+
+### Performance Fixes
+
+1. Fix duplicate HGL computes introduced due to dask workflow changes
+2. Fix predict visibility redundant computation on time axis introduced due to chunking on time.
+3. Migrate all `map_block` calls to `apply_ufunc`.
+
+### Bug fixes
+
+1.  Fix cross-pol export in export gaintable
+2.  Fix issue with flag-gains where the weights became exponentialy large due to recursive weight updates.
+
 ## 1.3.0
 
 ### Features

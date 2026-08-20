@@ -4,7 +4,6 @@ import pickle
 from copy import deepcopy
 from typing import List, Optional
 
-import dask
 import dask.array as da
 import numpy as np
 import numpy.typing as npt
@@ -877,11 +876,18 @@ def write_ms_to_zarr(
     datacolumn="DATA",
     field_id: int = 0,
     data_desc_id: int = 0,
-):
+) -> Delayed:
     """
     Convert a MSv2 into a Visibility dataset and write it to zarr.
     NOTE: The baselines coordinates in Visibility are simplified.
     See note section in :py:func:`load_ms_as_dataset_with_time_chunks`
+    If input_ms_path is a list, then all visibilities are concatenated
+    among the "time" dimension.
+
+    Returns
+    -------
+        Returns a dask delayed zarr writer task which the user
+        needs to call compute on to write the actual visibilities.
     """
     if isinstance(input_ms_paths, str):
         input_ms_paths = [input_ms_paths]
@@ -903,8 +909,7 @@ def write_ms_to_zarr(
         vis_cache_directory, zarr_chunks, visibility
     )
 
-    logger.warning("Triggering eager compute to dump visibilities to zarr.")
-    dask.compute(writer)
+    return writer
 
 
 def write_visibility_to_zarr(
@@ -921,7 +926,6 @@ def write_visibility_to_zarr(
 
     Returns
     -------
-    dask.delayed
         Returns a dask delayed zarr writer task which the user
         needs to call compute on to write the actual visibilities.
     """

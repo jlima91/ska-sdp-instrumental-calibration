@@ -43,9 +43,9 @@ module load $INST_MODULES
 
 # For backward compatibility if benchmark script is run using git clone
 # instead of spack. See https://jira.skatelescope.org/browse/SDR-1734
-INST_CONFIG="${CODE_PATH}/../config/inst.yml"
+INST_CONFIG="${CODE_PATH}/../config/inst.yaml"
 if [[ ! -f $INST_CONFIG ]]; then
-  INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yml"
+  INST_CONFIG="${CODE_PATH}/scripts/benchmark/inst.yaml"
 fi
 
 BATCHLET_CONFIG="${OUTPUT_PATH}/inst_batchlet_config.json"
@@ -75,8 +75,8 @@ cat <<EOF > $BATCHLET_CONFIG
   ],
   "dask_params": {
     "threads_per_worker": 4,
-    "memory_per_worker": "48GB",
-    "resources_per_worker": "process=1",
+    "memory_per_worker": "16GB",
+    "resources_per_worker": "process=4",
     "worker_scratch_directory": "$WORK_PATH",
     "use_entry_node": true,
     "dask_cli_option": "--dask-scheduler",
