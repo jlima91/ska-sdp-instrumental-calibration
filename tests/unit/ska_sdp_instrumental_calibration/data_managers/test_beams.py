@@ -86,7 +86,7 @@ def test_oskar_scale_computation(
     radec_to_xyz_mock.return_value = np.array([1.0, 0.0, 0.0])
 
     mock_telescope = MagicMock(name="telescope")
-    mock_telescope.station_response.return_value = np.ones((1, 3, 2, 2))
+    mock_telescope.station_response.return_value = np.ones((1, 1, 3, 2, 2))
     mock_telescope.type = OSKAR
 
     freqs = np.array([100e6, 200e6, 300e6])
@@ -177,6 +177,8 @@ def test_array_response(
     mock_direction.transform_to.return_value = altaz
 
     mock_telescope = MagicMock()
+    station_response = MagicMock()
+    mock_telescope.station_response.return_value = station_response
 
     bl = BeamsLow(
         array_location=Mock(name="location"),
@@ -198,7 +200,7 @@ def test_array_response(
         scale=bl.scale,
     )
 
-    assert beams == mock_telescope.station_response.return_value
+    assert beams == station_response.squeeze.return_value
 
 
 @patch("ska_sdp_instrumental_calibration.data_managers.beams.BeamsLow")

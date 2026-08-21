@@ -139,7 +139,7 @@ class BeamsLow:
                 frequencies=self.frequency,
                 station0=dir_itrf_zen,
                 tile0=dir_itrf_zen,
-            ).squeeze(axis=0)
+            ).squeeze(axis=(0, 1))
 
             self.scale = np.sqrt(2) / np.linalg.norm(jones, axis=(1, 2))
 
@@ -193,7 +193,7 @@ class BeamsLow:
             station0=dir_itrf,
             tile0=self.delay_dir_itrf,
             scale=self.scale,
-        )
+        ).squeeze(axis=0)
 
 
 @dataclass

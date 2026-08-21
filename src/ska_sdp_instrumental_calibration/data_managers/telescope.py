@@ -123,7 +123,7 @@ class Telescope:
 
     def station_response(
         self,
-        solution_time: np.float64 | float,
+        solution_time: npt.NDArray | np.float64 | float,
         frequencies: npt.NDArray | float | np.float64,
         station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         tile0: Annotated[npt.NDArray, "shape (3,)"],
@@ -135,10 +135,10 @@ class Telescope:
 
         Parameters
         ----------
-        solution_time : float or np.float64
-            Timestamp for the solution.
-        frequencies : npt.NDArray
-            1D array of frequencies.
+        solution_time : npt.NDArray or float or np.float64
+            Timestamp[s] for the solution.
+        frequencies : npt.NDArray or float or np.float64
+            Frequency( Or array of frequencies) to compute station response.
         station0 : npt.NDArray[np.float64]
             Direction vector for station beam pointing, shape (3,).
         tile0 : npt.NDArray[np.float64]
@@ -150,34 +150,26 @@ class Telescope:
         -------
         npt.NDArray[np.complex128]
             Complex beam matrices with shape
-            (nstations, nfrequencies, 2, 2).
+            (ntimes, nstations, nfrequencies, 2, 2).
         """
 
         self._ensure_telescope()
         frequencies = np.atleast_1d(frequencies)
+        solution_time = np.atleast_1d(solution_time)
+
         stations = (
             range(self._nstations) if station_idx is None else [station_idx]
         )
 
-        beams = np.empty(
-            (
-                len(stations),
-                frequencies.size,
-                2,
-                2,
-            ),
-            dtype=np.complex128,
-        )
-
         beams = self._telescope.station_response(
-            [solution_time],
+            solution_time,
             stations,
             frequencies,
             station0,
             tile0,
-        ).squeeze(axis=0)
+        )
 
         if scale is not None:
-            beams *= scale[np.newaxis, :, np.newaxis, np.newaxis]
+            beams *= scale[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
 
         return beams

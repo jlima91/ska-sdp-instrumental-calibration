@@ -19,6 +19,7 @@ OSKAR_TAR = TEST_ROOT / "e2e/resources/test.ms.tgz"
 def get_beam_resp(telescope, nstations, frequency, solution_time, delay_dir):
     beams = np.empty(
         (
+            1,
             nstations,
             frequency.size,
             2,
@@ -28,7 +29,7 @@ def get_beam_resp(telescope, nstations, frequency, solution_time, delay_dir):
     )
     for stn in range(nstations):
         for chan, freq in enumerate(frequency):
-            beams[stn, chan, :, :] = telescope.station_response(
+            beams[0, stn, chan, :, :] = telescope.station_response(
                 solution_time,
                 stn,
                 freq,
@@ -167,5 +168,5 @@ def test_should_validate_station_response_for_single_station():
                 direction,
                 direction,
                 station_idx=0,
-            ).squeeze(axis=(0, 1)),
+            ).squeeze(axis=(0, 1, 2)),
         )
