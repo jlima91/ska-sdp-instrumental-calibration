@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import pickle
@@ -1049,3 +1050,47 @@ def read_ms_field_id(ms_path: str):
         field_id = tb.getcol("NAME")[0]
 
     return field_id if field_id else "UNKNOWN_FIELD"
+
+
+@functools.cache
+def read_antenna_response_data(ms_path: str):
+    """
+    Read antenna response data from a MeasurementSet.
+
+    Parameters
+    ----------
+    ms_path : str
+        Path to the MeasurementSet directory.
+
+    Returns
+    -------
+    dict
+        Dictionary containing station names, positions, delay directions,
+        coordinate axes, and element offsets.
+
+    Raises
+    ------
+    RuntimeError
+        If any station name is empty.
+    """
+    with table(f"{ms_path}/FIELD", readonly=True) as tb:
+        delay_dir = tb.getcol("DELAY_DIR").flatten()
+
+    with table(f"{ms_path}/PHASED_ARRAY", readonly=True) as tb:
+        coordinate_axes = tb.getcol("COORDINATE_AXES")
+        element_offset = tb.getcol("ELEMENT_OFFSET").transpose(2, 0, 1)
+    with table(f"{ms_path}/ANTENNA", readonly=True) as anttab:
+        names = np.array(anttab.getcol("NAME"))
+
+        if not all(names[names != ""] == names):
+            raise RuntimeError("Empty names for stations")
+
+        positions = np.array(anttab.getcol("POSITION"))
+
+    return dict(
+        station_names=names,
+        positions=positions,
+        delay_directions=delay_dir,
+        coordinate_axes=coordinate_axes,
+        element_offsets=element_offset,
+    )
