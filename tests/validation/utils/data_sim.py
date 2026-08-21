@@ -12,18 +12,18 @@ import pandas as pd
 from casacore.tables import table
 from resources import (  # pylint: disable=import-error
     CABLE_DELAYS,
-    INST_CAL_CONFIG,
-    INST_TARGET_CONFIG,
     SKY_MODEL,
     TEL_MODEL,
 )
 from ska_sdp_datamodels.global_sky_model import LocalSkyModel
+from utils.oskar_tec_ro import run_tec_screens  # pylint: disable=import-error
 
 from .constants import (
     CHANNEL_WIDTH_HZ,
     END_FREQ_HZ,
     EOR2_CAL_DEC,
     EOR2_CAL_RA,
+    OBSERVING_TIME_MINS,
     SAMPLING_TIME_SEC,
     START_FREQ_HZ,
     TRANSIT_TIME,
@@ -57,6 +57,27 @@ def add_gain_corruptions(ms_path, h5parm_path):
     subprocess.run(command, check=True)
 
 
+def apply_gain_corrections(ms_path, h5parm_path):
+    """Corrupt the MS visibilities in place with the bandpass gains from
+    the H5Parm, using DP3.
+    """
+    command = [
+        "DP3",
+        f"msin={ms_path}",
+        "msout=.",
+        "msout.datacolumn=CORRECTED_DATA",
+        "steps=[applybeam, applycal]",
+        "applycal.type=applycal",
+        f"applycal.parmdb={h5parm_path}",
+        "applycal.steps=[amplitude,phase]",
+        "applycal.amplitude.correction=amplitude000",
+        "applycal.phase.correction=phase000",
+        "applycal.invert=true",
+    ]
+    logger.info("Applying gain corrections: %s", command)
+    subprocess.run(command, check=True)
+
+
 def add_field_id_and_scan_intent_to_source(ms_path, field_id, scan_intent):
     """
     Updates the source measurement set paths to have SCAN and FIELD id
@@ -71,7 +92,8 @@ def add_field_id_and_scan_intent_to_source(ms_path, field_id, scan_intent):
             ms.putcell("NAME", 0, field_id)
 
 
-def init_cal_config(
+def init_config(
+    config,
     output_dir,
     *,
     ms_path,
@@ -79,29 +101,7 @@ def init_cal_config(
 ):
     """Initialise CAL configuration"""
     config_path = output_dir / "inst_config.yaml"
-    with open(INST_CAL_CONFIG, mode="r", encoding="utf-8") as config_template:
-        template = Template(config_template.read())
-        inst_config = template.safe_substitute(
-            SKY_MODEL_PATH=lsm_path, MS_PATH=ms_path
-        )
-
-        with open(config_path, mode="w", encoding="utf-8") as config_file:
-            config_file.write(inst_config)
-
-    return config_path
-
-
-def init_target_config(
-    output_dir,
-    *,
-    ms_path,
-    lsm_path,
-):
-    """Initialise CAL configuration"""
-    config_path = output_dir / "inst_config.yaml"
-    with open(
-        INST_TARGET_CONFIG, mode="r", encoding="utf-8"
-    ) as config_template:
+    with open(config, mode="r", encoding="utf-8") as config_template:
         template = Template(config_template.read())
         inst_config = template.safe_substitute(
             SKY_MODEL_PATH=lsm_path, MS_PATH=ms_path
@@ -217,7 +217,7 @@ def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
         "observation/num_channels": num_channels,
         "observation/frequency_inc_hz": CHANNEL_WIDTH_HZ,
         "observation/start_time_utc": str(start_time),
-        "observation/length": 60,
+        "observation/length": OBSERVING_TIME_MINS * 60,
         "observation/num_time_steps": num_times,
         "telescope/input_directory": tel_model,
         "telescope/normalise_beams_at_phase_centre": False,
@@ -258,7 +258,9 @@ def generate_calibrator_data(output_dir, field_id, scan_intent, corrupt=False):
     return ms_path
 
 
-def generate_target_data(output_dir, field_id, scan_intent, corrupt=False):
+def generate_target_data(
+    output_dir, field_id, scan_intent, corrupt=False, tec_screen=False
+):
     """Generate calibrator data"""
 
     transit_time = datetime.fromisoformat(TRANSIT_TIME)
@@ -287,7 +289,7 @@ def generate_target_data(output_dir, field_id, scan_intent, corrupt=False):
         "observation/num_channels": num_channels,
         "observation/frequency_inc_hz": CHANNEL_WIDTH_HZ,
         "observation/start_time_utc": str(start_time),
-        "observation/length": 60,
+        "observation/length": OBSERVING_TIME_MINS * 60,
         "observation/num_time_steps": num_times,
         "telescope/input_directory": tel_model,
         "telescope/normalise_beams_at_phase_centre": False,
@@ -299,6 +301,18 @@ def generate_target_data(output_dir, field_id, scan_intent, corrupt=False):
         "interferometer/ms_filename": ms_path,
         "interferometer/ms_dish_diameter": 38,
     }
+
+    if tec_screen:
+
+        run_tec_screens()
+
+        TEC_SCREEN = "tec_screen.fits"
+
+        logger.info(f"Using TEC screen: {TEC_SCREEN}")
+        sim_params["telescope/ionosphere_screen_type"] = "External"
+        sim_params["telescope/external_tec_screen/input_fits_file"] = (
+            TEC_SCREEN
+        )
 
     logger.info(
         "Starting data generation for integration test with parameters %s.",
