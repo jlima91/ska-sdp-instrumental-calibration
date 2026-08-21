@@ -55,7 +55,7 @@ parameters:
     apply_flag: true
     skip_cross_pol: true
     max_ncycles: 5
-    n_sigma: 8
+    n_sigma: 7.9
     n_sigma_rolling: 0.0
     window_size: 11
     normalize_gains: false
