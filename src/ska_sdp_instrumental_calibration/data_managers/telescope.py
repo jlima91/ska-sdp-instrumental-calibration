@@ -145,6 +145,10 @@ class Telescope:
             Direction vector for tile beam pointing, shape (3,).
         scale : npt.NDArray, optional
             Scaling array per frequency to apply to beams, default is None.
+        station_idx: int, optional
+            Compute station response for the given station. If station idx
+            is not provided, station response is computed for all of the
+            stations.
 
         Returns
         -------
