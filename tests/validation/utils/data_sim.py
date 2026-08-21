@@ -37,7 +37,7 @@ logger = logging.getLogger("DATA-SIM")
 
 
 def add_gain_corruptions(ms_path, h5parm_path):
-    """Corrupt the MS visibilities in place with the bandpass gains from
+    """Corrupt the MS visibilities in place using the bandpass gains from
     the H5Parm, using DP3.
     """
     command = [
@@ -58,8 +58,8 @@ def add_gain_corruptions(ms_path, h5parm_path):
 
 
 def apply_gain_corrections(ms_path, h5parm_path):
-    """Corrupt the MS visibilities in place with the bandpass gains from
-    the H5Parm, using DP3.
+    """Correct the MS visibilities in place using the bandpass gains from
+    the H5Parm and beam models, using DP3.
     """
     command = [
         "DP3",
@@ -99,7 +99,7 @@ def init_config(
     ms_path,
     lsm_path,
 ):
-    """Initialise CAL configuration"""
+    """Initialise configuration file for INST"""
     config_path = output_dir / "inst_config.yaml"
     with open(config, mode="r", encoding="utf-8") as config_template:
         template = Template(config_template.read())
@@ -304,14 +304,16 @@ def generate_target_data(
 
     if tec_screen:
 
-        run_tec_screens()
+        tec_screen_path = os.path.join(output_dir, "tec_screen.fits")
 
-        TEC_SCREEN = "tec_screen.fits"
+        run_tec_screens(tec_screen_path)
 
-        logger.info(f"Using TEC screen: {TEC_SCREEN}")
+        logger.info("TEC screen generation finished.")
+
+        logger.info(f"Using TEC screen: {tec_screen_path}")
         sim_params["telescope/ionosphere_screen_type"] = "External"
         sim_params["telescope/external_tec_screen/input_fits_file"] = (
-            TEC_SCREEN
+            tec_screen_path
         )
 
     logger.info(

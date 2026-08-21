@@ -11,6 +11,8 @@ A python3 compatible version of ARatmospy is available in this fork
 : https://github.com/abhinavn17/ARatmospy
 """
 
+import logging
+
 import numpy
 import numpy as np
 from ArScreens import ArScreens  # pylint: disable=import-error
@@ -21,8 +23,11 @@ from .constants import RANDOM_SEED
 
 np.random.seed(RANDOM_SEED)
 
+logger = logging.getLogger("OSKAR TEC screen generation")
+logging.basicConfig(level=logging.INFO)
 
-def run_tec_screens():
+
+def run_tec_screens(tec_file_path):
 
     screen_width_metres = 200e3
     r0 = 20e3  # Scale size (5 km).
@@ -34,8 +39,8 @@ def run_tec_screens():
     )  # Sub-apertures across the screen (10).
     num_pix = n * m
     pscale = screen_width_metres / (n * m)  # Pixel scale (100 m/pixel).
-    print(f"\nNumber of pixels {num_pix:d}, pixel size {pscale:.3f} m")
-    print(f"Field of view {num_pix * pscale:.1f} (m)")
+    logger.info(f"\nNumber of pixels {num_pix:d}, pixel size {pscale:.3f} m")
+    logger.info(f"Field of view {num_pix * pscale:.1f} (m)")
     speed = 150e3 / 3600.0  # 150 km/h in m/s.
     # Parameters for each layer.
     # (scale size [m], speed [m/s], direction [deg], layer height [m]).
@@ -47,9 +52,9 @@ def run_tec_screens():
     alpha_mag = 0.999  # Evolve screen slowly.
     num_times = 60  # Four hours.
     my_screens = ArScreens(n, m, pscale, rate, layer_params, alpha_mag)
-    print("Running screens...")
+    logger.info("Running screens...")
     my_screens.run(num_times, verbose=False)
-    print("Done")
+    logger.info("Done")
     # Convert to TEC
     # phase = image[pixel] * -8.44797245e9 / frequency
     frequency = 1e8
@@ -72,18 +77,18 @@ def run_tec_screens():
 
     tec_rms = np.array(tec_rms)
 
-    print(
+    logger.info(
         f"TEC RMS: min/mean/max = "
         f"{np.min(tec_rms):.4f} / "
         f"{np.mean(tec_rms):.4f} / "
         f"{np.max(tec_rms):.4f} TECU"
     )
 
-    print(f"TEC peak-to-peak (mean): " f"{np.mean(tec_ptp):.4f} TECU")
+    logger.info(f"TEC peak-to-peak (mean): " f"{np.mean(tec_ptp):.4f} TECU")
     # Re-scale TEC amplitude to physical RMS
 
     target_rms = 0.01  # TECU (quiet to moderate conditions)
-    print(f"\nRescaling TEC RMS to {target_rms:.4f} TECU")
+    logger.info(f"\nRescaling TEC RMS to {target_rms:.4f} TECU")
     data *= target_rms / tec_rms.mean()
 
     # Now verify values after rescaling
@@ -97,9 +102,9 @@ def run_tec_screens():
 
     tec_rms_after = np.array(tec_rms_after)
 
-    print("\n---TEC statistics after rescaling ---")
+    logger.info("\n---TEC statistics after rescaling ---")
 
-    print(
+    logger.info(
         f"RMS TEC: min/mean/max = "
         f"{tec_rms_after.min():.4f} / "
         f"{tec_rms_after.mean():.4f} / "
@@ -114,12 +119,8 @@ def run_tec_screens():
     w.wcs.crval = [0.0, 0.0, 0.0, frequency]
 
     fits.writeto(
-        filename="tec_screen.fits",
+        filename=tec_file_path,
         data=data,
         header=w.to_header(),
         overwrite=True,
     )
-
-
-if __name__ == "__main__":
-    run_tec_screens()

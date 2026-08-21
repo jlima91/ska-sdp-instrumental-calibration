@@ -127,7 +127,7 @@ def validate_ionospheric(input_data_path, gaintable):
     np.testing.assert_allclose(
         actual_freq,
         expected_freq,
-        err_msg="Times don't match between INST gaintable and visibility",
+        err_msg="Freq don't match between INST gaintable and visibility",
     )
 
     for pol_name in ("XX", "YY"):
@@ -143,7 +143,7 @@ def validate_ionospheric(input_data_path, gaintable):
                 deg=True,
             )
 
-            assert np.allclose(
+            np.testing.assert_allclose(
                 np.mean(vis_phase_freq), 0, atol=phase_freq_threshold
             )
 
@@ -154,7 +154,7 @@ def validate_ionospheric(input_data_path, gaintable):
                 deg=True,
             )
 
-            assert np.allclose(
+            np.testing.assert_allclose(
                 np.diff(vis_phase_time), 0, atol=phase_time_threshold
             )
 
