@@ -57,21 +57,8 @@ print_help() {
   sed -n '/^#### HELP DOC START ####$/,/^#### HELP DOC END ####$/p' "$0" | sed '1d;$d'
 }
 
-# ---------------------------------------------------------------------------
-# log
-#
 # Prints structured log line to stderr in the format:
 #   1|{timestamp}|{bash_source}|{function_name}#{line_number}|TYPE|message
-#
-# Args:
-#   $1 : type (optional) — one of INFO, WARN, ERROR. Defaults to INFO.
-#   $@ : message — the remaining arguments are joined to form the message.
-#
-# Example:
-#   log "Starting up"
-#   log WARN "Cache dir not set"
-#   log ERROR "Failed to activate venv"
-# ---------------------------------------------------------------------------
 log() {
   local type="INFO"
   case "$1" in
@@ -90,6 +77,36 @@ log() {
 
   printf '1|%s|%s|%s#%s|%s|%s\n' \
     "$timestamp" "$src" "$func" "$line" "$type" "$message"
+}
+
+# Find the next available directory name
+unique_dir() {
+  local -n unique_dir_ref="$1"
+
+  if [[ -e "$unique_dir_ref" ]]; then
+    log WARN "Directory: '$unique_dir_ref' already exists. Creating a new one."
+    for ((i = 1; ; i++)); do
+      if [[ ! -e "$unique_dir_ref-$i" ]]; then
+        break
+      fi
+    done
+    unique_dir_ref="$unique_dir_ref-$i"
+    log "New directory: '$unique_dir_ref'"
+  fi
+}
+
+# Log the resolved paths of the specified commands.
+log_command_paths() {
+  local command_name command_path
+
+  for command_name in "$@"; do
+    command_path="$(command -v "$command_name" || true)"
+    if [[ -n "$command_path" ]]; then
+      log "Command: '$command_name' resolved to '$command_path'"
+    else
+      log WARN "Command: '$command_name' was not found in PATH"
+    fi
+  done
 }
 
 cmd="ska-sdp-instrumental-calibration"
@@ -200,17 +217,7 @@ if [[ "${#ms_paths[@]}" -lt 1 ]]; then
   exit 1
 fi
 
-# Find sequentially next non-existing dir name
-if [[ -e "$output_dir" ]]; then
-  log WARN "Output directory: '$output_dir' already exists. Creating a new one."
-  for ((i = 1; ; i++)); do
-    if [[ ! -e "$output_dir-$i" ]]; then
-      break
-    fi
-  done
-  output_dir="$output_dir-$i"
-  log "New output directory: '$output_dir'"
-fi
+unique_dir output_dir
 
 report_dir=${report_dir:-"${output_dir}/${default_report_dir}"}
 temp_dir=${temp_dir:-"${output_dir}/${default_temp_dir}"}
@@ -338,6 +345,12 @@ with open(batchlet_config_path, "w") as bcf:
 EOF
 
 log "Batchlet's JSON config is stored at: '$batchlet_config_path'"
+
+log_command_paths "$cmd" batchlet
+
+mapfile -t exported_env_names < <(compgen -e | sort)
+printf -v exported_env_list "'%s', " "${exported_env_names[@]}"
+log "Exported environment variables passed to subprocess: ${exported_env_list%, }"
 
 log 'Running application via batchlet...'
 
