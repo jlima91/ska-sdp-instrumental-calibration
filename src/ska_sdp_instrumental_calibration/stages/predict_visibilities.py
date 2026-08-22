@@ -9,6 +9,7 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel
+from ..data_managers.telescope import Telescope
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis
@@ -176,11 +177,9 @@ def predict_visibilities(
         eb_ms = input_ms[0] if eb_ms is None else eb_ms
 
         beams_factory = BeamsFactory(
-            nstations=vis.configuration.id.size,
             array_location=vis.configuration.location,
             direction=vis.phasecentre,
-            ms_path=eb_ms,
-            element_response_model=element_response_model,
+            telescope=Telescope(eb_ms, element_response_model),
         )
 
     modelvis = predict_vis(

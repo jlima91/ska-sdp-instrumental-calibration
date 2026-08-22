@@ -30,7 +30,7 @@ astropy = ">=6.1"
 dask = { version = ">=2024.11", extras = ["distributed", "array"] }
 xarray = ">=2024.7"
 zarr = ">=2.18"
-everybeam = ">=0.8"
+everybeam = ">=0.8.4"
 numpy = ">=1.26"
 # Some plots are not working with matplotlib >3.11
 # Error: MPL backend has no renderer
@@ -97,7 +97,7 @@ fail_under = 85
 [tool.pytest.ini_options]
 addopts = "--cov --json-report --json-report-file=htmlcov/report.json --cov-report term --cov-report html --cov-report xml --junitxml=./build/reports/unit-tests.xml"
 testpaths = [
-    "tests/unit",
     "tests/integration",
+    "tests/unit",
     "tests/e2e",
 ]
