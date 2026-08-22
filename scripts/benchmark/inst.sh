@@ -17,14 +17,14 @@ set -euo pipefail
 : ${META_MODULE:?is not set.}
 
 # Assumes that there's only one *.ms file in the INPUT_PATH
-PRE_PROCESSED_CALIBRATOR=`find "$INPUT_PATH/" -maxdepth 1 -name "*.ms" -print -quit`
+PRE_PROCESSED_CALIBRATOR=$(find "$INPUT_PATH/" -maxdepth 1 -name "*.ms" -print -quit)
 # Assumes that there's only one *.csv file in the INPUT_PATH
-CALIBRATOR_SKY_MODEL=`find "$INPUT_PATH/" -maxdepth 1 -name "*.csv" -print -quit`
+CALIBRATOR_SKY_MODEL=$(find "$INPUT_PATH/" -maxdepth 1 -name "*.csv" -print -quit)
 
 # set dask config
 export DASK_CONFIG=$(realpath 'dask_custom_config.yaml')
 
-cat <<EOF > $DASK_CONFIG
+cat <<EOF >$DASK_CONFIG
 distributed:
   comm:
     timeouts:
@@ -55,7 +55,7 @@ INST_CACHE_DIR=${INST_CACHE_DIR:-$OUTPUT_PATH}
 mkdir -p $OUTPUT_PATH $REPORT_PATH
 
 # Generate and store batchlet's config
-cat <<EOF > $BATCHLET_CONFIG
+cat <<EOF >$BATCHLET_CONFIG
 {
   "command": [
     "ska-sdp-instrumental-calibration",
