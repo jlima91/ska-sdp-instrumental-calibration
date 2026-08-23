@@ -4,7 +4,7 @@
 #SBATCH --exclusive
 #SBATCH --no-requeue
 #SBATCH --job-name=inst
-#SBATCH --output=slurm-%j-%x.out
+#SBATCH --output=slurm-%j-%x.log
 
 #### HELP DOC START ####
 
@@ -108,6 +108,9 @@ log_command_paths() {
     fi
   done
 }
+
+# Capture the invocation before the arg-parsing loop shifts "$@" away.
+invocation_args=("$0" "$@")
 
 cmd="ska-sdp-instrumental-calibration"
 subcmd="run"
@@ -238,6 +241,23 @@ log "Output paths are set to:
   output_dir='$output_dir'
   report_dir='$report_dir'
   temp_dir='$temp_dir'"
+
+script_copy_path="$temp_dir/$(basename "${BASH_SOURCE[0]}")"
+cp "${BASH_SOURCE[0]}" "$script_copy_path"
+log "A copy of run script is stored at: '$script_copy_path'"
+
+printf -v invocation_cmd "'%s' " "${invocation_args[@]}"
+log "Run script invocation command: ${invocation_cmd% }"
+
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  slurm_log="Run script executed as SLURM job, with:"
+
+  for slurm_var in SLURM_JOB_ID SLURM_JOB_NAME SLURM_JOB_PARTITION SLURM_JOB_NUM_NODES SLURM_JOB_NODELIST; do
+    slurm_log+=$'\n  '"${slurm_var}='${!slurm_var:-unset}'"
+  done
+
+  log "$slurm_log"
+fi
 
 # set dask config
 export DASK_CONFIG="${temp_dir}/dask_custom_config.yaml"
