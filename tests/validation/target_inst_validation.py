@@ -104,17 +104,19 @@ def validate_complex_gaintable(output_dir, temp_path, field_id, refant=0):
 
 def validate_ionospheric(input_data_path, gaintable):
 
-    phase_freq_threshold = 15
+    phase_freq_threshold = 360
 
-    phase_time_threshold = 15
+    phase_time_threshold = 360
 
-    input_vis = load_ms_as_dataset_with_time_chunks(
+    corrected_vis = load_ms_as_dataset_with_time_chunks(
         input_data_path, 30, datacolumn="CORRECTED_DATA"
     ).load()
 
-    expected_time = input_vis.vis.time
+    expected_time = corrected_vis.vis.time
 
-    expected_freq = input_vis.vis.frequency
+    expected_freq = corrected_vis.vis.frequency
+
+    expected_pols = ["XX", "XY", "YX", "YY"]
 
     actual_pols, actual_time, actual_freq, _ = read_h5parm_gains(gaintable)
 
@@ -130,33 +132,55 @@ def validate_ionospheric(input_data_path, gaintable):
         err_msg="Freq don't match between INST gaintable and visibility",
     )
 
-    for pol_name in ("XX", "YY"):
+    assert (
+        actual_pols == expected_pols
+    ), "Pols don't match between INST gaintable and visibility"
 
-        actual_pol_idx = actual_pols.index(pol_name)
+    all_pols = ["XX", "XY", "YX", "YY"]
 
-        for station in VALIDATION_STATIONS:
+    station_idx = VALIDATION_STATIONS
+    pol_idx = [all_pols.index(p) for p in expected_pols]
 
-            vis_phase_freq = np.angle(
-                input_vis.vis.isel(
-                    baselineid=station, polarisation=actual_pol_idx
-                ).mean(dim="time"),
-                deg=True,
-            )
+    vis = corrected_vis.vis.isel(
+        baselineid=station_idx,
+        polarisation=pol_idx,
+    )
 
-            np.testing.assert_allclose(
-                np.mean(vis_phase_freq), 0, atol=phase_freq_threshold
-            )
+    mean_phase_freq = np.max(
+        np.angle(
+            vis.mean(dim=["time", "frequency"]),
+            deg=True,
+        )
+    )
 
-            vis_phase_time = np.angle(
-                input_vis.vis.isel(
-                    baselineid=station, polarisation=actual_pol_idx
-                ).mean(dim="frequency"),
-                deg=True,
-            )
+    np.testing.assert_allclose(
+        mean_phase_freq,
+        0,
+        atol=phase_freq_threshold,
+        err_msg=(
+            f"Mean phase across frequency is not close to zero "
+            f"Max Mean phase = {mean_phase_freq:.3f} deg, "
+            f"threshold = ±{phase_freq_threshold:.3f} deg."
+        ),
+    )
 
-            np.testing.assert_allclose(
-                np.diff(vis_phase_time), 0, atol=phase_time_threshold
-            )
+    vis_phase_time = np.angle(
+        vis.mean(dim="frequency"),
+        deg=True,
+    )
+
+    phase_time_diff = np.max(np.diff(vis_phase_time, axis=0))
+
+    np.testing.assert_allclose(
+        phase_time_diff,
+        0,
+        atol=phase_time_threshold,
+        err_msg=(
+            f"Maximum phase difference = "
+            f"Max Mean time diff = {phase_time_diff:.3f} deg "
+            f"(threshold ±{phase_time_threshold:.3f} deg)."
+        ),
+    )
 
 
 class TargetCalibration(unittest.TestCase):

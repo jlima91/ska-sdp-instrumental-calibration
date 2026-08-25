@@ -48,9 +48,9 @@ def run_tec_screens(tec_file_path):
         [(r0, speed, 60.0, 300e3), (r0, speed / 2.0, -30.0, 310e3)]
     )
 
-    rate = 1.0 / 60.0  # The inverse frame rate (1 per minute).
+    rate = 5.0 / 60.0  # The inverse frame rate (1 per minute).
     alpha_mag = 0.999  # Evolve screen slowly.
-    num_times = 60  # Four hours.
+    num_times = 6  # Four hours.
     my_screens = ArScreens(n, m, pscale, rate, layer_params, alpha_mag)
     logger.info("Running screens...")
     my_screens.run(num_times, verbose=False)
