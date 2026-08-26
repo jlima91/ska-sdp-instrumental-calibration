@@ -3,11 +3,13 @@ import os
 from functools import reduce
 from typing import Annotated, Literal, Optional
 
+import h5py
 import xarray as xr
 from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
-    export_gaintable_to_hdf5,
+    convert_gaintable_to_hdf,
 )
+from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
@@ -42,6 +44,32 @@ def group_upstream_by_field_id(upstream_outputs):
         return acc
 
     return reduce(accumulate_by_field_id, upstream_outputs, {})
+
+
+def export_gaintable_to_hdf5(
+    gaintable: GainTable, filename: str, exclude_cross_pols: bool = False
+):
+    """Export a GainTable to HDF5 format
+
+    :param gaintable: GainTable or list
+    :param filename: Name of HDF5 file
+    :param exclude_cross_pols: If cross pols should be excluded in export
+    :return: None
+    """
+
+    # remove cross pols if not required
+    if exclude_cross_pols:
+        gaintable = gaintable.where(
+            gaintable.receptor1 == gaintable.receptor2,
+            drop=True,
+        )
+
+    with h5py.File(filename, "w") as f:
+        f.attrs["number_data_models"] = 1
+        gf = f.create_group("GainTable0")
+        convert_gaintable_to_hdf(gaintable, gf)
+
+        f.flush()
 
 
 @ConfigurableStage(name="export_gain_table")
@@ -110,8 +138,10 @@ def export_gaintable_stage(
 
         logger.info(f"Writing solutions to {gaintable_file_path}")
 
+        exclude_cross_pols = "exclude_cross_pols_in_gains" in upstream_output
+
         delayed(export_functions[export_format])(
-            upstream_output.gaintable, gaintable_file_path
+            upstream_output.gaintable, gaintable_file_path, exclude_cross_pols
         )
 
     if export_metadata and INSTMetaData.can_create_metadata():

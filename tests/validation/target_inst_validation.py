@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import subprocess
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ from resources import (  # pylint: disable=import-error
     INST_TARGET_IONOSPHERIC_CONFIG,
     SKY_MODEL,
 )
+from utils.constants import RANDOM_SEED  # pylint: disable=import-error
 from utils.data_sim import (  # pylint: disable=import-error
     apply_gain_corrections,
     generate_target_data,
@@ -23,8 +25,12 @@ from ska_sdp_instrumental_calibration.data_managers.visibility import (
     load_ms_as_dataset_with_time_chunks,
 )
 
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
+
 logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
+
 
 VALIDATION_STATIONS = [2, 8, 17]
 
@@ -104,9 +110,9 @@ def validate_complex_gaintable(output_dir, temp_path, field_id, refant=0):
 
 def validate_ionospheric(input_data_path, gaintable):
 
-    phase_freq_threshold = 360
+    phase_freq_threshold = 7
 
-    phase_time_threshold = 360
+    phase_time_threshold = 5
 
     corrected_vis = load_ms_as_dataset_with_time_chunks(
         input_data_path, 30, datacolumn="CORRECTED_DATA"
@@ -116,7 +122,7 @@ def validate_ionospheric(input_data_path, gaintable):
 
     expected_freq = corrected_vis.vis.frequency
 
-    expected_pols = ["XX", "XY", "YX", "YY"]
+    expected_pols = ["XX", "YY"]
 
     actual_pols, actual_time, actual_freq, _ = read_h5parm_gains(gaintable)
 

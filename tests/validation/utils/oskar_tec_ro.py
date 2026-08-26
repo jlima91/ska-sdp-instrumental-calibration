@@ -13,15 +13,10 @@ A python3 compatible version of ARatmospy is available in this fork
 
 import logging
 
-import numpy
 import numpy as np
 from ArScreens import ArScreens  # pylint: disable=import-error
 from astropy.io import fits
 from astropy.wcs import WCS
-
-from .constants import RANDOM_SEED
-
-np.random.seed(RANDOM_SEED)
 
 logger = logging.getLogger("OSKAR TEC screen generation")
 logging.basicConfig(level=logging.INFO)
@@ -44,7 +39,7 @@ def run_tec_screens(tec_file_path):
     speed = 150e3 / 3600.0  # 150 km/h in m/s.
     # Parameters for each layer.
     # (scale size [m], speed [m/s], direction [deg], layer height [m]).
-    layer_params = numpy.array(
+    layer_params = np.array(
         [(r0, speed, 60.0, 300e3), (r0, speed / 2.0, -30.0, 310e3)]
     )
 
@@ -60,10 +55,10 @@ def run_tec_screens(tec_file_path):
     frequency = 1e8
     phase2tec = -frequency / 8.44797245e9
 
-    data = numpy.zeros([1, num_times, num_pix, num_pix])
+    data = np.zeros([1, num_times, num_pix, num_pix])
     for layer in range(len(my_screens.screens)):
         for i, screen in enumerate(my_screens.screens[layer]):
-            data[:, i, ...] += phase2tec * screen[numpy.newaxis, ...]
+            data[:, i, ...] += phase2tec * screen[np.newaxis, ...]
 
     # Check TEC rms
     tec_rms = []

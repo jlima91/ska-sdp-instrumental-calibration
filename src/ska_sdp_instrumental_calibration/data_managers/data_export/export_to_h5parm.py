@@ -79,7 +79,10 @@ def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
 
 
 def export_gaintable_to_h5parm(
-    gaintable: GainTable, filename: str, squeeze: bool = False
+    gaintable: GainTable,
+    filename: str,
+    exclude_cross_pols: bool = False,
+    squeeze: bool = False,
 ):
     """
     Export a GainTable to a H5Parm file.
@@ -100,6 +103,8 @@ def export_gaintable_to_h5parm(
         Gaintable instance
     filename
         Name of H5Parm file
+    exclude_cross_pols
+        if True, remove cross pols from dataset
     squeeze
         If True, remove axes of length one from dataset
     """
@@ -139,6 +144,10 @@ def export_gaintable_to_h5parm(
     )
 
     gaintable = gaintable.assign(gain=gaintable_gain)
+
+    # remove cross pols if not required
+    if exclude_cross_pols:
+        gaintable = gaintable.isel(pol=[0, 3])
 
     # remove axes of length one if required
     if squeeze:
