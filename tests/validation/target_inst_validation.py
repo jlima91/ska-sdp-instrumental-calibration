@@ -140,16 +140,11 @@ def validate_ionospheric(input_data_path, gaintable):
 
     assert (
         actual_pols == expected_pols
-    ), "Pols don't match between INST gaintable and visibility"
-
-    all_pols = ["XX", "XY", "YX", "YY"]
-
-    station_idx = VALIDATION_STATIONS
-    pol_idx = [all_pols.index(p) for p in expected_pols]
+    ), "Gaintable pols don't match expected pols"
 
     vis = corrected_vis.vis.isel(
-        baselineid=station_idx,
-        polarisation=pol_idx,
+        baselineid=VALIDATION_STATIONS,
+        polarisation=[0, 3],
     )
 
     mean_phase_freq = np.max(
