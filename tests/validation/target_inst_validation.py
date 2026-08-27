@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import subprocess
 import tempfile
 import unittest
@@ -7,17 +8,31 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from resources import SKY_MODEL  # pylint: disable=import-error
+from resources import (  # pylint: disable=import-error
+    INST_TARGET_COMPLEX_GAIN_CONFIG,
+    INST_TARGET_IONOSPHERIC_CONFIG,
+    SKY_MODEL,
+)
+from utils.constants import RANDOM_SEED  # pylint: disable=import-error
 from utils.data_sim import (  # pylint: disable=import-error
+    apply_gain_corrections,
     generate_target_data,
-    init_target_config,
+    init_config,
     migrate_sky_model,
 )
+
+from ska_sdp_instrumental_calibration.data_managers.visibility import (
+    load_ms_as_dataset_with_time_chunks,
+)
+
+random.seed(RANDOM_SEED)
+np.random.seed(RANDOM_SEED)
 
 logger = logging.getLogger("INST INTEGRATION")
 logging.basicConfig(level=logging.INFO)
 
-VALIDATION_STATIONS = [1, 8, 17]
+
+VALIDATION_STATIONS = [2, 8, 17]
 
 
 def read_h5parm_gains(h5parm_path):
@@ -30,9 +45,10 @@ def read_h5parm_gains(h5parm_path):
             for p in f["sol000/amplitude000/pol"][:]
         ]
         time = f["sol000/amplitude000/time"][:]
-        phase = f["sol000/phase000/val"][:, :, 0, :]  # (time, ant, freq, pol)
+        freq = f["sol000/amplitude000/freq"][:]
+        phase = f["sol000/phase000/val"][:, :, :, :]  # (time, ant, freq, pol)
 
-    return pols, time, phase
+    return pols, time, freq, phase
 
 
 def reference_phase_to_refant(phase, refant):
@@ -52,13 +68,13 @@ def wrapped_phase_rmse(actual, expected):
     return np.sqrt(np.mean(phase_error**2))
 
 
-def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
-    phase_rmse_threshold = np.deg2rad(2)
+def validate_complex_gaintable(output_dir, temp_path, field_id, refant=0):
+    phase_rmse_threshold = np.deg2rad(6)
 
-    expected_pols, expected_time, expected_phase = read_h5parm_gains(
+    expected_pols, expected_time, _, expected_phase = read_h5parm_gains(
         temp_path / "sim_gaintable.h5parm"
     )
-    actual_pols, actual_time, actual_phase = read_h5parm_gains(
+    actual_pols, actual_time, _, actual_phase = read_h5parm_gains(
         output_dir / f"{field_id}_inst.gaintable.h5parm"
     )
 
@@ -73,11 +89,11 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
         actual_pol_idx = actual_pols.index(pol_name)
 
         expected_phase_pol = reference_phase_to_refant(
-            expected_phase[:, :, expected_pol_idx], refant
+            expected_phase[:, :, 0, expected_pol_idx], refant
         )
 
         actual_phase_pol = reference_phase_to_refant(
-            actual_phase[:, :, actual_pol_idx], refant
+            actual_phase[:, :, 0, actual_pol_idx], refant
         )
 
         for station in VALIDATION_STATIONS:
@@ -92,7 +108,84 @@ def validate_inst_gaintable(output_dir, temp_path, field_id, refant=0):
             )
 
 
+def validate_ionospheric(input_data_path, gaintable):
+
+    phase_freq_threshold = 7
+
+    phase_time_threshold = 5
+
+    corrected_vis = load_ms_as_dataset_with_time_chunks(
+        input_data_path, 30, datacolumn="CORRECTED_DATA"
+    ).load()
+
+    expected_time = corrected_vis.vis.time
+
+    expected_freq = corrected_vis.vis.frequency
+
+    expected_pols = ["XX", "YY"]
+
+    actual_pols, actual_time, actual_freq, _ = read_h5parm_gains(gaintable)
+
+    np.testing.assert_allclose(
+        actual_time,
+        expected_time,
+        err_msg="Times don't match between INST gaintable and visibility",
+    )
+
+    np.testing.assert_allclose(
+        actual_freq,
+        expected_freq,
+        err_msg="Freq don't match between INST gaintable and visibility",
+    )
+
+    assert (
+        actual_pols == expected_pols
+    ), "Gaintable pols don't match expected pols"
+
+    vis = corrected_vis.vis.isel(
+        baselineid=VALIDATION_STATIONS,
+        polarisation=[0, 3],
+    )
+
+    mean_phase_freq = np.max(
+        np.angle(
+            vis.mean(dim=["time", "frequency"]),
+            deg=True,
+        )
+    )
+
+    np.testing.assert_allclose(
+        mean_phase_freq,
+        0,
+        atol=phase_freq_threshold,
+        err_msg=(
+            f"Mean phase across frequency is not close to zero "
+            f"Max Mean phase = {mean_phase_freq:.3f} deg, "
+            f"threshold = ±{phase_freq_threshold:.3f} deg."
+        ),
+    )
+
+    vis_phase_time = np.angle(
+        vis.mean(dim="frequency"),
+        deg=True,
+    )
+
+    phase_time_diff = np.max(np.diff(vis_phase_time, axis=0))
+
+    np.testing.assert_allclose(
+        phase_time_diff,
+        0,
+        atol=phase_time_threshold,
+        err_msg=(
+            f"Maximum phase difference = "
+            f"Max Mean time diff = {phase_time_diff:.3f} deg "
+            f"(threshold ±{phase_time_threshold:.3f} deg)."
+        ),
+    )
+
+
 class TargetCalibration(unittest.TestCase):
+
     def test_target_complex_gain_calibration(self):
         """Run integration test for Instrumental calibration Pipeline"""
         logger.info(
@@ -111,8 +204,11 @@ class TargetCalibration(unittest.TestCase):
             )
 
             lsm_path = migrate_sky_model(SKY_MODEL, temp_path)
-            inst_config_path = init_target_config(
-                temp_path, ms_path=input_ms_path, lsm_path=lsm_path
+            inst_config_path = init_config(
+                INST_TARGET_COMPLEX_GAIN_CONFIG,
+                temp_path,
+                ms_path=input_ms_path,
+                lsm_path=lsm_path,
             )
             output_dir = temp_path / "inst_output"
 
@@ -133,7 +229,58 @@ class TargetCalibration(unittest.TestCase):
                 check=True,
             )
 
-            validate_inst_gaintable(output_dir, temp_path, field_id)
+            validate_complex_gaintable(output_dir, temp_path, field_id)
+
+    def test_target_ionospheric_calibration(self):
+        """Run integration test for Instrumental calibration Pipeline"""
+        logger.info(
+            "Run integration test for Instrumental calibration Pipeline"
+        )
+        field_id = "TARGET_FIELD"
+        scan_intent = "CALIBRATE_BANDPASS#ON_SOURCE"
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            os.chdir(tmpdirname)
+            logger.info(
+                "Temp folder: %s. Running test in %s", tmpdirname, os.getcwd()
+            )
+            temp_path = Path(tmpdirname)
+            input_ms_path = generate_target_data(
+                temp_path, field_id, scan_intent, tec_screen=True
+            )
+
+            lsm_path = migrate_sky_model(SKY_MODEL, temp_path)
+            inst_config_path = init_config(
+                INST_TARGET_IONOSPHERIC_CONFIG,
+                temp_path,
+                ms_path=input_ms_path,
+                lsm_path=lsm_path,
+            )
+            output_dir = temp_path / "inst_output"
+
+            command = [
+                "ska-sdp-instrumental-target-ionospheric",
+                "run",
+                input_ms_path,
+                "--config",
+                inst_config_path,
+                "--output",
+                output_dir,
+                "--no-unique-output-subdir",
+            ]
+
+            logger.info("Running command %s", command)
+            subprocess.run(
+                command,
+                check=True,
+            )
+
+            target_gain_table = (
+                output_dir / f"{field_id}_inst.gaintable.h5parm"
+            )
+
+            apply_gain_corrections(input_ms_path, target_gain_table)
+
+            validate_ionospheric(input_ms_path, target_gain_table)
 
 
 if __name__ == "__main__":

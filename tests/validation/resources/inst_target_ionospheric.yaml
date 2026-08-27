@@ -1,0 +1,36 @@
+global_parameters: {}
+parameters:
+  target_load_data:
+    nchannels_per_chunk: 32
+    ntimes_per_ms_chunk: 5
+    timeslice: 2.99
+    cache_directory: null
+    ack: false
+    datacolumn: DATA
+    field_id: 0
+    data_desc_id: 0
+  predict_vis:
+    use_everybeam: true
+    normalise_at_beam_centre: true
+    element_response_model: oskar_dipole_cos
+    lsm_csv_path: $SKY_MODEL_PATH
+    export_sky_model: false
+    fov: 5.0
+    flux_limit: 1.0
+    alpha0: -0.78
+  ionospheric_delay:
+    cluster_indexes: null
+    block_diagonal: true
+    niter: 500
+    tol: 1.0e-06
+    zernike_limit: null
+    plot_table: false
+  export_gain_table:
+    file_name: inst.gaintable
+    export_format: h5parm
+    export_metadata: false
+pipeline:
+  target_load_data: true
+  predict_vis: true
+  ionospheric_delay: true
+  export_gain_table: true

@@ -166,7 +166,7 @@ def delay_calibration_stage(
         )
 
         delayed(export_gaintable_to_h5parm)(
-            delay_corrections, gaintable_file_path
+            delay_corrections, gaintable_file_path, exclude_cross_pols=True
         )
 
         delayed(export_clock_to_h5parm)(delaytable, delaytable_file_path)

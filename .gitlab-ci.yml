@@ -63,7 +63,8 @@ integration-test:
   stage: integration-test
   script:
     - |
-      export PYTHONPATH=$PWD/src/:$PYTHONPATH
+      git clone https://github.com/abhinavn17/ARatmospy
+      export PYTHONPATH=$PWD/src/:$PWD/ARatmospy:$PYTHONPATH
       python -m unittest discover tests/validation/ -p "*.py"
 
   rules:
