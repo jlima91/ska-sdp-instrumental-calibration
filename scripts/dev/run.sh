@@ -68,7 +68,7 @@ load_env_modules ska-sdp-spack "${MODULES[@]}"
 
 # Override the INST package from REPOROOT
 export PYTHONPATH="${REPOROOT}/src:${PYTHONPATH:-}"
-export PATH="${REPOROOT}/bin:${PATH}"
+export PATH="${REPOROOT}/scripts/bin:${PATH:-}"
 
 # ========== PIPELINE EXECUTION CONFIGURATION ==========
 
