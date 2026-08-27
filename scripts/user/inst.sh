@@ -109,6 +109,20 @@ log_command_paths() {
   done
 }
 
+# Quotes each element of an array (by reference) and joins them with the
+# given delimiter (default: single space), trimming any trailing delimiter.
+join_array() {
+  local -n arr_ref="$1"
+  local delimiter="${2:- }"
+  local elem joined=""
+
+  for elem in "${arr_ref[@]}"; do
+    joined+="$(printf '%q' "$elem")${delimiter}"
+  done
+
+  printf '%s' "${joined%"$delimiter"}"
+}
+
 # Capture the invocation before the arg-parsing loop shifts "$@" away.
 invocation_args=("$0" "$@")
 
@@ -246,16 +260,15 @@ script_copy_path="$temp_dir/$(basename "${BASH_SOURCE[0]}")"
 cp "${BASH_SOURCE[0]}" "$script_copy_path"
 log "A copy of run script is stored at: '$script_copy_path'"
 
-printf -v invocation_cmd "'%s' " "${invocation_args[@]}"
-log "Run script invocation command: ${invocation_cmd% }"
+log "Run script invocation command: $(join_array invocation_args)"
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  slurm_vars_to_print=(SLURM_JOB_ID SLURM_JOB_NAME SLURM_JOB_PARTITION SLURM_JOB_NUM_NODES SLURM_JOB_NODELIST)
   slurm_log="Run script executed as SLURM job, with:"
-
-  for slurm_var in SLURM_JOB_ID SLURM_JOB_NAME SLURM_JOB_PARTITION SLURM_JOB_NUM_NODES SLURM_JOB_NODELIST; do
-    slurm_log+=$'\n  '"${slurm_var}='${!slurm_var:-unset}'"
+  for slurm_var in "${slurm_vars_to_print[@]}"; do
+    [[ -v "$slurm_var" ]] || continue
+    slurm_log+=$'\n  '"${slurm_var}='${!slurm_var}'"
   done
-
   log "$slurm_log"
 fi
 
@@ -369,8 +382,7 @@ log "Batchlet's JSON config is stored at: '$batchlet_config_path'"
 log_command_paths "$cmd" batchlet
 
 mapfile -t exported_env_names < <(compgen -e | sort)
-printf -v exported_env_list "'%s', " "${exported_env_names[@]}"
-log "Exported environment variables passed to subprocess: ${exported_env_list%, }"
+log "Exported environment variables passed to subprocess: $(join_array exported_env_names ', ')"
 
 log 'Running application via batchlet...'
 

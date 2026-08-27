@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+import sys
+from ska_sdp_instrumental_calibration.instrumental_calibration import ska_sdp_instrumental_calibration
+
+if __name__ == '__main__':
+    sys.exit(ska_sdp_instrumental_calibration())
