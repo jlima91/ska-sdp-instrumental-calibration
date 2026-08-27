@@ -38,11 +38,11 @@ from .constants import (
     OUTLIER_CHANNEL_INDICES,
     OUTLIER_PHASE_DEG,
     OUTLIER_STATION_INDICES,
+    RANDOM_SEED,
     SAMPLING_TIME_SEC,
     START_FREQ_HZ,
 )
 
-RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
 

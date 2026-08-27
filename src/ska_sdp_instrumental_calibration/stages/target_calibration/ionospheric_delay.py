@@ -127,6 +127,7 @@ def ionospheric_delay_stage(
     )
 
     _upstream_output_["gaintable"] = gaintable
+    _upstream_output_["exclude_cross_pols_in_gains"] = True
     _upstream_output_["calibration_purpose"] = "ionosphere"
 
     if plot_table:

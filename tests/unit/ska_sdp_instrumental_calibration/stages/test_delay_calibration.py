@@ -425,10 +425,12 @@ def test_should_export_gaintable_with_proper_suffix(
             call(
                 delayed_gaintable_mock,
                 "/output/path/gaintables/delay.gaintable.h5parm",
+                exclude_cross_pols=True,
             ),
             call(
                 delayed_gaintable_mock,
                 "/output/path/gaintables/delay_1.gaintable.h5parm",
+                exclude_cross_pols=True,
             ),
         ]
     )

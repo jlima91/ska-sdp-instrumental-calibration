@@ -7,7 +7,11 @@ from pathlib import Path
 
 import h5py
 import numpy as np
-from resources import CABLE_DELAYS, SKY_MODEL  # pylint: disable=import-error
+from resources import (  # pylint: disable=import-error
+    CABLE_DELAYS,
+    INST_CAL_CONFIG,
+    SKY_MODEL,
+)
 from utils.constants import (  # pylint: disable=import-error
     OUTLIER_CHANNEL_INDICES,
     OUTLIER_STATION_INDICES,
@@ -15,7 +19,7 @@ from utils.constants import (  # pylint: disable=import-error
 )
 from utils.data_sim import (  # pylint: disable=import-error
     generate_calibrator_data,
-    init_cal_config,
+    init_config,
     migrate_sky_model,
 )
 
@@ -203,8 +207,11 @@ class INSTClibration(unittest.TestCase):
             )
 
             lsm_path = migrate_sky_model(SKY_MODEL, temp_path)
-            inst_config_path = init_cal_config(
-                temp_path, ms_path=input_ms_path, lsm_path=lsm_path
+            inst_config_path = init_config(
+                INST_CAL_CONFIG,
+                temp_path,
+                ms_path=input_ms_path,
+                lsm_path=lsm_path,
             )
             output_dir = temp_path / "inst_output"
 
