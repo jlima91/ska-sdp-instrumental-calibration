@@ -1,21 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-#
 # _utils.sh — Shared bash utilities for dev runner scripts.
-#
-# Usage:
-#   REPOROOT="/path/to/ska-sdp-instrumental-calibration"
-#   source "${REPOROOT}/scripts/dev/_utils.sh"
-#
-# The runner script is then responsible for:
-#   1. Defining REPOROOT and any environment-specific path variables.
-#   2. Calling the environment setup helpers (load_spack_modules,
-#      load_env_modules, activate_python_environment) as needed for the
-#      target platform.
-#   3. Building the app_env_vars and opt_cli_opt arrays using
-#      append_env_var / append_optional_cli_opt.
-#   4. Calling format_and_print_cmd and confirm_and_exec to preview
-#      and launch the final command.
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -287,29 +272,45 @@ activate_python_environment() {
 # ---------------------------------------------------------------------------
 # append_env_var
 #
-# Appends a KEY=VALUE string to an env-var array that will later be passed
+# Appends a key=value string to an env-var array that will later be passed
 # to `env -i` when constructing the final command.
+# If value is not passed, it checks whether a variable with name 'key' is defined,
+# and if defined, considers its value.
+# If the variable is not defined, returns without modifying the array.
 #
 # Args:
 #   $1 : array_name — name of the caller's array variable (passed by reference).
-#   $2 : assignment — a KEY=VALUE string.
+#   $2 : key — a KEY string, can refer to an existing bash variable.
+#   $3 : value - Optional value to assign. Can override key's existing value.
 #
 # Example:
 #   declare -a app_env_vars=()
-#   append_env_var app_env_vars "HOME=$HOME"
+#   append_env_var app_env_vars HOME
+#   append_env_var app_env_vars KEY value
 # ---------------------------------------------------------------------------
 append_env_var() {
-  if [ "$#" -ne 2 ]; then
-    log ERROR "requires an array name and KEY=VALUE argument."
+  if [[ "$#" -lt 2 ]]; then
+    log ERROR "requires an array name and KEY argument."
     return 1
   fi
 
   local -n env_ref="$1"
-  env_ref+=("$2")
+  local key="$2"
+  local value
+
+  if [[ "$#" -gt 2 ]]; then
+    value="$3"
+  elif [[ -v "$key" ]]; then
+    value="${!key}"
+  else
+    return 0
+  fi
+
+  env_ref+=("$key=$value")
 }
 
 # ---------------------------------------------------------------------------
-# append_optional_cli_opt
+# append_cli_opt_from_var
 #
 # Appends a flag and its value to a CLI-options array only when the named
 # variable is set (even if empty). Does nothing if the variable is unset.
@@ -322,10 +323,10 @@ append_env_var() {
 # Example:
 #   declare -a opt_cli_opt=()
 #   CACHE_DIR="/tmp/cache"
-#   append_optional_cli_opt opt_cli_opt CACHE_DIR --cache-dir
+#   append_cli_opt_from_var opt_cli_opt CACHE_DIR --cache-dir
 #   # opt_cli_opt now contains: (--cache-dir /tmp/cache)
 # ---------------------------------------------------------------------------
-append_optional_cli_opt() {
+append_cli_opt_from_var() {
   if [ "$#" -ne 3 ]; then
     log ERROR "requires an array name, variable name, and flag."
     return 1
@@ -335,7 +336,7 @@ append_optional_cli_opt() {
   local var_name="$2"
   local flag="$3"
 
-  if [ -n "${!var_name+x}" ]; then
+  if [[ -v "$var_name" ]]; then
     opt_ref+=("$flag" "${!var_name}")
   fi
 }

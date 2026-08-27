@@ -90,21 +90,22 @@ echo
 output_dir="$(pwd)/${SCENARIO}"
 
 declare -a app_env_vars=()
-append_env_var app_env_vars "BATCHLET_DASK_CLUSTER__DASHBOARD_ADDRESS=:30088"
-append_env_var app_env_vars "HOME=$HOME"
-append_env_var app_env_vars "PATH=$PATH"
-append_env_var app_env_vars "EXECUTION_BLOCK_ID=eb-batch-20251203-00000"
-append_env_var app_env_vars "PROCESSING_BLOCK_ID=pb-batch-20251203-00001"
-append_env_var app_env_vars "PROCESSING_SCRIPT_IMAGE=oci_image"
-append_env_var app_env_vars "PROCESSING_SCRIPT_NAME=e2e_processign_script"
-append_env_var app_env_vars "PROCESSING_SCRIPT_VERSION=1.0.0"
-[[ -v PYTHONPATH ]]        && append_env_var app_env_vars "PYTHONPATH=$PYTHONPATH"
-[[ -v EVERYBEAM_DATADIR ]] && append_env_var app_env_vars "EVERYBEAM_DATADIR=$EVERYBEAM_DATADIR"
+append_env_var app_env_vars BATCHLET_DASK_CLUSTER__DASHBOARD_ADDRESS ':30088'
+append_env_var app_env_vars EXECUTION_BLOCK_ID eb-batch-20251203-00000
+append_env_var app_env_vars PROCESSING_BLOCK_ID pb-batch-20251203-00001
+append_env_var app_env_vars PROCESSING_SCRIPT_IMAGE oci_image
+append_env_var app_env_vars PROCESSING_SCRIPT_NAME e2e_processign_script
+append_env_var app_env_vars PROCESSING_SCRIPT_VERSION '1.0.0'
+append_env_var app_env_vars HOME
+append_env_var app_env_vars PATH
+append_env_var app_env_vars PYTHONPATH
+append_env_var app_env_vars EVERYBEAM_DATADIR
 
 declare -a opt_cli_opt=()
-append_optional_cli_opt opt_cli_opt CONFIG --config
-append_optional_cli_opt opt_cli_opt SKA_SKYMODEL --sky-model
-append_optional_cli_opt opt_cli_opt GLEAM_SKYMODEL --sky-model-gleam
+append_cli_opt_from_var opt_cli_opt CONFIG --config
+append_cli_opt_from_var opt_cli_opt CACHE_DIR --cache-dir
+append_cli_opt_from_var opt_cli_opt SKA_SKYMODEL --sky-model
+append_cli_opt_from_var opt_cli_opt GLEAM_SKYMODEL --sky-model-gleam
 
 final_full_cmd=(
     env -i "${app_env_vars[@]}"
