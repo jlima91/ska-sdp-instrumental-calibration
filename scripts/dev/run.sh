@@ -33,61 +33,66 @@ set -euo pipefail
 
 source "${REPOROOT}/scripts/dev/_utils.sh"
 
-USER_SCRIPT="${REPOROOT}/scripts/user/inst.sh"
-
-# ========== AWS/HPC SLURM CONFIGURATION ==========
 JIRA=dhr_XXX
 NODES=1
 PARTITION='hpc8a-96xl-ond'
 MEMORY_PER_WORKER="16GB"
 THREADS_PER_WORKER=4
-
 SCENARIO="e2e-dev-run"
 
+# : ========== SCRIPT EXECUTION CONFIGURATION ========== :
+
 ENTRYEXEC=(
-    sbatch
-    --partition "$PARTITION"
-    --nodes "$NODES"
-    --exclusive
-    '-J' "${JIRA}-${SCENARIO}"
+  sbatch
+  --partition "$PARTITION"
+  --nodes "$NODES"
+  --exclusive
+  '-J' "${JIRA}-${SCENARIO}"
 )
-# For local execution without sbatch:
+# # For local execution without sbatch
 # ENTRYEXEC=('bash')
 
-# ========== INST PIPELINE DEPENDENCIES ==========
-# Note: INST dependencies are ALWAYS loaded from metamodules or spack, never from pip.
-# Module-loaded libraries do not mix well with pip site-packages.
-# Loading INST module is enough to load all of its dependencies
+USER_SCRIPT="${REPOROOT}/scripts/user/inst.sh"
+
+# : ========== ENVIRONMENT SETUP ========== :
+
+# This setup runs inside the clean environment immediately before ENTRYEXEC/USER_SCRIPT
+ENV_SETUP_SCRIPT=$(
+  cat <<'EOF'
 MODULES=(
-   py-ska-sdp-benchmark-monitor
-   py-ska-sdp-exec-batchlet
-   py-ska-sdp-instrumental-calibration
+  py-ska-sdp-benchmark-monitor
+  py-ska-sdp-exec-batchlet
+  py-ska-sdp-instrumental-calibration
 )
 
 load_env_modules ska-sdp-spack "${MODULES[@]}"
 
-# Override the INST package from REPOROOT
-export PYTHONPATH="${REPOROOT}/src:${PYTHONPATH:-}"
-export PATH="${REPOROOT}/scripts/bin:${PATH:-}"
+log Overriding the INST package from REPOROOT
+module prepend-path PYTHONPATH "${REPOROOT}/src"
+module prepend-path PATH "${REPOROOT}/scripts/bin"
+EOF
+)
 
-# ========== PIPELINE EXECUTION CONFIGURATION ==========
+# : ========== PIPELINE EXECUTION CONFIGURATION ========== :
 
 COMMAND="ska-sdp-instrumental-calibration"
 SUBCOMMAND="run"
 
-INPUT_MSES="/path/to/calibrator.ms"
+INPUT_MSES=("/path/to/calibrator.ms")
 CONFIG="$REPOROOT/configs/calibrator_inst_run.yml"
 # GLEAM_SKYMODEL=/path/to/gleamegc.dat
 # SKA_SKYMODEL="/path/to/sky_model.csv"
 
 ########################################### NO NEED TO EDIT BELOW THIS #######################################
 
-echo
 log Running scenario: $'\033[0;32m'$SCENARIO$'\033[0m'
-log which COMMAND: $(which $COMMAND)
-echo
 
 output_dir="$(pwd)/${SCENARIO}"
+unique_dir output_dir
+
+home_dir="$output_dir/.home"
+# Many tools will break if home doesn't exist
+mkdir -p $home_dir
 
 declare -a app_env_vars=()
 append_env_var app_env_vars BATCHLET_DASK_CLUSTER__DASHBOARD_ADDRESS ':30088'
@@ -96,10 +101,7 @@ append_env_var app_env_vars PROCESSING_BLOCK_ID pb-batch-20251203-00001
 append_env_var app_env_vars PROCESSING_SCRIPT_IMAGE oci_image
 append_env_var app_env_vars PROCESSING_SCRIPT_NAME e2e_processign_script
 append_env_var app_env_vars PROCESSING_SCRIPT_VERSION '1.0.0'
-append_env_var app_env_vars HOME
-append_env_var app_env_vars PATH
-append_env_var app_env_vars PYTHONPATH
-append_env_var app_env_vars EVERYBEAM_DATADIR
+append_env_var app_env_vars HOME "$home_dir"
 
 declare -a opt_cli_opt=()
 append_cli_opt_from_var opt_cli_opt CONFIG --config
@@ -107,20 +109,51 @@ append_cli_opt_from_var opt_cli_opt CACHE_DIR --cache-dir
 append_cli_opt_from_var opt_cli_opt SKA_SKYMODEL --sky-model
 append_cli_opt_from_var opt_cli_opt GLEAM_SKYMODEL --sky-model-gleam
 
-final_full_cmd=(
-    env -i "${app_env_vars[@]}"
-      "${ENTRYEXEC[@]}" --
-        "$USER_SCRIPT"
-        --cmd "$COMMAND"
-        --subcmd "$SUBCOMMAND"
-        --output-dir "$output_dir"
-        --enable-monitor
-        --memory-per-worker "$MEMORY_PER_WORKER"
-        --threads-per-worker "$THREADS_PER_WORKER"
-        "${opt_cli_opt[@]}"
-        -- $INPUT_MSES
+# This script runs inside the clean environment created by env -i. It restores
+# the system profile and INST environment before executing the assembled command.
+inner_env_script=$(
+  cat <<'INNER'
+set -eu
+
+REPOROOT="$1"
+ENV_SETUP_SCRIPT="$2"
+COMMAND="$3"
+shift 3
+user_script_cmd=("$@")
+
+source "${REPOROOT}/scripts/dev/_utils.sh"
+log Raw Environment:$'\n'"$(multi_line_colored_env)"
+
+log Sourcing /etc/profile
+set +eu; source /etc/profile; set -eu
+
+log Evaluating ENV_SETUP_SCRIPT
+eval "$ENV_SETUP_SCRIPT"
+log_command_paths "$COMMAND" batchlet
+
+log Command to be executed:$'\n'"$(format_and_print_cmd user_script_cmd)"
+confirm_and_exec user_script_cmd
+INNER
 )
 
-format_and_print_cmd final_full_cmd
+clean_env_inner_script_cmd=(
+  env -i "${app_env_vars[@]}"
+  /bin/bash -c "$inner_env_script" --
+  "$REPOROOT"
+  "$ENV_SETUP_SCRIPT"
+  "$COMMAND"
+  "${ENTRYEXEC[@]}" --
+  "$USER_SCRIPT"
+  --cmd "$COMMAND"
+  --subcmd "$SUBCOMMAND"
+  --output-dir "$output_dir"
+  --reuse-dirs
+  --enable-monitor
+  --memory-per-worker "$MEMORY_PER_WORKER"
+  --threads-per-worker "$THREADS_PER_WORKER"
+  "${opt_cli_opt[@]}"
+  -- "${INPUT_MSES[@]}"
+)
 
-confirm_and_exec final_full_cmd
+log Executing subscript in a clean shell...
+exec "${clean_env_inner_script_cmd[@]}"

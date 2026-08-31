@@ -27,8 +27,7 @@ log() {
     ;;
   esac
   local message="$*"
-  local timestamp
-  timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+  local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
   local src="${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
   src="${src##*/}"
   local func="${FUNCNAME[1]:-main}"
@@ -46,7 +45,13 @@ log() {
   ERROR) type_color=$'\033[0;31m' ;; # red
   esac
 
-  echo -e "${C_PROTO}1${reset}|${C_TIME}${timestamp}${reset}|${C_SRC}${src}${reset}|${C_LOC}${func}#${line}${reset}|${type_color}${type}${reset}|${message}" >&2
+  printf '%s%s%s|%s%s%s|%s%s%s|%s%s#%s%s|%s%s%s|%s\n' \
+    "$C_PROTO" "1" "$reset" \
+    "$C_TIME" "$timestamp" "$reset" \
+    "$C_SRC" "$src" "$reset" \
+    "$C_LOC" "$func" "$line" "$reset" \
+    "$type_color" "$type" "$reset" \
+    "$message" >&2
 }
 
 # ---------------------------------------------------------------------------
@@ -70,14 +75,14 @@ unique_dir() {
   local -n unique_dir_ref="$1"
 
   if [[ -e "$unique_dir_ref" ]]; then
-    log WARN "Directory: '$unique_dir_ref' already exists. Creating a new one."
+    log WARN "Directory: ${unique_dir_ref@Q} already exists. Creating a new one."
     for ((i = 1; ; i++)); do
       if [[ ! -e "$unique_dir_ref-$i" ]]; then
         break
       fi
     done
     unique_dir_ref="$unique_dir_ref-$i"
-    log "New directory: '$unique_dir_ref'"
+    log "New directory: ${unique_dir_ref@Q}"
   fi
 }
 
@@ -91,7 +96,7 @@ unique_dir() {
 #   $@ : command names to resolve.
 #
 # Example:
-#   log_command_paths ska-sdp-instrumental-calibration batchlet
+#   log_command_paths command1 command2
 # ---------------------------------------------------------------------------
 log_command_paths() {
   local command_name command_path
@@ -99,11 +104,76 @@ log_command_paths() {
   for command_name in "$@"; do
     command_path="$(command -v "$command_name" || true)"
     if [[ -n "$command_path" ]]; then
-      log "Command: '$command_name' resolved to '$command_path'"
+      log "Command: ${command_name@Q} resolved to ${command_path@Q}"
     else
-      log WARN "Command: '$command_name' was not found in PATH"
+      log WARN "Command: ${command_name@Q} was not found in PATH"
     fi
   done
+}
+
+# ---------------------------------------------------------------------------
+# format_env_kv
+#
+# Formats a single KEY=VALUE pair with colour-coding, masking the value for
+# potentially large keys (PATH, PYTHONPATH, LD_LIBRARY_PATH). Shared by
+# format_and_print_cmd and multi_line_colored_env so both render env vars
+# identically.
+#
+# Args:
+#   $1 : key
+#   $2 : value
+#
+# Output:
+#   Prints the formatted "KEY=VALUE" string to stdout (no trailing newline).
+#
+# Example:
+#   format_env_kv PATH "/usr/bin:/bin"
+# ---------------------------------------------------------------------------
+format_env_kv() {
+  local key="$1"
+  local value="$2"
+
+  local reset=$'\033[0m'
+  local c_key=$'\033[1;33m'    # bold yellow
+  local c_eq=$'\033[0;37m'     # white
+  local c_val=$'\033[0;33m'    # yellow
+  local c_hidden=$'\033[1;31m' # bold red
+  local mask_keys="^(PATH|PYTHONPATH|LD_LIBRARY_PATH)$"
+  local formatted_value
+
+  if [[ "$key" =~ $mask_keys ]]; then
+    formatted_value="${c_hidden}[HIDDEN]${reset}"
+  else
+    formatted_value="${c_val}${value@Q}${reset}"
+  fi
+
+  printf '%s%s%s%s=%s%s' \
+    "$c_key" "$key" "$reset" \
+    "$c_eq" "$reset" \
+    "$formatted_value"
+}
+
+# ---------------------------------------------------------------------------
+# multi_line_colored_env
+#
+# Outputs the current process environment (`env`), one colour-coded, masked
+# KEY=VALUE pair per line (see format_env_kv) to the stdout
+#
+# Example:
+#   multi_line_colored_env
+# ---------------------------------------------------------------------------
+multi_line_colored_env() {
+  local line key value formatted
+  local output=""
+
+  while IFS= read -r line; do
+    key="${line%%=*}"
+    value="${line#*=}"
+    formatted="$(format_env_kv "$key" "$value")"
+    output+="${formatted}"$'\n'
+  done < <(env)
+
+  printf '%s' "${output%$'\n'}"
 }
 
 # ---------------------------------------------------------------------------
@@ -129,10 +199,15 @@ ask_user_confirmation() {
   local message="$1"
   local response
 
-  read -r -p "${message} [y/N] " response </dev/tty || {
+  printf '\n%s [y/N]: ' "$message" >/dev/tty || {
+    log WARN "No terminal available to prompt for confirmation; treating as 'no'."
+    return 1
+  }
+  read -r response </dev/tty || {
     log WARN "No user input available; treating as 'no'."
     return 1
   }
+  printf '\n'
 
   case "$response" in
   [yY][eE][sS] | [yY])
@@ -147,7 +222,7 @@ ask_user_confirmation() {
 # ---------------------------------------------------------------------------
 # join_array
 #
-# Quotes each element of a bash array (via printf '%q') and joins them with
+# Quotes each element of a bash array and joins them with
 # the given delimiter, trimming any trailing delimiter. Preserves elements
 # containing spaces/special characters, unlike "${arr[*]}" expansion.
 #
@@ -174,7 +249,7 @@ join_array() {
   local elem joined=""
 
   for elem in "${arr_ref[@]}"; do
-    joined+="$(printf '%q' "$elem")${delimiter}"
+    joined+="${elem@Q}${delimiter}"
   done
 
   printf '%s' "${joined%"$delimiter"}"
@@ -265,7 +340,7 @@ activate_python_environment() {
 
   local venv_path="$1"
 
-  log INFO "Activating: ${venv_path}"
+  log INFO "Activating: ${venv_path@Q}"
   source "${venv_path}/bin/activate"
 }
 
@@ -274,7 +349,7 @@ activate_python_environment() {
 #
 # Appends a key=value string to an env-var array that will later be passed
 # to `env -i` when constructing the final command.
-# If value is not passed, it checks whether a variable with name 'key' is defined,
+# If value is not passed, it checks whether a variable with same name as key is defined,
 # and if defined, considers its value.
 # If the variable is not defined, returns without modifying the array.
 #
@@ -344,48 +419,40 @@ append_cli_opt_from_var() {
 # ---------------------------------------------------------------------------
 # format_and_print_cmd
 #
-# Pretty-prints a command array with ANSI colour coding:
+# Formats a command array with ANSI colour coding and prints it to stdout.
 #
 # Args:
 #   $1 : array_name — name of the caller's array variable (passed by reference)
 #                     holding the full command to execute.
 #
 # Example:
-#   format_and_print_cmd final_full_cmd
+#   full_cmd=(command subcmd --option1 value)
+#   formatted="$(format_and_print_cmd full_cmd)"
+#   log "Command to be executed:"$'\n'"$formatted"
 # ---------------------------------------------------------------------------
 format_and_print_cmd() {
   local -n _cmd_ref="$1"
 
   local C_RESET=$'\033[0m'
-  local C_CMD=$'\033[1;32m'
-  local C_FLAG=$'\033[1;36m'
-  local C_KEY=$'\033[1;33m'
-  local C_EQ=$'\033[0;37m'
-  local C_ENV_VAL=$'\033[0;33m'
-  local C_HIDDEN=$'\033[1;31m'
-  local C_VAL=$'\033[0;37m'
+  local C_CMD=$'\033[1;32m'  # bold green
+  local C_FLAG=$'\033[1;36m' # bold cyan
+  local C_VAL=$'\033[0;37m'  # white
 
-  local mask_keys="^(PATH|PYTHONPATH|LD_LIBRARY_PATH)="
   local printable_cmd=""
   local arg escaped_arg key val is_first=1
 
   for arg in "${_cmd_ref[@]}"; do
-    if [[ "$arg" =~ $mask_keys ]]; then
-      key="${arg%%=*}"
-      escaped_arg="${C_KEY}${key}${C_EQ}=${C_HIDDEN}[HIDDEN]${C_RESET}"
-    elif [[ "$arg" == *=* && "$arg" != -* ]]; then
+    if [[ "$arg" == *=* && "$arg" != -* ]]; then
       key="${arg%%=*}"
       val="${arg#*=}"
-      local escaped_val
-      escaped_val=$(printf '%q' "$val")
-      escaped_arg="${C_KEY}${key}${C_EQ}=${C_ENV_VAL}${escaped_val}${C_RESET}"
+      escaped_arg="$(format_env_kv "$key" "$val")"
     elif [[ "$arg" == -* ]]; then
-      escaped_arg="${C_FLAG}$(printf '%q' "$arg")${C_RESET}"
+      escaped_arg="${C_FLAG}${arg@Q}${C_RESET}"
     elif [[ "$is_first" -eq 1 ]]; then
-      escaped_arg="${C_CMD}$(printf '%q' "$arg")${C_RESET}"
+      escaped_arg="${C_CMD}${arg@Q}${C_RESET}"
       is_first=0
     else
-      escaped_arg="${C_VAL}$(printf '%q' "$arg")${C_RESET}"
+      escaped_arg="${C_VAL}${arg@Q}${C_RESET}"
     fi
 
     if [[ "$arg" == -* ]]; then
@@ -395,11 +462,7 @@ format_and_print_cmd() {
     fi
   done
 
-  echo -e "\033[1;35m==========================================\033[0m"
-  echo -e "\033[1mCommand to be executed:\033[0m"
-  echo "$printable_cmd"
-  echo -e "\033[1;35m==========================================\033[0m"
-  echo
+  printf '%s' "$printable_cmd"
 }
 
 # ---------------------------------------------------------------------------
@@ -419,7 +482,7 @@ format_and_print_cmd() {
 confirm_and_exec() {
   local -n _cmd_ref="$1"
 
-  if ask_user_confirmation "Do you want to proceed?"; then
+  if ask_user_confirmation 'Do you want to proceed?'; then
     log INFO "Executing..."
     exec "${_cmd_ref[@]}"
   else

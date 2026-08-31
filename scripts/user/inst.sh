@@ -30,22 +30,25 @@
 
 # CLI inputs
 # -------------------
-#  --cmd NAME               Pipeline command. Default: ska-sdp-instrumental-calibration
-#  --subcmd NAME            Pipeline subcommand. Default: run
-#  --config PATH            Path to the YAML config provided to the run subcommand
-#  --sky-model PATH         Path to sky model file, in SKA LSM (.csv) format.
-#  --sky-model-gleam PATH   Path to sky model file, in GLEAM (.dat) format
-#  --output-dir PATH        Output directory of the pipeline. Script ensures unique directory.
-#  --cache-dir PATH         Path to the cache dir which INST uses to dump temporary visibilities.
-#  --report-dir PATH        Directory where monitoring reports and dask reports are stored.
-#  --temp-dir PATH          Directory where temporary files are stored, e.g. batchlet config,
-#                           dask worker temporary files.
-#  --extra-cli-args STR     Additional CLI args passed to pipeline command. Shell quoting rules apply.
-#  --disable-dask-cluster   Disable batchlet-managed dask cluster creation.
-#  --memory-per-worker S    Dask memory_per_worker value. Default: 32GB.
-#  --threads-per-worker N   Dask threads_per_worker value. Default: 4.
-#  --enable-monitor         Enable batchlet resource and log monitoring.
-#  --disable-stdout-logs    Do not mirror main application stdout/stderr to terminal.
+#  --cmd NAME                Pipeline command. Default: ska-sdp-instrumental-calibration
+#  --subcmd NAME             Pipeline subcommand. Default: run
+#  --config PATH             Path to the YAML config provided to the run subcommand
+#  --sky-model PATH          Path to sky model file, in SKA LSM (.csv) format.
+#  --sky-model-gleam PATH    Path to sky model file, in GLEAM (.dat) format
+#  --cache-dir PATH          Path to the cache dir which INST uses to dump temporary visibilities.
+#  --extra-cli-args STR      Additional CLI args passed to pipeline command. Shell quoting rules apply.
+#  --output-dir PATH         Output directory of the pipeline. Script ensures unique directory.
+#                            Defaults to $PWD/output.
+#  --report-dir PATH         Directory where monitoring reports are stored. Script ensures unique directory.
+#                            Defaults to '<output-dir>/reports'
+#  --temp-dir PATH           Directory where temporary files are stored. Script ensures unique directory.
+#                            Defaults to '<output-dir>/.temp'
+#  --reuse-dirs              If set, script will reuse the above output directories (skip uniqueness check)
+#  --disable-dask-cluster    Disable batchlet-managed dask cluster creation.
+#  --memory-per-worker S     Dask memory_per_worker value. Default: 32GB.
+#  --threads-per-worker N    Dask threads_per_worker value. Default: 4.
+#  --enable-monitor          Enable batchlet resource and log monitoring.
+#  --disable-stdout-logs     Do not mirror main application stdout/stderr to terminal.
 
 #### HELP DOC END ####
 
@@ -57,8 +60,9 @@ print_help() {
   sed -n '/^#### HELP DOC START ####$/,/^#### HELP DOC END ####$/p' "$0" | sed '1d;$d'
 }
 
-# Prints structured log line to stderr in the format:
-#   1|{timestamp}|{bash_source}|{function_name}#{line_number}|TYPE|message
+# The following functions are duplicated from scripts/dev/_utils.sh because
+# this script may run independently. Keep their implementations aligned with _utils.sh.
+# log: Prints structured log line to **stdout** and **without color**
 log() {
   local type="INFO"
   case "$1" in
@@ -68,8 +72,7 @@ log() {
     ;;
   esac
   local message="$*"
-  local timestamp
-  timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+  local timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
   local src="${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}"
   src="${src##*/}"
   local func="${FUNCNAME[1]:-main}"
@@ -78,46 +81,47 @@ log() {
   printf '1|%s|%s|%s#%s|%s|%s\n' \
     "$timestamp" "$src" "$func" "$line" "$type" "$message"
 }
-
-# Find the next available directory name
+# unique_dir: Find the next available directory name
 unique_dir() {
   local -n unique_dir_ref="$1"
 
   if [[ -e "$unique_dir_ref" ]]; then
-    log WARN "Directory: '$unique_dir_ref' already exists. Creating a new one."
+    log WARN "Directory: ${unique_dir_ref@Q} already exists. Creating a new one."
     for ((i = 1; ; i++)); do
       if [[ ! -e "$unique_dir_ref-$i" ]]; then
         break
       fi
     done
     unique_dir_ref="$unique_dir_ref-$i"
-    log "New directory: '$unique_dir_ref'"
+    log "New directory: ${unique_dir_ref@Q}"
   fi
 }
-
-# Log the resolved paths of the specified commands.
+# log_command_paths: Log the resolved paths of the specified commands.
 log_command_paths() {
   local command_name command_path
 
   for command_name in "$@"; do
     command_path="$(command -v "$command_name" || true)"
     if [[ -n "$command_path" ]]; then
-      log "Command: '$command_name' resolved to '$command_path'"
+      log "Command: ${command_name@Q} resolved to ${command_path@Q}"
     else
-      log WARN "Command: '$command_name' was not found in PATH"
+      log WARN "Command: ${command_name@Q} was not found in PATH"
     fi
   done
 }
-
-# Quotes each element of an array (by reference) and joins them with the
-# given delimiter (default: single space), trimming any trailing delimiter.
+# join_array: Quotes each element of an array and joins them with the given delimiter
 join_array() {
+  if [ "$#" -lt 1 ]; then
+    log ERROR "requires an array name."
+    return 1
+  fi
+
   local -n arr_ref="$1"
   local delimiter="${2:- }"
   local elem joined=""
 
   for elem in "${arr_ref[@]}"; do
-    joined+="$(printf '%q' "$elem")${delimiter}"
+    joined+="${elem@Q}${delimiter}"
   done
 
   printf '%s' "${joined%"$delimiter"}"
@@ -131,13 +135,14 @@ subcmd="run"
 config_path=""
 sky_model=""
 sky_model_gleam=""
+cache_dir=""
+extra_cli_args=""
 output_dir="$(builtin pwd)/output"
 default_report_dir="reports" # Relative to output_dir.
 default_temp_dir=".temp"     # Relative to output_dir.
-cache_dir=""
 report_dir=""
 temp_dir=""
-extra_cli_args=""
+reuse_dirs=False
 disable_dask_cluster=False
 memory_per_worker="32GB"
 threads_per_worker="4"
@@ -167,12 +172,16 @@ while [[ "$#" -gt 0 ]]; do
     sky_model_gleam=${2:?Missing value for --sky-model-gleam}
     shift 2
     ;;
-  --output-dir)
-    output_dir=${2:?Missing value for --output-dir}
-    shift 2
-    ;;
   --cache-dir)
     cache_dir=${2:?Missing value for --cache-dir}
+    shift 2
+    ;;
+  --extra-cli-args)
+    extra_cli_args=${2:?Missing value for --extra-cli-args}
+    shift 2
+    ;;
+  --output-dir)
+    output_dir=${2:?Missing value for --output-dir}
     shift 2
     ;;
   --report-dir)
@@ -183,9 +192,9 @@ while [[ "$#" -gt 0 ]]; do
     temp_dir=${2:?Missing value for --temp-dir}
     shift 2
     ;;
-  --extra-cli-args)
-    extra_cli_args=${2:?Missing value for --extra-cli-args}
-    shift 2
+  --reuse-dirs)
+    reuse_dirs=True
+    shift
     ;;
   --disable-dask-cluster)
     disable_dask_cluster=True
@@ -234,31 +243,34 @@ if [[ "${#ms_paths[@]}" -lt 1 ]]; then
   exit 1
 fi
 
-unique_dir output_dir
+[[ $reuse_dirs == False ]] && unique_dir output_dir
 
 report_dir=${report_dir:-"${output_dir}/${default_report_dir}"}
+[[ $reuse_dirs == False ]] && unique_dir report_dir
+
 temp_dir=${temp_dir:-"${output_dir}/${default_temp_dir}"}
+[[ $reuse_dirs == False ]] && unique_dir temp_dir
 
 mkdir -p "$output_dir" "$report_dir" "$temp_dir"
 
 stdout_log_file="$output_dir/captured.log"
-log "Captured stdout/stderr logs are stored at: '$stdout_log_file'"
+log "Captured stdout/stderr logs are stored at: ${stdout_log_file@Q}"
 
 if [[ "$disable_stdout_logs" == True ]]; then
-  log WARN "Disabling terminal output.. if required monitor $stdout_log_file file.."
+  log WARN "Disabling terminal output.. if required monitor ${stdout_log_file@Q} file.."
   exec >"$stdout_log_file" 2>&1
 else
   exec > >(tee "$stdout_log_file") 2>&1
 fi
 
 log "Output paths are set to:
-  output_dir='$output_dir'
-  report_dir='$report_dir'
-  temp_dir='$temp_dir'"
+  output_dir=${output_dir@Q}
+  report_dir=${report_dir@Q}
+  temp_dir=${temp_dir@Q}"
 
 script_copy_path="$temp_dir/$(basename "${BASH_SOURCE[0]}")"
 cp "${BASH_SOURCE[0]}" "$script_copy_path"
-log "A copy of run script is stored at: '$script_copy_path'"
+log "A copy of run script is stored at: ${script_copy_path@Q}"
 
 log "Run script invocation command: $(join_array invocation_args)"
 
@@ -267,7 +279,8 @@ if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   slurm_log="Run script executed as SLURM job, with:"
   for slurm_var in "${slurm_vars_to_print[@]}"; do
     [[ -v "$slurm_var" ]] || continue
-    slurm_log+=$'\n  '"${slurm_var}='${!slurm_var}'"
+    slurm_value="${!slurm_var}"
+    slurm_log+=$'\n  '"${slurm_var}=${slurm_value@Q}"
   done
   log "$slurm_log"
 fi
@@ -276,6 +289,8 @@ fi
 export DASK_CONFIG="${temp_dir}/dask_custom_config.yaml"
 
 cat <<EOF >"$DASK_CONFIG"
+dask:
+  temporary-directory: "${temp_dir}"
 distributed:
   comm:
     timeouts:
@@ -377,7 +392,7 @@ with open(batchlet_config_path, "w") as bcf:
     json.dump(batchlet_config, bcf, indent=2)
 EOF
 
-log "Batchlet's JSON config is stored at: '$batchlet_config_path'"
+log "Batchlet's JSON config is stored at: ${batchlet_config_path@Q}"
 
 log_command_paths "$cmd" batchlet
 
