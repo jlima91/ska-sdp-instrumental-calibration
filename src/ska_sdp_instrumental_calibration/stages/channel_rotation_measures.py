@@ -212,7 +212,7 @@ def generate_channel_rm_stage(
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
-            refant=_upstream_output_.refant,
+            refant=run_solver_config.refant,
         )
 
         freq_plotter.plot(
