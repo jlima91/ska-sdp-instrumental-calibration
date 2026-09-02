@@ -6,12 +6,12 @@
 #SBATCH --job-name=inst
 #SBATCH --output=slurm-%j-%x.log
 
-#### HELP DOC START ####
+##########################################################################################
 
 # Description
 # -----------
-# This script allows user to run the ska-sdp-instrumental-calibration
-# command independently of the e2e pipeline.
+# This script allows user to run the ska-sdp-instrumental-calibration command,
+# irrespective of where/how the pipeline was installed.
 # This script uses 'batchlet' cli tool to manage dask cluster
 # The batchlet cli can be installed using the ska-sdp-exec-batchlet package.
 # This script assumes that PATH and PYTHONPATH are already set appropriately.
@@ -29,35 +29,37 @@
 # At least 1 MSv2 path must be passed.
 
 # CLI inputs
-# -------------------
+# ----------
 #  --cmd NAME                Pipeline command. Default: ska-sdp-instrumental-calibration
 #  --subcmd NAME             Pipeline subcommand. Default: run
-#  --config PATH             Path to the YAML config provided to the run subcommand
-#  --sky-model PATH          Path to sky model file, in SKA LSM (.csv) format.
-#  --sky-model-gleam PATH    Path to sky model file, in GLEAM (.dat) format
-#  --cache-dir PATH          Path to the cache dir which INST uses to dump temporary visibilities.
-#  --extra-cli-args STR      Additional CLI args passed to pipeline command. Shell quoting rules apply.
-#  --output-dir PATH         Output directory of the pipeline. Script ensures unique directory.
+#  --config PATH             (optional) Path to the YAML config
+#  --sky-model PATH          (optional) Path to sky model file, in SKA LSM (.csv) format
+#  --sky-model-gleam PATH    (optional) Path to sky model file, in GLEAM (.dat) format
+#  --cache-dir PATH          (optional) Path to the directory which INST uses
+#                            to dump temporary visibilities
+#  --extra-cli-args STR      Additional CLI args passed to pipeline command.
+#                            Shell quoting rules apply.
+#  --output-dir PATH         Output directory of the pipeline. If PATH exists, script
+#                            will find next available path which is non-existent.
 #                            Defaults to $PWD/output.
-#  --report-dir PATH         Directory where monitoring reports are stored. Script ensures unique directory.
+#  --report-dir PATH         Directory where monitoring reports are stored.
 #                            Defaults to '<output-dir>/reports'
-#  --temp-dir PATH           Directory where temporary files are stored. Script ensures unique directory.
+#  --temp-dir PATH           Directory where temporary files are stored.
 #                            Defaults to '<output-dir>/.temp'
-#  --reuse-dirs              If set, script will reuse the above output directories (skip uniqueness check)
+#  --reuse-dirs              If set, script will reuse the above output directories
+#                            (even if they exist), possibly overwriting content.
 #  --disable-dask-cluster    Disable batchlet-managed dask cluster creation.
 #  --memory-per-worker S     Dask memory_per_worker value. Default: 32GB.
 #  --threads-per-worker N    Dask threads_per_worker value. Default: 4.
 #  --enable-monitor          Enable batchlet resource and log monitoring.
 #  --disable-stdout-logs     Do not mirror main application stdout/stderr to terminal.
 
-#### HELP DOC END ####
+##########################################################################################
 
 set -euo pipefail
 
 print_help() {
-  # Keep user-facing docs between HELP DOC markers above. If marker names change,
-  # update this function too.
-  sed -n '/^#### HELP DOC START ####$/,/^#### HELP DOC END ####$/p' "$0" | sed '1d;$d'
+  sed -n '/^##########################################################################################$/,/^##########################################################################################$/p' "$0" | sed '1d;$d;s/^# //'
 }
 
 # The following functions are duplicated from scripts/dev/_utils.sh because

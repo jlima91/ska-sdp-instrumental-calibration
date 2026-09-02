@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 
+##########################################################################################
+
 # Description
 # -----------
 # This script is a dev-focused wrapper for running the SKA SDP Instrumental Calibration
-# pipeline on AWS/HPC clusters. It handles:
+# pipeline on SKA DP-HPC platform. It handles:
 #   1. Environment setup via module load (optionally spack load via _utils functions)
 #   2. Building and confirming the final command with user
-#   3. Internally launching the pipeline via scripts/user/inst.sh (wrapped in batchlet)
+#   3. Internally launching the pipeline via scripts/user/inst.sh
 #
 # IMPORTANT: This script must ALWAYS run as bash (not via sbatch).
 # It internally uses ENTRYEXEC to call inst.sh either via sbatch (for SLURM) or
@@ -14,22 +16,22 @@
 
 # Configuration & Usage
 # ---------------------
-# 1. Set REPOROOT (if not already in environment):
-#      export REPOROOT=/path/to/ska-sdp-instrumental-calibration
-#
-# 2. Edit configuration section below as needed
-#
-# 3. Execute as bash (NEVER use sbatch):
-#      bash scripts/dev/run.sh
+# 1. Edit configuration section below as needed
+# 2. Execute as bash (NEVER use sbatch):
+#    ```
+#    bash scripts/dev/run.sh
+#    ```
 #
 # The script will print the full command before executing, and you must confirm
 # with 'y' to proceed. Internally, it will submit inst.sh to the HPC queue via
 # sbatch (as configured in ENTRYEXEC), or run locally via bash.
 # For other platforms or to disable SLURM, edit the ENTRYEXEC configuration.
 
+##########################################################################################
+
 set -euo pipefail
 
-: ${REPOROOT:?is not set. Please set REPOROOT to the e2e repo root path}
+REPOROOT="$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/../.." && pwd)"
 
 source "${REPOROOT}/scripts/dev/_utils.sh"
 
@@ -40,7 +42,7 @@ MEMORY_PER_WORKER="16GB"
 THREADS_PER_WORKER=4
 SCENARIO="e2e-dev-run"
 
-# : ========== SCRIPT EXECUTION CONFIGURATION ========== :
+# ::: SCRIPT EXECUTION CONFIGURATION :::
 
 ENTRYEXEC=(
   sbatch
@@ -49,14 +51,15 @@ ENTRYEXEC=(
   --exclusive
   '-J' "${JIRA}-${SCENARIO}"
 )
-# # For local execution without sbatch
+# For local execution without sbatch
 # ENTRYEXEC=('bash')
 
 USER_SCRIPT="${REPOROOT}/scripts/user/inst.sh"
 
-# : ========== ENVIRONMENT SETUP ========== :
+# ::: ENVIRONMENT SETUP :::
 
-# This setup runs inside the clean environment immediately before ENTRYEXEC/USER_SCRIPT
+# This setup runs inside the clean environment
+# immediately before ENTRYEXEC/USER_SCRIPT
 ENV_SETUP_SCRIPT=$(
   cat <<'EOF'
 MODULES=(
@@ -73,7 +76,7 @@ module prepend-path PATH "${REPOROOT}/scripts/bin"
 EOF
 )
 
-# : ========== PIPELINE EXECUTION CONFIGURATION ========== :
+# ::: PIPELINE EXECUTION CONFIGURATION :::
 
 COMMAND="ska-sdp-instrumental-calibration"
 SUBCOMMAND="run"
@@ -83,7 +86,9 @@ CONFIG="$REPOROOT/configs/calibrator_inst_run.yml"
 # GLEAM_SKYMODEL=/path/to/gleamegc.dat
 # SKA_SKYMODEL="/path/to/sky_model.csv"
 
-########################################### NO NEED TO EDIT BELOW THIS #######################################
+
+############################### NO NEED TO EDIT BELOW THIS ###############################
+
 
 log Running scenario: $'\033[0;32m'$SCENARIO$'\033[0m'
 
