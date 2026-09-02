@@ -121,7 +121,7 @@ def bandpass_calibration_stage(
 
         freq_plotter = PlotGaintableFrequency(
             path_prefix=path_prefix,
-            refant=_upstream_output_.refant,
+            refant=run_solver_config.refant,
         )
 
         freq_plotter.plot(
@@ -142,6 +142,8 @@ def bandpass_calibration_stage(
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("bandpass")
     _upstream_output_.add_calibration_table("gaintable")
+    _upstream_output_["refant"] = refant
+
     return _upstream_output_
 
 

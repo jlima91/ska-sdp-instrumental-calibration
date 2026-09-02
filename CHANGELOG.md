@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0
+
+1. Use `create_telescope` for beam modeling.
+2. Vectorise station response across frequency, time and stations
+3. Explicit dependency on everybeam >= v0.8.4
+
 ## 1.4.2
 
 1. Update benchmarking script to align with latest pipeline.

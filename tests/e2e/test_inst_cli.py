@@ -29,11 +29,8 @@ def test_should_run_inst_and_generate_required_files():
             "--output",
             f"{temp_dir}/output",
             "--set",
-            "parameters.predict_vis.gleamfile",
-            test_resources.gleamdata,
-            "--set",
-            "parameters.predict_vis.eb_ms",
-            test_resources.eb_ms,
+            "parameters.predict_vis.lsm_csv_path",
+            test_resources.lsm_csv,
             *test_resources.ms_files,
         ]
 
@@ -43,46 +40,44 @@ def test_should_run_inst_and_generate_required_files():
         output_dir = Path(f"{temp_dir}/output")
         qa_dir = output_dir
 
-        assert (output_dir / ".cache" / "a_demo.ms_fid0_ddid0").exists()
-        assert (output_dir / ".cache" / "demo.ms_fid0_ddid0").exists()
+        assert (output_dir / ".cache" / "a_test.ms_fid0_ddid0").exists()
+        assert (output_dir / ".cache" / "test.ms_fid0_ddid0").exists()
 
-        assert (output_dir / "visibilities/demo/corrected.ms/").exists()
-        assert (output_dir / "visibilities/a_demo/corrected.ms/").exists()
-        assert (output_dir / "visibilities/demo/modelvis.ms/").exists()
-        assert (output_dir / "visibilities/a_demo/modelvis.ms/").exists()
+        assert (output_dir / "visibilities/test/corrected.ms/").exists()
+        assert (output_dir / "visibilities/a_test/corrected.ms/").exists()
+        assert (output_dir / "visibilities/test/modelvis.ms/").exists()
+        assert (output_dir / "visibilities/a_test/modelvis.ms/").exists()
 
-        # [TODO] Update "unknown" with the correct field name
-        # once test data is fixed
-        assert (output_dir / "unknown_gaintable.h5parm").exists()
+        assert (output_dir / "CAL_FIELD_gaintable.h5parm").exists()
 
         assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.cli.yaml"))
         assert any(
             qa_dir.glob("ska_sdp_instrumental_calibration*.config.yaml")
         )
         assert any(qa_dir.glob("ska_sdp_instrumental_calibration*.log"))
-        assert (qa_dir / "sky/demo/sky_model.csv").exists()
-        assert (qa_dir / "sky/a_demo/sky_model.csv").exists()
+        assert (qa_dir / "sky/test/sky_model.csv").exists()
+        assert (qa_dir / "sky/a_test/sky_model.csv").exists()
 
-        demo_qa_plots = {
-            qa_file.name for qa_file in (qa_dir / "plots/demo").glob("*.png")
+        test_qa_plots = {
+            qa_file.name for qa_file in (qa_dir / "plots/test").glob("*.png")
         }
-        a_demo_qa_plots = {
-            qa_file.name for qa_file in (qa_dir / "plots/a_demo").glob("*.png")
+        a_test_qa_plots = {
+            qa_file.name for qa_file in (qa_dir / "plots/a_test").glob("*.png")
         }
 
-        demo_qa_gaintables = {
+        test_qa_gaintables = {
             qa_file.name
-            for qa_file in (qa_dir / "gaintables/demo").glob("*.h5parm")
+            for qa_file in (qa_dir / "gaintables/test").glob("*.h5parm")
         }
-        a_demo_qa_gaintables = {
+        a_test_qa_gaintables = {
             qa_file.name
-            for qa_file in (qa_dir / "gaintables/a_demo").glob("*.h5parm")
+            for qa_file in (qa_dir / "gaintables/a_test").glob("*.h5parm")
         }
 
-        assert len(demo_qa_plots) == len(a_demo_qa_plots)
-        assert len(demo_qa_plots) == 21
-        assert len(demo_qa_gaintables) == len(a_demo_qa_gaintables)
-        assert len(demo_qa_gaintables) == 6
+        assert len(test_qa_plots) == len(a_test_qa_plots)
+        assert len(test_qa_plots) == 21
+        assert len(test_qa_gaintables) == len(a_test_qa_gaintables)
+        assert len(test_qa_gaintables) == 6
 
         for stage in [
             "channel_rm",
@@ -92,6 +87,6 @@ def test_should_run_inst_and_generate_required_files():
             "bandpass",
         ]:
             gaintable_file = f"{stage}.gaintable.h5parm"
-            assert gaintable_file in demo_qa_gaintables
+            assert gaintable_file in test_qa_gaintables
 
-        assert "delay.clock.h5parm" in demo_qa_gaintables
+        assert "delay.clock.h5parm" in test_qa_gaintables

@@ -5,6 +5,7 @@ from ska_sdp_instrumental_calibration.stages.data_exports import (
     INST_METADATA_FILE,
     concat_gaintables,
     export_gaintable_stage,
+    export_gaintable_to_hdf5,
 )
 from ska_sdp_instrumental_calibration.tagger import Tags
 
@@ -104,8 +105,8 @@ def test_should_export_gaintable_as_h5parm(
 
     export_gaintable_h5parm_mock.assert_has_calls(
         [
-            call(upstream_output1.gaintable, expected_path1),
-            call(upstream_output3.gaintable, expected_path2),
+            call(upstream_output1.gaintable, expected_path1, False),
+            call(upstream_output3.gaintable, expected_path2, False),
         ]
     )
     delayed_mock.assert_has_calls(
@@ -170,7 +171,7 @@ def test_should_export_gaintable_as_hdf5(
     )
 
     export_gaintable_hdf5_mock.assert_called_once_with(
-        upstream_output.gaintable, "dir/to/save/field_a_test_gains.hdf5"
+        upstream_output.gaintable, "dir/to/save/field_a_test_gains.hdf5", False
     )
     delayed_mock.assert_called_once_with(export_gaintable_hdf5_mock)
 
@@ -212,7 +213,9 @@ def test_should_export_metadata(
         data_products=dataproduct_mock.return_value,
     )
     export_gaintable_h5parm_mock.assert_called_once_with(
-        upstream_output["gaintable"], "dir/to/save/field_a_test_gains.h5parm"
+        upstream_output["gaintable"],
+        "dir/to/save/field_a_test_gains.h5parm",
+        False,
     )
     inst_metadata_mock.export.assert_called_once()
 
@@ -249,7 +252,9 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
     )
 
     export_gaintable_h5parm_mock.assert_called_once_with(
-        upstream_output["gaintable"], "dir/to/save/field_a_test_gains.h5parm"
+        upstream_output["gaintable"],
+        "dir/to/save/field_a_test_gains.h5parm",
+        False,
     )
     inst_metadata_mock.assert_not_called()
 
@@ -263,3 +268,84 @@ def _get_prepopulated_upstream_output(
     upstream_output["calibration_purpose"] = calibration_purpose
     upstream_output.calibration_tables = "gaintable"
     return upstream_output
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports."
+    "convert_gaintable_to_hdf"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.h5py.File")
+def test_export_gaintable_to_hdf5(
+    h5py_file_mock,
+    convert_mock,
+):
+    """Test GainTable export without polarization filtering."""
+
+    gaintable_mock = Mock(name="gaintable")
+
+    file_handle_mock = Mock(name="file_handle")
+    file_handle_mock.attrs = {}
+    group_mock = Mock(name="group")
+
+    h5py_file_mock.return_value.__enter__.return_value = file_handle_mock
+    file_handle_mock.create_group.return_value = group_mock
+
+    export_gaintable_to_hdf5(
+        gaintable_mock,
+        "test.hdf5",
+        exclude_cross_pols=False,
+    )
+
+    h5py_file_mock.assert_called_once_with(
+        "test.hdf5",
+        "w",
+    )
+
+    file_handle_mock.create_group.assert_called_once_with("GainTable0")
+
+    convert_mock.assert_called_once_with(
+        gaintable_mock,
+        group_mock,
+    )
+
+    file_handle_mock.flush.assert_called_once()
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports."
+    "convert_gaintable_to_hdf"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.h5py.File")
+def test_export_gaintable_to_hdf5_exclude_cross_pols(
+    h5py_file_mock,
+    convert_mock,
+):
+    """Test GainTable export with XY/YX removed."""
+
+    filtered_gaintable_mock = Mock(name="filtered_gaintable")
+
+    gaintable_mock = Mock(name="gaintable")
+    gaintable_mock.where.return_value = filtered_gaintable_mock
+
+    file_handle_mock = Mock(name="file_handle")
+    file_handle_mock.attrs = {}
+    group_mock = Mock(name="group")
+
+    h5py_file_mock.return_value.__enter__.return_value = file_handle_mock
+    file_handle_mock.create_group.return_value = group_mock
+
+    export_gaintable_to_hdf5(
+        gaintable_mock,
+        "test.hdf5",
+        exclude_cross_pols=True,
+    )
+
+    gaintable_mock.where.assert_called_once_with(
+        gaintable_mock.receptor1 == gaintable_mock.receptor2,
+        drop=True,
+    )
+
+    convert_mock.assert_called_once_with(
+        filtered_gaintable_mock,
+        group_mock,
+    )
