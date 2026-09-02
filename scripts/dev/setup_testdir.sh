@@ -41,9 +41,7 @@ REPO_REV=main
 # Extra packages via uv pip
 UV_PIP_PACKAGES=("-e $REPOROOT")
 
-
 ############################### NO NEED TO EDIT BELOW THIS ###############################
-
 
 REPO_GIT_URL="https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git"
 PIP_PACKAGES_PATH="$PWD/.pip_packages"

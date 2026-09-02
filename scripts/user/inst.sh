@@ -10,13 +10,13 @@
 
 # Description
 # -----------
-# This script allows user to run the ska-sdp-instrumental-calibration command,
+# This script allows user to run the SKA SDP Instrumental Calibration pipeline,
 # irrespective of where/how the pipeline was installed.
-# This script uses 'batchlet' cli tool to manage dask cluster
+# This script uses 'batchlet' cli tool to manage dask cluster and monitor resources.
 # The batchlet cli can be installed using the ska-sdp-exec-batchlet package.
 # This script assumes that PATH and PYTHONPATH are already set appropriately.
-# The script captures all stdout/stderr logs of the main application (command + batchlet) and
-# writes them to a file path defined by variable 'stdout_log_file'.
+# The script captures all stdout/stderr logs of itself and main application
+# and writes them to a file path defined by variable 'stdout_log_file'.
 
 # Usage
 # -----
@@ -30,12 +30,13 @@
 
 # CLI inputs
 # ----------
+# (all are optional unless explictly stated as required)
 #  --cmd NAME                Pipeline command. Default: ska-sdp-instrumental-calibration
 #  --subcmd NAME             Pipeline subcommand. Default: run
-#  --config PATH             (optional) Path to the YAML config
-#  --sky-model PATH          (optional) Path to sky model file, in SKA LSM (.csv) format
-#  --sky-model-gleam PATH    (optional) Path to sky model file, in GLEAM (.dat) format
-#  --cache-dir PATH          (optional) Path to the directory which INST uses
+#  --config PATH             Path to the YAML config.
+#  --sky-model PATH          Path to sky model file, in SKA LSM (.csv) format
+#  --sky-model-gleam PATH    Path to sky model file, in GLEAM (.dat) format
+#  --cache-dir PATH          Path to the directory which INST uses
 #                            to dump temporary visibilities
 #  --extra-cli-args STR      Additional CLI args passed to pipeline command.
 #                            Shell quoting rules apply.
@@ -49,7 +50,7 @@
 #  --reuse-dirs              If set, script will reuse the above output directories
 #                            (even if they exist), possibly overwriting content.
 #  --disable-dask-cluster    Disable batchlet-managed dask cluster creation.
-#  --memory-per-worker S     Dask memory_per_worker value. Default: 32GB.
+#  --memory-per-worker S     Dask memory_per_worker value. Default: 16GB.
 #  --threads-per-worker N    Dask threads_per_worker value. Default: 4.
 #  --enable-monitor          Enable batchlet resource and log monitoring.
 #  --disable-stdout-logs     Do not mirror main application stdout/stderr to terminal.
@@ -146,7 +147,7 @@ report_dir=""
 temp_dir=""
 reuse_dirs=False
 disable_dask_cluster=False
-memory_per_worker="32GB"
+memory_per_worker="16GB"
 threads_per_worker="4"
 enable_monitor=False
 disable_stdout_logs=False

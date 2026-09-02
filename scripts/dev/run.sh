@@ -38,9 +38,18 @@ source "${REPOROOT}/scripts/dev/_utils.sh"
 JIRA=dhr_XXX
 NODES=1
 PARTITION='hpc8a-96xl-ond'
-MEMORY_PER_WORKER="16GB"
-THREADS_PER_WORKER=4
-SCENARIO="e2e-dev-run"
+
+SCENARIO=cal_inst-main
+
+# ::: PIPELINE EXECUTION CONFIGURATION :::
+
+COMMAND="ska-sdp-instrumental-calibration"
+SUBCOMMAND="run"
+
+INPUT_MSES=("/path/to/calibrator.ms")
+CONFIG="$REPOROOT/configs/calibrator_inst_run.yml"
+# GLEAM_SKYMODEL=/path/to/gleamegc.dat
+# SKA_SKYMODEL="/path/to/sky_model.csv"
 
 # ::: SCRIPT EXECUTION CONFIGURATION :::
 
@@ -76,19 +85,7 @@ module prepend-path PATH "${REPOROOT}/scripts/bin"
 EOF
 )
 
-# ::: PIPELINE EXECUTION CONFIGURATION :::
-
-COMMAND="ska-sdp-instrumental-calibration"
-SUBCOMMAND="run"
-
-INPUT_MSES=("/path/to/calibrator.ms")
-CONFIG="$REPOROOT/configs/calibrator_inst_run.yml"
-# GLEAM_SKYMODEL=/path/to/gleamegc.dat
-# SKA_SKYMODEL="/path/to/sky_model.csv"
-
-
 ############################### NO NEED TO EDIT BELOW THIS ###############################
-
 
 log Running scenario: $'\033[0;32m'$SCENARIO$'\033[0m'
 
@@ -154,8 +151,6 @@ clean_env_inner_script_cmd=(
   --output-dir "$output_dir"
   --reuse-dirs
   --enable-monitor
-  --memory-per-worker "$MEMORY_PER_WORKER"
-  --threads-per-worker "$THREADS_PER_WORKER"
   "${opt_cli_opt[@]}"
   -- "${INPUT_MSES[@]}"
 )
