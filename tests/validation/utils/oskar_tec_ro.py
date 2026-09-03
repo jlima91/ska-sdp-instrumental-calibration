@@ -18,6 +18,8 @@ from ArScreens import ArScreens  # pylint: disable=import-error
 from astropy.io import fits
 from astropy.wcs import WCS
 
+from .constants import RANDOM_SEED
+
 logger = logging.getLogger("OSKAR TEC screen generation")
 logging.basicConfig(level=logging.INFO)
 
@@ -46,7 +48,9 @@ def run_tec_screens(tec_file_path):
     rate = 5.0 / 60.0  # The inverse frame rate (1 per minute).
     alpha_mag = 0.999  # Evolve screen slowly.
     num_times = 6  # Four hours.
-    my_screens = ArScreens(n, m, pscale, rate, layer_params, alpha_mag)
+    my_screens = ArScreens(
+        n, m, pscale, rate, layer_params, alpha_mag, ranseed=RANDOM_SEED
+    )
     logger.info("Running screens...")
     my_screens.run(num_times, verbose=False)
     logger.info("Done")

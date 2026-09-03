@@ -110,9 +110,8 @@ def validate_complex_gaintable(output_dir, temp_path, field_id, refant=0):
 
 def validate_ionospheric(input_data_path, gaintable):
 
-    phase_freq_threshold = 7
-
-    phase_time_threshold = 5
+    phase_freq_threshold = 5  # deg
+    phase_time_threshold = 1  # deg
 
     corrected_vis = load_ms_as_dataset_with_time_chunks(
         input_data_path, 30, datacolumn="CORRECTED_DATA"
@@ -187,9 +186,9 @@ def validate_ionospheric(input_data_path, gaintable):
 class TargetCalibration(unittest.TestCase):
 
     def test_target_complex_gain_calibration(self):
-        """Run integration test for Instrumental calibration Pipeline"""
+        """Run integration test for Target Complex Gain calibration Pipeline"""
         logger.info(
-            "Run integration test for Instrumental calibration Pipeline"
+            "Run integration test for Target Complex Gain calibration Pipeline"
         )
         field_id = "TARGET_FIELD"
         scan_intent = "CALIBRATE_BANDPASS#ON_SOURCE"
@@ -232,9 +231,9 @@ class TargetCalibration(unittest.TestCase):
             validate_complex_gaintable(output_dir, temp_path, field_id)
 
     def test_target_ionospheric_calibration(self):
-        """Run integration test for Instrumental calibration Pipeline"""
+        """Run integration test for Target Ionospheric Calibration Pipeline"""
         logger.info(
-            "Run integration test for Instrumental calibration Pipeline"
+            "Run integration test for Target Ionospheric Calibration Pipeline"
         )
         field_id = "TARGET_FIELD"
         scan_intent = "CALIBRATE_BANDPASS#ON_SOURCE"
