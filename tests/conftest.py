@@ -20,6 +20,9 @@ from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
 )
+from ska_sdp_instrumental_calibration.xarray_processors._utils import (
+    simplify_baselines_dim,
+)
 
 ms_name = "test.ms"
 _N_TIME = 3
@@ -109,6 +112,8 @@ def generate_ionospehric_vis():
         polarisation_frame=PolarisationFrame("linear"),
         weight=1.0,
     )
+    # Remove baselines MultiIndex
+    vis = simplify_baselines_dim(vis)
     # Put a point source at phase centre
     vis.vis.data[..., :] = [1, 0, 0, 1]
 

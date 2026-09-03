@@ -1,3 +1,4 @@
+# pylint:disable=c-extension-no-member
 from typing import Annotated, Optional
 
 import everybeam as eb
