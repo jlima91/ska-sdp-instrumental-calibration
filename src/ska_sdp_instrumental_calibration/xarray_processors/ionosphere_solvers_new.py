@@ -26,7 +26,43 @@ def run_ionospheric_solver(
     niter: int = 15,
     tol: float = 1e-6,
     zernike_limit: list[int] = None,
-):
+) -> GainTable:
+    """
+    Solve ionospheric phase screens for every gain-table solution interval.
+
+    The solver uses the first visibility sample of each solution interval and
+    the XX and YY correlations. Each gain-table chunk is solved independently
+    through :meth:`xarray.DataArray.map_blocks`.
+
+    Parameters
+    ----------
+    vis
+        Observed visibility data. Its frequency and baseline coordinates must
+        match those of ``modelvis``.
+    modelvis
+        Predicted visibility data corresponding to ``vis``.
+    gaintable
+        Gain table that provides solution intervals and initial gain values.
+    cluster_indexes
+        Integer cluster identifier for each antenna, with shape
+        ``(n_antenna,)``. When omitted, all antennas belong to one cluster.
+    block_diagonal
+        Whether to solve the combined cluster system in one block-diagonal
+        least-squares problem. Otherwise, clusters are solved sequentially.
+    niter
+        Maximum number of solver iterations per solution interval.
+    tol
+        Convergence threshold for the maximum fractional parameter change.
+    zernike_limit
+        Maximum Zernike order for each cluster. For cluster ``cid``, terms
+        satisfy ``n + abs(m) <= zernike_limit[cid]``. The solver default is
+        used when omitted.
+
+    Returns
+    -------
+        A copy of ``gaintable`` with ionospheric gains, retaining its original
+        chunking.
+    """
     results_across_solints = []
     gaintable_time_coord = gaintable.coords["time"]
     gaintable_chunks = gaintable.chunksizes
@@ -95,6 +131,7 @@ def _run_ionospheric_solver_block_(
     tol: float = 1e-6,
     zernike_limit: list[int] = None,
 ):
+    """Bridge one xarray block to :class:`IonosphericSolver`."""
     gain = IonosphericSolver(
         vis_vis.values,
         vis_weight.values,
@@ -109,7 +146,7 @@ def _run_ionospheric_solver_block_(
         niter,
         tol,
         zernike_limit,
-    )._solve(gaintable_gain.values)
+    ).solve(gaintable_gain.values)
 
     new_gain_xdr = gaintable_gain.copy()
     new_gain_xdr.data = gain
@@ -119,79 +156,65 @@ def _run_ionospheric_solver_block_(
 
 class IonosphericSolver:
     """
-    Solves for ionospheric phase screens using a linearized approach.
+    Solve ionospheric phase screens using a linearized approach.
 
     This class sets up and solves a system of linear equations to determine
     the parameters of a phase screen model (e.g., Zernike polynomials) that
     best fits the observed visibility data. It supports antenna clustering
     and iterative refinement of the solution.
 
-    NOTE: This solver assumes that input visibilities have linear
-    polarisation, with all 4 polarisations (XX, XY, YX, YY) present.
+    The visibility inputs represent the zeroth time sample of one gain-table
+    solution interval. They must contain exactly two linear-polarisation
+    correlations, ordered as XX and YY.
 
     Parameters
     ----------
-    vis_vis: np.ndarray,
-    vis_weight: np.ndarray,
-    vis_flags: np.ndarray,
-    modelvis_vis: np.ndarray,
-    antenna1: np.ndarray,
-    antenna2: np.ndarray,
-    frequency: np.ndarray,
-    configuration: Configuration,
+    vis_vis
+        Complex-valued observed visibility data for the zeroth time sample of
+        one solution interval, with shape
+        ``(n_baseline, n_frequency, 2)``. The final dimension must contain,
+        in order, the XX and YY correlations only.
+    vis_weight
+        Real-valued visibility weights for ``vis_vis``, with the same shape.
+    vis_flags
+        Boolean visibility flags for ``vis_vis``, with the same shape. Flagged
+        samples have zero weight in the normal equations.
+    modelvis_vis
+        Complex-valued model visibility data for the same time sample and
+        correlations as ``vis_vis``, with the same shape.
+    antenna1
+        Integer first-antenna index for each baseline, with shape
+        ``(n_baseline,)``.
+    antenna2
+        Integer second-antenna index for each baseline, with shape
+        ``(n_baseline,)``.
+    frequency
+        Real-valued channel frequencies in Hz, with shape ``(n_frequency,)``.
+    configuration
+        Telescope configuration
     cluster_indexes
-        Array of integers assigning each antenna to a cluster. If None, all
-        antennas are treated as a single cluster (default: None).
+        Integer cluster identifiers with shape ``(n_antenna,)``. Identifiers
+        must be contiguous from zero. If omitted, all antennas share cluster
+        zero.
     block_diagonal
         If True, solve for all clusters simultaneously assuming a
         block-diagonal system. If False, solve for each cluster sequentially
         (default: False).
     niter
-        Maximum number of iterations for the solver (default: 15).
+        Maximum number of iterations for the solver.
     tol
         Tolerance for the fractional change in parameters to determine
-        convergence (default: 1e-6).
+        convergence
     zernike_limit
-        list of Zernike index limits:
-        Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
-        If None, a default is used by the solver.
-
-    Attributes
-    ----------
-    xyz : numpy.ndarray
-        Cartesian coordinates of the antennas.
-    antenna1 : numpy.ndarray
-        Array of first antenna indices for each baseline.
-    antenna2 : numpy.ndarray
-        Array of second antenna indices for each baseline.
-    change : float
-        The maximum fractional change in parameters from the last iteration.
-    niter : int
-        Maximum number of iterations.
-    tol : float
-        Convergence tolerance.
-    vis : xarray.DataArray
-        Observed visibilities for the first time step.
-    weight : xarray.DataArray
-        Visibility weights for the first time step.
-    flags : xarray.DataArray
-        Visibility flags for the first time step.
-    modelvis : xarray.DataArray
-        Model visibilities for the first time step.
-    pols : list
-        List of polarization indices to be used in the solve.
-    param : list of numpy.ndarray
-        List of parameter arrays, one for each cluster.
-    coeff : list of numpy.ndarray
-        List of coefficient arrays, one for each antenna.
-    solve_function : callable
-        The method used to solve the normal equations, chosen based on
-        `block_diagonal`.
+        Maximum Zernike order for each cluster. For cluster ``cid``, terms
+        satisfy ``n + abs(m) <= zernike_limit[cid]``. The solver default is
+        used when omitted.
 
     Raises
     ------
     ValueError
-        If model visibilities are all zero or if polarisations are unsupported.
+        If model visibilities are all zero or if length of ``cluster_indexes``
+        does not match number of antennas.
     """
 
     def __init__(
@@ -275,27 +298,29 @@ class IonosphericSolver:
                 len(self.param) - 1,
             )
 
-    def _solve(self, gaintable_gain: np.ndarray):
+    def solve(self, gaintable_gain: np.ndarray):
         """
-        Execute the ionospheric phase screen solver.
+        Solve the ionospheric phase screen for single
+        gain-table solution interval.
 
         Parameters
         ----------
         gaintable_gain
-            Initial gain values
-            Shape: (antenna, freq, rec1, rec2)
+            Initial gain values for the solution interval, with shape
+            ``(n_antenna, n_frequency, 2, 2)``.
 
         Returns
         -------
-            New gain data
-            Shape: (antenna, freq, rec1, rec2)
+        numpy.ndarray
+            Ionospheric gains for the same solution interval, with shape
+            ``(n_antenna, n_frequency, 2, 2)``.
         """
-        param = self.get_updated_params()
-        new_gain_data = self.updated_gain_table(param, gaintable_gain)
+        param = self._get_updated_params()
+        new_gain_data = self._update_gain_table(param, gaintable_gain)
 
         return new_gain_data
 
-    def get_updated_params(self):
+    def _get_updated_params(self) -> np.ndarray:
         """
         Iteratively update the screen parameters until convergence.
 
@@ -304,16 +329,8 @@ class IonosphericSolver:
         and applies the resulting phase distortion to the model visibilities
         for the next iteration.
 
-        Parameters
-        ----------
-        n_cluster : int
-            The number of antenna clusters.
-        n_param : int
-            The total number of parameters to solve for.
-
         Returns
         -------
-        dask.array.Array
             The final, converged screen parameters.
         """
         modelvis = self.modelvis
@@ -331,12 +348,12 @@ class IonosphericSolver:
 
         return param
 
-    def build_normal_equation(
+    def _build_normal_equation(
         self,
         modelvis: np.ndarray,
         param: np.ndarray,
         cid: int | None = None,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Construct the normal equation matrices AA and Ab.
 
@@ -358,7 +375,7 @@ class IonosphericSolver:
         tuple[numpy.ndarray, numpy.ndarray]
             A tuple containing the matrices AA and Ab.
         """
-        A = self.build_cluster_design_matrix(modelvis, param, cid)
+        A = self._build_cluster_design_matrix(modelvis, param, cid)
 
         n_param, *_ = A.shape
 
@@ -391,7 +408,7 @@ class IonosphericSolver:
 
         return AA, Ab
 
-    def build_cluster_design_matrix(
+    def _build_cluster_design_matrix(
         self,
         modelvis,
         param,
@@ -412,7 +429,7 @@ class IonosphericSolver:
             The current screen parameters.
         cid : int, optional
             Cluster ID. If given, the matrix is built only for this cluster.
-            Otherwise, the matrix for all clusters is returned (default: None).
+            Otherwise, the matrix for all clusters is returned
 
         Returns
         -------
@@ -423,7 +440,7 @@ class IonosphericSolver:
         [n_cluster, _, stn2cid] = set_cluster_maps(self.cluster_indexes)
 
         if cid is not None:
-            return self.cluster_design_matrix(
+            return self._cluster_design_matrix(
                 modelvis,
                 stn2cid,
                 len(param[cid]),
@@ -437,7 +454,7 @@ class IonosphericSolver:
         for _cid in range(0, n_cluster):
             pid = np.arange(pidx0[_cid], pidx0[_cid] + len(param[_cid]))
 
-            A[pid, :] += self.cluster_design_matrix(
+            A[pid, :] += self._cluster_design_matrix(
                 modelvis,
                 stn2cid,
                 len(param[_cid]),
@@ -446,7 +463,7 @@ class IonosphericSolver:
 
         return A
 
-    def cluster_design_matrix(
+    def _cluster_design_matrix(
         self,
         modelvis,
         stn2cid,
@@ -499,7 +516,7 @@ class IonosphericSolver:
 
         return A
 
-    def updated_gain_table(
+    def _update_gain_table(
         self, param: np.ndarray, gain_data: np.ndarray
     ) -> np.ndarray:
         """
@@ -514,7 +531,7 @@ class IonosphericSolver:
             The final, converged screen parameters for all clusters.
         gain_data
             An empty or template gain data array to be filled.
-            Shape: (antenna, freq, rec1, rec2)
+            Shape: (antenna, freq, 2, 2)
 
         Returns
         -------
@@ -573,7 +590,7 @@ class IonosphericSolver:
 
         [_, pidx0] = get_param_count(param)
 
-        [AA, Ab] = self.build_normal_equation(modelvis, param)
+        [AA, Ab] = self._build_normal_equation(modelvis, param)
         soln_vec = np.linalg.lstsq(AA, Ab, rcond=None)[0]
 
         nu = 1.0 - 0.5 * (it % 2)
@@ -616,7 +633,7 @@ class IonosphericSolver:
             return param_update
 
         for cid in range(n_cluster):
-            [AA, Ab] = self.build_normal_equation(modelvis, param, cid)
+            [AA, Ab] = self._build_normal_equation(modelvis, param, cid)
 
             # Solve the current incremental normal equations
             soln_vec = np.linalg.lstsq(AA, Ab, rcond=None)[0]
