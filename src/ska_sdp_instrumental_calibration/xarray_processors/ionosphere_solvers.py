@@ -84,14 +84,23 @@ def run_ionospheric_solver(
             gaintable["gain"].isel(time=idx, drop=True).chunk(-1)
         )
 
-        res = template_gaintable_gain.map_blocks(
-            _run_ionospheric_solver_block_,
-            args=(
-                diagonal_vis_for_given_time["vis"],
-                diagonal_vis_for_given_time["weight"],
-                diagonal_vis_for_given_time["flags"],
-                diagonal_modelvis_for_given_time["vis"],
-            ),
+        res = xr.apply_ufunc(
+            _run_ionospheric_solver_ufunc_,
+            template_gaintable_gain,
+            diagonal_vis_for_given_time["vis"],
+            diagonal_vis_for_given_time["weight"],
+            diagonal_vis_for_given_time["flags"],
+            diagonal_modelvis_for_given_time["vis"],
+            input_core_dims=[
+                ["antenna", "frequency", "receptor1", "receptor2"],
+                ["baselineid", "frequency", "polarisation"],
+                ["baselineid", "frequency", "polarisation"],
+                ["baselineid", "frequency", "polarisation"],
+                ["baselineid", "frequency", "polarisation"],
+            ],
+            output_core_dims=[
+                ["antenna", "frequency", "receptor1", "receptor2"]
+            ],
             kwargs=dict(
                 antenna1=vis["antenna1"].values,
                 antenna2=vis["antenna2"].values,
@@ -103,7 +112,8 @@ def run_ionospheric_solver(
                 tol=tol,
                 zernike_limit=zernike_limit,
             ),
-            template=template_gaintable_gain,
+            dask="parallelized",
+            output_dtypes=[template_gaintable_gain.dtype],
         )
 
         results_across_solints.append(res)
@@ -116,12 +126,12 @@ def run_ionospheric_solver(
     return gaintable.assign(gain=concat_gaintable_gain).chunk(gaintable_chunks)
 
 
-def _run_ionospheric_solver_block_(
-    gaintable_gain: xr.DataArray,
-    vis_vis: xr.DataArray,
-    vis_weight: xr.DataArray,
-    vis_flags: xr.DataArray,
-    modelvis_vis: xr.DataArray,
+def _run_ionospheric_solver_ufunc_(
+    gaintable_gain: np.ndarray,
+    vis_vis: np.ndarray,
+    vis_weight: np.ndarray,
+    vis_flags: np.ndarray,
+    modelvis_vis: np.ndarray,
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     frequency: np.ndarray,
@@ -132,12 +142,12 @@ def _run_ionospheric_solver_block_(
     tol: float = 1e-6,
     zernike_limit: list[int] = None,
 ):
-    """Bridge one xarray block to :class:`IonosphericSolver`."""
+    """Solve one set of xarray core dimensions with NumPy inputs."""
     gain = IonosphericSolver(
-        vis_vis.values,
-        vis_weight.values,
-        vis_flags.values,
-        modelvis_vis.values,
+        vis_vis,
+        vis_weight,
+        vis_flags,
+        modelvis_vis,
         antenna1,
         antenna2,
         frequency,
@@ -147,12 +157,9 @@ def _run_ionospheric_solver_block_(
         niter,
         tol,
         zernike_limit,
-    ).solve(gaintable_gain.values)
+    ).solve(gaintable_gain)
 
-    new_gain_xdr = gaintable_gain.copy()
-    new_gain_xdr.data = gain
-
-    return new_gain_xdr
+    return gain
 
 
 class IonosphericSolver:
