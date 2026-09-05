@@ -22,7 +22,7 @@ def test_solve_for_ionosphere(generate_ionospehric_vis, apply_gaintable):
         crpted_vis, jones_type="B", skip_default_chunk=True, timeslice="auto"
     )
 
-    gaintable = ionosphere_solvers.IonosphericSolver.solve(
+    gaintable = ionosphere_solvers.run_ionospheric_solver(
         crpted_vis, modelvis, gaintable
     ).compute()
 
@@ -35,20 +35,29 @@ def test_solve_for_ionosphere(generate_ionospehric_vis, apply_gaintable):
 
 
 def test_should_raise_exception_for_zero_model_vis(generate_ionospehric_vis):
-    vis, jones = generate_ionospehric_vis
+    vis, _ = generate_ionospehric_vis
     modelvis = vis.copy(deep=True)
     modelvis.vis.data[..., :] = [0, 0, 0, 0]
 
     with pytest.raises(
         ValueError, match="solve_ionosphere: Model visibilities are zero"
     ):
-        ionosphere_solvers.IonosphericSolver(vis, modelvis)
+        ionosphere_solvers.run_ionospheric_solver(
+            vis,
+            modelvis,
+            create_gaintable_from_visibility(
+                vis,
+                jones_type="B",
+                skip_default_chunk=True,
+                timeslice="full",
+            ),
+        ).compute()
 
 
 def test_should_raise_exception_for_antenna_missmatch(
     generate_ionospehric_vis,
 ):
-    vis, jones = generate_ionospehric_vis
+    vis, _ = generate_ionospehric_vis
     gaintable = create_gaintable_from_visibility(
         vis, jones_type="B", skip_default_chunk=True, timeslice="full"
     )
@@ -57,9 +66,10 @@ def test_should_raise_exception_for_antenna_missmatch(
     modelvis.vis.data[..., :] = [1, 0, 0, 1]
     cluster_indexes = np.zeros(2)
 
-    solver = ionosphere_solvers.IonosphericSolver(
-        vis, modelvis, cluster_indexes=cluster_indexes
-    )
-
     with pytest.raises(ValueError, match="cluster_indexes has wrong size 2"):
-        solver._solve(gaintable)
+        ionosphere_solvers.run_ionospheric_solver(
+            vis,
+            modelvis,
+            gaintable,
+            cluster_indexes=cluster_indexes,
+        ).compute()

@@ -45,10 +45,10 @@ def test_ionospeheric_delay_stage_is_mandatory():
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration."
-    "ionospheric_delay.IonosphericSolver"
+    "ionospheric_delay.run_ionospheric_solver"
 )
 def test_solver_runs_and_updates_gaintable(
-    MockIonosphericSolver,
+    mock_run_ionospheric_solver,
     mock_create_gaintable,
     mock_upstream_output,
 ):
@@ -56,7 +56,7 @@ def test_solver_runs_and_updates_gaintable(
     mock_gaintable = MagicMock(name="gaintable")
     mock_initialtable = MagicMock(name="initialtable")
     chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
-    MockIonosphericSolver.solve.return_value = mock_gaintable
+    mock_run_ionospheric_solver.return_value = mock_gaintable
     mock_initialtable.pipe.return_value = chunked_mock_gaintable
     mock_create_gaintable.return_value = mock_initialtable
 
@@ -71,7 +71,7 @@ def test_solver_runs_and_updates_gaintable(
         _qa_dir_="OUTPUT_DIR",
     )
 
-    MockIonosphericSolver.solve.assert_called_once_with(
+    mock_run_ionospheric_solver.assert_called_once_with(
         mock_upstream_output.vis,
         mock_upstream_output.modelvis,
         chunked_mock_gaintable,
@@ -90,7 +90,7 @@ def test_solver_runs_and_updates_gaintable(
         with_chunks, mock_upstream_output.chunks
     )
 
-    called_args, _ = MockIonosphericSolver.solve.call_args
+    called_args, _ = mock_run_ionospheric_solver.call_args
     np.testing.assert_array_equal(called_args[3], np.array([0, 1, 0, 1]))
 
     assert result["gaintable"] == mock_gaintable
@@ -111,10 +111,10 @@ def test_solver_runs_and_updates_gaintable(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration."
-    "ionospheric_delay.IonosphericSolver"
+    "ionospheric_delay.run_ionospheric_solver"
 )
 def test_solver_runs_and_plots_gaintable(
-    MockIonosphericSolver,
+    mock_run_ionospheric_solver,
     mock_create_gaintable,
     get_plot_path_mock,
     plot_gain_target_iono_mock,
@@ -124,7 +124,7 @@ def test_solver_runs_and_plots_gaintable(
     mock_gaintable = MagicMock(name="gaintable")
     mock_initialtable = MagicMock(name="initialtable")
     chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
-    MockIonosphericSolver.solve.return_value = mock_gaintable
+    mock_run_ionospheric_solver.return_value = mock_gaintable
     mock_initialtable.pipe.return_value = chunked_mock_gaintable
     mock_create_gaintable.return_value = mock_initialtable
     plot_gain_target_iono_mock.return_value = plot_gain_target_iono_mock
