@@ -5,6 +5,7 @@
 #SBATCH --no-requeue
 #SBATCH --job-name=inst
 #SBATCH --output=slurm-%j-%x.log
+#SBATCH --signal=B:INT@60
 
 ##########################################################################################
 
@@ -60,7 +61,10 @@
 set -euo pipefail
 
 print_help() {
-  sed -n '/^##########################################################################################$/,/^##########################################################################################$/p' "$0" | sed '1d;$d;s/^# //'
+  sed -n \
+    '/^##########################################################################################$/,/^##########################################################################################$/p' \
+    "$0" \
+    | sed '1d;$d;s/^# //'
 }
 
 # The following functions are duplicated from scripts/dev/_utils.sh because
@@ -128,6 +132,18 @@ join_array() {
   done
 
   printf '%s' "${joined%"$delimiter"}"
+}
+# function to trap signals
+handle_signal() {
+  local sig="${1:-INT}"
+  local pid="${2:-}"
+
+  # Safely check and kill the explicit PID passed as $2
+  if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    log WARN Sending signal "$sig" to PID "$pid"
+    kill "-$sig" "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+  fi
 }
 
 # Capture the invocation before the arg-parsing loop shifts "$@" away.
@@ -406,10 +422,21 @@ log 'Running application via batchlet...'
 
 echo $'\n-----------------------------------\n'
 
+(
+  trap - INT TERM
+  exec batchlet run "$batchlet_config_path"
+) &
+pid=$!
+
+trap "handle_signal INT $pid" INT
+trap "handle_signal TERM $pid" TERM
+
 set +e
-time batchlet run "$batchlet_config_path"
+time wait "$pid"
 exit_code=$?
 set -e
+
+trap - INT TERM
 
 echo $'\n-----------------------------------\n'
 
