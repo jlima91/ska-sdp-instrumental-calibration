@@ -8,26 +8,32 @@ from ska_sdp_datamodels.science_data_model.science_data_model import (
 )
 
 
-def get_gaintable_file_path(output_dir, filename, sdm_path, purpose, field_id):
+def get_gaintable_file_path(
+    output_dir: str | Path,
+    filename: str,
+    sdm_path: str | Path | None,
+    purpose: str,
+    field_id: str,
+) -> str:
     """
     Generate the file path for a gain table.
 
     Parameters
     ----------
-    output_dir : str or Path
+    output_dir
         Fallback directory if no SDM path is provided.
-    filename : str
+    filename
         Base name of the gain table file.
-    sdm_path : str or Path, optional
+    sdm_path
         Path to the Science Data Model directory.
-    purpose : str
+        If None, gaintable will be written to the output_dir.
+    purpose
         The calibration purpose of the gain table.
-    field_id : str or int
+    field_id
         Identifier for the observed field.
 
     Returns
     -------
-    Path
         The resolved destination path for the gain table file.
     """
 
@@ -42,29 +48,31 @@ def get_gaintable_file_path(output_dir, filename, sdm_path, purpose, field_id):
     return os.path.join(output_dir, f"{field_id}_{filename}")
 
 
-def prepare_qa_path(output_dir, sdm_path, **kwargs):
+def prepare_qa_path(
+    output_dir: str, sdm_path: str | None = None, **kwargs
+) -> str:
     """
     Initialize SDM directory structure and prepare the QA path.
 
     Parameters
     ----------
-    output_dir : str
-        Base directory used to construct the SDM path if not provided.
-    sdm_path : str or None
-        Path to the SDM directory. If None, it defaults to a 'sdm'
-        subdirectory within output_dir.
-    **kwargs : dict
-        Additional keyword arguments for path preparation.
+    output_dir
+        Default output directory passed to the function by piper.
+    sdm_path
+        Path to the SDM directory as provided
+        from the CLI option ``--sdm-path``.
+        If None, then the output_dir will be returned as QA path.
+        If a string, then it must be an existing SDM directory
+        with valid structure.
+    **kwargs
+        Additional CLI arguments passed by piper.
 
     Returns
     -------
-    str
-        The path to the prepared log directory.
+        The QA path where pipeline will dump its QA outputs
     """
     if sdm_path is None:
-        return Path(output_dir)
-
-    sdm = ScienceDataModel(sdm_path)
+        return str(output_dir)
 
     if not os.path.exists(sdm_path):
         raise FileNotFoundError(
@@ -72,7 +80,8 @@ def prepare_qa_path(output_dir, sdm_path, **kwargs):
             "Please provide a valid path."
         )
 
+    sdm = ScienceDataModel(sdm_path)
     logs_path = sdm.get_next_logs_dir("inst")
     logs_path.mkdir(parents=True, exist_ok=True)
 
-    return logs_path
+    return str(logs_path)

@@ -15,12 +15,14 @@ def test_should_prepare_qa_path_when_sdm_path_exists(tmp_path):
     expected_inst_log_path = Path(f"{sdm_root}/logs/01-inst")
 
     assert expected_inst_log_path.exists() is False
-    assert prepare_qa_path(None, sdm_path=sdm_root) == expected_inst_log_path
+    assert prepare_qa_path(None, sdm_path=sdm_root) == str(
+        expected_inst_log_path
+    )
     assert expected_inst_log_path.exists() is True
 
 
 def test_should_return_output_dir_as_qa_path_when_sdm_path_is_none():
-    assert prepare_qa_path("output_dir", sdm_path=None) == Path("output_dir")
+    assert prepare_qa_path("output_dir", sdm_path=None) == "output_dir"
 
 
 @patch(
