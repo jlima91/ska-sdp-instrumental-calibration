@@ -73,7 +73,27 @@ def test_generate_lsm_from_gleam_catalogue_file(
     open_mock.return_value = open_mock
     open_mock.__enter__.return_value = fileobj
 
-    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
+    expected_component = Component(
+        component_id="J235139-894114",
+        ra=357.914368,
+        dec=-89.687309,
+        i_pol=0.271901,
+        ref_freq=200000000.0,
+        spec_idx=[-0.370882],
+        major_ax=219.263,
+        minor_ax=146.4811,
+        pos_ang=-4.158033,
+        beam_major=221.397,
+        beam_minor=152.189,
+        beam_pa=22.430508,
+    )
+
+    # mock Component.deconvolve_gaussian using patch
+    with patch.object(
+        Component, "deconvolve_gaussian", return_value=expected_component
+    ) as deconvolve_gaussian_mock:
+        lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
+        deconvolve_gaussian_mock.assert_called_once()
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
     fileobj.close.assert_called_once()
@@ -83,22 +103,7 @@ def test_generate_lsm_from_gleam_catalogue_file(
         "alpha: mean = -0.37, median = -0.37, used = -0.78"
     )
 
-    assert lsm == [
-        Component(
-            component_id="J235139-894114",
-            ra=357.914368,
-            dec=-89.687309,
-            i_pol=0.271901,
-            ref_freq=200000000.0,
-            spec_idx=[-0.370882],
-            major_ax=219.263,
-            minor_ax=146.4811,
-            pos_ang=-4.158033,
-            beam_major=221.397,
-            beam_minor=152.189,
-            beam_pa=22.430508,
-        )
-    ]
+    assert lsm == [expected_component]
 
 
 @patch(
@@ -216,9 +221,29 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     open_mock.return_value = open_mock
     open_mock.__enter__.return_value = fileobj
 
-    lsm = generate_lsm_from_gleamegc(
-        "gleamfile.dat", phasecentre, fov=10, alpha0=-0.65
+    expected_component = Component(
+        component_id="J235139-894114",
+        ra=357.914368,
+        dec=-89.687309,
+        i_pol=0.248581,
+        ref_freq=200000000.0,
+        spec_idx=[-0.65],
+        major_ax=219.263,
+        minor_ax=146.4811,
+        pos_ang=-4.158033,
+        beam_major=221.397,
+        beam_minor=152.189,
+        beam_pa=22.430508,
     )
+    with patch.object(
+        Component,
+        "deconvolve_gaussian",
+        return_value=expected_component,
+    ) as deconvolve_gaussian_mock:
+        lsm = generate_lsm_from_gleamegc(
+            "gleamfile.dat", phasecentre, fov=10, alpha0=-0.65
+        )
+        deconvolve_gaussian_mock.assert_called_once()
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
     fileobj.close.assert_called_once()
@@ -229,22 +254,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     )
 
     # flux and alpha are set to Fintwide and alpha0 respectively
-    assert lsm == [
-        Component(
-            component_id="J235139-894114",
-            ra=357.914368,
-            dec=-89.687309,
-            i_pol=0.248581,
-            ref_freq=200000000.0,
-            spec_idx=[-0.65],
-            major_ax=219.263,
-            minor_ax=146.4811,
-            pos_ang=-4.158033,
-            beam_major=221.397,
-            beam_minor=152.189,
-            beam_pa=22.430508,
-        )
-    ]
+    assert lsm == [expected_component]
 
 
 @patch("builtins.open")

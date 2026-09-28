@@ -20,18 +20,15 @@ class TestLocalSkyComponent:
             dec=-85,
             i_pol=4.0,
             ref_freq=200,
+            major_ax=7200,
+            minor_ax=9000,
+            pos_ang=5.0,
             spec_idx=[2.0],
-        )
-
-        component.deconvolve_gaussian = Mock(
-            name="deconvolve_gaussian", return_value=(7200, 9000, 5.0)
         )
 
         actual_component = LocalSkyComponent.create_from_component(
             component, [400, 800]
         )
-
-        component.deconvolve_gaussian.assert_called_once()
 
         assert actual_component.direction == SkyCoord(
             ra=260, dec=-85, unit="deg"
@@ -63,15 +60,9 @@ class TestLocalSkyComponent:
             spec_idx=[2.0],
         )
 
-        component.deconvolve_gaussian = Mock(
-            name="deconvolve_gaussian", return_value=(0, 0, 0)
-        )
-
         actual_component = LocalSkyComponent.create_from_component(
             component, [400, 800]
         )
-
-        component.deconvolve_gaussian.assert_called_once()
 
         assert actual_component.shape == "POINT"
         assert actual_component.params == {}
