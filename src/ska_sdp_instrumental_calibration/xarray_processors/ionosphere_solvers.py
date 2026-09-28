@@ -81,7 +81,7 @@ def run_ionospheric_solver(
             .chunk(-1)
         )
         template_gaintable_gain = (
-            gaintable["gain"].isel(time=idx, drop=True).chunk(-1)
+            gaintable["CALPARAM_GAIN"].isel(time=idx, drop=True).chunk(-1)
         )
 
         res = xr.apply_ufunc(
@@ -92,14 +92,24 @@ def run_ionospheric_solver(
             diagonal_vis_for_given_time["flags"],
             diagonal_modelvis_for_given_time["vis"],
             input_core_dims=[
-                ["antenna", "frequency", "receptor1", "receptor2"],
+                [
+                    "antenna_name",
+                    "frequency",
+                    "receptor_label1",
+                    "receptor_label2",
+                ],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
             ],
             output_core_dims=[
-                ["antenna", "frequency", "receptor1", "receptor2"]
+                [
+                    "antenna_name",
+                    "frequency",
+                    "receptor_label1",
+                    "receptor_label2",
+                ]
             ],
             kwargs=dict(
                 antenna1=vis["antenna1"].values,
@@ -123,7 +133,9 @@ def run_ionospheric_solver(
         dim=gaintable_time_coord,
     )
 
-    return gaintable.assign(gain=concat_gaintable_gain).chunk(gaintable_chunks)
+    return gaintable.assign(CALPARAM_GAIN=concat_gaintable_gain).chunk(
+        gaintable_chunks
+    )
 
 
 def _run_ionospheric_solver_ufunc_(

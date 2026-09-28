@@ -12,11 +12,11 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
     gaintable = gaintable.copy(deep=True)
     # Forcefully set one of the crosspol weights to zero,
     # to check if gains are also zero
-    new_weight = gaintable.weight
+    new_weight = gaintable.CALPARAM_WEIGHT
     new_weight[:, :, :, 0, 1] = 0.0
     gaintable = gaintable.assign(weight=new_weight)
 
-    expected_masked_gains = gaintable.gain.data.copy()
+    expected_masked_gains = gaintable.CALPARAM_GAIN.data.copy()
     expected_masked_gains[:, :, :, 0, 1] = np.nan
 
     filename = str(tmp_path / "gaintable.h5parm")
@@ -30,7 +30,7 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
 
         gain = np.reshape(
             amplitude["val"][...] * np.exp(phase["val"][...] * 1j),
-            gaintable.gain.shape,
+            gaintable.CALPARAM_GAIN.shape,
         )
 
         # gaintable is complex64, while the data stored in h5parm is complex128
@@ -44,7 +44,9 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
         np.testing.assert_allclose(weight_amp, weight_phase)
 
         # Assert that all weights equal to previous weights
-        new_weight = np.reshape(gaintable.weight.data, weight_amp.shape)
+        new_weight = np.reshape(
+            gaintable.CALPARAM_WEIGHT.data, weight_amp.shape
+        )
         np.testing.assert_allclose(weight_amp, new_weight)
 
         # TODO: Add comparision for polarisation values.
@@ -55,5 +57,5 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
         )
         assert np.all(
             amplitude["ant"][...].astype(str)
-            == gaintable.configuration.names.data.astype(str)
+            == gaintable.antenna_name.data.astype(str)
         )

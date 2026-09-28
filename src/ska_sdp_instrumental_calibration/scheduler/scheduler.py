@@ -2,9 +2,9 @@ import logging
 from functools import wraps
 from typing import Any, Callable, ParamSpec
 
-from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
+from ..data_managers.gaintable import multiply_gaintables
 from ..tagger import Tags
 from .deferred_tasks import DeferredTask
 from .task_manager import task_manager

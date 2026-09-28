@@ -146,11 +146,11 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         [
             call(
                 2,
-                initial_table_mock.configuration.names,
+                initial_table_mock.antenna_name,
             ),
             call(
                 1,
-                initial_table_mock.configuration.names,
+                initial_table_mock.antenna_name,
             ),
         ]
     )

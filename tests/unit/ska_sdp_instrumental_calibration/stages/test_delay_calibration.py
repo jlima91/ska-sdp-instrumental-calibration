@@ -1,5 +1,5 @@
 import pytest
-from mock import Mock, call, patch
+from mock import MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.delay_calibration import (
@@ -76,7 +76,7 @@ def test_should_perform_delay_calibration_using_gaintable(
     gaintable_mock = Mock(name="gaintable")
     gaintable_without_delay_mock = Mock(name="gaintable_without_delay")
     delay_correction_mock = Mock(name="delay_correction")
-    delaytable_mock = Mock(name="delaytable")
+    delaytable_mock = MagicMock(name="delaytable")
 
     reset_gaintable_mock.return_value = initialtable_mock
     calculate_delay_mock.return_value = delaytable_mock
@@ -162,7 +162,7 @@ def test_should_perform_delay_calibration_using_visibilities(
     modelvis = Mock(name="modelvis")
     initialtable_mock = Mock(name="initialtable")
     gaintable_mock = Mock(name="gaintable")
-    delaytable_mock = Mock(name="delaytable")
+    delaytable_mock = MagicMock(name="delaytable")
 
     reset_gaintable_mock.return_value = initialtable_mock
     create_delaytable_from_vis_mock.return_value = delaytable_mock
@@ -245,7 +245,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
     apply_gaintable_to_dataset_mock,
     plot_config,
 ):
-    delaytable_mock = Mock(name="delaytable")
+    delaytable_mock = MagicMock(name="delaytable")
     delayed_gaintable_mock = Mock(name="delayed_gaintable")
     calculate_delay_mock.return_value = delaytable_mock
     apply_delay_mock.return_value = delayed_gaintable_mock

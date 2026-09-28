@@ -13,10 +13,10 @@ def test_should_create_soltab_dataset():
     data_mock = MagicMock(name="data")
     gaintable.__getitem__.return_value = data_mock
     val_mock = MagicMock(name="val")
-    weight_mock = MagicMock(name="weight")
+    weight_mock = MagicMock(name="CALPARAM_WEIGHT")
     soltab.create_dataset.side_effect = ("A", "B", val_mock, weight_mock)
 
-    gaintable.gain.sizes = ["A", "B"]
+    gaintable.CALPARAM_GAIN.sizes = ["A", "B"]
 
     val, weight = export_to_h5parm.create_soltab_datasets(soltab, gaintable)
 
@@ -24,8 +24,8 @@ def test_should_create_soltab_dataset():
         [
             call("A", data=data_mock.data),
             call("B", data=data_mock.data),
-            call("val", shape=gaintable.gain.shape, dtype=float),
-            call("weight", shape=gaintable.gain.shape, dtype=float),
+            call("val", shape=gaintable.CALPARAM_GAIN.shape, dtype=float),
+            call("weight", shape=gaintable.CALPARAM_GAIN.shape, dtype=float),
         ]
     )
 
@@ -107,12 +107,12 @@ def test_should_raise_exceptions(h5py_mock, np_mock):
     with pytest.raises(ValueError, match=r"Unexpected dims:"):
         export_to_h5parm.export_gaintable_to_h5parm(gaintable_mock, "filename")
 
-    gaintable_mock.gain.sizes = [
+    gaintable_mock.CALPARAM_GAIN.sizes = [
         "time",
-        "antenna",
+        "antenna_name",
         "frequency",
-        "receptor1",
-        "receptor2",
+        "receptor_label1",
+        "receptor_label2",
     ]
     np_mock.array_equal.return_value = False
 
@@ -166,19 +166,19 @@ def test_should_export_gaintable_to_h5parm(
     h5py_mock.File.return_value.__enter__.return_value = mock_file
 
     mock_val = MagicMock(name="val")
-    mock_weight = MagicMock(name="weight")
+    mock_weight = MagicMock(name="CALPARAM_WEIGHT")
 
     mock_soltab_dataset.return_value = [mock_val, mock_weight]
 
     gaintable_mock.rename.return_value = gaintable_mock
     np_mock.asarray.return_value = "assarray"
 
-    gaintable_mock.gain.sizes = [
+    gaintable_mock.CALPARAM_GAIN.sizes = [
         "time",
-        "antenna",
+        "antenna_name",
         "frequency",
-        "receptor1",
-        "receptor2",
+        "receptor_label1",
+        "receptor_label2",
     ]
 
     gaintable_mock.stack.return_value = stacked_gaintable_mock
@@ -190,10 +190,10 @@ def test_should_export_gaintable_to_h5parm(
         gaintable_mock, "filename", squeeze=True
     )
     gaintable_mock.rename.assert_called_once_with(
-        {"antenna": "ant", "frequency": "freq"}
+        {"antenna_name": "ant", "frequency": "freq"}
     )
     gaintable_mock.stack.assert_called_once_with(
-        pol=("receptor1", "receptor2")
+        pol=("receptor_label1", "receptor_label2")
     )
 
     mock_soltab_group.assert_has_calls(
@@ -277,7 +277,7 @@ def test_should_export_clock_to_h5parm(
     h5py_mock.File.return_value.__enter__.return_value = mock_file
 
     mock_val = MagicMock(name="val")
-    mock_weight = MagicMock(name="weight")
+    mock_weight = MagicMock(name="CALPARAM_WEIGHT")
 
     mock_soltab_dataset.return_value = [mock_val, mock_weight]
 

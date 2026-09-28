@@ -2,9 +2,9 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.visibility import Visibility
 
+from ..data_managers.gaintable import GainCalibrationSetXds
 from ..numpy_processors.solvers import Solver
 
 logger = logging.getLogger(__name__)
@@ -105,9 +105,9 @@ def _run_solver_ufunc_with_broadcast_frequency(
 def run_solver(
     vis: Visibility,
     modelvis: Visibility,
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     solver: Solver,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     A function used for distributing the ``solver.solve()`` function
     call across solution intervals of gaintable, and across the chunks
@@ -122,7 +122,7 @@ def run_solver(
         Visibility dataset containing model data, having similar shape,
         dtype and chunksizes as ``vis``
     gaintable
-        GainTable dataset containing initial solutions.
+        GainCalibrationSetXds containing initial solutions.
     solver
         An instance of solver, whose ``.solve()``
         method will be called, wrapped in :py:func:`xarray.apply_ufunc`
@@ -137,9 +137,9 @@ def run_solver(
     gaintable = gaintable.rename(time="solution_time")
     soln_interval_slices = gaintable.soln_interval_slices
     output_dtypes = [
-        gaintable.gain.dtype,
-        gaintable.weight.dtype,
-        gaintable.residual.dtype,
+        gaintable.CALPARAM_GAIN.dtype,
+        gaintable.CALPARAM_WEIGHT.dtype,
+        gaintable.CALPARAM_RESIDUAL.dtype,
     ]
 
     if gaintable.jones_type == "B":
@@ -156,14 +156,14 @@ def run_solver(
         vis_core_dims = ["time", "baselineid", "polarisation"]
         gain_core_dims = [
             "solution_time",
-            "antenna",
-            "receptor1",
-            "receptor2",
+            "antenna_name",
+            "receptor_label1",
+            "receptor_label2",
         ]
         residual_core_dims = [
             "solution_time",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
     else:  # jones_type == T or G
         assert gaintable.frequency.size == 1, (
@@ -177,16 +177,16 @@ def run_solver(
         vis_core_dims = ["time", "baselineid", "frequency", "polarisation"]
         gain_core_dims = [
             "solution_time",
-            "antenna",
+            "antenna_name",
             "solution_frequency",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
         residual_core_dims = [
             "solution_time",
             "solution_frequency",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
 
     gaintable_across_solutions = []
@@ -205,9 +205,9 @@ def run_solver(
             vis_per_solution.weight,
             modelvis_per_solution.vis,
             modelvis_per_solution.flags,
-            template_gaintable.gain,
-            template_gaintable.weight,
-            template_gaintable.residual,
+            template_gaintable.CALPARAM_GAIN,
+            template_gaintable.CALPARAM_WEIGHT,
+            template_gaintable.CALPARAM_RESIDUAL,
             input_core_dims=[
                 vis_core_dims,
                 vis_core_dims,
@@ -232,13 +232,19 @@ def run_solver(
             },
         )
         gaintable_per_solution = template_gaintable.assign(
-            gain=gain.transpose(*template_gaintable.gain.dims),
-            weight=weight.transpose(*template_gaintable.weight.dims),
-            residual=residual.transpose(*template_gaintable.residual.dims),
+            CALPARAM_GAIN=gain.transpose(
+                *template_gaintable.CALPARAM_GAIN.dims
+            ),
+            CALPARAM_WEIGHT=weight.transpose(
+                *template_gaintable.CALPARAM_WEIGHT.dims
+            ),
+            CALPARAM_RESIDUAL=residual.transpose(
+                *template_gaintable.CALPARAM_RESIDUAL.dims
+            ),
         )
         gaintable_across_solutions.append(gaintable_per_solution)
 
-    combined_gaintable: GainTable = xr.concat(
+    combined_gaintable: GainCalibrationSetXds = xr.concat(
         gaintable_across_solutions, dim="solution_time"
     )
 

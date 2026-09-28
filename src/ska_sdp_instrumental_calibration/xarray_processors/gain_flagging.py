@@ -6,8 +6,8 @@ import xarray as xr
 from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
-from ska_sdp_datamodels.calibration import GainTable
 
+from ..data_managers.gaintable import GainCalibrationSetXds
 from ..numpy_processors._utils import stack_2x2
 from ..scheduler import delayed
 from ._utils import with_chunks
@@ -607,7 +607,7 @@ def _fit_names(soltype: str):
 
 
 def flag_on_gains(
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     soltype: str,
     order: int,
     max_ncycles: int,
@@ -617,14 +617,14 @@ def flag_on_gains(
     normalize_gains: bool,
     skip_cross_pol: bool,
     apply_flag: bool,
-) -> tuple[GainTable, dict[str, xr.DataArray]]:
+) -> tuple[GainCalibrationSetXds, dict[str, xr.DataArray]]:
     """
     Solves for gain flagging on gaintable for every receptor combination.
     Optionally applies the weights to the gains.
 
     Parameters
     ----------
-        gaintable: Gaintable
+        gaintable: GainCalibrationSetXds
             Gaintable from previous solution.
         soltype: str
             Solution type to flag.
@@ -660,11 +660,11 @@ def flag_on_gains(
             the fits value
     """
     original_chunks = gaintable.chunksizes
-    gaintable = gaintable.chunk(time=1, antenna=1, frequency=-1)
+    gaintable = gaintable.chunk(time=1, antenna_name=1, frequency=-1)
     # Create a datarray to store antenna names
     # Rename "id" dimension from configuration to "antenna"
     # to match with gaintable's dimensions
-    antenna_names_xdr = gaintable.configuration["names"].rename(id="antenna")
+    antenna_names_xdr = gaintable["antenna_name"]
     fit_names = _fit_names(soltype)
 
     cfg = dict(
@@ -697,8 +697,8 @@ def flag_on_gains(
 
             results = xr.apply_ufunc(
                 _flag_wrapper_ufunc_,
-                gaintable["gain"][..., rec1idx, rec2idx],
-                gaintable["weight"][..., rec1idx, rec2idx],
+                gaintable["CALPARAM_GAIN"][..., rec1idx, rec2idx],
+                gaintable["CALPARAM_WEIGHT"][..., rec1idx, rec2idx],
                 antenna_names_xdr,
                 input_core_dims=[["frequency"], ["frequency"], []],
                 output_core_dims=output_core_dims,
@@ -708,8 +708,8 @@ def flag_on_gains(
                 kwargs=dict(
                     freq=gaintable["frequency"].values,
                     cfg=cfg,
-                    receptor1_name=gaintable["receptor1"][rec1idx].data,
-                    receptor2_name=gaintable["receptor2"][rec2idx].data,
+                    receptor1_name=gaintable["receptor_label1"][rec1idx].data,
+                    receptor2_name=gaintable["receptor_label2"][rec2idx].data,
                 ),
             )
 
@@ -727,16 +727,16 @@ def flag_on_gains(
     )
     flags_xdr = xr.DataArray(
         flags_da,
-        dims=gaintable["weight"].dims,
-        coords=gaintable["weight"].coords,
+        dims=gaintable["CALPARAM_WEIGHT"].dims,
+        coords=gaintable["CALPARAM_WEIGHT"].coords,
     )
     gaintable = gaintable.assign(
-        weight=xr.where(flags_xdr, 0.0, gaintable["weight"])
+        CALPARAM_WEIGHT=xr.where(flags_xdr, 0.0, gaintable["CALPARAM_WEIGHT"])
     )
 
     if apply_flag:
         gaintable = gaintable.assign(
-            gain=xr.where(flags_xdr, 0.0j, gaintable["gain"])
+            CALPARAM_GAIN=xr.where(flags_xdr, 0.0j, gaintable["CALPARAM_GAIN"])
         )
 
     # Assemble fits DataArrays
@@ -750,8 +750,8 @@ def flag_on_gains(
         )
         fits[name] = xr.DataArray(
             fit_da,
-            dims=gaintable["weight"].dims,
-            coords=gaintable["weight"].coords,
+            dims=gaintable["CALPARAM_WEIGHT"].dims,
+            coords=gaintable["CALPARAM_WEIGHT"].coords,
         )
 
     return (

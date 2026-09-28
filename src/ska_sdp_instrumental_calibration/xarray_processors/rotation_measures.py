@@ -5,9 +5,10 @@ import numpy as np
 import xarray as xr
 from astropy import constants as const
 from scipy.optimize import curve_fit
-from ska_sdp_datamodels.calibration import GainTable
 
 from ska_sdp_instrumental_calibration.logger import setup_logger
+
+from ..data_managers.gaintable import GainCalibrationSetXds
 
 __all__ = [
     "RotationMeasureData",
@@ -134,20 +135,29 @@ class RotationMeasureData(xr.Dataset):
         """
         data_vars = dict(
             lambda_sq=(["frequency"], lambda_sq),
-            rm_spec=(["time", "antenna", "resolution"], rm_spec),
-            rm_est=(["time", "antenna"], rm_est),
-            rm_peak=(["time", "antenna"], rm_peak),
-            const_rot=(["time", "antenna"], const_rot),
-            J=(["time", "antenna", "frequency", "receptor1", "receptor2"], J),
+            rm_spec=(["time", "antenna_name", "resolution"], rm_spec),
+            rm_est=(["time", "antenna_name"], rm_est),
+            rm_peak=(["time", "antenna_name"], rm_peak),
+            const_rot=(["time", "antenna_name"], const_rot),
+            J=(
+                [
+                    "time",
+                    "antenna_name",
+                    "frequency",
+                    "receptor_label1",
+                    "receptor_label2",
+                ],
+                J,
+            ),
         )
 
         coords = dict(
             time=time,
-            antenna=antenna,
+            antenna_name=antenna,
             frequency=frequency,
             resolution=resolution,
-            receptor1=receptor1,
-            receptor2=receptor2,
+            receptor_label1=receptor1,
+            receptor_label2=receptor2,
         )
 
         attrs = {
@@ -191,11 +201,11 @@ def get_plot_params_for_station(
     """
     ds = dataset.isel(time=time) if time is not None else dataset
 
-    rm_spec = ds["rm_spec"].isel(antenna=antenna).data
-    rm_peak = ds["rm_peak"].isel(antenna=antenna).data
-    rm_est = ds["rm_est"].isel(antenna=antenna).data
-    rm_est_refant = ds["rm_est"].isel(antenna=refant).data
-    J_val = ds["J"].isel(antenna=antenna).data
+    rm_spec = ds["rm_spec"].isel(antenna_name=antenna).data
+    rm_peak = ds["rm_peak"].isel(antenna_name=antenna).data
+    rm_est = ds["rm_est"].isel(antenna_name=antenna).data
+    rm_est_refant = ds["rm_est"].isel(antenna_name=refant).data
+    J_val = ds["J"].isel(antenna_name=antenna).data
 
     # Access the underlying dask array via .data to chain graph tasks lazily
     xlim = 10 * da.max(da.abs(ds["rm_est"].data))
@@ -251,7 +261,7 @@ def compute_rm_parameters(
 
 
 def model_rotations(
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     peak_threshold: float = 0.5,
     refine_fit: bool = True,
     refant: int = 0,
@@ -295,22 +305,22 @@ def model_rotations(
     -------
         A dataset holding RM estimates and other data computed
     """
-    gaintable = gaintable.chunk(time=1, antenna=1, frequency=-1)
-    gaintable_refant = gaintable.isel(antenna=refant, drop=True)
+    gaintable = gaintable.chunk(time=1, antenna_name=1, frequency=-1)
+    gaintable_refant = gaintable.isel(antenna_name=refant, drop=True)
 
     lambda_sq, rm_vals_coords = compute_rm_parameters(
         gaintable["frequency"].values, oversample
     )
 
     n_time = gaintable.sizes["time"]
-    n_ant = gaintable.sizes["antenna"]
+    n_ant = gaintable.sizes["antenna_name"]
     n_res = rm_vals_coords.size
     n_freq = gaintable.sizes["frequency"]
-    n_rec1 = gaintable.sizes["receptor1"]
-    n_rec2 = gaintable.sizes["receptor2"]
+    n_rec1 = gaintable.sizes["receptor_label1"]
+    n_rec2 = gaintable.sizes["receptor_label2"]
 
     time_chunks = gaintable.chunks["time"]
-    ant_chunks = gaintable.chunks["antenna"]
+    ant_chunks = gaintable.chunks["antenna_name"]
 
     rm_spec_da = da.empty(
         (n_time, n_ant, n_res),
@@ -335,16 +345,16 @@ def model_rotations(
     J_da = da.empty(
         (n_time, n_ant, n_freq, n_rec1, n_rec2),
         chunks=(time_chunks, ant_chunks, n_freq, n_rec1, n_rec2),
-        dtype=gaintable["gain"].dtype,
+        dtype=gaintable["CALPARAM_GAIN"].dtype,
     )
 
     template = RotationMeasureData.constructor(
         time=gaintable.coords["time"].values,
-        antenna=gaintable.coords["antenna"].values,
+        antenna=gaintable.coords["antenna_name"].values,
         frequency=gaintable.coords["frequency"].values,
         resolution=rm_vals_coords,
-        receptor1=gaintable.coords["receptor1"].values,
-        receptor2=gaintable.coords["receptor2"].values,
+        receptor1=gaintable.coords["receptor_label1"].values,
+        receptor2=gaintable.coords["receptor_label2"].values,
         lambda_sq=lambda_sq,
         rm_spec=rm_spec_da,
         rm_est=rm_est_da,
@@ -382,14 +392,14 @@ def _model_rotation_block_(
     lambda_sq = template_block["lambda_sq"].values
 
     # Drop 1-element time and antenna dimensions for core block extraction
-    gaintable_squeezed = gaintable.squeeze(dim=["time", "antenna"])
+    gaintable_squeezed = gaintable.squeeze(dim=["time", "antenna_name"])
     gaintable_refant_squeezed = gaintable_refant.squeeze(dim="time")
 
     # Extract raw NumPy arrays from the squeezed Xarray Datasets
-    gain = gaintable_squeezed["gain"].values
-    weight = gaintable_squeezed["weight"].values
-    gain_refant = gaintable_refant_squeezed["gain"].values
-    weight_refant = gaintable_refant_squeezed["weight"].values
+    gain = gaintable_squeezed["CALPARAM_GAIN"].values
+    weight = gaintable_squeezed["CALPARAM_WEIGHT"].values
+    gain_refant = gaintable_refant_squeezed["CALPARAM_GAIN"].values
+    weight_refant = gaintable_refant_squeezed["CALPARAM_WEIGHT"].values
 
     J, rm_spec, rm_est, rm_peak, const_rot = model_rotations_ufunc(
         gain=gain,
@@ -404,23 +414,29 @@ def _model_rotation_block_(
 
     block_ds = template_block.assign(
         rm_spec=(
-            ["time", "antenna", "resolution"],
+            ["time", "antenna_name", "resolution"],
             rm_spec[np.newaxis, np.newaxis, :],
         ),
         rm_est=(
-            ["time", "antenna"],
+            ["time", "antenna_name"],
             np.array([[rm_est]], dtype=np.float64),
         ),
         rm_peak=(
-            ["time", "antenna"],
+            ["time", "antenna_name"],
             np.array([[rm_peak]], dtype=np.float64),
         ),
         const_rot=(
-            ["time", "antenna"],
+            ["time", "antenna_name"],
             np.array([[const_rot]], dtype=np.float64),
         ),
         J=(
-            ["time", "antenna", "frequency", "receptor1", "receptor2"],
+            [
+                "time",
+                "antenna_name",
+                "frequency",
+                "receptor_label1",
+                "receptor_label2",
+            ],
             J[np.newaxis, np.newaxis, ...],
         ),
     )

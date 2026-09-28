@@ -91,9 +91,9 @@ class TestRunSolverUfunc:
             "vis_weight",
             "model_vis",
             "model_flags",
-            "gain",
-            "gain_weight",
-            "gain_residual",
+            "CALPARAM_GAIN",
+            "CALPARAM_WEIGHT",
+            "CALPARAM_RESIDUAL",
             "antenna1",
             "antenna2",
         )
@@ -191,14 +191,14 @@ class TestRunSolver:
         ]
         assert kw["output_core_dims"][0] == [
             "solution_time",
-            "antenna",
-            "receptor1",
-            "receptor2",
+            "antenna_name",
+            "receptor_label1",
+            "receptor_label2",
         ]
         assert kw["output_core_dims"][2] == [
             "solution_time",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
         assert kw["dask"] == "parallelized"
         ufunc_kwargs = kw["kwargs"]
@@ -248,16 +248,16 @@ class TestRunSolver:
         ]
         assert kw["output_core_dims"][0] == [
             "solution_time",
-            "antenna",
+            "antenna_name",
             "solution_frequency",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
         assert kw["output_core_dims"][2] == [
             "solution_time",
             "solution_frequency",
-            "receptor1",
-            "receptor2",
+            "receptor_label1",
+            "receptor_label2",
         ]
         assert kw["dask"] == "parallelized"
         ufunc_kwargs = kw["kwargs"]

@@ -5,12 +5,12 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from numpy.exceptions import ComplexWarning
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 
 from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
 
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ._utils import with_chunks
 
 logger = logging.getLogger()
@@ -114,7 +114,7 @@ class DelayTable(xr.Dataset):
 
 
 def calculate_delays_from_gain(
-    gaintable: GainTable, oversample: int
+    gaintable: GainCalibrationSetXds, oversample: int
 ) -> DelayTable:
     """
     Applies the delay to the given gaintable
@@ -122,7 +122,7 @@ def calculate_delays_from_gain(
     Parameters
     ----------
     gaintable
-        Gaintable
+        GainCalibrationSetXds
     oversample
         Oversample rate required for the delay
 
@@ -131,13 +131,13 @@ def calculate_delays_from_gain(
         A dataset holding delay data
     """
     ntime = gaintable.sizes["time"]
-    nant = gaintable.sizes["antenna"]
+    nant = gaintable.sizes["antenna_name"]
 
-    gain_gain_chunked = gaintable["gain"].chunk(
-        time=1, antenna=1, frequency=-1
+    gain_gain_chunked = gaintable["CALPARAM_GAIN"].chunk(
+        time=1, antenna_name=1, frequency=-1
     )
-    gain_weight_chunk = gaintable["weight"].chunk(
-        time=1, antenna=1, frequency=-1
+    gain_weight_chunk = gaintable["CALPARAM_WEIGHT"].chunk(
+        time=1, antenna_name=1, frequency=-1
     )
 
     apply_ufunc_results = {"delay": {}, "offset": {}}
@@ -146,15 +146,15 @@ def calculate_delays_from_gain(
     # We only calculate delays based on diagonal terms
     for rec1idx, rec2idx in ((0, 0), (1, 1)):
         pols.append(
-            f"{gaintable['receptor1'][rec1idx].item()}"
-            f"{gaintable['receptor2'][rec2idx].item()}"
+            f"{gaintable['receptor_label1'][rec1idx].item()}"
+            f"{gaintable['receptor_label2'][rec2idx].item()}"
         )
 
         gain = gain_gain_chunked[..., rec1idx, rec2idx]
         weight = gain_weight_chunk[..., rec1idx, rec2idx]
         initial_offset = xr.zeros_like(
-            gaintable["antenna"], dtype=np.float64
-        ).chunk(antenna=1)
+            gaintable["antenna_name"], dtype=np.float64
+        ).chunk(antenna_name=1)
 
         with warnings.catch_warnings():
             # apply_ufunc throws a false warning, when it detects that
@@ -197,9 +197,9 @@ def calculate_delays_from_gain(
             axis=-1,
         ).reshape(ntime, nant, 2),
         time=gaintable["time"].values,
-        antenna=gaintable["antenna"].values,
+        antenna=np.arange(nant),
         pol=pols,
-        configuration=gaintable.attrs["configuration"],
+        configuration=None,
     )
 
 
@@ -254,8 +254,10 @@ def _calculate_delays_ufunc_(
 
 
 def apply_delay_to_gaintable(
-    gaintable: GainTable, delaytable: DelayTable, inverse: bool = False
-) -> GainTable:
+    gaintable: GainCalibrationSetXds,
+    delaytable: DelayTable,
+    inverse: bool = False,
+) -> GainCalibrationSetXds:
     """
     Applies the delay to the given gaintable
 
@@ -279,8 +281,10 @@ def apply_delay_to_gaintable(
     # We calculate delays only for diagonal terms
     # gaintable stores them in 2x2 matrix (receptor1, receptor2)
     # while delaytable stores them in 1x2 array
+    # match the gaintable's antenna dimension
+    delaytable = delaytable.drop_vars("antenna").rename(antenna="antenna_name")
     for delay_pol_idx, rec1idx, rec2idx in ((0, 0, 0), (1, 1, 1)):
-        gain = gaintable["gain"][..., rec1idx, rec2idx]
+        gain = gaintable["CALPARAM_GAIN"][..., rec1idx, rec2idx]
         delay = delaytable["delay"].isel(pol=delay_pol_idx)
         offset = delaytable["offset"].isel(pol=delay_pol_idx)
 
@@ -308,11 +312,11 @@ def apply_delay_to_gaintable(
     )
 
     return gaintable.assign(
-        gain=with_chunks(
+        CALPARAM_GAIN=with_chunks(
             xr.DataArray(
                 _new_gain_da,
-                dims=gaintable["gain"].dims,
-                coords=gaintable["gain"].coords,
+                dims=gaintable["CALPARAM_GAIN"].dims,
+                coords=gaintable["CALPARAM_GAIN"].coords,
             ),
             gaintable.chunks,
         )
@@ -440,7 +444,10 @@ def calculate_gain_rot(
 
 
 def create_delaytable_from_vis(
-    vis: Visibility, gaintable: GainTable, refant: int, oversample: int
+    vis: Visibility,
+    gaintable: GainCalibrationSetXds,
+    refant: int,
+    oversample: int,
 ) -> DelayTable:
     """
     Calculates delays from visibility data by processing each solution interval
@@ -496,21 +503,23 @@ def create_delaytable_from_vis(
         weights[refant, ...] = 1.0
 
         vis_refant_data = vis_refant.data.reshape(
-            template_gaintable["gain"].shape
+            template_gaintable["CALPARAM_GAIN"].shape
         )
-        weight_data = weights.data.reshape(template_gaintable["weight"].shape)
+        weight_data = weights.data.reshape(
+            template_gaintable["CALPARAM_WEIGHT"].shape
+        )
 
         reshaped_vis_refant = xr.DataArray(
             vis_refant_data,
-            dims=template_gaintable["gain"].dims,
+            dims=template_gaintable["CALPARAM_GAIN"].dims,
         )
         reshaped_weights = xr.DataArray(
             weight_data,
-            dims=template_gaintable["weight"].dims,
+            dims=template_gaintable["CALPARAM_WEIGHT"].dims,
         )
         baselines_table = template_gaintable.assign(
-            gain=reshaped_vis_refant,
-            weight=reshaped_weights,
+            CALPARAM_GAIN=reshaped_vis_refant,
+            CALPARAM_WEIGHT=reshaped_weights,
         )
         baselines_table = baselines_table.rename(solution_time="time")
 

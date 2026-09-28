@@ -223,19 +223,25 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     antenna_coords = [f"{i}" for i in range(nstations)]
     freq_coords = np.linspace(1e8, 2e8, nfreq)
 
-    dims = ("time", "antenna", "frequency", "receptor1", "receptor2")
+    dims = (
+        "time",
+        "antenna_name",
+        "frequency",
+        "receptor_label1",
+        "receptor_label2",
+    )
     coords = {
         "time": [0],
-        "antenna": antenna_coords,
+        "antenna_name": antenna_coords,
         "frequency": freq_coords,
-        "receptor1": ["X", "Y"],
-        "receptor2": ["X", "Y"],
+        "receptor_label1": ["X", "Y"],
+        "receptor_label2": ["X", "Y"],
     }
 
     gaintable = xr.Dataset(
         {
-            "gain": xr.DataArray(gain_data, coords=coords, dims=dims),
-            "weight": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(gain_data, coords=coords, dims=dims),
+            "CALPARAM_WEIGHT": xr.DataArray(
                 np.ones((1, nstations, nfreq, 2, 2)),
                 coords=coords,
                 dims=dims,
@@ -248,10 +254,10 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
         }
     ).chunk({"frequency": 2})
 
-    dims2 = ("time", "antenna", "frequency")
+    dims2 = ("time", "antenna_name", "frequency")
     coords2 = {
         "time": [0],
-        "antenna": antenna_coords,
+        "antenna_name": antenna_coords,
         "frequency": freq_coords,
     }
 
@@ -330,14 +336,18 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     expected_weight = np.ones((1, nstations, nfreq, 2, 2), dtype=np.float64)
     expected_weight[:, :, 3, 0, 0] = 0.0
     expected_weight[:, :, 1, 1, 1] = 0.0
-    np.testing.assert_allclose(result_gaintable.weight.data, expected_weight)
+    np.testing.assert_allclose(
+        result_gaintable.CALPARAM_WEIGHT.data, expected_weight
+    )
 
     expected_gain = (
         np.ones((1, nstations, nfreq, 2, 2), dtype=np.complex128) + 1j
     )
     expected_gain[:, :, 3, 0, 0] = 0.0j
     expected_gain[:, :, 1, 1, 1] = 0.0j
-    np.testing.assert_allclose(result_gaintable.gain.data, expected_gain)
+    np.testing.assert_allclose(
+        result_gaintable.CALPARAM_GAIN.data, expected_gain
+    )
 
 
 @patch(
@@ -361,19 +371,25 @@ def test_should_perform_gain_flagging_without_apply(
     antenna_coords = [f"{i}" for i in range(nstations)]
     freq_coords = np.linspace(1e8, 2e8, nfreq)
 
-    dims = ("time", "antenna", "frequency", "receptor1", "receptor2")
+    dims = (
+        "time",
+        "antenna_name",
+        "frequency",
+        "receptor_label1",
+        "receptor_label2",
+    )
     coords = {
         "time": [0],
-        "antenna": antenna_coords,
+        "antenna_name": antenna_coords,
         "frequency": freq_coords,
-        "receptor1": ["X", "Y"],
-        "receptor2": ["X", "Y"],
+        "receptor_label1": ["X", "Y"],
+        "receptor_label2": ["X", "Y"],
     }
 
     gaintable = xr.Dataset(
         {
-            "gain": xr.DataArray(gain_data, coords=coords, dims=dims),
-            "weight": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(gain_data, coords=coords, dims=dims),
+            "CALPARAM_WEIGHT": xr.DataArray(
                 np.ones((1, nstations, nfreq, 2, 2)),
                 coords=coords,
                 dims=dims,
@@ -387,10 +403,10 @@ def test_should_perform_gain_flagging_without_apply(
     ).chunk({"frequency": 2})
     original_chunks = gaintable.chunksizes
 
-    dims_flag = ("time", "antenna", "frequency")
+    dims_flag = ("time", "antenna_name", "frequency")
     coords_flag = {
         "time": [0],
-        "antenna": antenna_coords,
+        "antenna_name": antenna_coords,
         "frequency": freq_coords,
     }
 
@@ -513,16 +529,18 @@ def test_should_perform_gain_flagging_without_apply(
         ]
     )
 
-    np.testing.assert_array_equal(gaintable.weight.data, expected_weights)
-    np.testing.assert_allclose(gaintable.gain.data, gain_data)
+    np.testing.assert_array_equal(
+        gaintable.CALPARAM_WEIGHT.data, expected_weights
+    )
+    np.testing.assert_allclose(gaintable.CALPARAM_GAIN.data, gain_data)
 
     assert "real_fit" in fits
     assert "imag_fit" in fits
     assert "amp_fit" not in fits
     assert "phase_fit" not in fits
 
-    assert fits["real_fit"].shape == gaintable.gain.shape
-    assert fits["imag_fit"].shape == gaintable.gain.shape
+    assert fits["real_fit"].shape == gaintable.CALPARAM_GAIN.shape
+    assert fits["imag_fit"].shape == gaintable.CALPARAM_GAIN.shape
     assert gaintable.chunksizes == original_chunks
 
 

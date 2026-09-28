@@ -33,18 +33,30 @@ def setup_test_data():
 
     mock_gaintable = xr.Dataset(
         {
-            "gain": (
-                ("time", "antenna", "frequency", "receptor1", "receptor2"),
+            "CALPARAM_GAIN": (
+                (
+                    "time",
+                    "antenna_name",
+                    "frequency",
+                    "receptor_label1",
+                    "receptor_label2",
+                ),
                 gain_data,
             ),
-            "weight": (
-                ("time", "antenna", "frequency", "receptor1", "receptor2"),
+            "CALPARAM_WEIGHT": (
+                (
+                    "time",
+                    "antenna_name",
+                    "frequency",
+                    "receptor_label1",
+                    "receptor_label2",
+                ),
                 np.ones((1, nstations, nfreq, 2, 2)),
             ),
         },
         coords={
             "time": [0],
-            "antenna": antenna_coords,
+            "antenna_name": antenna_coords,
             "frequency": freq_coords,
         },
     )
@@ -56,7 +68,7 @@ def test_model_rotation_data_initialization():
 
     rot_data = model_rotations(mock_gaintable, refant=refant)
 
-    assert len(rot_data.antenna) == nstations
+    assert len(rot_data.antenna_name) == nstations
     assert len(rot_data.frequency) == nfreq
 
     expected_lambda_sq = [

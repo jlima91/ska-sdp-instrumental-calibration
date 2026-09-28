@@ -70,10 +70,14 @@ def generate_vis():
     jones = create_gaintable_from_visibility(
         vis, jones_type="B", skip_default_chunk=True
     ).compute()
-    jones.gain.data[..., 0, 0] = 1 - 0.1j
-    jones.gain.data[..., 1, 1] = 3 + 0j
-    jones.gain.data += np.random.normal(0, 0.2, jones.gain.shape)
-    jones.gain.data += np.random.normal(0, 0.2, jones.gain.shape) * 1j
+    jones.CALPARAM_GAIN.data[..., 0, 0] = 1 - 0.1j
+    jones.CALPARAM_GAIN.data[..., 1, 1] = 3 + 0j
+    jones.CALPARAM_GAIN.data += np.random.normal(
+        0, 0.2, jones.CALPARAM_GAIN.shape
+    )
+    jones.CALPARAM_GAIN.data += (
+        np.random.normal(0, 0.2, jones.CALPARAM_GAIN.shape) * 1j
+    )
 
     return vis, jones
 
@@ -122,10 +126,10 @@ def generate_ionospehric_vis():
         vis, jones_type="B", skip_default_chunk=True
     ).compute()
 
-    phi = (-8.44797245 * 1e9) / jones.gain.frequency.data
+    phi = (-8.44797245 * 1e9) / jones.CALPARAM_GAIN.frequency.data
 
-    jones.gain.data[..., :, 0, 0] = np.exp(1j * phi)
-    jones.gain.data[..., :, 1, 1] = np.exp(1j * phi)
+    jones.CALPARAM_GAIN.data[..., :, 0, 0] = np.exp(1j * phi)
+    jones.CALPARAM_GAIN.data[..., :, 1, 1] = np.exp(1j * phi)
 
     return vis, jones
 
@@ -171,9 +175,9 @@ def generate_vis_mvis_gain_ndarray_data(generate_vis):
     ) + 1j * np.random.randn(ntime, nbaseline, nfreq, npol)
     model_flags = np.zeros((ntime, nbaseline, nfreq, npol), dtype=bool)
 
-    gain_gain = gaintable.gain.values
-    gain_weight = gaintable.weight.values
-    gain_residual = gaintable.residual.values
+    gain_gain = gaintable.CALPARAM_GAIN.values
+    gain_weight = gaintable.CALPARAM_WEIGHT.values
+    gain_residual = gaintable.CALPARAM_RESIDUAL.values
 
     ant1 = vis.antenna1.values
     ant2 = vis.antenna2.values
@@ -221,17 +225,20 @@ def _apply_gaintable(
         square. (default=False)
     :return: Input Visibility with gains applied.
     """
-    if vis.vis.ndim != gt.gain.ndim - 1:
+    if vis.vis.ndim != gt.CALPARAM_GAIN.ndim - 1:
         raise ValueError("incompatible shapes")
-    if vis.vis.shape[-1] != gt.gain.shape[-1] * gt.gain.shape[-1]:
+    if (
+        vis.vis.shape[-1]
+        != gt.CALPARAM_GAIN.shape[-1] * gt.CALPARAM_GAIN.shape[-1]
+    ):
         raise ValueError("incompatible pol axis")
-    if inverse and gt.gain.shape[-1] != gt.gain.shape[-2]:
+    if inverse and gt.CALPARAM_GAIN.shape[-1] != gt.CALPARAM_GAIN.shape[-2]:
         raise ValueError("gain inversion requires square matrices")
 
     shape = vis.vis.shape
 
     # inner pol dim for forward application (and inverse since square)
-    npol = gt.gain.shape[-1]
+    npol = gt.CALPARAM_GAIN.shape[-1]
 
     # need to know which dim has the antennas, so force the structure
     if vis.vis.ndim != 4 or vis.vis.shape[-1] != 4:
@@ -239,9 +246,9 @@ def _apply_gaintable(
 
     if inverse:
         # use pinv rather than inv to catch singular values
-        jones = np.linalg.pinv(gt.gain.data[..., :, :])
+        jones = np.linalg.pinv(gt.CALPARAM_GAIN.data[..., :, :])
     else:
-        jones = gt.gain.data
+        jones = gt.CALPARAM_GAIN.data
 
     vis.vis.data = np.einsum(
         "...pi,...ij,...qj->...pq",

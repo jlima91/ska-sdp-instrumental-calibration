@@ -2,10 +2,10 @@ from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
+from .schema.calibration_set import GainCalibrationSetXds
 from .solution_interval import SolutionIntervals
 
 
@@ -15,7 +15,7 @@ def create_gaintable_from_visibility(
     jones_type: Literal["T", "G", "B"] = "T",
     lower_precision: bool = True,
     skip_default_chunk: bool = False,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     Create a unity- or identity-initialised GainTable consistent with the
     given Visibility.
@@ -109,7 +109,7 @@ def create_gaintable_from_visibility(
         [ntimes, nfrequency, nrec, nrec], dtype=float_dtype
     )
 
-    gain_table = GainTable.constructor(
+    gain_table = GainCalibrationSetXds.constructor(
         gain=gain,
         time=soln_intervals.solution_time,
         interval=soln_intervals.intervals,
@@ -117,26 +117,32 @@ def create_gaintable_from_visibility(
         residual=gain_residual,
         frequency=gain_frequency,
         receptor_frame=receptor_frame,
-        phasecentre=vis.phasecentre,
+        # phasecentre=vis.phasecentre,
         configuration=vis.configuration,
         jones_type=jones_type,
     )
 
     # Attach solution interval slices as attribute
-    gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
+    # pylint: disable-next=no-member
+    gain_table.attrs["soln_interval_slices"] = (
+        soln_intervals.indices
+    )  # pylint: disable=E1101
     # Chunk data variables
 
     if skip_default_chunk:
         return gain_table
 
-    gain_table = gain_table.chunk(time=1)
-    if gain_table.frequency.size == vis.frequency.size:
+    gain_table = gain_table.chunk(time=1)  # pylint: disable=E1101
+    if (
+        gain_table.frequency.size == vis.frequency.size
+        and "frequency" in vis.chunksizes
+    ):
         gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
 
     return gain_table
 
 
-def reset_gaintable(gaintable: GainTable) -> GainTable:
+def reset_gaintable(gaintable: GainCalibrationSetXds) -> GainCalibrationSetXds:
     """
     Returns a new dask-backed gaintable with all data variables resetted
     to their initial sensible values.
@@ -150,31 +156,34 @@ def reset_gaintable(gaintable: GainTable) -> GainTable:
     -------
         Gaintable with data variables resetted to their intial sensible values.
     """
-    gain_shape = gaintable.gain.shape
+    gain_shape = gaintable.CALPARAM_GAIN.shape
     nrec = gain_shape[-1]
     gain = da.broadcast_to(
-        da.eye(nrec, dtype=gaintable.gain.dtype), gain_shape
+        da.eye(nrec, dtype=gaintable.CALPARAM_GAIN.dtype), gain_shape
     )
 
-    weight = da.ones(gaintable.weight.shape, dtype=gaintable.weight.dtype)
+    weight = da.ones(
+        gaintable.CALPARAM_WEIGHT.shape, dtype=gaintable.CALPARAM_WEIGHT.dtype
+    )
 
     residual = da.zeros(
-        gaintable.residual.shape, dtype=gaintable.residual.dtype
+        gaintable.CALPARAM_RESIDUAL.shape,
+        dtype=gaintable.CALPARAM_RESIDUAL.dtype,
     )
 
     # Deepcopy and change data variables
     # Simpler and less prone to errors than "assign"
     new_gaintable = gaintable.copy(deep=True)
-    new_gaintable.gain.data = gain
-    new_gaintable.weight.data = weight
-    new_gaintable.residual.data = residual
+    new_gaintable.CALPARAM_GAIN.data = gain
+    new_gaintable.CALPARAM_WEIGHT.data = weight
+    new_gaintable.CALPARAM_RESIDUAL.data = residual
 
     return new_gaintable
 
 
 def divide_bandpass_by_ref_ant_preserve_phase(
-    gaintable: GainTable, ref_ant: int
-) -> GainTable:
+    gaintable: GainCalibrationSetXds, ref_ant: int
+) -> GainCalibrationSetXds:
     """
     Original code referred from https://github.com/flint-crew/flint.git
     Divide the bandpass complex gains (solved for initially by something
@@ -211,7 +220,7 @@ def divide_bandpass_by_ref_ant_preserve_phase(
     Returns:
         GainTable: The normalised bandpass solutions
     """
-    gains = np.copy(gaintable.gain.data)
+    gains = np.copy(gaintable.CALPARAM_GAIN.data)
 
     g_x = gains[..., 0, 0]
     g_y = gains[..., 1, 1]
@@ -236,11 +245,56 @@ def divide_bandpass_by_ref_ant_preserve_phase(
     bp_p[..., 0, 1] = g_xy_prime
     bp_p[..., 1, 0] = g_yx_prime
 
-    new_gain = gaintable.gain.copy()
+    new_gain = gaintable.CALPARAM_GAIN.copy()
     new_gain.data = bp_p
 
     return gaintable.assign(
         {
-            "gain": new_gain,
+            "CALPARAM_GAIN": new_gain,
         }
     ).chunk(gaintable.chunks)
+
+
+def multiply_gaintables(
+    gt: GainCalibrationSetXds, dgt: GainCalibrationSetXds, time_tolerance=1e-3
+) -> GainCalibrationSetXds:
+    """
+    Multiply two GainCalibrationSetXds.
+
+    Returns gt * dgt.
+
+    :param gt: First GainCalibrationSetXds
+    :param dgt: Second GainCalibrationSetXds
+    :param time_tolerance: Maximum tolerance of time
+                separation in the GainCalibrationSetXds data
+    :return: Multiplication product
+    """
+
+    # Test if times align
+    mismatch = np.max(np.abs(gt["time"].data - dgt["time"].data))
+    if mismatch > time_tolerance:
+        raise ValueError(
+            f"Gaintables not aligned in time: max mismatch {mismatch} seconds"
+        )
+    if dgt.calibration_set.nrec == gt.calibration_set.nrec:
+        if dgt.calibration_set.nrec == 2:
+            gt["CALPARAM_GAIN"].data = np.einsum(
+                "...ki,...ij->...kj",
+                gt["CALPARAM_GAIN"].data,
+                dgt["CALPARAM_GAIN"].data,
+            )
+            gt["CALPARAM_WEIGHT"].data *= dgt["CALPARAM_WEIGHT"].data
+        elif dgt.calibration_set.nrec == 1:
+            gt["CALPARAM_GAIN"].data *= dgt["CALPARAM_GAIN"].data
+            gt["CALPARAM_WEIGHT"].data *= dgt["CALPARAM_WEIGHT"].data
+        else:
+            raise ValueError(
+                f"Gain tables have illegal structures {str(gt)} {str(dgt)}"
+            )
+
+    else:
+        raise ValueError(
+            f"Gain tables have different structures {str(gt)} {str(dgt)}"
+        )
+
+    return gt

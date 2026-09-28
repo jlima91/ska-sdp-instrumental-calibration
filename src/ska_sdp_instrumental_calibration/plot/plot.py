@@ -58,13 +58,13 @@ def plot_flag_gain(
     -------
     None
     """
-    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
 
     polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
     gaintable = gaintable.drop_vars(
-        ["pol", "receptor1", "receptor2"]
+        ["pol", "receptor_label1", "receptor_label2"]
     ).assign_coords({"pol": polstrs})
-    stations = gaintable.configuration.names
+    stations = gaintable.antenna_name
 
     n_rows = 4
     n_cols = 4
@@ -83,8 +83,8 @@ def plot_flag_gain(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            weight = gaintable.weight.isel(
-                time=0, antenna=stations.id[idx], pol=0
+            weight = gaintable.CALPARAM_WEIGHT.isel(time=0, pol=0).sel(
+                antenna_name=station_names[idx]
             )
             weight_ax = subfig.subplots(1, 1, sharex=True)
             primary_axes = weight_ax
@@ -138,15 +138,15 @@ def plot_curve_fit(
     """
 
     normalize_label = "(normalized)" if normalize_gains else ""
-    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
 
     # from SKB-1027. J_XX, J_YY, j_xy and j_yx
     polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
 
     gaintable = gaintable.drop_vars(
-        ["pol", "receptor1", "receptor2"]
+        ["pol", "receptor_label1", "receptor_label2"]
     ).assign_coords({"pol": polstrs})
-    stations = gaintable.configuration.names
+    stations = gaintable.antenna_name
     n_rows = 2
     n_cols = 2
     plots_per_group = n_rows * n_cols
@@ -155,7 +155,7 @@ def plot_curve_fit(
         range(plots_per_group, stations.size, plots_per_group),
     )
 
-    gain = gaintable.gain.isel(time=0)
+    gain = gaintable.CALPARAM_GAIN.isel(time=0)
     normalize_func = (
         normalize_data
         if (normalize_gains and soltype != "real-imag")
@@ -163,8 +163,12 @@ def plot_curve_fit(
     )
 
     if soltype == "real-imag":
-        y1_fit = fits["real_fit"].stack(pol=("receptor1", "receptor2"))
-        y2_fit = fits["imag_fit"].stack(pol=("receptor1", "receptor2"))
+        y1_fit = fits["real_fit"].stack(
+            pol=("receptor_label1", "receptor_label2")
+        )
+        y2_fit = fits["imag_fit"].stack(
+            pol=("receptor_label1", "receptor_label2")
+        )
         y1_label = "Real"
         y2_label = "Imaginary"
         y_limit = None
@@ -173,17 +177,25 @@ def plot_curve_fit(
         y2_data_func = np.imag
     else:
         if soltype == "amplitude":
-            y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
-            y2_fit = xr.zeros_like(gaintable.gain, dtype=float)
+            y1_fit = fits["amp_fit"].stack(
+                pol=("receptor_label1", "receptor_label2")
+            )
+            y2_fit = xr.zeros_like(gaintable.CALPARAM_GAIN, dtype=float)
         elif soltype == "phase":
-            y1_fit = xr.zeros_like(gaintable.gain, dtype=float)
+            y1_fit = xr.zeros_like(gaintable.CALPARAM_GAIN, dtype=float)
             y2_fit = np.rad2deg(
-                fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
+                fits["phase_fit"].stack(
+                    pol=("receptor_label1", "receptor_label2")
+                )
             )
         else:
-            y1_fit = fits["amp_fit"].stack(pol=("receptor1", "receptor2"))
+            y1_fit = fits["amp_fit"].stack(
+                pol=("receptor_label1", "receptor_label2")
+            )
             y2_fit = np.rad2deg(
-                fits["phase_fit"].stack(pol=("receptor1", "receptor2"))
+                fits["phase_fit"].stack(
+                    pol=("receptor_label1", "receptor_label2")
+                )
             )
         y1_label = "Amplitude"
         y2_label = "Phase (Degree)"
@@ -228,11 +240,15 @@ def plot_curve_fit(
         for idx, subfig in enumerate(subfigs):
             if idx >= stations.size:
                 break
-            y1_fit_data = y1_fit.isel(time=0, antenna=stations.id[idx])
-            y2_fit_data = y2_fit.isel(time=0, antenna=stations.id[idx])
+            y1_fit_data = y1_fit.isel(time=0).sel(
+                antenna_name=station_names[idx]
+            )
+            y2_fit_data = y2_fit.isel(time=0).sel(
+                antenna_name=station_names[idx]
+            )
 
-            y1_data = y1_data_func(gain.isel(antenna=stations.id[idx]))
-            y2_data = y2_data_func(gain.isel(antenna=stations.id[idx]))
+            y1_data = y1_data_func(gain.sel(antenna_name=station_names[idx]))
+            y2_data = y2_data_func(gain.sel(antenna_name=station_names[idx]))
 
             axes = subfig.subplots(2, 2, sharex=True)
 
@@ -361,7 +377,7 @@ def plot_bandpass_stages(
 
     Parameters
     ----------
-        gaintable: Gaintable Dataset
+        gaintable: GainCalibrationSetXds
             Gaintable
         initialtable: Gaintable Dataset
             Initial gaintable
@@ -376,13 +392,13 @@ def plot_bandpass_stages(
     stns = np.abs(rm_est).argsort()[[len(rm_est) // 4, len(rm_est) // 2, -1]]
     fig, axs = plt.subplots(3, 4, figsize=(16, 16), sharey=True)
 
-    station_names = gaintable.configuration.names.data
+    station_names = gaintable.antenna_name.data
     ref_stn_name = station_names[refant]
 
     for k, stn in enumerate(stns):
         stn_name = station_names[stn]
-        J = initialtable.gain.data[0, stn] @ np.linalg.inv(
-            initialtable.gain.data[0, refant, ..., :, :]
+        J = initialtable.CALPARAM_GAIN.data[0, stn] @ np.linalg.inv(
+            initialtable.CALPARAM_GAIN.data[0, refant, ..., :, :]
         )
         ax = axs[k, 0]
         for pol in range(4):
@@ -408,8 +424,8 @@ def plot_bandpass_stages(
         ax.grid()
         ax.legend()
 
-        J = gaintable.gain.data[0, stn] @ np.linalg.inv(
-            gaintable.gain.data[0, refant, ..., :, :]
+        J = gaintable.CALPARAM_GAIN.data[0, stn] @ np.linalg.inv(
+            gaintable.CALPARAM_GAIN.data[0, refant, ..., :, :]
         )
         ax = axs[k, 2]
         for pol in range(4):
@@ -455,7 +471,7 @@ def plot_rm_station(
 
     Parameters
     ----------
-        gaintable: Gaintable Dataset
+        gaintable: GainCalibrationSetXds
             Gaintable
         rm_vals: xr.DataArray
             rm value array.
@@ -481,7 +497,7 @@ def plot_rm_station(
     fig = plt.figure(figsize=(14, 12))
 
     x = gaintable.frequency.data / 1e6
-    station_names = gaintable.configuration.names.data
+    station_names = gaintable.antenna_name.data
     stn_name = station_names[stn]
 
     ax = fig.add_subplot(311)

@@ -24,9 +24,9 @@ def mock_data(generate_vis):
     ) + 1j * np.random.randn(ntime, nbaseline, nfreq, npol)
     model_flags = np.zeros((ntime, nbaseline, nfreq, npol), dtype=bool)
 
-    gain_gain = gaintable.gain.values
-    gain_weight = gaintable.weight.values
-    gain_residual = gaintable.residual.values
+    gain_gain = gaintable.CALPARAM_GAIN.values
+    gain_weight = gaintable.CALPARAM_WEIGHT.values
+    gain_residual = gaintable.CALPARAM_RESIDUAL.values
 
     ant1 = vis.antenna1.values
     ant2 = vis.antenna2.values

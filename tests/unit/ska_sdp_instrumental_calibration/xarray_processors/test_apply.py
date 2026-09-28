@@ -75,7 +75,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
     gaintable = MagicMock(name="gaintable")
     gains = MagicMock(name="gains")
     gains.chunk.return_value = gains
-    gaintable.gain = gains
+    gaintable.CALPARAM_GAIN = gains
 
     gaintable.jones_type = "B"
     gaintable.soln_interval_slices = [1, 2]
@@ -99,7 +99,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
                 gains.isel.return_value,
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "receptor_label1", "receptor_label2"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],
@@ -124,7 +124,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
                 gains.isel.return_value,
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "receptor_label1", "receptor_label2"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],
@@ -177,7 +177,7 @@ def test_should_apply_gaintable_to_visibility_for_non_B_type(
     gaintable = MagicMock(name="gaintable")
     gains = MagicMock(name="gains")
     gains.chunk.return_value = gains
-    gaintable.gain = gains
+    gaintable.CALPARAM_GAIN = gains
 
     gaintable.jones_type = "G"
     gaintable.soln_interval_slices = [1]

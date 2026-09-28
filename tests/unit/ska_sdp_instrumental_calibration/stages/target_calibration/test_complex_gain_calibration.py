@@ -80,7 +80,7 @@ def test_should_perform_complex_gain_calibration(
 
     parse_ref_ant_mock.assert_called_once_with(
         2,
-        initial_gaintable.configuration.names,
+        initial_gaintable.antenna_name,
     )
     initial_gaintable.pipe.assert_called_once_with(
         with_chunks, upstream_output["chunks"]

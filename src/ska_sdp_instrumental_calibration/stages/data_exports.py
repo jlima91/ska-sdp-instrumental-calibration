@@ -9,13 +9,13 @@ from pydantic import Field
 from ska_sdp_datamodels.calibration.calibration_functions import (
     convert_gaintable_to_hdf,
 )
-from ska_sdp_datamodels.calibration.calibration_model import GainTable
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..data_managers.sdm import get_gaintable_file_path
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
@@ -47,11 +47,13 @@ def group_upstream_by_field_id(upstream_outputs):
 
 
 def export_gaintable_to_hdf5(
-    gaintable: GainTable, filename: str, exclude_cross_pols: bool = False
+    gaintable: GainCalibrationSetXds,
+    filename: str,
+    exclude_cross_pols: bool = False,
 ):
     """Export a GainTable to HDF5 format
 
-    :param gaintable: GainTable or list
+    :param gaintable: GainCalibrationSetXds or list
     :param filename: Name of HDF5 file
     :param exclude_cross_pols: If cross pols should be excluded in export
     :return: None
@@ -60,7 +62,7 @@ def export_gaintable_to_hdf5(
     # remove cross pols if not required
     if exclude_cross_pols:
         gaintable = gaintable.where(
-            gaintable.receptor1 == gaintable.receptor2,
+            gaintable.receptor_label1 == gaintable.receptor_label2,
             drop=True,
         )
 

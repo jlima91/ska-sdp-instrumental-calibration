@@ -58,11 +58,11 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     phase_gain_mock = MagicMock(name="gain_phase")
     phase_gain_mock.__getitem__.return_value = jones_solution_mock
 
-    amp_gain_mock = MagicMock(name="gain")
+    amp_gain_mock = MagicMock(name="CALPARAM_GAIN")
     amp_gain_mock.__getitem__.return_value = jones_solution_mock
 
-    gain_mock = MagicMock(name="gain")
-    gaintable.gain = gain_mock
+    gain_mock = MagicMock(name="CALPARAM_GAIN")
+    gaintable.CALPARAM_GAIN = gain_mock
     gain_mock.copy.return_value = phase_gain_mock
 
     mock_facet_phase = MagicMock(name="facet_plot_phase")
@@ -100,7 +100,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     delayed_gain_plot()
 
     gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor1", "receptor2")
+        Jones_Solutions=("receptor_label1", "receptor_label2")
     )
 
     gaintable.assign_coords.assert_called_once_with(
@@ -116,7 +116,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     divide_bandpass_mock.assert_called_once_with(gaintable, 2)
 
     gaintable.swap_dims.assert_has_calls(
-        [call({"antenna": "Station"}), call({"frequency": "Channel"})]
+        [call({"antenna_name": "Station"}), call({"frequency": "Channel"})]
     )
     amp_gain_mock.plot.scatter.assert_has_calls(
         [
@@ -238,9 +238,9 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
     phase_gain_mock = MagicMock(name="gain_phase")
-    amp_gain_mock = MagicMock(name="gain")
-    gain_mock = MagicMock(name="gain")
-    gaintable.gain = gain_mock
+    amp_gain_mock = MagicMock(name="CALPARAM_GAIN")
+    gain_mock = MagicMock(name="CALPARAM_GAIN")
+    gaintable.CALPARAM_GAIN = gain_mock
     gaintable.sel.return_value = gaintable
     gain_mock.copy.return_value = phase_gain_mock
 
@@ -278,7 +278,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     delayed_gain_plot()
 
     gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor1", "receptor2")
+        Jones_Solutions=("receptor_label1", "receptor_label2")
     )
 
     gaintable.assign_coords.assert_called_once_with(
@@ -290,7 +290,7 @@ def test_should_plot_gaintable_for_time(np_mock):
             call(Jones_Solutions=["J_XX", "J_YY"]),
         ]
     )
-    gaintable.swap_dims.assert_called_once_with({"antenna": "Station"})
+    gaintable.swap_dims.assert_called_once_with({"antenna_name": "Station"})
     gaintable.assign.assert_called_once_with({"time": ANY})
 
     amp_gain_mock.plot.scatter.assert_has_calls(
@@ -429,8 +429,8 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     jones_solution_mock = MagicMock(name="jones_solution_mock")
     jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
     phase_gain_mock = MagicMock(name="gain_phase")
-    gain_mock = MagicMock(name="gain")
-    gaintable.gain = gain_mock
+    gain_mock = MagicMock(name="CALPARAM_GAIN")
+    gaintable.CALPARAM_GAIN = gain_mock
     gain_mock.copy.return_value = phase_gain_mock
     mock_facet_phase = MagicMock(name="facet_plot_phase")
 
@@ -454,7 +454,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     delayed_plot_gain()
 
     gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor1", "receptor2")
+        Jones_Solutions=("receptor_label1", "receptor_label2")
     )
 
     phase_gain_mock.plot.assert_called_once_with(

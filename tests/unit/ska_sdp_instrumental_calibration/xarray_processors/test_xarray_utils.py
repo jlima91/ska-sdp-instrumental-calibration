@@ -16,7 +16,7 @@ def test_with_chunks_rechunks_dataarray_when_relevant_dim_exists():
         dims=("time", "frequency"),
     ).chunk({"time": 3, "frequency": 4})
 
-    result = with_chunks(data, {"frequency": 2, "antenna": 1})
+    result = with_chunks(data, {"frequency": 2, "antenna_name": 1})
 
     assert result is not data
     assert result.chunksizes["time"] == (3,)
@@ -29,7 +29,7 @@ def test_with_chunks_returns_same_dataarray_when_no_relevant_dim():
         dims=("time", "frequency"),
     ).chunk({"time": 3, "frequency": 4})
 
-    result = with_chunks(data, {"antenna": 1})
+    result = with_chunks(data, {"antenna_name": 1})
 
     assert result is data
 
@@ -37,11 +37,11 @@ def test_with_chunks_returns_same_dataarray_when_no_relevant_dim():
 def test_with_chunks_rechunks_dataset_when_relevant_dim_exists():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.complex128),
                 dims=("time", "frequency"),
             ),
-            "weight": xr.DataArray(
+            "CALPARAM_WEIGHT": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             ),
@@ -58,14 +58,14 @@ def test_with_chunks_rechunks_dataset_when_relevant_dim_exists():
 def test_with_chunks_returns_same_dataset_when_no_relevant_dim():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.complex128),
                 dims=("time", "frequency"),
             ),
         }
     ).chunk({"time": 2, "frequency": 6})
 
-    result = with_chunks(dataset, {"antenna": 1})
+    result = with_chunks(dataset, {"antenna_name": 1})
 
     assert result is dataset
 
@@ -77,7 +77,7 @@ def test_with_chunks_returns_same_dataset_when_no_relevant_dim():
 def test_with_chunks_returns_same_datatree_for_direct_dim_key():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             )
@@ -101,7 +101,7 @@ def test_with_chunks_returns_same_datatree_for_direct_dim_key():
 def test_with_chunks_returns_same_datatree_when_no_relevant_dim():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             )
@@ -109,7 +109,7 @@ def test_with_chunks_returns_same_datatree_when_no_relevant_dim():
     ).chunk({"time": 2, "frequency": 6})
     tree = xr.DataTree.from_dict({"node": dataset})
 
-    result = with_chunks(tree, {"antenna": 1})
+    result = with_chunks(tree, {"antenna_name": 1})
 
     assert result is tree
 

@@ -2,9 +2,10 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
+
+from ..data_managers.gaintable import GainCalibrationSetXds
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def _apply_gaintable_to_dataset_ufunc(
 
 def apply_gaintable_to_dataset(
     vis: Visibility,
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     inverse=False,
 ) -> Visibility:
     """
@@ -99,7 +100,7 @@ def apply_gaintable_to_dataset(
         If Jones type is not 'B' and the gaintable has more than one
         frequency channel.
     """
-    gains = gaintable.gain
+    gains = gaintable.CALPARAM_GAIN
     if gaintable.jones_type == "B":
         # solution frequency same as vis frequency
         # chunking just to be sure that they match
@@ -120,7 +121,7 @@ def apply_gaintable_to_dataset(
                 gains.isel(time=idx, drop=True),
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "receptor_label1", "receptor_label2"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],

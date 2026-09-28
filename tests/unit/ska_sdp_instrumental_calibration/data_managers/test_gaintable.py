@@ -24,9 +24,9 @@ def test_should_generate_gaintable_with_defaults(generate_vis):
     residual_shape = (len(vis.time.data), 1, 2, 2)
 
     np.testing.assert_allclose(gaintable.frequency.data, expected_frequency)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
-    assert gaintable.residual.shape == residual_shape
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
+    assert gaintable.CALPARAM_RESIDUAL.shape == residual_shape
     assert gaintable.soln_interval_slices == [
         slice(0, 1, 1),
         slice(1, 2, 1),
@@ -48,8 +48,8 @@ def test_should_generate_gaintable_for_jonetypes_B(generate_vis):
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
     assert gaintable.soln_interval_slices == [
         slice(0, 1, 1),
         slice(1, 2, 1),
@@ -72,8 +72,8 @@ def test_should_skip_default_chunk(generate_vis):
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
     assert gaintable.soln_interval_slices == [
         slice(0, 1, 1),
         slice(1, 2, 1),
@@ -87,26 +87,27 @@ def test_should_reset_gaintable(da_mock, generate_vis):
     gaintable = MagicMock(name="gaintable")
     r_gaintable = reset_gaintable(gaintable)
     da_mock.eye.asserrt_called_once_with(
-        gaintable.gain.shape[-1], dtype=gaintable.gain.dtype
+        gaintable.CALPARAM_GAIN.shape[-1], dtype=gaintable.CALPARAM_GAIN.dtype
     )
 
     da_mock.broadcast_to.assert_called_once_with(
-        da_mock.eye.return_value, gaintable.gain.shape
+        da_mock.eye.return_value, gaintable.CALPARAM_GAIN.shape
     )
 
     da_mock.ones.assert_called_once_with(
-        gaintable.weight.shape, dtype=gaintable.weight.dtype
+        gaintable.CALPARAM_WEIGHT.shape, dtype=gaintable.CALPARAM_WEIGHT.dtype
     )
 
     da_mock.zeros.assert_called_once_with(
-        gaintable.residual.shape, dtype=gaintable.residual.dtype
+        gaintable.CALPARAM_RESIDUAL.shape,
+        dtype=gaintable.CALPARAM_RESIDUAL.dtype,
     )
 
     gaintable.copy.assert_called_once_with(deep=True)
     assert r_gaintable == gaintable.copy.return_value
-    assert r_gaintable.gain.data == da_mock.broadcast_to.return_value
-    assert r_gaintable.weight.data == da_mock.ones.return_value
-    assert r_gaintable.residual.data == da_mock.zeros.return_value
+    assert r_gaintable.CALPARAM_GAIN.data == da_mock.broadcast_to.return_value
+    assert r_gaintable.CALPARAM_WEIGHT.data == da_mock.ones.return_value
+    assert r_gaintable.CALPARAM_RESIDUAL.data == da_mock.zeros.return_value
 
 
 def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
@@ -115,13 +116,13 @@ def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
     gaintable = create_gaintable_from_visibility(vis, jones_type="B")
 
     actual_gaintable = divide_bandpass_by_ref_ant_preserve_phase(gaintable, 0)
-    complex_gains = actual_gaintable.gain.data
+    complex_gains = actual_gaintable.CALPARAM_GAIN.data
 
     x_angle = np.angle(complex_gains[:, 0, :, 0, 0])
     y_angle = np.angle(complex_gains[:, 0, :, 1, 1])
 
     actual_amp = np.abs(complex_gains)
-    expected_amp = np.abs(gaintable.gain.data)
+    expected_amp = np.abs(gaintable.CALPARAM_GAIN.data)
 
     assert np.allclose(x_angle[np.isfinite(x_angle)], 0)
     assert np.allclose(y_angle[np.isfinite(y_angle)], 0)

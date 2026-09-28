@@ -15,7 +15,7 @@ def gaintable_mock():
     gain_mock.isel.return_value = gain_isel_mock
 
     gaintable_mock = Mock(name="gaintable_mock")
-    gaintable_mock.gain = gain_mock
+    gaintable_mock.CALPARAM_GAIN = gain_mock
     gaintable_mock.stack.return_value = gaintable_mock
     gaintable_mock.drop_vars.return_value = gaintable_mock
     gaintable_mock.assign_coords.return_value = gaintable_mock
@@ -28,7 +28,7 @@ def gaintable_mock():
     stations_mock.id = np.array([0])
     stations_mock.size = 1
 
-    gaintable_mock.configuration.names = stations_mock
+    gaintable_mock.antenna_name = stations_mock
 
     frequency_mock = MagicMock(name="frequency_mock")
     frequency_mock.__len__.return_value = 4
@@ -112,7 +112,7 @@ def test_plot_curve_fit_amp_phase_normalized(
     top_ax_mock = Mock(name="top_ax_mock")
     bottom_ax_mock = Mock(name="bottom_ax_mock")
 
-    split_mock.return_value = [gaintable_mock.configuration.names]
+    split_mock.return_value = [gaintable_mock.antenna_name]
 
     subfigures_mock = Mock(name="subfigures_mock")
     subfigures_mock.reshape.return_value = [subfig_mock]
@@ -142,10 +142,10 @@ def test_plot_curve_fit_amp_phase_normalized(
 
     deferred_object()
 
-    gain = gaintable_mock.gain.isel.return_value
-    antenna_gain = gain.isel.return_value
+    gain = gaintable_mock.CALPARAM_GAIN.isel.return_value
+    antenna_gain = gain.sel.return_value
 
-    gaintable_mock.gain.isel.assert_called_once_with(time=0)
+    gaintable_mock.CALPARAM_GAIN.isel.assert_called_once_with(time=0)
     absolute_mock.assert_called_once_with(antenna_gain)
     angle_mock.assert_called_once_with(antenna_gain, deg=True)
 
@@ -166,10 +166,10 @@ def test_plot_curve_fit_amp_phase_normalized(
     )
 
     fits["amp_fit"].stack.assert_called_once_with(
-        pol=("receptor1", "receptor2")
+        pol=("receptor_label1", "receptor_label2")
     )
     fits["phase_fit"].stack.assert_called_once_with(
-        pol=("receptor1", "receptor2")
+        pol=("receptor_label1", "receptor_label2")
     )
 
     top_ax_mock.plot.assert_has_calls(
@@ -244,7 +244,7 @@ def test_plot_curve_fit_real_imag_scatter_and_plot_args_exact(
     top_ax_mock = Mock(name="top_ax_mock")
     bottom_ax_mock = Mock(name="bottom_ax_mock")
 
-    split_mock.return_value = [gaintable_mock.configuration.names]
+    split_mock.return_value = [gaintable_mock.antenna_name]
 
     subfigures_mock = Mock(name="subfigures_mock")
     subfigures_mock.reshape.return_value = [subfig_mock]
@@ -272,16 +272,20 @@ def test_plot_curve_fit_real_imag_scatter_and_plot_args_exact(
     )
     deferred_task()
 
-    gain = gaintable_mock.gain.isel.return_value
-    antenna_gain = gain.isel.return_value
+    gain = gaintable_mock.CALPARAM_GAIN.isel.return_value
+    antenna_gain = gain.sel.return_value
 
-    gaintable_mock.gain.isel.assert_called_once_with(time=0)
+    gaintable_mock.CALPARAM_GAIN.isel.assert_called_once_with(time=0)
 
     real_mock.assert_called_once_with(antenna_gain)
     imag_mock.assert_called_once_with(antenna_gain)
 
-    real_fit_mock.stack.assert_called_once_with(pol=("receptor1", "receptor2"))
-    imag_fit_mock.stack.assert_called_once_with(pol=("receptor1", "receptor2"))
+    real_fit_mock.stack.assert_called_once_with(
+        pol=("receptor_label1", "receptor_label2")
+    )
+    imag_fit_mock.stack.assert_called_once_with(
+        pol=("receptor_label1", "receptor_label2")
+    )
 
     top_ax_mock.scatter.assert_has_calls(
         [

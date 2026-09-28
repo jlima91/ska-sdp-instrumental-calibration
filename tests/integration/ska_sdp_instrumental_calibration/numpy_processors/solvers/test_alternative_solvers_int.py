@@ -1,9 +1,9 @@
 import numpy as np
-from ska_sdp_datamodels.calibration.calibration_create import (
-    create_gaintable_from_visibility,
-)
 from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (
+    create_gaintable_from_visibility,
+)
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     alternative_solvers,
 )
@@ -28,9 +28,9 @@ def test_should_solve_gain_using_jones_substitution(
 
     original_gaintable = gaintable.copy(deep=True)
 
-    gaintable.gain.data = gaintable.gain.data * (
-        np.random.normal(1, 0.1, gaintable.gain.shape)
-        + np.random.normal(0, 0.1, gaintable.gain.shape) * 1j
+    gaintable.CALPARAM_GAIN.data = gaintable.CALPARAM_GAIN.data * (
+        np.random.normal(1, 0.1, gaintable.CALPARAM_GAIN.shape)
+        + np.random.normal(0, 0.1, gaintable.CALPARAM_GAIN.shape) * 1j
     )
     modelvis = vis.copy(deep=True)
 
@@ -44,19 +44,19 @@ def test_should_solve_gain_using_jones_substitution(
         vis_weight=vis.weight.values,
         model_vis=modelvis.vis.values,
         model_flags=modelvis.flags.values,
-        gain_gain=original_gaintable["gain"].values,
-        gain_weight=original_gaintable["weight"].values,
-        gain_residual=original_gaintable["residual"].values,
+        gain_gain=original_gaintable["CALPARAM_GAIN"].values,
+        gain_weight=original_gaintable["CALPARAM_WEIGHT"].values,
+        gain_residual=original_gaintable["CALPARAM_RESIDUAL"].values,
         ant1=vis.antenna1.data,
         ant2=vis.antenna2.data,
     )
 
-    gaintable.gain.data *= np.exp(
-        -1j * np.angle(gaintable.gain.data[:, [0], :, :, :])
+    gaintable.CALPARAM_GAIN.data *= np.exp(
+        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :, :])
     )
     np.testing.assert_allclose(
         gain * np.exp(-1j * np.angle(gain[:, [0], :, :, :])),
-        gaintable.gain.values,
+        gaintable.CALPARAM_GAIN.values,
         atol=1e-6,
     )
 
@@ -76,9 +76,9 @@ def test_should_solve_gain_using_normal_equations(
 
     original_gaintable = gaintable.copy(deep=True)
 
-    gaintable.gain.data = gaintable.gain.data * (
-        np.random.normal(1, 0.1, gaintable.gain.shape)
-        + np.random.normal(0, 0.1, gaintable.gain.shape) * 1j
+    gaintable.CALPARAM_GAIN.data = gaintable.CALPARAM_GAIN.data * (
+        np.random.normal(1, 0.1, gaintable.CALPARAM_GAIN.shape)
+        + np.random.normal(0, 0.1, gaintable.CALPARAM_GAIN.shape) * 1j
     )
     modelvis = vis.copy(deep=True)
 
@@ -92,19 +92,19 @@ def test_should_solve_gain_using_normal_equations(
         vis_weight=vis.weight.values,
         model_vis=modelvis.vis.values,
         model_flags=modelvis.flags.values,
-        gain_gain=original_gaintable["gain"].values,
-        gain_weight=original_gaintable["weight"].values,
-        gain_residual=original_gaintable["residual"].values,
+        gain_gain=original_gaintable["CALPARAM_GAIN"].values,
+        gain_weight=original_gaintable["CALPARAM_WEIGHT"].values,
+        gain_residual=original_gaintable["CALPARAM_RESIDUAL"].values,
         ant1=vis.antenna1.data,
         ant2=vis.antenna2.data,
     )
 
-    gaintable.gain.data *= np.exp(
-        -1j * np.angle(gaintable.gain.data[:, [0], :, :, :])
+    gaintable.CALPARAM_GAIN.data *= np.exp(
+        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :, :])
     )
     np.testing.assert_allclose(
         gain * np.exp(-1j * np.angle(gain[:, [0], :, :, :])),
-        gaintable.gain.values,
+        gaintable.CALPARAM_GAIN.values,
         atol=1e-6,
     )
 
@@ -124,9 +124,9 @@ def test_should_solve_gain_using_normal_equations_presum(
 
     original_gaintable = gaintable.copy(deep=True)
 
-    gaintable.gain.data = gaintable.gain.data * (
-        np.random.normal(1, 0.1, gaintable.gain.shape)
-        + np.random.normal(0, 0.1, gaintable.gain.shape) * 1j
+    gaintable.CALPARAM_GAIN.data = gaintable.CALPARAM_GAIN.data * (
+        np.random.normal(1, 0.1, gaintable.CALPARAM_GAIN.shape)
+        + np.random.normal(0, 0.1, gaintable.CALPARAM_GAIN.shape) * 1j
     )
     modelvis = vis.copy(deep=True)
 
@@ -140,18 +140,18 @@ def test_should_solve_gain_using_normal_equations_presum(
         vis_weight=vis.weight.values,
         model_vis=modelvis.vis.values,
         model_flags=modelvis.flags.values,
-        gain_gain=original_gaintable["gain"].values,
-        gain_weight=original_gaintable["weight"].values,
-        gain_residual=original_gaintable["residual"].values,
+        gain_gain=original_gaintable["CALPARAM_GAIN"].values,
+        gain_weight=original_gaintable["CALPARAM_WEIGHT"].values,
+        gain_residual=original_gaintable["CALPARAM_RESIDUAL"].values,
         ant1=vis.antenna1.data,
         ant2=vis.antenna2.data,
     )
 
-    gaintable.gain.data *= np.exp(
-        -1j * np.angle(gaintable.gain.data[:, [0], :, :, :])
+    gaintable.CALPARAM_GAIN.data *= np.exp(
+        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :, :])
     )
     np.testing.assert_allclose(
         gain * np.exp(-1j * np.angle(gain[:, [0], :, :, :])),
-        gaintable.gain.values,
+        gaintable.CALPARAM_GAIN.values,
         atol=1e-6,
     )

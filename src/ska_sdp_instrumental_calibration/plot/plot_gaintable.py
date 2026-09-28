@@ -203,8 +203,8 @@ class PlotGaintable:
             figure_sub_title,
         )
         gaintable = self._prepare_gaintable(gaintable, jones_term.sols)
-        gain_phase = gaintable.gain.copy()
-        gain_phase.data = np.angle(gaintable.gain, deg=True)
+        gain_phase = gaintable.CALPARAM_GAIN.copy()
+        gain_phase.data = np.angle(gaintable.CALPARAM_GAIN, deg=True)
         ylim = (-180, 180) if fixed_axis else None
         gain_phase_fig = self._get_gain_facet(
             gain_phase, ylim, "Phase (degree)"
@@ -224,7 +224,7 @@ class PlotGaintable:
         )
 
         if not phase_only:
-            gain_amplitude = np.abs(gaintable.gain)
+            gain_amplitude = np.abs(gaintable.CALPARAM_GAIN)
             ylim = (0, 1) if fixed_axis else None
             gain_amp_fig = self._get_gain_facet(
                 gain_amplitude,
@@ -477,23 +477,25 @@ class PlotGaintable:
                 gaintable, self.refant
             )
 
-        gaintable = gaintable.stack(Jones_Solutions=("receptor1", "receptor2"))
+        gaintable = gaintable.stack(
+            Jones_Solutions=("receptor_label1", "receptor_label2")
+        )
 
         polstrs = [
             f"J_{p1}{p2}".upper()
             for p1, p2 in gaintable["Jones_Solutions"].data
         ]
         gaintable = gaintable.drop_vars(
-            ["Jones_Solutions", "receptor1", "receptor2"]
+            ["Jones_Solutions", "receptor_label1", "receptor_label2"]
         ).assign_coords({"Jones_Solutions": polstrs})
 
         gaintable.coords["Station"] = (
-            "antenna",
-            gaintable.configuration.names.data,
+            "antenna_name",
+            gaintable.antenna_name.data,
         )
 
         return gaintable.sel(Jones_Solutions=sols).swap_dims(
-            {"antenna": "Station"}
+            {"antenna_name": "Station"}
         )
 
 
@@ -622,7 +624,9 @@ class PlotGaintableFrequency(PlotGaintable):
             The processed gaintable dataset (must have 'Channel' coord).
         """
         amplitude = np.abs(
-            gaintable.gain.sel(Jones_Solutions=["J_XX", "J_YY"]).isel(time=0)
+            gaintable.CALPARAM_GAIN.sel(Jones_Solutions=["J_XX", "J_YY"]).isel(
+                time=0
+            )
         ).swap_dims({"Channel": "frequency"})
         facet_plot = amplitude.plot.line(
             x="frequency",
@@ -841,7 +845,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
             {"time": gaintable.time - gaintable.time[0]}
         )
 
-        gain_phase = gaintable.gain.copy()
+        gain_phase = gaintable.CALPARAM_GAIN.copy()
         gain_phase.data = np.angle(gain_phase.data, deg=True)
 
         gaintable = gaintable.assign({"Phase(Degree)": gain_phase})

@@ -135,13 +135,9 @@ def generate_channel_rm_stage(
     beam_factory = _upstream_output_.beams_factory
 
     refant = run_solver_config.refant
-    run_solver_config.refant = parse_antenna(
-        refant, initialtable.configuration.names
-    )
+    run_solver_config.refant = parse_antenna(refant, initialtable.antenna_name)
     station = plot_rm_config.station
-    plot_rm_config.station = parse_antenna(
-        station, initialtable.configuration.names
-    )
+    plot_rm_config.station = parse_antenna(station, initialtable.antenna_name)
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("channel_rm"):

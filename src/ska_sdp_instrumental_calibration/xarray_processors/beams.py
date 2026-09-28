@@ -2,9 +2,9 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.calibration import GainTable
 
 from ..data_managers.beams import BeamsFactory
+from ..data_managers.gaintable import GainCalibrationSetXds
 from ._utils import with_chunks
 
 logger = logging.getLogger(__name__)
@@ -36,9 +36,9 @@ def _prediction_central_beams_ufunc(
 
 
 def prediction_central_beams(
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     beams_factory: BeamsFactory,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     Predict the central beam response for the provided gaintable configuration.
 
@@ -80,7 +80,9 @@ def prediction_central_beams(
                 _prediction_central_beams_ufunc,
                 frequency_xdr,
                 input_core_dims=[[]],
-                output_core_dims=[("antenna", "receptor1", "receptor2")],
+                output_core_dims=[
+                    ("antenna_name", "receptor_label1", "receptor_label2")
+                ],
                 dask="parallelized",
                 output_dtypes=[
                     np.complex128,
@@ -89,22 +91,27 @@ def prediction_central_beams(
                 dataset_join="outer",
                 dask_gufunc_kwargs={
                     "output_sizes": {
-                        "antenna": gaintable.antenna.size,
-                        "receptor1": gaintable.receptor1.size,
-                        "receptor2": gaintable.receptor2.size,
+                        "antenna_name": gaintable.antenna_name.size,
+                        "receptor_label1": gaintable.receptor_label1.size,
+                        "receptor_label2": gaintable.receptor_label2.size,
                     }
                 },
                 kwargs={
                     "soln_time": val,
                     "beams_factory": beams_factory,
                 },
-            ).transpose("antenna", "frequency", "receptor1", "receptor2")
+            ).transpose(
+                "antenna_name",
+                "frequency",
+                "receptor_label1",
+                "receptor_label2",
+            )
             for val in gaintable.time.data
         ],
         dim="time",
     )
 
-    response = response.assign_coords(gaintable.gain.coords)
-    response = response.assign_attrs(gaintable.gain.attrs)
+    response = response.assign_coords(gaintable.CALPARAM_GAIN.coords)
+    response = response.assign_attrs(gaintable.CALPARAM_GAIN.attrs)
 
-    return gaintable.assign({"gain": response})
+    return gaintable.assign({"CALPARAM_GAIN": response})

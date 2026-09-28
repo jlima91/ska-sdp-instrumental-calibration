@@ -4,10 +4,10 @@ import h5py
 import numpy as np
 import xarray as xr
 from numpy.typing import NDArray
-from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
 from ...logger import setup_logger
 from ...xarray_processors.delay import DelayTable
+from ..schema.calibration_set import GainCalibrationSetXds
 
 logger = setup_logger("data_managers.data_export")
 
@@ -26,19 +26,21 @@ def create_soltab_group(
     return soltab
 
 
-def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
-    """Add a dataset for each of the GainTable dimensions.
+def create_soltab_datasets(
+    soltab: h5py.Group, gaintable: GainCalibrationSetXds
+):
+    """Add a dataset for each of the GainCalibrationSetXds dimensions.
 
     :param soltab: HDF5 table to update
-    :param gaintable: GainTable
+    :param gaintable: GainCalibrationSetXds
     """
     # create a dataset for each dimension
-    for dim in list(gaintable.gain.sizes):
+    for dim in list(gaintable.CALPARAM_GAIN.sizes):
         soltab.create_dataset(dim, data=gaintable[dim].data)
 
     # create datasets for the data and weights
-    shape = gaintable.gain.shape
-    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
+    shape = gaintable.CALPARAM_GAIN.shape
+    axes = np.bytes_(",".join(list(gaintable.CALPARAM_GAIN.sizes)))
 
     val = soltab.create_dataset("val", shape=shape, dtype=float)
     val.attrs["AXES"] = axes
@@ -79,13 +81,13 @@ def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
 
 
 def export_gaintable_to_h5parm(
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     filename: str,
     exclude_cross_pols: bool = False,
     squeeze: bool = False,
 ):
     """
-    Export a GainTable to a H5Parm file.
+    Export a GainCalibrationSetXds to a H5Parm file.
     H5Parm is a HDf5 file, with schema specific to
     LOFAR software (losoto, DP3)
 
@@ -111,18 +113,26 @@ def export_gaintable_to_h5parm(
     logger.info(f"exporting cal solutions to {filename}")
 
     # check gaintable gain and weight dimensions
-    dims = ["time", "antenna", "frequency", "receptor1", "receptor2"]
-    if list(gaintable.gain.sizes) != dims:
-        raise ValueError(f"Unexpected dims: {list(gaintable.gain.sizes)}")
+    dims = [
+        "time",
+        "antenna_name",
+        "frequency",
+        "receptor_label1",
+        "receptor_label2",
+    ]
+    if list(gaintable.CALPARAM_GAIN.sizes) != dims:
+        raise ValueError(
+            f"Unexpected dims: {list(gaintable.CALPARAM_GAIN.sizes)}"
+        )
 
     # adjust dimensions to be consistent with H5Parm output format
-    gaintable = gaintable.rename({"antenna": "ant", "frequency": "freq"})
-    gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
+    gaintable = gaintable.rename({"antenna_name": "ant", "frequency": "freq"})
+    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
     polstrs = _ndarray_of_null_terminated_bytes(
         [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
     )
     gaintable = gaintable.drop_vars(
-        ["pol", "receptor1", "receptor2"]
+        ["pol", "receptor_label1", "receptor_label2"]
     ).assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms
@@ -131,19 +141,17 @@ def export_gaintable_to_h5parm(
         raise ValueError("Subsequent pipelines assume linear pol order")
 
     # replace antenna indices with antenna names
-    if gaintable.configuration is None:
+    if gaintable["ant"].isnull().all():
         raise ValueError("Missing gt config. H5Parm requires antenna names")
-    antenna_names = _ndarray_of_null_terminated_bytes(
-        gaintable.configuration.names.data[gaintable["ant"].data]
-    )
+    antenna_names = _ndarray_of_null_terminated_bytes(gaintable["ant"].data)
     gaintable = gaintable.assign_coords({"ant": antenna_names})
 
     # Flag gains where weight == 0
-    gaintable_gain = gaintable["gain"].where(
-        gaintable["weight"] != 0, np.nan, drop=False
+    gaintable_gain = gaintable["CALPARAM_GAIN"].where(
+        gaintable["CALPARAM_WEIGHT"] != 0, np.nan, drop=False
     )
 
-    gaintable = gaintable.assign(gain=gaintable_gain)
+    gaintable = gaintable.assign(CALPARAM_GAIN=gaintable_gain)
 
     # remove cross pols if not required
     if exclude_cross_pols:
@@ -153,7 +161,7 @@ def export_gaintable_to_h5parm(
     if squeeze:
         gaintable = gaintable.squeeze(drop=True)
 
-    logger.info(f"output dimensions: {dict(gaintable.gain.sizes)}")
+    logger.info(f"output dimensions: {dict(gaintable.CALPARAM_GAIN.sizes)}")
 
     with h5py.File(filename, "w") as file:
 
@@ -162,14 +170,14 @@ def export_gaintable_to_h5parm(
         # Amplitude table
         soltab = create_soltab_group(solset, "amplitude")
         val, weight = create_soltab_datasets(soltab, gaintable)
-        val[...] = np.absolute(gaintable["gain"].data)
-        weight[...] = gaintable["weight"].data
+        val[...] = np.absolute(gaintable["CALPARAM_GAIN"].data)
+        weight[...] = gaintable["CALPARAM_WEIGHT"].data
 
         # Phase table
         soltab = create_soltab_group(solset, "phase")
         val, weight = create_soltab_datasets(soltab, gaintable)
-        val[...] = np.angle(gaintable["gain"].data)
-        weight[...] = gaintable["weight"].data
+        val[...] = np.angle(gaintable["CALPARAM_GAIN"].data)
+        weight[...] = gaintable["CALPARAM_WEIGHT"].data
 
 
 def export_clock_to_h5parm(
