@@ -1317,6 +1317,22 @@ docs = ["cloudpickle", "numpydoc", "pytest", "sphinx (>=4.0.0)"]
 test = ["cloudpickle", "pytest"]
 
 [[package]]
+name = "dp3"
+version = "6.6.0"
+description = "DP3"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "dp3-6.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:00aae32001f75c31085304f246c9a7d75f459c6dd1d73409cf69932933bb93b4"},
+    {file = "dp3-6.6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bffefac92ca36dc24da69bc1ea1266f6883f3cd82238d3cc5fb89eb486721757"},
+    {file = "dp3-6.6.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4a06332839b63cc50a73cecaf050ca475facce7dad281880021a6c3cf43ed91c"},
+    {file = "dp3-6.6.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e51964ac2d31ef95c30d4f9df2163b8ef18c1d196e51130e9121b83e3feb262e"},
+    {file = "dp3-6.6.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a98ca71ad4ff4bad28983832181ba6cbaebfc47d13b39efa2edbb3c2aa375b75"},
+    {file = "dp3-6.6.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1b39de651172d271dc8f97125a679d35bd3b94c55791268c3ce129c1be37dec2"},
+]
+
+[[package]]
 name = "ducc0"
 version = "0.41.0"
 description = "Distinctly useful code collection: contains efficient algorithms for Fast Fourier (and related) transforms, spherical harmonic transforms involving very general spherical grids, gridding/degridding tools for radio interferometry, 4pi spherical convolution operators and much more."
@@ -4270,19 +4286,20 @@ yaml = ["pyyaml (>=6.0,<7.0)"]
 
 [[package]]
 name = "python-casacore"
-version = "3.8.1"
+version = "3.7.1"
 description = "A wrapper around CASACORE, the radio astronomy library"
 optional = false
-python-versions = ">=3.10"
+python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"python-casacore\""
 files = [
-    {file = "python_casacore-3.8.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c436666d9b18a73724148684fe5e7f18a889c1a3eba9730e5c0bd19b632d6306"},
-    {file = "python_casacore-3.8.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:e8472fb93848a90ebc89161e111804015481b08fd628e7df6d5262437b844b43"},
-    {file = "python_casacore-3.8.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:9cb9cecb4cb821a70ce4258dec0f5b3d5088a66317afc0df201ff19ebd4d5da9"},
-    {file = "python_casacore-3.8.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:cbdf22d3329eb7f550c279872d7c5a23eb307298bec86063bccec4683b4da989"},
-    {file = "python_casacore-3.8.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:bcfe0225a4a403ec72c0484d670ce573aa5172e192e80de8363f85ab98182bd2"},
-    {file = "python_casacore-3.8.1.tar.gz", hash = "sha256:757763cbf5bcb8e98b6809308de107bcb9b41982779b17f163ef20ca0ec18322"},
+    {file = "python_casacore-3.7.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e5101fc6240b9283d4b7027c92125e6f267d507d77350101451fd7200e0645f"},
+    {file = "python_casacore-3.7.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5734c96278022600fe43d6b7488f045762ffb305bcca6779c8caf6f1a40b0555"},
+    {file = "python_casacore-3.7.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2805353e3f12d6c03c20267cfa6539b256c43f382ccb0f84436d99f36bd83520"},
+    {file = "python_casacore-3.7.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9f356b7f0e9a9dfb4a2d9e710586bada676a2f6c5fcf476e1f5fb6a86a01961a"},
+    {file = "python_casacore-3.7.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ccaccb942b436dcc85795a7ebdcb73356b6dee00355426a303de0326b27adef1"},
+    {file = "python_casacore-3.7.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f88dddebed0a8e0d872b3cd49a5e06b4edfc5f86a054867eb7b36fbf85208721"},
+    {file = "python_casacore-3.7.1.tar.gz", hash = "sha256:6c4e060cba73c0ab9d944eb4b6aa97f20c12b761e671587f313bfc59e3a775c3"},
 ]
 
 [package.dependencies]
@@ -6344,4 +6361,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "4bcb49cf2634f6597a7732f7cfcdd54ec960af4a6e460272e7174f3c2c264d9b"
+content-hash = "1e1a00b27c884aa7bd3b18d89dec7e13ad909f97bc5f5de935533103df4711d1"

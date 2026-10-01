@@ -609,11 +609,118 @@ def plot_time_vs_freq_for_phase_multiple_baselines(
     plt.close(fig)
 
 
+_H5PARM_AXIS_ALIASES = {
+    "time": "time",
+    "ant": "antenna",
+    "antenna": "antenna",
+    "freq": "frequency",
+    "frequency": "frequency",
+    "pol": "pol",
+}
+
+_POL_TO_RECEPTOR_INDEX = {
+    "XX": (0, 0),
+    "XY": (0, 1),
+    "YX": (1, 0),
+    "YY": (1, 1),
+    "RR": (0, 0),
+    "RL": (0, 1),
+    "LR": (1, 0),
+    "LL": (1, 1),
+}
+
+
+def _read_h5parm_soltab(
+    soltab: h5py.Group,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Read values and weights of a soltab in (time, antenna, frequency, 2, 2).
+
+    Axis order is taken from the ``AXES`` attribute of the ``val`` dataset,
+    so that both INST (``time,antenna,frequency,pol``) and DP3
+    (``time,freq,ant,pol``) layouts are supported. If only diagonal
+    polarisations are present, cross terms are filled with zeros (with zero
+    weight). If the polarisation axis is absent (scalar solutions), the
+    value is used for both diagonal terms.
+
+    Parameters
+    ----------
+    soltab
+        h5parm soltab group, e.g. ``sol000/amplitude000``.
+
+    Returns
+    -------
+    tuple
+        ``(values, weights, time, frequency, antenna)`` where ``values`` and
+        ``weights`` have shape (time, antenna, frequency, 2, 2).
+    """
+    raw_axes = soltab["val"].attrs["AXES"]
+    if isinstance(raw_axes, bytes):
+        raw_axes = raw_axes.decode()
+    raw_axes = str(raw_axes).split(",")
+    axes = [_H5PARM_AXIS_ALIASES.get(ax, ax) for ax in raw_axes]
+    # Map normalised axis name -> dataset name inside the soltab
+    h5_axes = dict(zip(axes, raw_axes))
+
+    missing = {"time", "antenna", "frequency"} - set(axes)
+    if missing:
+        raise ValueError(
+            f"h5parm soltab {soltab.name} is missing axes {sorted(missing)}"
+        )
+    unknown = set(axes) - {"time", "antenna", "frequency", "pol"}
+    if unknown:
+        raise ValueError(
+            f"h5parm soltab {soltab.name} has unsupported axes "
+            f"{sorted(unknown)}"
+        )
+
+    val = soltab["val"][...]
+    weight = (
+        soltab["weight"][...] if "weight" in soltab else np.ones_like(val)
+    )
+
+    has_pol = "pol" in axes
+    order = ["time", "antenna", "frequency"] + (["pol"] if has_pol else [])
+    perm = [axes.index(ax) for ax in order]
+    val = np.transpose(val, perm)
+    weight = np.transpose(weight, perm)
+
+    out_shape = (*val.shape[:3], 2, 2)
+    out_val = np.zeros(out_shape, dtype=val.dtype)
+    out_weight = np.zeros(out_shape, dtype=weight.dtype)
+
+    if has_pol:
+        pols = [p.decode().strip("\x00") for p in soltab[h5_axes["pol"]][...]]
+        for idx, pol in enumerate(pols):
+            if pol not in _POL_TO_RECEPTOR_INDEX:
+                raise ValueError(f"Unsupported polarisation {pol!r}")
+            r1, r2 = _POL_TO_RECEPTOR_INDEX[pol]
+            out_val[..., r1, r2] = val[..., idx]
+            out_weight[..., r1, r2] = weight[..., idx]
+    else:
+        for r in range(2):
+            out_val[..., r, r] = val
+            out_weight[..., r, r] = weight
+
+    time = soltab[h5_axes["time"]][...]
+    frequency = soltab[h5_axes["frequency"]][...]
+    antenna = soltab[h5_axes["antenna"]][...]
+
+    return out_val, out_weight, time, frequency, antenna
+
+
 def create_gaintable_from_h5param(
     h5parm_path: str, interval: np.ndarray, vis: Visibility = None
 ) -> GainTable:
     """
     Load h5parm file and convert to GainTable.
+
+    Supports h5parm files written by INST as well as by DP3 (gaincal).
+    Data axes are re-ordered to (time, antenna, frequency, receptor1,
+    receptor2) based on the ``AXES`` attribute. If only diagonal
+    polarisations (e.g. XX, YY) are present, cross terms are set to zero.
+    If either the amplitude or phase soltab is absent (e.g. DP3
+    ``caltype=phaseonly``), unit amplitude or zero phase is assumed.
 
     Parameters
     ----------
@@ -623,7 +730,8 @@ def create_gaintable_from_h5param(
         Interval array for the gain table.
         Typically derived from ``SolutionIntervals.intervals`` property.
     vis : Visibility, optional
-        Visibility object to extract metadata (phasecentre, configuration, receptor_frame).
+        Visibility object to extract metadata (phasecentre, configuration,
+        receptor_frame).
         Default is None.
 
     Returns
@@ -640,42 +748,56 @@ def create_gaintable_from_h5param(
     """
     with h5py.File(h5parm_path) as h5f:
         solution = h5f["sol000"]
-        amplitude = solution["amplitude000"]
-        phase = solution["phase000"]
-
-        gain = amplitude["val"][...] * np.exp(phase["val"][...] * 1j)
-        gain_shape_og = gain.shape
-        # Reshaping to get 2x2 matrix
-        gain = np.reshape(gain, (*gain_shape_og[:3], 2, 2))
-
-        time = amplitude["time"][...]
-        frequency = amplitude["freq"][...]
-        residual = np.zeros((time.size, frequency.size, 2, 2))
-
-        try:
-            weight_amp = amplitude["weight"][...]
-            weight_phase = phase["weight"][...]
-            np.testing.assert_allclose(weight_amp, weight_phase)
-        except AssertionError:
-            print(
-                "WARNING: weights are different in amp and phase. Will pick weight values from amplitude."
-            )
-        weight = np.reshape(weight_amp, gain.shape)
-
-        kawrgs = {}
-        if vis:
-            kawrgs["phasecentre"] = copy(vis.phasecentre)
-            kawrgs["configuration"] = copy(vis.configuration)
-            kawrgs["receptor_frame"] = ReceptorFrame(
-                vis.visibility_acc.polarisation_frame.type
-            )
-
-        return GainTable.constructor(
-            gain=gain,
-            time=time,
-            interval=interval,
-            weight=weight,
-            residual=residual,
-            frequency=frequency,
-            **kawrgs,
+        amplitude = (
+            _read_h5parm_soltab(solution["amplitude000"])
+            if "amplitude000" in solution
+            else None
         )
+        phase = (
+            _read_h5parm_soltab(solution["phase000"])
+            if "phase000" in solution
+            else None
+        )
+
+    if amplitude is None and phase is None:
+        raise ValueError(
+            f"No amplitude000 or phase000 soltab found in {h5parm_path}"
+        )
+
+    if amplitude is not None and phase is not None:
+        amp_val, weight, time, frequency, _ = amplitude
+        phase_val, weight_phase, *_ = phase
+        if not np.allclose(weight, weight_phase):
+            print(
+                "WARNING: weights are different in amp and phase. "
+                "Will pick weight values from amplitude."
+            )
+    elif amplitude is not None:
+        amp_val, weight, time, frequency, _ = amplitude
+        phase_val = np.zeros_like(amp_val)
+    else:
+        phase_val, weight, time, frequency, _ = phase
+        # Unit amplitude on diagonal terms, cross terms stay zero
+        amp_val = np.zeros_like(phase_val)
+        amp_val[..., 0, 0] = amp_val[..., 1, 1] = 1.0
+
+    gain = amp_val * np.exp(1j * phase_val)
+    residual = np.zeros((time.size, frequency.size, 2, 2))
+
+    kawrgs = {}
+    if vis:
+        kawrgs["phasecentre"] = copy(vis.phasecentre)
+        kawrgs["configuration"] = copy(vis.configuration)
+        kawrgs["receptor_frame"] = ReceptorFrame(
+            vis.visibility_acc.polarisation_frame.type
+        )
+
+    return GainTable.constructor(
+        gain=gain,
+        time=time,
+        interval=interval,
+        weight=weight,
+        residual=residual,
+        frequency=frequency,
+        **kawrgs,
+    )
