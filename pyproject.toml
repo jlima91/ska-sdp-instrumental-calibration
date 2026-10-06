@@ -27,7 +27,7 @@ priority = "supplemental"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
 astropy = ">=6.1"
-dask = { version = ">=2024.11", extras = ["distributed", "array"] }
+dask = { version = ">=2024.11", extras = ["distributed", "array", "diagnostics"] }
 xarray = ">=2024.7"
 zarr = ">=2.18"
 everybeam = ">=0.8.4"
@@ -46,6 +46,7 @@ ska-sdp-func-python = ">=1.0.4, <2"
 ska-sdp-func = ">=1.2"
 ska-sdp-exec-piper = ">=2.1.0"
 ska-sdp-dataproduct-metadata = ">=1.0"
+threadpoolctl = ">=3.7.0"
 
 [tool.poetry.extras]
 python-casacore = ["python-casacore"]
