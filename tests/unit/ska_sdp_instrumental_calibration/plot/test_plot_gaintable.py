@@ -442,7 +442,9 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     mock_facet_phase.axs.flat = [phase_axs]
     mock_facet_phase.col_names = ["phase_title"]
 
-    phase_gain_mock.plot.return_value = mock_facet_phase
+    phase_gain_mock.squeeze.return_value.plot.imshow.return_value = (
+        mock_facet_phase
+    )
     gaintable.__getitem__.return_value = phase_gain_mock
 
     plotter = PlotGaintableTargetIonosphere(path_prefix="path/to/save")
@@ -457,7 +459,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
         Jones_Solutions=("receptor_label1", "receptor_label2")
     )
 
-    phase_gain_mock.plot.assert_called_once_with(
+    phase_gain_mock.squeeze.return_value.plot.imshow.assert_called_once_with(
         x="Channel",
         y="time",
         col="Station",

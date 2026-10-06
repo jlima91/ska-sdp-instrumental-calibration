@@ -888,7 +888,11 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
 
         gaintable = self._prepare_gaintable(gaintable, jones_term.sols)
 
-        facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
+        facet_plot = (
+            gaintable["Phase(Degree)"]
+            .squeeze("Jones_Solutions")
+            .plot.imshow(**self._plot_args)
+        )
         gain_phase_fig = facet_plot.fig
 
         self._update_facet(facet_plot, y_label)

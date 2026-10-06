@@ -80,7 +80,7 @@ def apply_gaintable_to_dataset(
     ----------
     vis : Visibility
         The input visibility dataset containing observed data.
-    gaintable : GainTable
+    gaintable : GainCalibrationSetXds
         The calibration solutions (Jones matrices) to apply. Must contain
         valid `soln_interval_slices` mapping gain times to visibility times.
     inverse : bool, optional

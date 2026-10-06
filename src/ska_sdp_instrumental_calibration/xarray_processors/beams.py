@@ -54,7 +54,7 @@ def prediction_central_beams(
 
     Parameters
     ----------
-    gaintable : GainTable
+    gaintable : GainCalibrationSetXds
         The template GainTable defining the time, frequency, and antenna
         structure for the prediction. The existing `gain` data in this table
         is ignored, but coordinates and attributes are preserved.
@@ -64,7 +64,7 @@ def prediction_central_beams(
 
     Returns
     -------
-    GainTable
+    GainCalibrationSetXds
         A new GainTable where the `gain` variable contains the predicted
         central beam responses (complex Jones matrices). The shape matches
         the input gaintable: (time, antenna, frequency, receptor1, receptor2).

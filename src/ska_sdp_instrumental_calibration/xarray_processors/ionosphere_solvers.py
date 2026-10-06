@@ -3,7 +3,6 @@ import logging
 import numpy as np
 import xarray as xr
 from astropy import constants as const
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration.ionosphere_solvers import (
@@ -11,6 +10,8 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
     set_cluster_maps,
     set_coeffs_and_params,
 )
+
+from ..data_managers.gaintable import GainCalibrationSetXds
 
 __all__ = ["run_ionospheric_solver", "IonosphericSolver"]
 
@@ -20,13 +21,13 @@ logger = logging.getLogger(__name__)
 def run_ionospheric_solver(
     vis: Visibility,
     modelvis: Visibility,
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     cluster_indexes: np.ndarray = None,
     block_diagonal: bool = False,
     niter: int = 15,
     tol: float = 1e-6,
     zernike_limit: list[int] = None,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     Solve ionospheric phase screens for every gain-table solution interval.
 
@@ -60,8 +61,8 @@ def run_ionospheric_solver(
 
     Returns
     -------
-        A copy of ``gaintable`` with ionospheric gains, retaining its original
-        chunking.
+        A copy of ``GainCalibrationSetXds`` with ionospheric gains, retaining
+        its original chunking.
     """
     results_across_solints = []
     gaintable_time_coord = gaintable.coords["time"]
