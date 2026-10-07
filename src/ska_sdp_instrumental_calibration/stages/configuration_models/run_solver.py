@@ -19,6 +19,7 @@ class RunSolverConfig(PiperBaseModel):
             "jones_substitution",
             "normal_equations",
             "normal_equations_presum",
+            "dp3_gaincal",
         ],
         Field(
             description="""Calibration algorithm to use. Options are:
@@ -33,7 +34,9 @@ class RunSolverConfig(PiperBaseModel):
                 option but with an initial accumulation of visibility
                 products over time and frequency for each solution
                 interval. This can be much faster for large datasets
-                and solution intervals."""
+                and solution intervals.
+                "dp3_gaincal" - DP3 gaincal solver. The DP3 calibration
+                type is derived from crosspol and phase_only."""
         ),
     ] = "jones_substitution"
     refant: Annotated[
@@ -51,8 +54,10 @@ class RunSolverConfig(PiperBaseModel):
         bool,
         Field(
             description="""Solve only for the phases. This can be set
-                to ``True`` when solver is "gain_substitution",
-                otherwise it must be ``False``."""
+                to ``True`` when solver is "gain_substitution" or
+                "dp3_gaincal", otherwise it must be ``False``.
+                For "dp3_gaincal", it can not be combined with
+                crosspol."""
         ),
     ] = False
     tol: Annotated[
@@ -67,7 +72,8 @@ class RunSolverConfig(PiperBaseModel):
         Field(
             description="""Do solutions including cross polarisations
                 i.e. XY, YX or RL, LR.
-                Only used by "gain_substitution" solver."""
+                Only used by "gain_substitution" and "dp3_gaincal"
+                solvers."""
         ),
     ] = False
 
