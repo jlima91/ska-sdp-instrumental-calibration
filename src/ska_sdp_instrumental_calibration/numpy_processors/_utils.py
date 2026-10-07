@@ -66,3 +66,26 @@ def stack_2x2(
     row1 = xp.stack([yx_f, yy_f], axis=-1)  # [YX, YY]
 
     return xp.stack([row0, row1], axis=-2)
+
+
+# Polarization size -> receptors per antenna
+NPOL_TO_NREC = {1: 1, 4: 2}
+
+
+def pol_to_jones(x: T_AnyArray) -> T_AnyArray:
+    """
+    Convert polarization into (2x2 or 1x1) Jones matrices.
+
+    [..., npol] -> [..., nrec, nrec]
+    """
+    nrec = NPOL_TO_NREC[x.shape[-1]]
+    return x.reshape(*x.shape[:-1], nrec, nrec)
+
+
+def jones_to_pol(x: T_AnyArray) -> T_AnyArray:
+    """
+    Flatten Jones matrices into polarization.
+
+    [..., nrec, nrec] -> [..., npol]
+    """
+    return x.reshape(*x.shape[:-2], -1)

@@ -13,21 +13,25 @@ from ska_sdp_datamodels.science_data_model import (
     ReceptorFrame,
 )
 from ska_sdp_datamodels.xarray_accessor import XarrayAccessorMixin
-from xradio.measurement_set.schema import AntennaNameArray
+from xradio.measurement_set.schema import (
+    AntennaNameArray,
+    Polarization,
+    PolarizationArray,
+)
 from xradio.schema.bases import xarray_dataarray_schema, xarray_dataset_schema
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
+
+from ...numpy_processors._utils import NPOL_TO_NREC
 
 Time = Literal["time"]
 AntennaName = Literal["antenna_name"]
 Frequency = Literal["frequency"]
-ReceptorLabel1 = Literal["receptor_label1"]
-ReceptorLabel2 = Literal["receptor_label2"]
 
 
 @xarray_dataarray_schema
 class GainCalibrationParameterArray:
     """
-    Scalar gains or 2x2 Jones matrices for Gains
+    Scalar gains or flattened 2x2 Jones matrices for Gains
     """
 
     data: Data[
@@ -35,8 +39,7 @@ class GainCalibrationParameterArray:
             Time,
             AntennaName,
             Frequency,
-            ReceptorLabel1,
-            ReceptorLabel2,
+            Polarization,
         ],
         Union[
             numpy.complex64,
@@ -47,8 +50,7 @@ class GainCalibrationParameterArray:
     time: Coord[Time, float]
     antenna_name: Coordof[AntennaNameArray]
     frequency: Coord[Frequency, float]
-    receptor_label1: Coord[ReceptorLabel1, str]
-    receptor_label2: Coord[ReceptorLabel2, str]
+    polarization: Coordof[PolarizationArray]
 
 
 @xarray_dataarray_schema
@@ -60,8 +62,7 @@ class GainCalibrationWeightArray:
             Time,
             AntennaName,
             Frequency,
-            ReceptorLabel1,
-            ReceptorLabel2,
+            Polarization,
         ],
         Union[
             numpy.float32,
@@ -72,8 +73,7 @@ class GainCalibrationWeightArray:
     time: Coord[Time, float]
     antenna_name: Coordof[AntennaNameArray]
     frequency: Coord[Frequency, float]
-    receptor_label1: Coord[ReceptorLabel1, str]
-    receptor_label2: Coord[ReceptorLabel2, str]
+    polarization: Coordof[PolarizationArray]
 
 
 @xarray_dataarray_schema
@@ -84,8 +84,7 @@ class GainCalibrationResidualArray:
         tuple[
             Time,
             Frequency,
-            ReceptorLabel1,
-            ReceptorLabel2,
+            Polarization,
         ],
         Union[
             numpy.float32,
@@ -95,8 +94,7 @@ class GainCalibrationResidualArray:
 
     time: Coord[Time, float]
     frequency: Coord[Frequency, float]
-    receptor_label1: Coord[ReceptorLabel1, str]
-    receptor_label2: Coord[ReceptorLabel2, str]
+    polarization: Coordof[PolarizationArray]
 
 
 @xarray_dataarray_schema
@@ -128,8 +126,7 @@ class GainCalibrationSetXds:
     time: Coord[Time, float]
     antenna_name: Coordof[AntennaNameArray]
     frequency: Coord[Frequency, float]
-    receptor_label1: Coord[ReceptorLabel1, str]
-    receptor_label2: Coord[ReceptorLabel2, str]
+    polarization: Coordof[PolarizationArray]
 
     jones_type: Attr[Literal["T", "G", "B", "K"]]
     type: Attr[Literal["gain_table"]] = "gain_table"
@@ -152,12 +149,12 @@ class GainCalibrationSetXds:
         """
         Create a GainCalibrationSetXds dataset.
 
-        :param gain: Complex gains [ntimes, nants, nchan, nrec, nrec]
+        :param gain: Complex gains [ntimes, nants, nchan, npol]
         :param time: Centroids of solutions, in seconds elapsed since the MJD
             reference epoch [ntimes]
         :param interval: Intervals of validity in seconds [ntimes]
-        :param weight: Weights of gains [ntimes, nants, nchan, nrec, nrec]
-        :param residual: Residuals of fit [ntimes, nchan, nrec, nrec]
+        :param weight: Weights of gains [ntimes, nants, nchan, npol]
+        :param residual: Residuals of fit [ntimes, nchan, npol]
         :param frequency: Channel frequencies in Hz [nchan]
         :param receptor_frame: Measured and ideal (model) data receptor
             frames. If None, use a linear receptor frame for both. If
@@ -199,8 +196,14 @@ class GainCalibrationSetXds:
             time=numpy.asarray(time),
             antenna_name=numpy.asarray(antenna_names, dtype=str),
             frequency=numpy.asarray(frequency),
-            receptor_label1=numpy.asarray(receptor1.names, dtype=str),
-            receptor_label2=numpy.asarray(receptor2.names, dtype=str),
+            polarization=numpy.asarray(
+                [
+                    f"{r1}{r2}"
+                    for r1 in receptor1.names
+                    for r2 in receptor2.names
+                ],
+                dtype=str,
+            ),
             jones_type=jones_type,
         )
         # The xradio decorator makes calling the class build and schema-check
@@ -230,17 +233,7 @@ class GainCalibrationSetAccessor(XarrayAccessorMixin):
     @property
     def nrec(self) -> int:
         """Number of polarisation in receptors"""
-        return self._obj.sizes["receptor_label1"]
-
-    @property
-    def receptor1(self):
-        """Measured Receptor Frame"""
-        return self._obj["receptor_label1"]
-
-    @property
-    def receptor2(self):
-        """Ideal(Model) Receptor Frame"""
-        return self._obj["receptor_label2"]
+        return NPOL_TO_NREC[self._obj.sizes["polarization"]]
 
     def copy(self, deep=False, data=None, zero=False):
         """

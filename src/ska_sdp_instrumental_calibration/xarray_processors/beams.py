@@ -5,6 +5,7 @@ import xarray as xr
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.gaintable import GainCalibrationSetXds
+from ..numpy_processors._utils import jones_to_pol
 from ._utils import with_chunks
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ def _prediction_central_beams_ufunc(
 
     Returns
     -------
-    np.ndarray (frequency, antenna, nrec1, nrec2)
+    np.ndarray (frequency, antenna, npol)
     """
     beams = beams_factory.get_beams_low(frequency, soln_time)
 
@@ -32,7 +33,7 @@ def _prediction_central_beams_ufunc(
     response = beams.array_response(direction=beams.beam_direction)
 
     # Tranpose to apply_ufunc expected dimensions order
-    return response.transpose(1, 0, 2, 3)
+    return jones_to_pol(response.transpose(1, 0, 2, 3))
 
 
 def prediction_central_beams(
@@ -67,7 +68,7 @@ def prediction_central_beams(
     GainCalibrationSetXds
         A new GainTable where the `gain` variable contains the predicted
         central beam responses (complex Jones matrices). The shape matches
-        the input gaintable: (time, antenna, frequency, receptor1, receptor2).
+        the input gaintable: (time, antenna, frequency, polarization).
     """
     # need to calculate central beam response across entire frequency
     frequency_xdr = xr.DataArray(
@@ -80,9 +81,7 @@ def prediction_central_beams(
                 _prediction_central_beams_ufunc,
                 frequency_xdr,
                 input_core_dims=[[]],
-                output_core_dims=[
-                    ("antenna_name", "receptor_label1", "receptor_label2")
-                ],
+                output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
                     np.complex128,
@@ -92,20 +91,14 @@ def prediction_central_beams(
                 dask_gufunc_kwargs={
                     "output_sizes": {
                         "antenna_name": gaintable.antenna_name.size,
-                        "receptor_label1": gaintable.receptor_label1.size,
-                        "receptor_label2": gaintable.receptor_label2.size,
+                        "polarization": gaintable.polarization.size,
                     }
                 },
                 kwargs={
                     "soln_time": val,
                     "beams_factory": beams_factory,
                 },
-            ).transpose(
-                "antenna_name",
-                "frequency",
-                "receptor_label1",
-                "receptor_label2",
-            )
+            ).transpose("antenna_name", "frequency", "polarization")
             for val in gaintable.time.data
         ],
         dim="time",

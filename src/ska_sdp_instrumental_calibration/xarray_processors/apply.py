@@ -6,6 +6,7 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
 
 from ..data_managers.gaintable import GainCalibrationSetXds
+from ..numpy_processors._utils import pol_to_jones
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ def _apply_gaintable_to_dataset_ufunc(
     Parameters
     ----------
     vis: (time, frequency, baselineid, polarisation)
-    gains: (antennas, nrec1, nrec2) or (frequency, antennas, nrec1, nrec2)
+    gains: (antennas, npol) or (frequency, antennas, npol)
     antenna1: (baselineid)
         Indices of the antenna1 in all baseline pairs
     antenna2: (baselineid)
@@ -36,6 +37,8 @@ def _apply_gaintable_to_dataset_ufunc(
     -------
     np.ndarray of shape (time, frequency, baselineid, polarisation)
     """
+    gains = pol_to_jones(gains)
+
     # Add frequency dimension at the start in case its dropped before
     if len(gains.shape) == 3:
         gains = gains[np.newaxis, ...]
@@ -121,7 +124,7 @@ def apply_gaintable_to_dataset(
                 gains.isel(time=idx, drop=True),
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna_name", "receptor_label1", "receptor_label2"],
+                    ["antenna_name", "polarization"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],
