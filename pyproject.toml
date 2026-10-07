@@ -49,6 +49,7 @@ ska-sdp-dataproduct-metadata = ">=1.0"
 threadpoolctl = ">=3.7.0"
 
 [tool.poetry.extras]
+dp3 = ["dp3"]
 python-casacore = ["python-casacore"]
 ska-sdp-func = ["ska-sdp-func"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]

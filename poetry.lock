@@ -1378,6 +1378,7 @@ description = "DP3"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
+markers = "extra == \"dp3\""
 files = [
     {file = "dp3-6.6.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:00aae32001f75c31085304f246c9a7d75f459c6dd1d73409cf69932933bb93b4"},
     {file = "dp3-6.6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bffefac92ca36dc24da69bc1ea1266f6883f3cd82238d3cc5fb89eb486721757"},
@@ -6459,6 +6460,7 @@ test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_it
 type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [extras]
+dp3 = ["dp3"]
 python-casacore = ["python-casacore"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 ska-sdp-func = ["ska-sdp-func"]
@@ -6466,4 +6468,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "e4517505ade9fae6de8d4595955dd21b6b8263ac0bf61308be779a2d2aa75ded"
+content-hash = "6f3d1fe59ae92824a6ce59fe38d5eefe04b3718b09e5e8c228fc08ed7c43e010"
