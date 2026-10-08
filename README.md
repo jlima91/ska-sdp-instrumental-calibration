@@ -113,8 +113,11 @@ Run the following command to install the latest pipeline from the `main` branch 
 INST_BRANCH=main
 
 # if using uv, use `uv pip install ...`
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[ska-sdp-func]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
 ```
+
+The `dp3_gaincal` solver requires the optional `dp3` extra. To use it, add
+`dp3` to the list of extras in the commands above.
 
 ### As spack package
 
