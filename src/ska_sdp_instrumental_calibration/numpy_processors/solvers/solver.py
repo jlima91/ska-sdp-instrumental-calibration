@@ -84,7 +84,7 @@ class Solver:
         """
         if solver not in cls._solvers:
             raise ValueError(
-                f"{solver} not definebd."
+                f"{solver} not defined."
                 f" Supported solvers: {', '.join(cls._solvers)}"
             )
         return cls._solvers[solver](**kwargs)
