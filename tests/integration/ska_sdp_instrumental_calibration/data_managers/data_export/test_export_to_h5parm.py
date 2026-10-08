@@ -4,6 +4,7 @@ import numpy as np
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm,
 )
+from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
 
 
 def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
@@ -55,5 +56,42 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
         )
         assert np.all(
             amplitude["ant"][...].astype(str)
+            == gaintable.configuration.names.data.astype(str)
+        )
+
+
+def test_export_clock_to_h5parm(generate_vis, tmp_path):
+    _, gaintable = generate_vis
+    rng = np.random.default_rng(42)
+    shape = (2, gaintable.antenna.size, 2)
+    delaytable = DelayTable.constructor(
+        delay=rng.normal(scale=1e-9, size=shape),
+        offset=rng.uniform(-0.5, 0.5, size=shape),
+        time=gaintable.time.data[:2],
+        antenna=gaintable.antenna.data,
+        pol=["XX", "YY"],
+        configuration=gaintable.configuration,
+    )
+
+    filename = str(tmp_path / "clock.h5parm")
+
+    export_to_h5parm.export_clock_to_h5parm(delaytable, filename)
+
+    with h5py.File(filename, "r") as h5f:
+        clock = h5f["sol000"]["clock000"]
+
+        assert clock.attrs["TITLE"] == b"clock"
+        assert clock["val"].attrs["AXES"] == b"time,ant,pol"
+        assert clock["offset"].attrs["AXES"] == b"time,ant,pol"
+
+        np.testing.assert_allclose(clock["val"][...], delaytable.delay.data)
+        np.testing.assert_allclose(
+            clock["offset"][...], delaytable.offset.data
+        )
+
+        np.testing.assert_allclose(clock["time"][...], delaytable.time.data)
+        assert list(clock["pol"][...].astype(str)) == ["XX", "YY"]
+        assert np.all(
+            clock["ant"][...].astype(str)
             == gaintable.configuration.names.data.astype(str)
         )

@@ -11,7 +11,7 @@ from ..h5parm import (
     to_null_terminated_bytes,
 )
 
-logger = setup_logger("data_managers.data_export")
+logger = setup_logger(__name__)
 
 
 def export_gaintable_to_h5parm(
