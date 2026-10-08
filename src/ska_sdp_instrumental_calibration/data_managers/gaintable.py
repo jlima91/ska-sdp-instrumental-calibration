@@ -1,3 +1,4 @@
+from copy import copy
 from typing import Literal, Union
 
 import dask.array as da
@@ -6,6 +7,7 @@ from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
+from .h5parm import read_h5parm_gains
 from .solution_interval import SolutionIntervals
 
 
@@ -244,3 +246,132 @@ def divide_bandpass_by_ref_ant_preserve_phase(
             "gain": new_gain,
         }
     ).chunk(gaintable.chunks)
+
+
+def _check_antennas(
+    h5parm_antennas: list[str] | None, vis_antennas: list[str]
+) -> None:
+    """
+    Check that the h5parm antennas match the visibility antennas.
+
+    Parameters
+    ----------
+    h5parm_antennas
+        Antenna names along the antenna axis of the h5parm, or None if the
+        antenna axis is absent in the h5parm.
+    vis_antennas
+        Antenna names of the visibility configuration.
+
+    Raises
+    ------
+    ValueError
+        If the antennas or their order differ, or the h5parm has no
+        antenna axis while the visibility has more than one antenna.
+    """
+    if h5parm_antennas is None:
+        if len(vis_antennas) != 1:
+            raise ValueError(
+                "h5parm has no antenna axis, but visibility has "
+                f"{len(vis_antennas)} antennas"
+            )
+        return
+
+    if h5parm_antennas != vis_antennas:
+        raise ValueError(
+            "h5parm antennas do not match the visibility antennas "
+            f"(in order). h5parm: {h5parm_antennas}, "
+            f"visibility: {vis_antennas}"
+        )
+
+
+def create_gaintable_from_h5parm(
+    h5parm_path: str,
+    interval: np.ndarray,
+    vis: Visibility | None = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+) -> GainTable:
+    """
+    Load an h5parm file and convert it to a GainTable.
+
+    Supports h5parm files written by INST as well as by DP3 (gaincal).
+    Data axes are re-ordered to (time, antenna, frequency, receptor1,
+    receptor2) based on the ``AXES`` attribute. If only diagonal
+    polarisations (e.g. XX, YY) are present, cross terms are set to zero.
+    If either the amplitude or phase soltab is absent (e.g. DP3
+    ``caltype=diagonalphase``), unit amplitude or zero phase is assumed.
+    If both are present, the minimum of their weights is used.
+
+    If ``vis`` is given, the antennas of the h5parm must match the
+    antennas of the visibility configuration, in the same order. Absent
+    (squeezed) time or frequency axes get the mean time or frequency of
+    the visibility.
+
+    Parameters
+    ----------
+    h5parm_path
+        Path to the h5parm file.
+    interval
+        Interval array for the gain table.
+        Typically derived from ``SolutionIntervals.intervals`` property.
+    vis
+        Visibility to extract metadata (phasecentre, configuration,
+        receptor_frame) from. Required if the h5parm has no time or
+        frequency axis.
+    jones_type
+        Type of Jones term, one of {"T", "G", "B"}.
+
+    Returns
+    -------
+    GainTable
+        The gain table constructed from the h5parm file.
+
+    Raises
+    ------
+    ValueError
+        If the h5parm has no time or frequency axis and ``vis`` is not
+        given, or its antennas differ from those of ``vis``.
+
+    Examples
+    --------
+    >>> vis = load_ms_as_dataset_with_time_chunks(mspath, 10)
+    >>> interval = SolutionIntervals(vis.time.data, "full").intervals
+    >>> gaintable = create_gaintable_from_h5parm(h5parm_path, interval, vis)
+    """
+    gain, weight, _, soltab = read_h5parm_gains(h5parm_path)
+
+    time = soltab.time
+    frequency = soltab.frequency
+    if vis is None and (time is None or frequency is None):
+        raise ValueError(
+            f"h5parm {h5parm_path} has no time or frequency axis, "
+            "vis is required to restore them"
+        )
+    if time is None:
+        time = np.mean(vis.time.data, keepdims=True)
+    if frequency is None:
+        frequency = np.mean(vis.frequency.data, keepdims=True)
+
+    kwargs = {}
+    if vis is not None:
+        _check_antennas(
+            soltab.antenna,
+            [str(name) for name in vis.configuration.names.data],
+        )
+        kwargs["phasecentre"] = copy(vis.phasecentre)
+        kwargs["configuration"] = copy(vis.configuration)
+        kwargs["receptor_frame"] = ReceptorFrame(
+            vis.visibility_acc.polarisation_frame.type
+        )
+
+    residual = np.zeros((time.size, frequency.size, 2, 2))
+
+    return GainTable.constructor(
+        gain=gain,
+        time=time,
+        interval=interval,
+        weight=weight,
+        residual=residual,
+        frequency=frequency,
+        jones_type=jones_type,
+        **kwargs,
+    )

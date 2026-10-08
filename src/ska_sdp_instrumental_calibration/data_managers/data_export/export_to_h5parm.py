@@ -1,81 +1,17 @@
-from typing import Iterable, Literal
-
 import h5py
 import numpy as np
-import xarray as xr
-from numpy.typing import NDArray
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
 from ...logger import setup_logger
 from ...xarray_processors.delay import DelayTable
+from ..h5parm import (
+    create_clock_soltab_datasets,
+    create_soltab_datasets,
+    create_soltab_group,
+    to_null_terminated_bytes,
+)
 
 logger = setup_logger("data_managers.data_export")
-
-
-def create_soltab_group(
-    solset: h5py.Group, solution_type: Literal["amplitude", "phase", "clock"]
-) -> h5py.Group:
-    """Create soltab group under given solset group.
-
-    :param solset: base-level HDF5 group to update
-    :param solution_type: only "amplitude" and "phase" are supported at present
-    :return: HDF5 group for the "solution_type" data
-    """
-    soltab = solset.create_group(f"{solution_type}000")
-    soltab.attrs["TITLE"] = np.bytes_(solution_type)
-    return soltab
-
-
-def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
-    """Add a dataset for each of the GainTable dimensions.
-
-    :param soltab: HDF5 table to update
-    :param gaintable: GainTable
-    """
-    # create a dataset for each dimension
-    for dim in list(gaintable.gain.sizes):
-        soltab.create_dataset(dim, data=gaintable[dim].data)
-
-    # create datasets for the data and weights
-    shape = gaintable.gain.shape
-    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
-
-    val = soltab.create_dataset("val", shape=shape, dtype=float)
-    val.attrs["AXES"] = axes
-
-    weight = soltab.create_dataset("weight", shape=shape, dtype=float)
-    weight.attrs["AXES"] = axes
-
-    return val, weight
-
-
-def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
-    """Add a dataset for each of the Delay dimensions.
-
-    :param soltab: HDF5 table to update
-    :param delaytable: xr.Dataset
-    """
-    # create a dataset for each dimension
-    for dim in list(delaytable.delay.sizes):
-        soltab.create_dataset(dim, data=delaytable[dim].data)
-
-    # create datasets for the data and weights
-    shape = delaytable.delay.shape
-    axes = np.bytes_(",".join(list(delaytable.delay.sizes)))
-
-    val = soltab.create_dataset("val", shape=shape, dtype=float)
-    val.attrs["AXES"] = axes
-
-    offset = soltab.create_dataset("offset", shape=shape, dtype=float)
-    offset.attrs["AXES"] = axes
-
-    return val, offset
-
-
-def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
-    # NOTE: making antenna names one character longer, in keeping with
-    # ska-sdp-batch-preprocess
-    return np.asarray([s.encode("ascii") + b"\0" for s in strings])
 
 
 def export_gaintable_to_h5parm(
@@ -118,7 +54,7 @@ def export_gaintable_to_h5parm(
     # adjust dimensions to be consistent with H5Parm output format
     gaintable = gaintable.rename({"antenna": "ant", "frequency": "freq"})
     gaintable = gaintable.stack(pol=("receptor1", "receptor2"))
-    polstrs = _ndarray_of_null_terminated_bytes(
+    polstrs = to_null_terminated_bytes(
         [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
     )
     gaintable = gaintable.drop_vars(
@@ -126,14 +62,14 @@ def export_gaintable_to_h5parm(
     ).assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms
-    polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])
+    polstrs = to_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     if not np.array_equal(gaintable["pol"].data, polstrs):
         raise ValueError("Subsequent pipelines assume linear pol order")
 
     # replace antenna indices with antenna names
     if gaintable.configuration is None:
         raise ValueError("Missing gt config. H5Parm requires antenna names")
-    antenna_names = _ndarray_of_null_terminated_bytes(
+    antenna_names = to_null_terminated_bytes(
         gaintable.configuration.names.data[gaintable["ant"].data]
     )
     gaintable = gaintable.assign_coords({"ant": antenna_names})
@@ -200,14 +136,14 @@ def export_clock_to_h5parm(
     if not np.array_equal(delaytable.pol.data, ["XX", "YY"]):
         raise ValueError("Subsequent pipelines assume linear pol order")
 
-    polstrs = _ndarray_of_null_terminated_bytes(delaytable.pol.data)
+    polstrs = to_null_terminated_bytes(delaytable.pol.data)
     delaytable = delaytable.assign_coords({"pol": polstrs})
 
     # replace antenna indices with antenna names
     if delaytable.configuration is None:
         raise ValueError("Missing gt config. H5Parm requires antenna names")
 
-    antenna_names = _ndarray_of_null_terminated_bytes(
+    antenna_names = to_null_terminated_bytes(
         delaytable.configuration.names.data[delaytable["ant"].data]
     )
     delaytable = delaytable.assign_coords({"ant": antenna_names})
