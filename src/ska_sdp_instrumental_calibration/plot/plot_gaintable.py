@@ -1,3 +1,4 @@
+import logging
 from collections import namedtuple
 
 import matplotlib.pyplot as plt
@@ -5,13 +6,11 @@ import numpy as np
 from astropy.time import Time
 from matplotlib.colors import ListedColormap
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
 from ..data_managers.gaintable import divide_bandpass_by_ref_ant_preserve_phase
 from ..scheduler import DeferredTask, delayed
 from ._util import safe
 
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class _BANDPASS_PLOTS__:

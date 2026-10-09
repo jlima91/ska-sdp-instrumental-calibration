@@ -1,8 +1,9 @@
+import logging
+
 import h5py
 import numpy as np
 from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
-from ...logger import setup_logger
 from ...xarray_processors.delay import DelayTable
 from ..h5parm import (
     create_clock_soltab_datasets,
@@ -11,7 +12,7 @@ from ..h5parm import (
     to_null_terminated_bytes,
 )
 
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def export_gaintable_to_h5parm(
