@@ -239,18 +239,6 @@ class InstrumentalDaskRunner(DaskRunner):
 
         output = UpstreamOutput()
         for stage in self.pipeline.executable_stages:
-            logger.info(
-                f"Starting {stage.name}",
-                extra={"tags": f"sdpPhase:{stage.name.upper()},state:START"},
-            )
-
             output = self._execute_stage(stage, output)
-
-            logger.info(
-                f"Finished {stage.name}",
-                extra={
-                    "tags": f"sdpPhase:{stage.name.upper()},state:FINISHED"
-                },
-            )
 
         task_manager.compute()
