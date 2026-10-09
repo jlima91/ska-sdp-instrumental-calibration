@@ -273,8 +273,9 @@ def dp3_gaincal_solve(
         Only the shape and the receptor terms not solved by DP3 for the
         given ``caltype`` are used; DP3 starts from its own initial guess.
     gain_weight
-        Storage for gain weights. Shape matches `gain_gain`.
-        Receptor terms not solved by DP3 get zero weight.
+        Initial gain weights. Shape matches `gain_gain`.
+        Receptor terms not solved by DP3 for the given ``caltype`` keep
+        these weights.
     gain_residual
         Storage for gain residuals. Shape matches `gain_gain`.
         DP3 does not report residuals, so this is returned unchanged.
