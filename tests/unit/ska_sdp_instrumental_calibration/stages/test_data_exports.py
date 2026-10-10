@@ -325,7 +325,7 @@ def test_export_gaintable_to_hdf5_exclude_cross_pols(
     filtered_gaintable_mock = Mock(name="filtered_gaintable")
 
     gaintable_mock = Mock(name="gaintable")
-    gaintable_mock.where.return_value = filtered_gaintable_mock
+    gaintable_mock.isel.return_value = filtered_gaintable_mock
 
     file_handle_mock = Mock(name="file_handle")
     file_handle_mock.attrs = {}
@@ -340,10 +340,7 @@ def test_export_gaintable_to_hdf5_exclude_cross_pols(
         exclude_cross_pols=True,
     )
 
-    gaintable_mock.where.assert_called_once_with(
-        gaintable_mock.receptor1 == gaintable_mock.receptor2,
-        drop=True,
-    )
+    gaintable_mock.isel.assert_called_once_with(polarization=[0, 3])
 
     convert_mock.assert_called_once_with(
         filtered_gaintable_mock,

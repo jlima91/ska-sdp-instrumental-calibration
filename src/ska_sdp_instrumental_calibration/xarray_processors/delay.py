@@ -8,7 +8,10 @@ from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 
-from ska_sdp_instrumental_calibration.numpy_processors._utils import stack_2x2
+from ska_sdp_instrumental_calibration.numpy_processors._utils import (
+    jones_to_pol,
+    stack_2x2,
+)
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ._utils import with_chunks
@@ -144,14 +147,14 @@ def calculate_delays_from_gain(
     pols = []
 
     # We only calculate delays based on diagonal terms
+    # To get index of XX, YY from flattened 2x2 polarization
+    # i.e. (XX, XY, YX, YY)
     for rec1idx, rec2idx in ((0, 0), (1, 1)):
-        pols.append(
-            f"{gaintable['receptor_label1'][rec1idx].item()}"
-            f"{gaintable['receptor_label2'][rec2idx].item()}"
-        )
+        polidx = rec1idx * 2 + rec2idx
+        pols.append(gaintable["polarization"][polidx].item())
 
-        gain = gain_gain_chunked[..., rec1idx, rec2idx]
-        weight = gain_weight_chunk[..., rec1idx, rec2idx]
+        gain = gain_gain_chunked[..., polidx]
+        weight = gain_weight_chunk[..., polidx]
         initial_offset = xr.zeros_like(
             gaintable["antenna_name"], dtype=np.float64
         ).chunk(antenna_name=1)
@@ -279,12 +282,12 @@ def apply_delay_to_gaintable(
     gain_da_per_pol: dict[tuple, da.Array] = dict()
 
     # We calculate delays only for diagonal terms
-    # gaintable stores them in 2x2 matrix (receptor1, receptor2)
+    # gaintable stores them in flattened 2x2 matrix (polarization)
     # while delaytable stores them in 1x2 array
     # match the gaintable's antenna dimension
     delaytable = delaytable.drop_vars("antenna").rename(antenna="antenna_name")
     for delay_pol_idx, rec1idx, rec2idx in ((0, 0, 0), (1, 1, 1)):
-        gain = gaintable["CALPARAM_GAIN"][..., rec1idx, rec2idx]
+        gain = gaintable["CALPARAM_GAIN"][..., rec1idx * 2 + rec2idx]
         delay = delaytable["delay"].isel(pol=delay_pol_idx)
         offset = delaytable["offset"].isel(pol=delay_pol_idx)
 
@@ -307,8 +310,8 @@ def apply_delay_to_gaintable(
         # Expected shape of delay_rotated_gain: (time, ant, freq)
         gain_da_per_pol[(rec1idx, rec2idx)] = delay_rotated_gain.data
 
-    _new_gain_da = stack_2x2(
-        gain_da_per_pol[(0, 0)], None, None, gain_da_per_pol[(1, 1)]
+    _new_gain_da = jones_to_pol(
+        stack_2x2(gain_da_per_pol[(0, 0)], None, None, gain_da_per_pol[(1, 1)])
     )
 
     return gaintable.assign(

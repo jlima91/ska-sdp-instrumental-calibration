@@ -5,7 +5,7 @@ import numpy as np
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
-from ..numpy_processors._utils import jones_to_pol
+from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 from .schema.calibration_set import GainCalibrationSetXds
 from .solution_interval import SolutionIntervals
 
@@ -223,7 +223,7 @@ def divide_bandpass_by_ref_ant_preserve_phase(
     Returns:
         GainTable: The normalised bandpass solutions
     """
-    gains = np.copy(gaintable.CALPARAM_GAIN.data)
+    gains = pol_to_jones(np.copy(gaintable.CALPARAM_GAIN.data))
 
     g_x = gains[..., 0, 0]
     g_y = gains[..., 1, 1]
@@ -249,7 +249,7 @@ def divide_bandpass_by_ref_ant_preserve_phase(
     bp_p[..., 1, 0] = g_yx_prime
 
     new_gain = gaintable.CALPARAM_GAIN.copy()
-    new_gain.data = bp_p
+    new_gain.data = jones_to_pol(bp_p)
 
     return gaintable.assign(
         {
@@ -281,10 +281,12 @@ def multiply_gaintables(
         )
     if dgt.calibration_set.nrec == gt.calibration_set.nrec:
         if dgt.calibration_set.nrec == 2:
-            gt["CALPARAM_GAIN"].data = np.einsum(
-                "...ki,...ij->...kj",
-                gt["CALPARAM_GAIN"].data,
-                dgt["CALPARAM_GAIN"].data,
+            gt["CALPARAM_GAIN"].data = jones_to_pol(
+                np.einsum(
+                    "...ki,...ij->...kj",
+                    pol_to_jones(gt["CALPARAM_GAIN"].data),
+                    pol_to_jones(dgt["CALPARAM_GAIN"].data),
+                )
             )
             gt["CALPARAM_WEIGHT"].data *= dgt["CALPARAM_WEIGHT"].data
         elif dgt.calibration_set.nrec == 1:

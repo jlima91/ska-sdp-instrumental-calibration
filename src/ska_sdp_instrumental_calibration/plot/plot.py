@@ -8,6 +8,7 @@ from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
     generate_rotation_matrices,
 )
 
+from ..numpy_processors._utils import pol_to_jones
 from ..scheduler import delayed
 from ..xarray_processors import normalize_data
 from ._util import ecef_to_lla, safe
@@ -58,12 +59,10 @@ def plot_flag_gain(
     -------
     None
     """
-    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
+    gaintable = gaintable.rename(polarization="pol")
 
-    polstrs = [f"{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
-    gaintable = gaintable.drop_vars(
-        ["pol", "receptor_label1", "receptor_label2"]
-    ).assign_coords({"pol": polstrs})
+    polstrs = [f"{pol}".upper() for pol in gaintable.pol.data]
+    gaintable = gaintable.assign_coords({"pol": polstrs})
     stations = gaintable.antenna_name
 
     n_rows = 4
@@ -138,14 +137,12 @@ def plot_curve_fit(
     """
 
     normalize_label = "(normalized)" if normalize_gains else ""
-    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
+    gaintable = gaintable.rename(polarization="pol")
 
     # from SKB-1027. J_XX, J_YY, j_xy and j_yx
-    polstrs = [f"J_{p1}{p2}".upper() for p1, p2 in gaintable.pol.data]
+    polstrs = [f"J_{pol}".upper() for pol in gaintable.pol.data]
 
-    gaintable = gaintable.drop_vars(
-        ["pol", "receptor_label1", "receptor_label2"]
-    ).assign_coords({"pol": polstrs})
+    gaintable = gaintable.assign_coords({"pol": polstrs})
     stations = gaintable.antenna_name
     n_rows = 2
     n_cols = 2
@@ -163,12 +160,8 @@ def plot_curve_fit(
     )
 
     if soltype == "real-imag":
-        y1_fit = fits["real_fit"].stack(
-            pol=("receptor_label1", "receptor_label2")
-        )
-        y2_fit = fits["imag_fit"].stack(
-            pol=("receptor_label1", "receptor_label2")
-        )
+        y1_fit = fits["real_fit"].rename(polarization="pol")
+        y2_fit = fits["imag_fit"].rename(polarization="pol")
         y1_label = "Real"
         y2_label = "Imaginary"
         y_limit = None
@@ -177,26 +170,14 @@ def plot_curve_fit(
         y2_data_func = np.imag
     else:
         if soltype == "amplitude":
-            y1_fit = fits["amp_fit"].stack(
-                pol=("receptor_label1", "receptor_label2")
-            )
+            y1_fit = fits["amp_fit"].rename(polarization="pol")
             y2_fit = xr.zeros_like(gaintable.CALPARAM_GAIN, dtype=float)
         elif soltype == "phase":
             y1_fit = xr.zeros_like(gaintable.CALPARAM_GAIN, dtype=float)
-            y2_fit = np.rad2deg(
-                fits["phase_fit"].stack(
-                    pol=("receptor_label1", "receptor_label2")
-                )
-            )
+            y2_fit = np.rad2deg(fits["phase_fit"].rename(polarization="pol"))
         else:
-            y1_fit = fits["amp_fit"].stack(
-                pol=("receptor_label1", "receptor_label2")
-            )
-            y2_fit = np.rad2deg(
-                fits["phase_fit"].stack(
-                    pol=("receptor_label1", "receptor_label2")
-                )
-            )
+            y1_fit = fits["amp_fit"].rename(polarization="pol")
+            y2_fit = np.rad2deg(fits["phase_fit"].rename(polarization="pol"))
         y1_label = "Amplitude"
         y2_label = "Phase (Degree)"
         y_limit = [-180, 180]
@@ -397,8 +378,10 @@ def plot_bandpass_stages(
 
     for k, stn in enumerate(stns):
         stn_name = station_names[stn]
-        J = initialtable.CALPARAM_GAIN.data[0, stn] @ np.linalg.inv(
-            initialtable.CALPARAM_GAIN.data[0, refant, ..., :, :]
+        J = pol_to_jones(
+            initialtable.CALPARAM_GAIN.data[0, stn]
+        ) @ np.linalg.inv(
+            pol_to_jones(initialtable.CALPARAM_GAIN.data[0, refant])
         )
         ax = axs[k, 0]
         for pol in range(4):
@@ -424,8 +407,8 @@ def plot_bandpass_stages(
         ax.grid()
         ax.legend()
 
-        J = gaintable.CALPARAM_GAIN.data[0, stn] @ np.linalg.inv(
-            gaintable.CALPARAM_GAIN.data[0, refant, ..., :, :]
+        J = pol_to_jones(gaintable.CALPARAM_GAIN.data[0, stn]) @ np.linalg.inv(
+            pol_to_jones(gaintable.CALPARAM_GAIN.data[0, refant])
         )
         ax = axs[k, 2]
         for pol in range(4):

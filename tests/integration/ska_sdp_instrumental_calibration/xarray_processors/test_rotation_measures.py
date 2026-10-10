@@ -18,15 +18,16 @@ def gaintable():
             [1.001350e08, 1.001404e08, 1.001458e08, 1.001512e08],
             dtype=np.float32,
         ),
+        "polarization": ["XX", "XY", "YX", "YY"],
     }
     gain_data = (
         np.arange(32, dtype=np.float32)
         + 1
         + 1j * (np.arange(32, dtype=np.float32) + 1)
-    ).reshape(1, 2, 4, 2, 2)
-    gains = da.from_array(gain_data, chunks=(1, 2, 4, 2, 2))
+    ).reshape(1, 2, 4, 4)
+    gains = da.from_array(gain_data, chunks=(1, 2, 4, 4))
     weight_data = np.ones_like(gain_data, dtype=np.float32)
-    weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
+    weight = da.from_array(weight_data, chunks=(1, 2, 4, 4))
     gaintable = xr.Dataset(
         {
             "CALPARAM_GAIN": (
@@ -34,8 +35,7 @@ def gaintable():
                     "time",
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ],
                 gains,
             ),
@@ -44,8 +44,7 @@ def gaintable():
                     "time",
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ],
                 weight,
             ),

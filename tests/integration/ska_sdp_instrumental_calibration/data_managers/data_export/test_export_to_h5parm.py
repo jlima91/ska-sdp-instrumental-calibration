@@ -13,11 +13,11 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
     # Forcefully set one of the crosspol weights to zero,
     # to check if gains are also zero
     new_weight = gaintable.CALPARAM_WEIGHT
-    new_weight[:, :, :, 0, 1] = 0.0
+    new_weight[:, :, :, 1] = 0.0
     gaintable = gaintable.assign(weight=new_weight)
 
     expected_masked_gains = gaintable.CALPARAM_GAIN.data.copy()
-    expected_masked_gains[:, :, :, 0, 1] = np.nan
+    expected_masked_gains[:, :, :, 1] = np.nan
 
     filename = str(tmp_path / "gaintable.h5parm")
 

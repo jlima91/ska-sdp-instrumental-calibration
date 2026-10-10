@@ -56,8 +56,7 @@ def test_calculate_and_apply_delay():
     coords = {
         "antenna_name": ["antenna1", "antenna2"],
         "frequency": np.linspace(1.0010e8, 1.0019e8, 4, dtype=np.float64),
-        "receptor_label1": ["X", "Y"],
-        "receptor_label2": ["X", "Y"],
+        "polarization": ["XX", "XY", "YX", "YY"],
     }
 
     # gain_shape = [ntimes, nants, nfrequency, nrec, nrec]
@@ -69,24 +68,22 @@ def test_calculate_and_apply_delay():
             ]
             * 16,
             dtype=np.complex128,
-        ).reshape(1, 2, 4, 2, 2),
+        ).reshape(1, 2, 4, 4),
         dims=[
             "time",
             "antenna_name",
             "frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ],
     )
 
     weights = xr.DataArray(
-        np.ones(32, dtype=np.float64).reshape(1, 2, 4, 2, 2),
+        np.ones(32, dtype=np.float64).reshape(1, 2, 4, 4),
         dims=[
             "time",
             "antenna_name",
             "frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ],
     )
 
@@ -105,20 +102,20 @@ def test_calculate_and_apply_delay():
 
     # Delay correction is applied to XX/YY only; XY/YX are zero-filled.
     np.testing.assert_allclose(
-        np.angle(actual_gaintable.CALPARAM_GAIN.data[..., 0, 0], deg=True),
+        np.angle(actual_gaintable.CALPARAM_GAIN.data[..., 0], deg=True),
         0.0,
         atol=1e-10,
     )
     np.testing.assert_allclose(
-        np.angle(actual_gaintable.CALPARAM_GAIN.data[..., 1, 1], deg=True),
+        np.angle(actual_gaintable.CALPARAM_GAIN.data[..., 3], deg=True),
         0.0,
         atol=1e-10,
     )
     np.testing.assert_allclose(
-        actual_gaintable.CALPARAM_GAIN.data[..., 0, 1], 0.0j
+        actual_gaintable.CALPARAM_GAIN.data[..., 1], 0.0j
     )
     np.testing.assert_allclose(
-        actual_gaintable.CALPARAM_GAIN.data[..., 1, 0], 0.0j
+        actual_gaintable.CALPARAM_GAIN.data[..., 2], 0.0j
     )
 
 

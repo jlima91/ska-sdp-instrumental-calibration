@@ -12,6 +12,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
 )
 
 from ..data_managers.gaintable import GainCalibrationSetXds
+from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 
 __all__ = ["run_ionospheric_solver", "IonosphericSolver"]
 
@@ -96,8 +97,7 @@ def run_ionospheric_solver(
                 [
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
@@ -108,8 +108,7 @@ def run_ionospheric_solver(
                 [
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ]
             ],
             kwargs=dict(
@@ -170,9 +169,9 @@ def _run_ionospheric_solver_ufunc_(
         niter,
         tol,
         zernike_limit,
-    ).solve(gaintable_gain)
+    ).solve(pol_to_jones(gaintable_gain))
 
-    return gain
+    return jones_to_pol(gain)
 
 
 class IonosphericSolver:

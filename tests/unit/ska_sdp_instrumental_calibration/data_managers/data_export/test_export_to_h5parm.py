@@ -111,8 +111,7 @@ def test_should_raise_exceptions(h5py_mock, np_mock):
         "time",
         "antenna_name",
         "frequency",
-        "receptor_label1",
-        "receptor_label2",
+        "polarization",
     ]
     np_mock.array_equal.return_value = False
 
@@ -127,7 +126,6 @@ def test_should_raise_exceptions(h5py_mock, np_mock):
     gaintable_mock.drop_vars.return_value = gaintable_mock
     gaintable_mock.isel.return_value = gaintable_mock
     gaintable_mock.rename.return_value = gaintable_mock
-    gaintable_mock.stack.return_value = gaintable_mock
 
     with pytest.raises(
         ValueError, match="Missing gt config. H5Parm requires antenna names"

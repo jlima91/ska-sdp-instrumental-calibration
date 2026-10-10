@@ -219,7 +219,7 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     nstations = 2
     nfreq = 5
 
-    gain_data = np.ones((1, nstations, nfreq, 2, 2)) + 1j
+    gain_data = np.ones((1, nstations, nfreq, 4)) + 1j
     antenna_coords = [f"{i}" for i in range(nstations)]
     freq_coords = np.linspace(1e8, 2e8, nfreq)
 
@@ -227,22 +227,20 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
         "time",
         "antenna_name",
         "frequency",
-        "receptor_label1",
-        "receptor_label2",
+        "polarization",
     )
     coords = {
         "time": [0],
         "antenna_name": antenna_coords,
         "frequency": freq_coords,
-        "receptor_label1": ["X", "Y"],
-        "receptor_label2": ["X", "Y"],
+        "polarization": ["XX", "XY", "YX", "YY"],
     }
 
     gaintable = xr.Dataset(
         {
             "CALPARAM_GAIN": xr.DataArray(gain_data, coords=coords, dims=dims),
             "CALPARAM_WEIGHT": xr.DataArray(
-                np.ones((1, nstations, nfreq, 2, 2)),
+                np.ones((1, nstations, nfreq, 4)),
                 coords=coords,
                 dims=dims,
             ),
@@ -320,31 +318,29 @@ def test_should_perform_gain_flagging(apply_ufunc_mock):
     assert "real_fit" not in fits
     assert "imag_fit" not in fits
 
-    assert fits["amp_fit"].shape == (1, nstations, nfreq, 2, 2)
+    assert fits["amp_fit"].shape == (1, nstations, nfreq, 4)
 
     np.testing.assert_allclose(
-        fits["amp_fit"][0, :, :, 0, 0].data,
+        fits["amp_fit"][0, :, :, 0].data,
         amp_fit_1.data[0],
     )
     np.testing.assert_allclose(
-        fits["amp_fit"][0, :, :, 1, 1].data,
+        fits["amp_fit"][0, :, :, 3].data,
         amp_fit_2.data[0],
     )
-    np.testing.assert_allclose(fits["amp_fit"][..., 0, 1].data, 0.0)
-    np.testing.assert_allclose(fits["amp_fit"][..., 1, 0].data, 0.0)
+    np.testing.assert_allclose(fits["amp_fit"][..., 1].data, 0.0)
+    np.testing.assert_allclose(fits["amp_fit"][..., 2].data, 0.0)
 
-    expected_weight = np.ones((1, nstations, nfreq, 2, 2), dtype=np.float64)
-    expected_weight[:, :, 3, 0, 0] = 0.0
-    expected_weight[:, :, 1, 1, 1] = 0.0
+    expected_weight = np.ones((1, nstations, nfreq, 4), dtype=np.float64)
+    expected_weight[:, :, 3, 0] = 0.0
+    expected_weight[:, :, 1, 3] = 0.0
     np.testing.assert_allclose(
         result_gaintable.CALPARAM_WEIGHT.data, expected_weight
     )
 
-    expected_gain = (
-        np.ones((1, nstations, nfreq, 2, 2), dtype=np.complex128) + 1j
-    )
-    expected_gain[:, :, 3, 0, 0] = 0.0j
-    expected_gain[:, :, 1, 1, 1] = 0.0j
+    expected_gain = np.ones((1, nstations, nfreq, 4), dtype=np.complex128) + 1j
+    expected_gain[:, :, 3, 0] = 0.0j
+    expected_gain[:, :, 1, 3] = 0.0j
     np.testing.assert_allclose(
         result_gaintable.CALPARAM_GAIN.data, expected_gain
     )
@@ -367,7 +363,7 @@ def test_should_perform_gain_flagging_without_apply(
     nstations = 2
     nfreq = 5
 
-    gain_data = np.ones((1, nstations, nfreq, 2, 2)) + 1j
+    gain_data = np.ones((1, nstations, nfreq, 4)) + 1j
     antenna_coords = [f"{i}" for i in range(nstations)]
     freq_coords = np.linspace(1e8, 2e8, nfreq)
 
@@ -375,22 +371,20 @@ def test_should_perform_gain_flagging_without_apply(
         "time",
         "antenna_name",
         "frequency",
-        "receptor_label1",
-        "receptor_label2",
+        "polarization",
     )
     coords = {
         "time": [0],
         "antenna_name": antenna_coords,
         "frequency": freq_coords,
-        "receptor_label1": ["X", "Y"],
-        "receptor_label2": ["X", "Y"],
+        "polarization": ["XX", "XY", "YX", "YY"],
     }
 
     gaintable = xr.Dataset(
         {
             "CALPARAM_GAIN": xr.DataArray(gain_data, coords=coords, dims=dims),
             "CALPARAM_WEIGHT": xr.DataArray(
-                np.ones((1, nstations, nfreq, 2, 2)),
+                np.ones((1, nstations, nfreq, 4)),
                 coords=coords,
                 dims=dims,
             ),
@@ -527,7 +521,7 @@ def test_should_perform_gain_flagging_without_apply(
                 ],
             ]
         ]
-    )
+    ).reshape(1, nstations, nfreq, 4)
 
     np.testing.assert_array_equal(
         gaintable.CALPARAM_WEIGHT.data, expected_weights

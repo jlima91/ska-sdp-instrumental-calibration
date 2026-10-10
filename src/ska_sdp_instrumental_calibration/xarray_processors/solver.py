@@ -5,6 +5,7 @@ import xarray as xr
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.gaintable import GainCalibrationSetXds
+from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 from ..numpy_processors.solvers import Solver
 
 logger = logging.getLogger(__name__)
@@ -30,18 +31,19 @@ def _run_solver_ufunc(
     -------
         Gain, weight and residual arrays returned by the solver.
     """
-    return solver.solve(
+    gain, weight, residual = solver.solve(
         vis_vis,
         vis_flags,
         vis_weight,
         model_vis,
         model_flags,
-        gain_gain,
-        gain_weight,
-        gain_residual,
+        pol_to_jones(gain_gain),
+        pol_to_jones(gain_weight),
+        pol_to_jones(gain_residual),
         antenna1,
         antenna2,
     )
+    return jones_to_pol(gain), jones_to_pol(weight), jones_to_pol(residual)
 
 
 def _run_solver_ufunc_with_broadcast_frequency(
@@ -70,15 +72,15 @@ def _run_solver_ufunc_with_broadcast_frequency(
     # We need to re-order so that frequency becomes 3rd dimension
     vis_dim_order = (1, 2, 0, 3)
 
-    # Order expected by solver:     time, antenna, frequency, rec1, rec2
-    # Order of input data:          frequency, time, antenna, rec1, rec2
+    # Order expected by solver:     time, antenna, frequency, pol
+    # Order of input data:          frequency, time, antenna, pol
     # We need to re-order so that frequency becomes 3rd dimension
-    gain_dim_order = (1, 2, 0, 3, 4)
+    gain_dim_order = (1, 2, 0, 3)
 
-    # Order expected by solver:     time, frequency, rec1, rec2
-    # Order of input data:          frequency, time, rec1, rec2
+    # Order expected by solver:     time, frequency, pol
+    # Order of input data:          frequency, time, pol
     # We need to re-order so that frequency becomes 2nd dimension
-    residual_dim_order = (1, 0, 2, 3)
+    residual_dim_order = (1, 0, 2)
 
     gain, weight, residual = _run_solver_ufunc(
         vis_vis=np.transpose(vis_vis, vis_dim_order),
@@ -96,9 +98,9 @@ def _run_solver_ufunc_with_broadcast_frequency(
 
     # Before returning, move frequency from 3rd to 1st dimension in order
     return (
-        np.transpose(gain, (2, 0, 1, 3, 4)),
-        np.transpose(weight, (2, 0, 1, 3, 4)),
-        np.transpose(residual, (1, 0, 2, 3)),
+        np.transpose(gain, (2, 0, 1, 3)),
+        np.transpose(weight, (2, 0, 1, 3)),
+        np.transpose(residual, (1, 0, 2)),
     )
 
 
@@ -157,13 +159,11 @@ def run_solver(
         gain_core_dims = [
             "solution_time",
             "antenna_name",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         residual_core_dims = [
             "solution_time",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
     else:  # jones_type == T or G
         assert gaintable.frequency.size == 1, (
@@ -179,14 +179,12 @@ def run_solver(
             "solution_time",
             "antenna_name",
             "solution_frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         residual_core_dims = [
             "solution_time",
             "solution_frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
 
     gaintable_across_solutions = []

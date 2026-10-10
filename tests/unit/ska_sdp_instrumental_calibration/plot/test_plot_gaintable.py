@@ -45,8 +45,7 @@ def test_should_map_time_to_time_index():
 def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     gaintable = MagicMock(name="gaintable")
     divide_bandpass_mock.return_value = gaintable
-    gaintable.stack.return_value = gaintable
-    gaintable.drop_vars.return_value = gaintable
+    gaintable.rename.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.sel.return_value = gaintable
@@ -54,7 +53,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
     jones_solution_mock = MagicMock(name="jones_solution_mock")
     jones_solution_mock.__len__.return_value = 4
 
-    jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
+    jones_solution_mock.data = ["XX", "XY", "YY"]
     phase_gain_mock = MagicMock(name="gain_phase")
     phase_gain_mock.__getitem__.return_value = jones_solution_mock
 
@@ -99,9 +98,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     delayed_gain_plot()
 
-    gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor_label1", "receptor_label2")
-    )
+    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
 
     gaintable.assign_coords.assert_called_once_with(
         {"Jones_Solutions": ["J_XX", "J_XY", "J_YY"]}
@@ -226,8 +223,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 @patch("ska_sdp_instrumental_calibration.plot.plot_gaintable.np")
 def test_should_plot_gaintable_for_time(np_mock):
     gaintable = MagicMock(name="gaintable")
-    gaintable.stack.return_value = gaintable
-    gaintable.drop_vars.return_value = gaintable
+    gaintable.rename.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.assign.return_value = gaintable
@@ -236,7 +232,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     jones_solution_mock = MagicMock(name="jones_solution_mock")
 
-    jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
+    jones_solution_mock.data = ["XX", "XY", "YY"]
     phase_gain_mock = MagicMock(name="gain_phase")
     amp_gain_mock = MagicMock(name="CALPARAM_GAIN")
     gain_mock = MagicMock(name="CALPARAM_GAIN")
@@ -277,9 +273,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     delayed_gain_plot()
 
-    gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor_label1", "receptor_label2")
-    )
+    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
 
     gaintable.assign_coords.assert_called_once_with(
         {"Jones_Solutions": ["J_XX", "J_XY", "J_YY"]}
@@ -416,8 +410,7 @@ def test_should_plot_gaintable_for_time(np_mock):
 @patch("ska_sdp_instrumental_calibration.plot.plot_gaintable.np")
 def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     gaintable = MagicMock(name="gaintable")
-    gaintable.stack.return_value = gaintable
-    gaintable.drop_vars.return_value = gaintable
+    gaintable.rename.return_value = gaintable
     gaintable.assign_coords.return_value = gaintable
     gaintable.swap_dims.return_value = gaintable
     gaintable.assign.return_value = gaintable
@@ -427,7 +420,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     gaintable.time = np.array([1, 2, 3, 4])
 
     jones_solution_mock = MagicMock(name="jones_solution_mock")
-    jones_solution_mock.data = [("X", "X"), ("X", "Y"), ("Y", "Y")]
+    jones_solution_mock.data = ["XX", "XY", "YY"]
     phase_gain_mock = MagicMock(name="gain_phase")
     gain_mock = MagicMock(name="CALPARAM_GAIN")
     gaintable.CALPARAM_GAIN = gain_mock
@@ -455,9 +448,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
 
     delayed_plot_gain()
 
-    gaintable.stack.assert_called_once_with(
-        Jones_Solutions=("receptor_label1", "receptor_label2")
-    )
+    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
 
     phase_gain_mock.squeeze.return_value.plot.imshow.assert_called_once_with(
         x="Channel",

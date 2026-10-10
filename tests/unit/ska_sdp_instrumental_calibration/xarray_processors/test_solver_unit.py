@@ -36,11 +36,11 @@ def _freq_first_arrays():
     model_vis = 2 * vis_data.copy()
     model_flags = vis_data.copy().astype(bool)
 
-    gain_data = np.ones((_NFREQ, _NTIME, _NANT, _R1, _R2), dtype=np.complex64)
+    gain_data = np.ones((_NFREQ, _NTIME, _NANT, _NPOL), dtype=np.complex64)
     gain_gain = gain_data.copy()
     gain_weight = gain_data.copy().astype(np.float32)
 
-    gain_residual = np.ones((_NFREQ, _NTIME, _R1, _R2), dtype=np.float32)
+    gain_residual = np.ones((_NFREQ, _NTIME, _NPOL), dtype=np.float32)
 
     antenna1 = np.arange(_NBL)
     antenna2 = np.arange(_NBL)
@@ -98,6 +98,16 @@ class TestRunSolverUfunc:
             "antenna2",
         )
 
+    @patch(
+        "ska_sdp_instrumental_calibration.xarray_processors"
+        ".solver.jones_to_pol",
+        new=lambda x: x,
+    )
+    @patch(
+        "ska_sdp_instrumental_calibration.xarray_processors"
+        ".solver.pol_to_jones",
+        new=lambda x: x,
+    )
     def test_calls_solver_solve_with_all_args(self):
         """_run_solver_ufunc delegates directly to solver.solve."""
         solver = MagicMock()
@@ -108,7 +118,7 @@ class TestRunSolverUfunc:
         result = _run_solver_ufunc(*arrays, solver)
 
         solver.solve.assert_called_once_with(*arrays)
-        assert result is expected
+        assert result == expected
 
 
 class TestRunSolverUfuncWithBroadcastFrequency:
@@ -148,9 +158,9 @@ class TestRunSolverUfuncWithBroadcastFrequency:
         )  # gain_residual
 
         # Output shape has frequency dimension as first
-        assert gain_out.shape == (_NFREQ, _NTIME, _NANT, _R1, _R2)
-        assert weight_out.shape == (_NFREQ, _NTIME, _NANT, _R1, _R2)
-        assert residual_out.shape == (_NFREQ, _NTIME, _R1, _R2)
+        assert gain_out.shape == (_NFREQ, _NTIME, _NANT, _NPOL)
+        assert weight_out.shape == (_NFREQ, _NTIME, _NANT, _NPOL)
+        assert residual_out.shape == (_NFREQ, _NTIME, _NPOL)
 
 
 class TestRunSolver:
@@ -192,13 +202,11 @@ class TestRunSolver:
         assert kw["output_core_dims"][0] == [
             "solution_time",
             "antenna_name",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         assert kw["output_core_dims"][2] == [
             "solution_time",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         assert kw["dask"] == "parallelized"
         ufunc_kwargs = kw["kwargs"]
@@ -250,14 +258,12 @@ class TestRunSolver:
             "solution_time",
             "antenna_name",
             "solution_frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         assert kw["output_core_dims"][2] == [
             "solution_time",
             "solution_frequency",
-            "receptor_label1",
-            "receptor_label2",
+            "polarization",
         ]
         assert kw["dask"] == "parallelized"
         ufunc_kwargs = kw["kwargs"]

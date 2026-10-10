@@ -61,10 +61,7 @@ def export_gaintable_to_hdf5(
 
     # remove cross pols if not required
     if exclude_cross_pols:
-        gaintable = gaintable.where(
-            gaintable.receptor_label1 == gaintable.receptor_label2,
-            drop=True,
-        )
+        gaintable = gaintable.isel(polarization=[0, 3])
 
     with h5py.File(filename, "w") as f:
         f.attrs["number_data_models"] = 1

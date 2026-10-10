@@ -458,7 +458,7 @@ class PlotGaintable:
         """
         Prepare the gaintable xarray.Dataset for plotting.
 
-        This method stacks the receptor dimensions into a single
+        This method renames the polarization dimension to
         'Jones_Solutions' dimension, renames the coordinates to
         strings (e.g., 'J_XX'), adds a 'Station' coordinate,
         and optionally filters out cross-polarizations.
@@ -477,17 +477,12 @@ class PlotGaintable:
                 gaintable, self.refant
             )
 
-        gaintable = gaintable.stack(
-            Jones_Solutions=("receptor_label1", "receptor_label2")
-        )
+        gaintable = gaintable.rename(polarization="Jones_Solutions")
 
         polstrs = [
-            f"J_{p1}{p2}".upper()
-            for p1, p2 in gaintable["Jones_Solutions"].data
+            f"J_{pol}".upper() for pol in gaintable["Jones_Solutions"].data
         ]
-        gaintable = gaintable.drop_vars(
-            ["Jones_Solutions", "receptor_label1", "receptor_label2"]
-        ).assign_coords({"Jones_Solutions": polstrs})
+        gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
 
         gaintable.coords["Station"] = (
             "antenna_name",

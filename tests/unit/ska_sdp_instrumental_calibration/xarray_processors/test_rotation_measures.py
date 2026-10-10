@@ -27,6 +27,7 @@ def setup_test_data():
 
     gain_data[:, :, :, 0, 0] += 0.5
     gain_data[:, :, :, 1, 1] += 0.5
+    gain_data = gain_data.reshape(1, nstations, nfreq, 4)
 
     antenna_coords = [f"{i}" for i in range(nstations)]
     freq_coords = np.linspace(1e8, 2e8, nfreq)
@@ -38,8 +39,7 @@ def setup_test_data():
                     "time",
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ),
                 gain_data,
             ),
@@ -48,16 +48,16 @@ def setup_test_data():
                     "time",
                     "antenna_name",
                     "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
+                    "polarization",
                 ),
-                np.ones((1, nstations, nfreq, 2, 2)),
+                np.ones((1, nstations, nfreq, 4)),
             ),
         },
         coords={
             "time": [0],
             "antenna_name": antenna_coords,
             "frequency": freq_coords,
+            "polarization": ["XX", "XY", "YX", "YY"],
         },
     )
     return nstations, nfreq, refant, mock_gaintable
@@ -86,7 +86,7 @@ def test_model_rotation_data_initialization():
 
     np.testing.assert_allclose(rot_data.lambda_sq, expected_lambda_sq)
 
-    assert rot_data.J.shape == (1, nstations, nfreq, 2, 2)
+    assert rot_data.J.shape == (1, nstations, nfreq, 4)
     assert rot_data.rm_est.shape == (
         1,
         nstations,
@@ -223,14 +223,13 @@ def test_should_get_plot_params_for_station():
         antenna=np.array([1, 2]),
         frequency=np.array([1, 2]),
         resolution=resolutions,
-        receptor1=["XX"],
-        receptor2=["YY"],
+        polarization=["XX"],
         lambda_sq=l_sq,
         rm_spec=np.arange(8).reshape(2, 2, 2),
         rm_est=np.arange(4).reshape(2, 2),
         rm_peak=np.arange(4).reshape(2, 2),
         const_rot=np.arange(4).reshape(2, 2),
-        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+        J=np.arange(8).reshape(2, 2, 2, 1),
     )
 
     plot_params = get_plot_params_for_station(rm_data, 1, 0, time=None)
@@ -252,14 +251,13 @@ def test_should_get_plot_params_for_station_and_time():
         antenna=np.array([1, 2]),
         frequency=np.array([1, 2]),
         resolution=resolutions,
-        receptor1=["XX"],
-        receptor2=["YY"],
+        polarization=["XX"],
         lambda_sq=l_sq,
         rm_spec=np.arange(8).reshape(2, 2, 2),
         rm_est=np.arange(4).reshape(2, 2),
         rm_peak=np.arange(4).reshape(2, 2),
         const_rot=np.arange(4).reshape(2, 2),
-        J=np.arange(8).reshape(2, 2, 2, 1, 1),
+        J=np.arange(8).reshape(2, 2, 2, 1),
     )
 
     plot_params = get_plot_params_for_station(rm_data, 1, 0)

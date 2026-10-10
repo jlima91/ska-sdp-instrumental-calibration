@@ -20,8 +20,8 @@ def test_should_generate_gaintable_with_defaults(generate_vis):
     gaintable = create_gaintable_from_visibility(vis)
 
     expected_frequency = np.mean(vis.frequency.data, keepdims=True)
-    gain_shape = (len(vis.time.data), vis.visibility_acc.nants, 1, 2, 2)
-    residual_shape = (len(vis.time.data), 1, 2, 2)
+    gain_shape = (len(vis.time.data), vis.visibility_acc.nants, 1, 4)
+    residual_shape = (len(vis.time.data), 1, 4)
 
     np.testing.assert_allclose(gaintable.frequency.data, expected_frequency)
     assert gaintable.CALPARAM_GAIN.shape == gain_shape
@@ -43,8 +43,7 @@ def test_should_generate_gaintable_for_jonetypes_B(generate_vis):
         len(vis.time.data),
         vis.visibility_acc.nants,
         len(vis.frequency.data),
-        2,
-        2,
+        4,
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
@@ -67,8 +66,7 @@ def test_should_skip_default_chunk(generate_vis):
         len(vis.time.data),
         vis.visibility_acc.nants,
         len(vis.frequency.data),
-        2,
-        2,
+        4,
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
@@ -91,7 +89,8 @@ def test_should_reset_gaintable(da_mock, generate_vis):
     )
 
     da_mock.broadcast_to.assert_called_once_with(
-        da_mock.eye.return_value, gaintable.CALPARAM_GAIN.shape
+        da_mock.eye.return_value.reshape.return_value,
+        gaintable.CALPARAM_GAIN.shape,
     )
 
     da_mock.ones.assert_called_once_with(
@@ -118,8 +117,8 @@ def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
     actual_gaintable = divide_bandpass_by_ref_ant_preserve_phase(gaintable, 0)
     complex_gains = actual_gaintable.CALPARAM_GAIN.data
 
-    x_angle = np.angle(complex_gains[:, 0, :, 0, 0])
-    y_angle = np.angle(complex_gains[:, 0, :, 1, 1])
+    x_angle = np.angle(complex_gains[:, 0, :, 0])
+    y_angle = np.angle(complex_gains[:, 0, :, 3])
 
     actual_amp = np.abs(complex_gains)
     expected_amp = np.abs(gaintable.CALPARAM_GAIN.data)

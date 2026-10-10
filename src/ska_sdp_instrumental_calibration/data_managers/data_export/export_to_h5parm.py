@@ -117,8 +117,7 @@ def export_gaintable_to_h5parm(
         "time",
         "antenna_name",
         "frequency",
-        "receptor_label1",
-        "receptor_label2",
+        "polarization",
     ]
     if list(gaintable.CALPARAM_GAIN.sizes) != dims:
         raise ValueError(
@@ -126,14 +125,11 @@ def export_gaintable_to_h5parm(
         )
 
     # adjust dimensions to be consistent with H5Parm output format
-    gaintable = gaintable.rename({"antenna_name": "ant", "frequency": "freq"})
-    gaintable = gaintable.stack(pol=("receptor_label1", "receptor_label2"))
-    polstrs = _ndarray_of_null_terminated_bytes(
-        [f"{p1}{p2}" for p1, p2 in gaintable["pol"].data]
+    gaintable = gaintable.rename(
+        {"antenna_name": "ant", "frequency": "freq", "polarization": "pol"}
     )
-    gaintable = gaintable.drop_vars(
-        ["pol", "receptor_label1", "receptor_label2"]
-    ).assign_coords({"pol": polstrs})
+    polstrs = _ndarray_of_null_terminated_bytes(gaintable["pol"].data)
+    gaintable = gaintable.assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms
     polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])

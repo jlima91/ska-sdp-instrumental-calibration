@@ -14,6 +14,8 @@ def test_should_predict_central_beams_for_numpy():
 
     beams_mock.array_response.return_value = array_response_mock
     beams_mock.get_beams_low.return_value = beams_mock
+    transposed_mock = array_response_mock.transpose.return_value
+    transposed_mock.shape = (3, 5, 2, 2)
 
     expected = _prediction_central_beams_ufunc("frequency", 0.23, beams_mock)
 
@@ -23,8 +25,9 @@ def test_should_predict_central_beams_for_numpy():
     )
 
     array_response_mock.transpose.assert_called_once_with(1, 0, 2, 3)
+    transposed_mock.reshape.assert_called_once_with(3, 5, -1)
 
-    assert expected == array_response_mock.transpose.return_value
+    assert expected == transposed_mock.reshape.return_value
 
 
 @patch("ska_sdp_instrumental_calibration.xarray_processors.beams.xr.concat")
@@ -71,9 +74,7 @@ def test_should_predict_central_beams(
                 _prediction_central_beams_ufunc,
                 frequency_mock,
                 input_core_dims=[[]],
-                output_core_dims=[
-                    ("antenna_name", "receptor_label1", "receptor_label2")
-                ],
+                output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
                     np.complex128,
@@ -83,8 +84,7 @@ def test_should_predict_central_beams(
                 dask_gufunc_kwargs={
                     "output_sizes": {
                         "antenna_name": gaintable_mock.antenna_name.size,
-                        "receptor_label1": gaintable_mock.receptor_label1.size,
-                        "receptor_label2": gaintable_mock.receptor_label2.size,
+                        "polarization": gaintable_mock.polarization.size,
                     }
                 },
                 kwargs={
@@ -96,9 +96,7 @@ def test_should_predict_central_beams(
                 _prediction_central_beams_ufunc,
                 frequency_mock,
                 input_core_dims=[[]],
-                output_core_dims=[
-                    ("antenna_name", "receptor_label1", "receptor_label2")
-                ],
+                output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
                     np.complex128,
@@ -108,8 +106,7 @@ def test_should_predict_central_beams(
                 dask_gufunc_kwargs={
                     "output_sizes": {
                         "antenna_name": gaintable_mock.antenna_name.size,
-                        "receptor_label1": gaintable_mock.receptor_label1.size,
-                        "receptor_label2": gaintable_mock.receptor_label2.size,
+                        "polarization": gaintable_mock.polarization.size,
                     }
                 },
                 kwargs={
@@ -126,18 +123,8 @@ def test_should_predict_central_beams(
 
     transpose_mock.assert_has_calls(
         [
-            call(
-                "antenna_name",
-                "frequency",
-                "receptor_label1",
-                "receptor_label2",
-            ),
-            call(
-                "antenna_name",
-                "frequency",
-                "receptor_label1",
-                "receptor_label2",
-            ),
+            call("antenna_name", "frequency", "polarization"),
+            call("antenna_name", "frequency", "polarization"),
         ]
     )
 

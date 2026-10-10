@@ -8,7 +8,7 @@ from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
 from ..data_managers.gaintable import GainCalibrationSetXds
-from ..numpy_processors._utils import stack_2x2
+from ..numpy_processors._utils import jones_to_pol, stack_2x2
 from ..scheduler import delayed
 from ._utils import with_chunks
 
@@ -25,16 +25,16 @@ def log_flaging_statistics(
     ----------
     weights
         A dask-backed dataarray holding new weight values post flagging
-        Dims: (time, antenna, frequency, receptor1, receptor2)
+        Dims: (time, antenna, frequency, polarization)
     initial_weights
         A dask-backed dataarray holding original weights pre flagging
-        Dims: (time, antenna, frequency, receptor1, receptor2)
+        Dims: (time, antenna, frequency, polarization)
     """
-    current_flagged = (
-        weights[:, :, :, 0, 0] != initial_weights[:, :, :, 0, 0]
-    ).sum(dim=["time", "frequency"])
+    current_flagged = (weights[:, :, :, 0] != initial_weights[:, :, :, 0]).sum(
+        dim=["time", "frequency"]
+    )
 
-    total_elements = weights[:, 0, :, 0, 0].size
+    total_elements = weights[:, 0, :, 0].size
     antna_percent_flagged = (current_flagged / total_elements) * 100
 
     @delayed
@@ -684,10 +684,13 @@ def flag_on_gains(
     fits_per_fitnames_per_pol = {name: dict() for name in fit_names}
 
     # Iterate over each pol in gaintable
-    # gaintable is assumed be of shape [..., 2, 2]
+    # gaintable is assumed be of shape [..., 4] i.e. flattened 2x2 polarization
     for rec1idx, rec2idx in np.ndindex(2, 2):
         if skip_cross_pol and rec1idx != rec2idx:
             continue
+
+        polidx = rec1idx * 2 + rec2idx
+        pol = gaintable["polarization"][polidx].item()
 
         with warnings.catch_warnings():
             # apply_ufunc throws a false warning, when it detects that
@@ -697,8 +700,8 @@ def flag_on_gains(
 
             results = xr.apply_ufunc(
                 _flag_wrapper_ufunc_,
-                gaintable["CALPARAM_GAIN"][..., rec1idx, rec2idx],
-                gaintable["CALPARAM_WEIGHT"][..., rec1idx, rec2idx],
+                gaintable["CALPARAM_GAIN"][..., polidx],
+                gaintable["CALPARAM_WEIGHT"][..., polidx],
                 antenna_names_xdr,
                 input_core_dims=[["frequency"], ["frequency"], []],
                 output_core_dims=output_core_dims,
@@ -708,8 +711,8 @@ def flag_on_gains(
                 kwargs=dict(
                     freq=gaintable["frequency"].values,
                     cfg=cfg,
-                    receptor1_name=gaintable["receptor_label1"][rec1idx].data,
-                    receptor2_name=gaintable["receptor_label2"][rec2idx].data,
+                    receptor1_name=pol[0],
+                    receptor2_name=pol[1],
                 ),
             )
 
@@ -719,11 +722,13 @@ def flag_on_gains(
             fits_per_fitnames_per_pol[name][key] = results[i].data
 
     # Assemble flags DataArray
-    flags_da = stack_2x2(
-        xx=flag_da_per_pol.get((0, 0)),
-        xy=flag_da_per_pol.get((0, 1)),
-        yx=flag_da_per_pol.get((1, 0)),
-        yy=flag_da_per_pol.get((1, 1)),
+    flags_da = jones_to_pol(
+        stack_2x2(
+            xx=flag_da_per_pol.get((0, 0)),
+            xy=flag_da_per_pol.get((0, 1)),
+            yx=flag_da_per_pol.get((1, 0)),
+            yy=flag_da_per_pol.get((1, 1)),
+        )
     )
     flags_xdr = xr.DataArray(
         flags_da,
@@ -742,11 +747,13 @@ def flag_on_gains(
     # Assemble fits DataArrays
     fits: dict[str, xr.DataArray] = dict()
     for name in fit_names:
-        fit_da = stack_2x2(
-            xx=fits_per_fitnames_per_pol[name].get((0, 0)),
-            xy=fits_per_fitnames_per_pol[name].get((0, 1)),
-            yx=fits_per_fitnames_per_pol[name].get((1, 0)),
-            yy=fits_per_fitnames_per_pol[name].get((1, 1)),
+        fit_da = jones_to_pol(
+            stack_2x2(
+                xx=fits_per_fitnames_per_pol[name].get((0, 0)),
+                xy=fits_per_fitnames_per_pol[name].get((0, 1)),
+                yx=fits_per_fitnames_per_pol[name].get((1, 0)),
+                yy=fits_per_fitnames_per_pol[name].get((1, 1)),
+            )
         )
         fits[name] = xr.DataArray(
             fit_da,

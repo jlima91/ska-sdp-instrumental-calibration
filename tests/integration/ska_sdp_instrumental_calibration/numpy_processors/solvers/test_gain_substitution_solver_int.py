@@ -4,6 +4,10 @@ from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
 )
+from ska_sdp_instrumental_calibration.numpy_processors._utils import (
+    jones_to_pol,
+    pol_to_jones,
+)
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     gain_substitution_solver,
 )
@@ -42,16 +46,19 @@ def test_should_solve_gain_for_phase_only_disabled(
         vis_weight=vis.weight.values,
         model_vis=modelvis.vis.values,
         model_flags=modelvis.flags.values,
-        gain_gain=original_gaintable["CALPARAM_GAIN"].values,
-        gain_weight=original_gaintable["CALPARAM_WEIGHT"].values,
-        gain_residual=original_gaintable["CALPARAM_RESIDUAL"].values,
+        gain_gain=pol_to_jones(original_gaintable["CALPARAM_GAIN"].values),
+        gain_weight=pol_to_jones(original_gaintable["CALPARAM_WEIGHT"].values),
+        gain_residual=pol_to_jones(
+            original_gaintable["CALPARAM_RESIDUAL"].values
+        ),
         ant1=vis.antenna1.data,
         ant2=vis.antenna2.data,
     )
+    gain = jones_to_pol(gain)
 
     # Phase ref input data for comparisons
     gaintable.CALPARAM_GAIN.data *= np.exp(
-        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :, :])
+        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :])
     )
     np.testing.assert_allclose(gain, gaintable.CALPARAM_GAIN.values, atol=1e-6)
 
@@ -87,16 +94,19 @@ def test_should_solve_gain_for_phase_only_enabled(
         vis_weight=vis.weight.values,
         model_vis=modelvis.vis.values,
         model_flags=modelvis.flags.values,
-        gain_gain=original_gaintable["CALPARAM_GAIN"].values,
-        gain_weight=original_gaintable["CALPARAM_WEIGHT"].values,
-        gain_residual=original_gaintable["CALPARAM_RESIDUAL"].values,
+        gain_gain=pol_to_jones(original_gaintable["CALPARAM_GAIN"].values),
+        gain_weight=pol_to_jones(original_gaintable["CALPARAM_WEIGHT"].values),
+        gain_residual=pol_to_jones(
+            original_gaintable["CALPARAM_RESIDUAL"].values
+        ),
         ant1=vis.antenna1.data,
         ant2=vis.antenna2.data,
     )
+    gain = jones_to_pol(gain)
 
     # Phase ref input data for comparisons
     gaintable.CALPARAM_GAIN.data *= np.exp(
-        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :, :])
+        -1j * np.angle(gaintable.CALPARAM_GAIN.data[:, [0], :, :])
     )
 
     np.testing.assert_allclose(gain, gaintable.CALPARAM_GAIN.values, atol=1e-6)

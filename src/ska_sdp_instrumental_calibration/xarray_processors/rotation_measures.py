@@ -9,6 +9,7 @@ from scipy.optimize import curve_fit
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 from ..data_managers.gaintable import GainCalibrationSetXds
+from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 
 __all__ = [
     "RotationMeasureData",
@@ -30,10 +31,9 @@ class RotationMeasureData(xr.Dataset):
     - frequency: center frequencies of the observations in Hz, ``[nchan]``.
     - resolution: Faraday depth search grid space values in rad/m^2,
       ``[nres]``.
-    - receptor1: polarisation hands of measured data polarisation,
-      ``[nrec]``. Most likely ``['X', 'Y']`` or ``['I']``.
-    - receptor2: polarisation hands of ideal/model data polarisation,
-      ``[nrec]``.
+    - polarization: polarization labels of the flattened Jones matrices,
+      ``[npol]``. Most likely ``['XX', 'XY', 'YX', 'YY']``
+        or ``['I']``.
 
     **Data variables**
     - lambda_sq: wavelength squared values calculated across the
@@ -48,7 +48,7 @@ class RotationMeasureData(xr.Dataset):
       curve-fitting optimization, real-valued ``[ntimes, nants]``.
     - J: target Jones matrices corrected relative to the designated
       reference antenna, complex-valued
-      ``[ntimes, nants, nchan, nrec1, nrec2]``.
+      ``[ntimes, nants, nchan, npol]``.
 
     **Attributes**
     - data_model: name of this class, used internally for saving to /
@@ -58,21 +58,20 @@ class RotationMeasureData(xr.Dataset):
 
         <xarray.RotationMeasureData>
         Dimensions:  (time: 1, antenna: 115, frequency: 256,
-                      resolution: 1024, receptor1: 2, receptor2: 2)
+                      resolution: 1024, polarization: 4)
         Coordinates:
           * time        (time) float64 5.085e+09
           * antenna     (antenna) int64 0 1 2 ... 113 114
           * frequency   (frequency) float64 ...
           * resolution  (resolution) float32 ...
-          * receptor1   (receptor1) int64 0 1
-          * receptor2   (receptor2) int64 0 1
+          * polarization (polarization)  'XX' 'XY' 'YX' 'YY'
         Data variables:
             lambda_sq   (frequency) float32 ...
             rm_spec     (time, antenna, resolution) complex128 ...
             rm_est      (time, antenna) float64 ...
             rm_peak     (time, antenna) float64 ...
             const_rot   (time, antenna) float64 ...
-            J           (time, antenna, frequency, receptor1, receptor2) ...
+            J           (time, antenna, frequency, polarization) ...
         Attributes:
             data_model:     RotationMeasureData
     """
@@ -89,8 +88,7 @@ class RotationMeasureData(xr.Dataset):
         antenna: np.ndarray,
         frequency: np.ndarray,
         resolution: np.ndarray,
-        receptor1: np.ndarray,
-        receptor2: np.ndarray,
+        polarization: np.ndarray,
         lambda_sq: np.ndarray,
         rm_spec: np.ndarray | da.Array,
         rm_est: np.ndarray | da.Array,
@@ -111,10 +109,8 @@ class RotationMeasureData(xr.Dataset):
             Array of frequency coordinates.
         resolution : np.ndarray
             Array of resolution coordinates.
-        receptor1 : np.ndarray
-            Array of first receptor coordinates.
-        receptor2 : np.ndarray
-            Array of second receptor coordinates.
+        polarization : np.ndarray
+            Array of polarization coordinates.
         lambda_sq : np.ndarray
             Array of squared wavelength values.
         rm_spec : np.ndarray or da.Array
@@ -139,16 +135,7 @@ class RotationMeasureData(xr.Dataset):
             rm_est=(["time", "antenna_name"], rm_est),
             rm_peak=(["time", "antenna_name"], rm_peak),
             const_rot=(["time", "antenna_name"], const_rot),
-            J=(
-                [
-                    "time",
-                    "antenna_name",
-                    "frequency",
-                    "receptor_label1",
-                    "receptor_label2",
-                ],
-                J,
-            ),
+            J=(["time", "antenna_name", "frequency", "polarization"], J),
         )
 
         coords = dict(
@@ -156,8 +143,7 @@ class RotationMeasureData(xr.Dataset):
             antenna_name=antenna,
             frequency=frequency,
             resolution=resolution,
-            receptor_label1=receptor1,
-            receptor_label2=receptor2,
+            polarization=polarization,
         )
 
         attrs = {
@@ -205,7 +191,7 @@ def get_plot_params_for_station(
     rm_peak = ds["rm_peak"].isel(antenna_name=antenna).data
     rm_est = ds["rm_est"].isel(antenna_name=antenna).data
     rm_est_refant = ds["rm_est"].isel(antenna_name=refant).data
-    J_val = ds["J"].isel(antenna_name=antenna).data
+    J_val = pol_to_jones(ds["J"].isel(antenna_name=antenna).data)
 
     # Access the underlying dask array via .data to chain graph tasks lazily
     xlim = 10 * da.max(da.abs(ds["rm_est"].data))
@@ -316,8 +302,7 @@ def model_rotations(
     n_ant = gaintable.sizes["antenna_name"]
     n_res = rm_vals_coords.size
     n_freq = gaintable.sizes["frequency"]
-    n_rec1 = gaintable.sizes["receptor_label1"]
-    n_rec2 = gaintable.sizes["receptor_label2"]
+    n_pol = gaintable.sizes["polarization"]
 
     time_chunks = gaintable.chunks["time"]
     ant_chunks = gaintable.chunks["antenna_name"]
@@ -343,8 +328,8 @@ def model_rotations(
         dtype=np.float64,
     )
     J_da = da.empty(
-        (n_time, n_ant, n_freq, n_rec1, n_rec2),
-        chunks=(time_chunks, ant_chunks, n_freq, n_rec1, n_rec2),
+        (n_time, n_ant, n_freq, n_pol),
+        chunks=(time_chunks, ant_chunks, n_freq, n_pol),
         dtype=gaintable["CALPARAM_GAIN"].dtype,
     )
 
@@ -353,8 +338,7 @@ def model_rotations(
         antenna=gaintable.coords["antenna_name"].values,
         frequency=gaintable.coords["frequency"].values,
         resolution=rm_vals_coords,
-        receptor1=gaintable.coords["receptor_label1"].values,
-        receptor2=gaintable.coords["receptor_label2"].values,
+        polarization=gaintable.coords["polarization"].values,
         lambda_sq=lambda_sq,
         rm_spec=rm_spec_da,
         rm_est=rm_est_da,
@@ -396,10 +380,14 @@ def _model_rotation_block_(
     gaintable_refant_squeezed = gaintable_refant.squeeze(dim="time")
 
     # Extract raw NumPy arrays from the squeezed Xarray Datasets
-    gain = gaintable_squeezed["CALPARAM_GAIN"].values
-    weight = gaintable_squeezed["CALPARAM_WEIGHT"].values
-    gain_refant = gaintable_refant_squeezed["CALPARAM_GAIN"].values
-    weight_refant = gaintable_refant_squeezed["CALPARAM_WEIGHT"].values
+    gain = pol_to_jones(gaintable_squeezed["CALPARAM_GAIN"].values)
+    weight = pol_to_jones(gaintable_squeezed["CALPARAM_WEIGHT"].values)
+    gain_refant = pol_to_jones(
+        gaintable_refant_squeezed["CALPARAM_GAIN"].values
+    )
+    weight_refant = pol_to_jones(
+        gaintable_refant_squeezed["CALPARAM_WEIGHT"].values
+    )
 
     J, rm_spec, rm_est, rm_peak, const_rot = model_rotations_ufunc(
         gain=gain,
@@ -430,14 +418,8 @@ def _model_rotation_block_(
             np.array([[const_rot]], dtype=np.float64),
         ),
         J=(
-            [
-                "time",
-                "antenna_name",
-                "frequency",
-                "receptor_label1",
-                "receptor_label2",
-            ],
-            J[np.newaxis, np.newaxis, ...],
+            ["time", "antenna_name", "frequency", "polarization"],
+            jones_to_pol(J)[np.newaxis, np.newaxis, ...],
         ),
     )
 

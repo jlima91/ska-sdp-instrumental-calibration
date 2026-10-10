@@ -14,6 +14,7 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   POETRY_DOCS_INSTALL_GROUPS: main,docs
+  CUSTOM_PYTHON_VERSION: "3.11"
 
 include:
   - project: 'ska-telescope/templates-repository'
@@ -30,6 +31,24 @@ include:
       - 'gitlab-ci/includes/finaliser.gitlab-ci.yml'
       # SonarQube Scan
       - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
+
+# remove this before_script once CI images get upgraded to python >=3.11
+.python_before_script: &python_before_script
+  - pipx install uv
+  - uv venv .venv/ -p $CUSTOM_PYTHON_VERSION --clear
+  - source .venv/bin/activate
+  - poetry config virtualenvs.in-project true
+  - poetry config virtualenvs.create $POETRY_CONFIG_VIRTUALENVS_CREATE
+  - poetry install --all-extras
+
+python-lint:
+  before_script: *python_before_script
+
+python-test:
+  before_script: *python_before_script
+
+docs-build:
+  before_script: *python_before_script
 
 integration-setup:
   stage: integration-setup
