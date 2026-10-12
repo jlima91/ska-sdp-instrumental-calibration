@@ -1472,18 +1472,18 @@ reference = "skao"
 
 [[package]]
 name = "everybeam"
-version = "0.8.4"
+version = "0.9.0"
 description = "EveryBeam"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "everybeam-0.8.4-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c73de26d55ced84a3afcfd99d231e80e7adfdd48f82025a3219872c30197bb00"},
-    {file = "everybeam-0.8.4-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:95909b6b596f6a566fe831bd76d0cfb7a415910ac54a6045a79d6c6e6502eab8"},
-    {file = "everybeam-0.8.4-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:de422f244fa65e208bf03270c9227b6afccfc8e41bbc7c0eb722d09289b01b65"},
-    {file = "everybeam-0.8.4-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:07c4fe1ff959f2a81500d3acbec8c7db628eebf42880cf8088bd212916211eda"},
-    {file = "everybeam-0.8.4-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:74aef74af7bbd455941b6ad8b84f8f00ecf2828ac7ab94fbe8793e10942419d0"},
-    {file = "everybeam-0.8.4.tar.gz", hash = "sha256:9babdc544c50b30e38e6e0e5f315b8d2a4e0276d60cc9a9ef577dde2017d37e2"},
+    {file = "everybeam-0.9.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:97454f4903f8eca5fdf645074a511153a05fb69118d34b03831d65814acd81d1"},
+    {file = "everybeam-0.9.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:8b09438eb5f39a822c78dac42d3ce09f500c4b2deace97cd97c49ead34b22b4e"},
+    {file = "everybeam-0.9.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:2066d62eee01e2bff5875e929262d764bee8b6e6b7b12d0c73365e752dedd713"},
+    {file = "everybeam-0.9.0-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:1a3791770c8120b0618b18fa2fa1e83286057438a346e2c9863c63c0950447d9"},
+    {file = "everybeam-0.9.0-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:b4087f58ccc7850d225c1d1a99de90d09297197305150b3055b7aebf1bbbfee1"},
+    {file = "everybeam-0.9.0.tar.gz", hash = "sha256:1da7fe2c58c5a1b2712f0462ee97433e2987ffe1218b2a03af6c6230eefe426a"},
 ]
 
 [package.dependencies]
@@ -6264,15 +6264,15 @@ viz = ["cartopy", "matplotlib", "nc-time-axis", "seaborn"]
 
 [[package]]
 name = "xarray"
-version = "2026.7.0"
+version = "2026.9.0"
 description = "N-D labeled arrays and datasets in Python"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
 markers = "python_version >= \"3.11\""
 files = [
-    {file = "xarray-2026.7.0-py3-none-any.whl", hash = "sha256:bf9dd130b93806dc78e90c1b7ac24851b31557b888674c53622235691cf21824"},
-    {file = "xarray-2026.7.0.tar.gz", hash = "sha256:361b495928fdbf5b58d0969bb6775339019da5e93ca74d61ddf4eb5edd6ce604"},
+    {file = "xarray-2026.9.0-py3-none-any.whl", hash = "sha256:fe349fa871628b1a0a5217af3fe1283a2862d5485156e6eda354fffb81c3bb7c"},
+    {file = "xarray-2026.9.0.tar.gz", hash = "sha256:6abc69694c22fa1f0fb2f357ff4e41d88beb4477ed71091f944b7dbf67ed54fe"},
 ]
 
 [package.dependencies]
@@ -6281,12 +6281,13 @@ packaging = ">=24.2"
 pandas = ">=2.2"
 
 [package.extras]
-accel = ["bottleneck", "flox (>=0.10)", "numba (>=0.62)", "numbagg (>=0.9)", "opt_einsum", "scipy (>=1.15)"]
+accel = ["bottleneck", "flox (>=0.10)", "numba (>=0.62)", "numbagg (>=0.9,!=0.9.5)", "opt_einsum", "scipy (>=1.15)"]
+arrow = ["pyarrow"]
 complete = ["xarray[accel,etc,io,parallel,viz]"]
 etc = ["sparse (>=0.15)"]
-io = ["cftime", "fsspec", "h5netcdf[h5py] (>=1.5.0)", "netCDF4 (>=1.6.0)", "pooch", "pydap", "scipy (>=1.15)", "zarr (>=3.0)"]
+io = ["cftime", "fsspec", "h5netcdf[h5py] (>=1.8.0)", "netCDF4 (>=1.6.0)", "pooch", "pydap", "scipy (>=1.15)", "zarr (>=3.0)"]
 parallel = ["dask[complete]"]
-types = ["pandas-stubs", "scipy-stubs", "types-PyYAML", "types-Pygments", "types-colorama", "types-decorator", "types-defusedxml", "types-docutils", "types-networkx", "types-openpyxl", "types-pexpect", "types-psutil", "types-pycurl", "types-python-dateutil", "types-pytz", "types-requests", "types-setuptools", "types-xlrd"]
+types = ["pandas-stubs", "scipy-stubs", "types-PyYAML", "types-Pygments", "types-colorama", "types-decorator", "types-defusedxml", "types-docutils", "types-gevent", "types-networkx", "types-openpyxl", "types-pexpect", "types-psutil", "types-pycurl", "types-pysocks", "types-python-dateutil", "types-pytz", "types-requests", "types-setuptools", "types-xlrd"]
 viz = ["cartopy (>=0.24)", "matplotlib (>=3.10)", "nc-time-axis", "seaborn"]
 
 [[package]]
