@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Annotated, Literal, Optional
 
 import dask
@@ -197,11 +198,15 @@ def _load_data(
             field_id=field_id,
             data_desc_id=data_desc_id,
         )
-        logger.warning(
-            "Triggering eager compute to dump visibilities to zarr."
-        )
+        logger.info("MSv2->Zarr Visibility cache conversion: starting")
+        start_time = time.perf_counter()
         with dask.annotate(resources={"process": 1}):
             dask.compute(writer)
+        logger.info(
+            "MSv2->Zarr Visibility cache conversion: finished. "
+            "duration_sec = %.3f",
+            time.perf_counter() - start_time,
+        )
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
