@@ -1,8 +1,12 @@
 import numpy as np
+from dask.base import tokenize
 from mock import ANY, MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     local_sky_model,
+)
+from ska_sdp_instrumental_calibration.data_managers.sky_model.component import (  # noqa: E501
+    Component,
 )
 
 LocalSkyModel = local_sky_model.LocalSkyModel
@@ -106,3 +110,25 @@ def test_should_create_local_sky_model_with_beam_and_rotation(
     )
 
     np.testing.assert_allclose(vis, np.ones((1, 1, 1, 1)) * 3)
+
+
+def test_should_tokenize_local_sky_model_deterministically():
+    components = [
+        Component(component_id="A", ra=1.0, dec=2.0, i_pol=3.0),
+        Component(component_id="B", ra=4.0, dec=5.0, i_pol=6.0),
+    ]
+
+    token = tokenize(LocalSkyModel(components, 10.0))
+
+    assert token == tokenize(LocalSkyModel(list(components), 10.0))
+    assert token != tokenize(LocalSkyModel(components, 20.0))
+    assert token != tokenize(LocalSkyModel(components[:1], 10.0))
+
+
+def test_should_not_pickle_local_sky_model_while_tokenizing():
+    lsm = LocalSkyModel([], 10.0)
+
+    with patch.object(
+        LocalSkyModel, "__reduce_ex__", side_effect=AssertionError
+    ):
+        tokenize(lsm)

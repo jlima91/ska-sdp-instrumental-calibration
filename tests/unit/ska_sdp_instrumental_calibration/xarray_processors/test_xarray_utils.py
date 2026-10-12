@@ -1,11 +1,14 @@
+import dask
 import numpy as np
 import pytest
 import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors._utils import (
+    as_dask_scalar,
     parse_antenna,
     simplify_baselines_dim,
+    unwrap_dask_scalar,
     with_chunks,
 )
 
@@ -226,3 +229,63 @@ def test_should_swap_baseline_multi_index_with_baseline_coords(logger_mock):
         ("baselines", "antenna1", "antenna2")
     )
     assert expected == vis_with_baseline_id
+
+
+class _Offset:
+    def __init__(self, value):
+        self.value = value
+
+    def __dask_tokenize__(self):
+        return ("_Offset", self.value)
+
+
+def _add_offset(data, offset):
+    return data + unwrap_dask_scalar(offset).value
+
+
+def test_as_dask_scalar_is_single_graph_key_shared_by_all_blocks():
+    offset = _Offset(10)
+    data = xr.DataArray(np.arange(6), dims="x").chunk(x=2)
+
+    result = xr.apply_ufunc(
+        _add_offset,
+        data,
+        as_dask_scalar(offset),
+        dask="parallelized",
+        output_dtypes=[data.dtype],
+    )
+
+    graph = dict(result.data.__dask_graph__())
+
+    offset_keys = [
+        key
+        for key, task in graph.items()
+        if getattr(task, "value", None) is offset
+    ]
+
+    assert len(offset_keys) == 1
+    np.testing.assert_array_equal(
+        result.compute(scheduler="sync"), np.arange(6) + 10
+    )
+
+
+def test_as_dask_scalar_uses_deterministic_token():
+    assert dask.base.tokenize(
+        as_dask_scalar(_Offset(1))
+    ) == dask.base.tokenize(as_dask_scalar(_Offset(1)))
+    assert dask.base.tokenize(
+        as_dask_scalar(_Offset(1))
+    ) != dask.base.tokenize(as_dask_scalar(_Offset(2)))
+
+
+def test_as_dask_scalar_wraps_none():
+    wrapped = as_dask_scalar(None)
+
+    assert wrapped.ndim == 0
+    assert unwrap_dask_scalar(wrapped.data.compute(scheduler="sync")) is None
+
+
+def test_unwrap_dask_scalar_returns_non_ndarray_as_is():
+    obj = object()
+
+    assert unwrap_dask_scalar(obj) is obj

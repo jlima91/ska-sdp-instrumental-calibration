@@ -1,6 +1,8 @@
 import logging
-from typing import TypeVar
+from typing import Any, TypeVar
 
+import dask
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -29,6 +31,55 @@ def with_chunks(obj: T_xarray_obj, chunks: dict) -> T_xarray_obj:
     relevant_chunks = {dim: chunks[dim] for dim in obj.sizes if dim in chunks}
 
     return obj.chunk(relevant_chunks) if relevant_chunks else obj
+
+
+def as_dask_scalar(obj: Any) -> xr.DataArray:
+    """
+    Wrap a python object into a 0-d, dask backed, object DataArray.
+
+    The object is stored once in the dask graph under a key derived from
+    its token (see ``__dask_tokenize__``). Passing the result as a
+    positional argument of ``xr.apply_ufunc`` makes every block depend on
+    that single key, instead of embedding a copy of the object in every
+    task. Use :py:func:`unwrap_dask_scalar` inside the ufunc to retrieve
+    the object.
+
+    Parameters
+    ----------
+    obj
+        Any python object.
+
+    Returns
+    -------
+        0-d DataArray of ``object`` dtype holding ``obj``.
+    """
+    return xr.DataArray(
+        da.from_delayed(
+            dask.delayed(obj, pure=True),
+            shape=(),
+            dtype=object,
+            meta=np.empty((), dtype=object),
+        )
+    )
+
+
+def unwrap_dask_scalar(wrapped: np.ndarray | Any) -> Any:
+    """
+    Retrieve the object wrapped by :py:func:`as_dask_scalar`.
+
+    Parameters
+    ----------
+    wrapped
+        The block received by the ufunc, an object ndarray of size 1.
+        Non-ndarray inputs are returned as is.
+
+    Returns
+    -------
+        The wrapped python object.
+    """
+    if isinstance(wrapped, np.ndarray):
+        return wrapped.item()
+    return wrapped
 
 
 def normalize_data(data):

@@ -1,4 +1,5 @@
 # pylint:disable=c-extension-no-member
+import threading
 from typing import Annotated, Optional
 
 import everybeam as eb
@@ -9,7 +10,14 @@ from .visibility import read_antenna_response_data
 
 
 class Telescope:
-    """Telescope model representation."""
+    """
+    Telescope model representation.
+
+    The everybeam telescope is created lazily, once per process, and
+    shared by all threads of that process (e.g. dask worker threads).
+    Its creation is guarded by a lock. It is excluded from pickling and
+    re-created on first use after unpickling.
+    """
 
     def __init__(
         self,
@@ -26,7 +34,10 @@ class Telescope:
         element_response_model : str
             Name of the element response model.
         """
-        self._telescope = None
+        self._ms_path = ms_path
+        self._element_response_model_name = element_response_model
+        self._telescope: "eb.Telescope" = None
+        self._telescope_lock = threading.Lock()
         self._element_response_model = getattr(
             eb.ElementResponseModel, element_response_model
         )
@@ -34,6 +45,54 @@ class Telescope:
         self.response_data = read_antenna_response_data(ms_path)
 
         self._nstations = 0
+
+    def __dask_tokenize__(self) -> tuple[str, str, str]:
+        """
+        Deterministic dask token for the telescope.
+
+        The measurement set path and the element response model fully
+        identify a telescope, so avoid pickling the response data (and
+        the everybeam telescope, if initialised) while tokenizing.
+
+        Returns
+        -------
+            Tuple identifying this telescope.
+        """
+        return (
+            type(self).__name__,
+            str(self._ms_path),
+            str(self._element_response_model_name),
+        )
+
+    def __getstate__(self) -> dict:
+        """
+        Pickle state without the everybeam telescope.
+
+        The everybeam telescope is not picklable. It is lazily
+        re-created from ``response_data`` after unpickling. This lets an
+        initialised telescope be transferred between dask workers.
+
+        Returns
+        -------
+            Instance state, with the everybeam telescope reset.
+        """
+        state = self.__dict__.copy()
+        state["_telescope"] = None
+        state["_nstations"] = 0
+        del state["_telescope_lock"]
+        return state
+
+    def __setstate__(self, state: dict):
+        """
+        Restore pickled state, with a new lock for lazy initialisation.
+
+        Parameters
+        ----------
+        state
+            Instance state returned by :py:meth:`__getstate__`.
+        """
+        self.__dict__.update(state)
+        self._telescope_lock = threading.Lock()
 
     def _create_station_node(
         self,
@@ -105,9 +164,14 @@ class Telescope:
     def _ensure_telescope(self):
         """
         Ensure that the internal telescope model is instantiated.
+
+        Thread-safe: the telescope is created only once per process,
+        even when multiple threads request it concurrently.
         """
         if self._telescope is None:
-            self._initialize_everybeam_telescope()
+            with self._telescope_lock:
+                if self._telescope is None:
+                    self._initialize_everybeam_telescope()
 
     @property
     def type(self) -> type:
@@ -166,6 +230,18 @@ class Telescope:
             range(self._nstations) if station_idx is None else [station_idx]
         )
 
+        # Not locked: the shared everybeam telescope is safe for
+        # concurrent use on this path (OSKAR telescope with our own
+        # StationNodes). station_response creates a new per-time
+        # PhasedArrayPoint for all per-call state, everything below it
+        # (station, beamformer, element response) is const, and nothing
+        # is lazily filled. The only shared state (NCP cache, ITRF frame,
+        # casacore measures tables) is thread-local or mutex-guarded.
+        # EveryBeam runs single-threaded here (no OpenMP threads, BLAS or
+        # thread pool), so it cannot oversubscribe dask threads.
+        # Note: the pybind11 bindings currently hold the GIL, so python
+        # threads call this one at a time anyway. Analysed for
+        # everybeam v0.8.4 to v0.9.0.
         beams = self._telescope.station_response(
             solution_time,
             stations,
