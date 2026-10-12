@@ -1002,6 +1002,30 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
     return zarr_data
 
 
+def read_vis_shape_from_zarr(vis_cache_directory) -> tuple[int, ...]:
+    """
+    Read the shape of the "vis" data variable of a Visibility dataset
+    stored in a Zarr cache directory, without loading any data.
+
+    Parameters
+    ----------
+    vis_cache_directory : str
+        The path to the directory containing the cached Zarr store.
+
+    Returns
+    -------
+    tuple[int, ...]
+        Shape of the visibilities, as (time, baselineid, frequency,
+        polarisation).
+    """
+    _, _, vis_zarr_file = _generate_file_paths_for_vis_zarr_file(
+        vis_cache_directory
+    )
+
+    with xr.open_dataset(vis_zarr_file, chunks={}, engine="zarr") as zarr_data:
+        return zarr_data.vis.shape
+
+
 def check_if_cache_files_exist(vis_cache_directory):
     """
     Verify if the necessary cache files exist in the specified directory.
