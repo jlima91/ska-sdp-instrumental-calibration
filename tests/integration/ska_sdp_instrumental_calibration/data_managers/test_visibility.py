@@ -8,6 +8,7 @@ from mock import MagicMock, patch
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
     read_ms_field_id,
+    read_vis_shape_from_zarr,
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
@@ -73,6 +74,7 @@ def test_visibility_write_and_read(tmp_path, generate_vis, generate_ms):
     dask.compute(writer)
 
     assert check_if_cache_files_exist(cache_dir)
+    assert read_vis_shape_from_zarr(cache_dir) == gen_vis.vis.shape
 
     zarred_dataset = read_visibility_from_zarr(cache_dir, vis_chunks)
 

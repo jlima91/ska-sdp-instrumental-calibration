@@ -1,12 +1,12 @@
 """Post-calibration fits."""
 
+import logging
+
 import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy import constants as const
 from scipy.optimize import curve_fit
-
-from ska_sdp_instrumental_calibration.logger import setup_logger
 
 from ..data_managers.gaintable import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol, pol_to_jones
@@ -17,7 +17,7 @@ __all__ = [
     "model_rotations",
 ]
 
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RotationMeasureData(xr.Dataset):

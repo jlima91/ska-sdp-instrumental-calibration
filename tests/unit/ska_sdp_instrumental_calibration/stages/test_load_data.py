@@ -12,7 +12,7 @@ from ska_sdp_instrumental_calibration.stages.load_data import (
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "load_data": {
-            "nchannels_per_chunk": 32,
+            "nchannels_per_chunk": "auto",
             "ntimes_per_ms_chunk": 5,
             "cache_directory": None,
             "ack": False,
@@ -202,4 +202,172 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "spatial": -1,
             "frequency": frequency_per_chunk,
         },
+    )
+
+
+@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".check_if_cache_files_exist"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".read_vis_shape_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".create_template_vis_from_ms"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_cluster_spec")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".estimate_channels_per_chunk"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".read_visibility_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".create_gaintable_from_visibility"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
+def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
+    read_ms_field_id_mock,
+    create_bandpass_mock,
+    read_data_mock,
+    estimate_channels_mock,
+    get_cluster_spec_mock,
+    create_template_vis_mock,
+    read_vis_shape_mock,
+    check_cache_mock,
+    os_makedirs_mock,
+):
+    check_cache_mock.return_value = True
+    read_vis_shape_mock.return_value = (10, 21, 64, 4)
+    cluster_spec = MagicMock(name="cluster_spec")
+    get_cluster_spec_mock.return_value = cluster_spec
+    estimate_channels_mock.return_value = 8
+
+    new_up_output = load_data_stage(
+        UpstreamOutput(),
+        "/path/to/output/dir",
+        ["/path/to/vis.ms/"],
+        "auto",
+        5,
+        "/cache/dir/path",
+        False,
+        "DATA",
+        0,
+        0,
+    )
+
+    read_vis_shape_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms_fid0_ddid0"
+    )
+    create_template_vis_mock.assert_not_called()
+    estimate_channels_mock.assert_called_once_with(
+        64, 10 * 21 * 4, cluster_spec
+    )
+    read_data_mock.assert_called_once_with(
+        "/cache/dir/path/vis.ms_fid0_ddid0",
+        {
+            "time": -1,
+            "baselineid": -1,
+            "polarisation": -1,
+            "spatial": -1,
+            "frequency": 8,
+        },
+    )
+    assert new_up_output[0]["chunks"]["frequency"] == 8
+
+
+@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".check_if_cache_files_exist"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".read_vis_shape_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".create_template_vis_from_ms"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_cluster_spec")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".estimate_channels_per_chunk"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.write_ms_to_zarr")
+@patch("ska_sdp_instrumental_calibration.stages.load_data.dask.compute")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".read_visibility_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".create_gaintable_from_visibility"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
+def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
+    read_ms_field_id_mock,
+    create_bandpass_mock,
+    read_data_mock,
+    dask_compute_mock,
+    write_ms_mock,
+    estimate_channels_mock,
+    get_cluster_spec_mock,
+    create_template_vis_mock,
+    read_vis_shape_mock,
+    check_cache_mock,
+    os_makedirs_mock,
+):
+    check_cache_mock.return_value = False
+    template_vis = MagicMock(name="template_vis")
+    template_vis.vis.shape = (10, 21, 64, 4)
+    create_template_vis_mock.return_value = [template_vis]
+    cluster_spec = MagicMock(name="cluster_spec")
+    get_cluster_spec_mock.return_value = cluster_spec
+    estimate_channels_mock.return_value = 8
+
+    load_data_stage(
+        UpstreamOutput(),
+        "/path/to/output/dir",
+        ["/path/to/vis.ms/"],
+        "auto",
+        5,
+        "/cache/dir/path",
+        True,
+        "CORRECTED_DATA",
+        2,
+        3,
+    )
+
+    read_vis_shape_mock.assert_not_called()
+    create_template_vis_mock.assert_called_once_with(
+        "/path/to/vis.ms",
+        ack=True,
+        datacolumn="CORRECTED_DATA",
+        field_ids=[2],
+        data_desc_ids=[3],
+    )
+    estimate_channels_mock.assert_called_once_with(
+        64, 10 * 21 * 4, cluster_spec
+    )
+    write_ms_mock.assert_called_once_with(
+        "/path/to/vis.ms",
+        "/cache/dir/path/vis.ms_fid2_ddid3",
+        {
+            "baselineid": -1,
+            "polarisation": -1,
+            "spatial": -1,
+            "time": 5,
+            "frequency": 8,
+        },
+        ack=True,
+        datacolumn="CORRECTED_DATA",
+        field_id=2,
+        data_desc_id=3,
     )

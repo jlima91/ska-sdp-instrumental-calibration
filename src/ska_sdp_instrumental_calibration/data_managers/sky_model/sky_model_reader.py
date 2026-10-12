@@ -167,6 +167,7 @@ def export_lsm_to_csv(components: list[Component], csv_path: str) -> None:
 
     # .save method will fail with provide just file name like "test.csv"
     # it should be "./test.csv"
+    # To solve this, we can use os.path.abspath(csv_path)
     local_sky_model.save(csv_path)
 
 

@@ -1,9 +1,10 @@
+import logging
+
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
 from ska_sdp_instrumental_calibration.numpy_processors.rotation_matrix import (
     generate_rotation_matrices,
 )
@@ -16,7 +17,7 @@ from .plot_gaintable import PlotGaintableFrequency
 
 matplotlib.use("Agg")
 
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "plot_station_delays",

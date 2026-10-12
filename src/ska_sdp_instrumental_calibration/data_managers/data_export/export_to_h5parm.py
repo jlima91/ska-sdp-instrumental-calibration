@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Literal
 
 import h5py
@@ -5,12 +6,11 @@ import numpy as np
 import xarray as xr
 from numpy.typing import NDArray
 
-from ...logger import setup_logger
 from ...xarray_processors.delay import DelayTable
 from ..h5parm import to_null_terminated_bytes
 from ..schema.calibration_set import GainCalibrationSetXds
 
-logger = setup_logger("data_managers.data_export")
+logger = logging.getLogger(__name__)
 
 
 def create_soltab_group(

@@ -1,5 +1,9 @@
 # Changelog
 
+# main
+
+1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.
+
 ## 1.5.0
 
 1. Use `create_telescope` for beam modeling.

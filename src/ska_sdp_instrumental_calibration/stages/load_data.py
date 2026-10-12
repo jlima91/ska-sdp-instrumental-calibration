@@ -1,15 +1,23 @@
 import logging
+import math
 import os
-from typing import Annotated, Literal, Optional
+import time
+from typing import Annotated, Literal, Optional, Union
 
 import dask
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
+from ..data_managers.chunking import (
+    estimate_channels_per_chunk,
+    get_cluster_spec,
+)
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
+    create_template_vis_from_ms,
     read_ms_field_id,
+    read_vis_shape_from_zarr,
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
@@ -26,13 +34,15 @@ def load_data_stage(
     _output_dir_,
     input_ms: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
-        int,
+        Union[int, Literal["auto"]],
         Field(
             description="""Number of frequency channels per chunk in the
             written zarr file. This is also the size of frequency chunk
-            used across the pipeline."""
+            used across the pipeline. If "auto", it is estimated from the
+            visibility size and the threads and memory of the dask
+            cluster."""
         ),
-    ] = 32,
+    ] = "auto",
     ntimes_per_ms_chunk: Annotated[
         int,
         Field(
@@ -90,10 +100,12 @@ def load_data_stage(
         Piper builtin. Stores the output directory path.
     input_ms: CLIArgument
         Input measurementset.
-    nchannels_per_chunk: int
+    nchannels_per_chunk: int | "auto"
         Number of frequency channels per chunk in the
         written zarr file. This value is used across the pipeline,
         i.e. for zarr file and for the visibility dataset.
+        If "auto", it is estimated from the visibility size and the
+        threads and memory of the dask cluster.
     ntimes_per_ms_chunk: int
         Number of visibility time slots to include in each
         time chunk of zarr file
@@ -138,7 +150,7 @@ def load_data_stage(
 def _load_data(
     _output_dir_,
     input_ms: str,
-    nchannels_per_chunk: int,
+    nchannels_per_chunk: Union[int, Literal["auto"]],
     ntimes_per_ms_chunk: int,
     cache_directory: Optional[str],
     ack: bool,
@@ -148,6 +160,32 @@ def _load_data(
 ) -> UpstreamOutput:
 
     _upstream_output_ = UpstreamOutput()
+    ms_file = os.path.basename(input_ms)
+
+    if cache_directory is None:
+        cache_directory = os.path.join(_output_dir_, ".cache")
+        logger.info("Setting cache_directory as %s", cache_directory)
+
+    vis_cache_directory = os.path.join(
+        cache_directory,
+        f"{ms_file}_fid{field_id}_ddid{data_desc_id}",
+    )
+    os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
+    cache_exists = check_if_cache_files_exist(vis_cache_directory)
+
+    if nchannels_per_chunk == "auto":
+        if cache_exists:
+            vis_shape = read_vis_shape_from_zarr(vis_cache_directory)
+        else:
+            vis_shape = create_template_vis_from_ms(
+                input_ms,
+                ack=ack,
+                datacolumn=datacolumn,
+                field_ids=[field_id],
+                data_desc_ids=[data_desc_id],
+            )[0].vis.shape
+        nchannels_per_chunk = _estimate_nchannels_per_chunk(vis_shape)
+
     non_chunked_dims = {
         dim: -1
         for dim in [
@@ -167,19 +205,8 @@ def _load_data(
     }
     # Its expected that later stages follow same chunking pattern
     _upstream_output_["chunks"] = vis_chunks
-    ms_file = os.path.basename(input_ms)
 
-    if cache_directory is None:
-        cache_directory = os.path.join(_output_dir_, ".cache")
-        logger.info("Setting cache_directory as %s", cache_directory)
-
-    vis_cache_directory = os.path.join(
-        cache_directory,
-        f"{ms_file}_fid{field_id}_ddid{data_desc_id}",
-    )
-    os.makedirs(vis_cache_directory, mode=0o755, exist_ok=True)
-
-    if check_if_cache_files_exist(vis_cache_directory):
+    if cache_exists:
         logger.info(
             "Reading cached visibilities from path %s", vis_cache_directory
         )
@@ -197,11 +224,15 @@ def _load_data(
             field_id=field_id,
             data_desc_id=data_desc_id,
         )
-        logger.warning(
-            "Triggering eager compute to dump visibilities to zarr."
-        )
+        logger.info("MSv2->Zarr Visibility cache conversion: starting")
+        start_time = time.perf_counter()
         with dask.annotate(resources={"process": 1}):
             dask.compute(writer)
+        logger.info(
+            "MSv2->Zarr Visibility cache conversion: finished. "
+            "duration_sec = %.3f",
+            time.perf_counter() - start_time,
+        )
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
@@ -216,3 +247,27 @@ def _load_data(
     _upstream_output_["calibration_purpose"] = "bandpass"
 
     return _upstream_output_
+
+
+def _estimate_nchannels_per_chunk(vis_shape: tuple[int, ...]) -> int:
+    """
+    Estimate frequency channels per chunk for visibilities of shape
+    (time, baselineid, frequency, polarisation) on the current dask cluster.
+    """
+    ntimes, nbaselines, nchannels, npols = vis_shape
+    cluster_spec = get_cluster_spec()
+
+    nchannels_per_chunk = estimate_channels_per_chunk(
+        nchannels, ntimes * nbaselines * npols, cluster_spec
+    )
+    logger.info(
+        "Auto chunking: %d channels per chunk (%d chunks) for %d channels "
+        "on %d threads with %.2f MiB memory per thread",
+        nchannels_per_chunk,
+        math.ceil(nchannels / nchannels_per_chunk),
+        nchannels,
+        cluster_spec.total_threads,
+        cluster_spec.memory_per_thread_bytes / 2**20,
+    )
+
+    return nchannels_per_chunk

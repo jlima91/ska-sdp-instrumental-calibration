@@ -1,11 +1,10 @@
+import logging
 from typing import TypeVar
 
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
-logger = setup_logger("xarray_processors._utils")
+logger = logging.getLogger(__name__)
 
 T_xarray_obj = TypeVar("XarrayObject", xr.DataArray, xr.Dataset, xr.DataTree)
 
