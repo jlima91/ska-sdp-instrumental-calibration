@@ -328,6 +328,8 @@ def generate_lsm_from_gleamegc(
                     alpha = float(line[3104:3113])
                     alpha_cat.append(alpha)
 
+                # With deconvolve synthesised beam from fitted shape parameters
+
                 model.append(
                     Component(
                         component_id=name,
@@ -342,7 +344,7 @@ def generate_lsm_from_gleamegc(
                         beam_major=float(line[247:254]),
                         beam_minor=float(line[255:262]),
                         beam_pa=float(line[263:273]),
-                    )
+                    ).deconvolve_gaussian()
                 )
 
         f.close()

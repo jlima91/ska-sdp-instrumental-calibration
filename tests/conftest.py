@@ -23,6 +23,9 @@ from ska_sdp_instrumental_calibration.data_managers.gaintable import (
 from ska_sdp_instrumental_calibration.numpy_processors._utils import (
     pol_to_jones,
 )
+from ska_sdp_instrumental_calibration.numpy_processors.solvers.dp3_threading import (  # noqa: E501
+    is_dp3_available,
+)
 from ska_sdp_instrumental_calibration.xarray_processors._utils import (
     simplify_baselines_dim,
 )
@@ -30,6 +33,22 @@ from ska_sdp_instrumental_calibration.xarray_processors._utils import (
 ms_name = "test.ms"
 _N_TIME = 3
 _N_FREQ = 4
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "requires_dp3: skip the test if the optional dp3 package is absent",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if is_dp3_available():
+        return
+    skip_dp3 = pytest.mark.skip(reason="requires the optional dp3 package")
+    for item in items:
+        if "requires_dp3" in item.keywords:
+            item.add_marker(skip_dp3)
 
 
 @pytest.fixture

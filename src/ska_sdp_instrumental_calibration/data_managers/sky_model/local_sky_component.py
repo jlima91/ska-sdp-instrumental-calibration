@@ -44,8 +44,7 @@ class LocalSkyComponent(SkyComponent):
 
         flux[:, 0] = flux[:, 3] = comp.calculate_flux(freq)
 
-        # Deconvolve synthesised beam from fitted shape parameters.
-        smaj, smin, spa = comp.deconvolve_gaussian()
+        smaj, smin, spa = comp.major_ax, comp.minor_ax, comp.pos_ang
         if smaj == 0 and smin == 0:
             shape = "POINT"
             params = {}

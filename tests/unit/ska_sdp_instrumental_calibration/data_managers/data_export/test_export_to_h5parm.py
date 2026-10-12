@@ -1,80 +1,131 @@
 import numpy as np
 import pytest
+import xarray as xr
 from mock import MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm,
 )
+from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
+
+MODULE = "ska_sdp_instrumental_calibration.data_managers.data_export"
+MODULE += ".export_to_h5parm"
+
+
+@pytest.fixture
+def calibration_set(generate_vis) -> xr.Dataset:
+    """Return a copy of the schema-based calibration dataset."""
+    _, calibration_set = generate_vis
+    return calibration_set.copy(deep=True)
+
+
+@pytest.fixture
+def delaytable(generate_vis, calibration_set) -> DelayTable:
+    """Build a delay table using the visibility's antenna configuration."""
+    vis, _ = generate_vis
+    shape = (1, calibration_set.antenna_name.size, 2)
+    return DelayTable.constructor(
+        delay=np.zeros(shape),
+        offset=np.zeros(shape),
+        time=calibration_set.time.data[:1],
+        antenna=np.arange(calibration_set.antenna_name.size),
+        pol=["XX", "YY"],
+        configuration=vis.configuration,
+    )
+
+
+def _export_calibration_set(
+    calibration_set: xr.Dataset, **kwargs
+) -> xr.Dataset:
+    """Export without file I/O, returning the dataset passed to H5Parm."""
+    with patch(f"{MODULE}.h5py"), patch(
+        f"{MODULE}.create_soltab_datasets",
+        return_value=(MagicMock(), MagicMock()),
+    ) as mock_datasets:
+        export_to_h5parm.export_gaintable_to_h5parm(
+            calibration_set, "unused", **kwargs
+        )
+    return mock_datasets.call_args.args[1]
+
+
+def _export_delaytable(delaytable: DelayTable, **kwargs) -> xr.Dataset:
+    """Export without file I/O, returning the delaytable to be written."""
+    with patch(f"{MODULE}.h5py"), patch(
+        f"{MODULE}.create_clock_soltab_datasets",
+        return_value=(MagicMock(), MagicMock()),
+    ) as mock_datasets:
+        export_to_h5parm.export_clock_to_h5parm(delaytable, "unused", **kwargs)
+    return mock_datasets.call_args.args[1]
 
 
 def test_should_create_soltab_dataset():
     soltab = MagicMock(name="soltab")
-    gaintable = MagicMock(name="gaintbale")
+    calibration_set = MagicMock(name="calibration_set")
     data_mock = MagicMock(name="data")
-    gaintable.__getitem__.return_value = data_mock
+    calibration_set.__getitem__.return_value = data_mock
     val_mock = MagicMock(name="val")
-    weight_mock = MagicMock(name="CALPARAM_WEIGHT")
-    soltab.create_dataset.side_effect = ("A", "B", val_mock, weight_mock)
+    weight_mock = MagicMock(name="weight")
+    soltab.create_dataset.side_effect = ("time", "ant", val_mock, weight_mock)
+    calibration_set.CALPARAM_GAIN.sizes = ["time", "ant"]
 
-    gaintable.CALPARAM_GAIN.sizes = ["A", "B"]
-
-    val, weight = export_to_h5parm.create_soltab_datasets(soltab, gaintable)
+    val, weight = export_to_h5parm.create_soltab_datasets(
+        soltab, calibration_set
+    )
 
     soltab.create_dataset.assert_has_calls(
         [
-            call("A", data=data_mock.data),
-            call("B", data=data_mock.data),
-            call("val", shape=gaintable.CALPARAM_GAIN.shape, dtype=float),
-            call("weight", shape=gaintable.CALPARAM_GAIN.shape, dtype=float),
+            call("time", data=data_mock.data),
+            call("ant", data=data_mock.data),
+            call(
+                "val", shape=calibration_set.CALPARAM_GAIN.shape, dtype=float
+            ),
+            call(
+                "weight",
+                shape=calibration_set.CALPARAM_GAIN.shape,
+                dtype=float,
+            ),
         ]
     )
-
-    gaintable.__getitem__.assert_has_calls([call("A"), call("B")])
+    calibration_set.__getitem__.assert_has_calls([call("time"), call("ant")])
     val_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"A,B")
+        "AXES", np.bytes_(b"time,ant")
     )
-
     weight_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"A,B")
+        "AXES", np.bytes_(b"time,ant")
     )
-
     assert val == val_mock
     assert weight == weight_mock
 
 
 def test_should_create_clock_soltab_dataset():
     soltab = MagicMock(name="soltab")
-    gaintable = MagicMock(name="gaintbale")
+    delaytable = MagicMock(name="delaytable")
     data_mock = MagicMock(name="data")
-    gaintable.__getitem__.return_value = data_mock
+    delaytable.__getitem__.return_value = data_mock
     val_mock = MagicMock(name="val")
     offset_mock = MagicMock(name="offset")
-    soltab.create_dataset.side_effect = ("A", "B", val_mock, offset_mock)
-
-    gaintable.delay.sizes = ["A", "B"]
+    soltab.create_dataset.side_effect = ("time", "ant", val_mock, offset_mock)
+    delaytable.delay.sizes = ["time", "ant"]
 
     val, offset = export_to_h5parm.create_clock_soltab_datasets(
-        soltab, gaintable
+        soltab, delaytable
     )
 
     soltab.create_dataset.assert_has_calls(
         [
-            call("A", data=data_mock.data),
-            call("B", data=data_mock.data),
-            call("val", shape=gaintable.delay.shape, dtype=float),
-            call("offset", shape=gaintable.delay.shape, dtype=float),
+            call("time", data=data_mock.data),
+            call("ant", data=data_mock.data),
+            call("val", shape=delaytable.delay.shape, dtype=float),
+            call("offset", shape=delaytable.delay.shape, dtype=float),
         ]
     )
-
-    gaintable.__getitem__.assert_has_calls([call("A"), call("B")])
+    delaytable.__getitem__.assert_has_calls([call("time"), call("ant")])
     val_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"A,B")
+        "AXES", np.bytes_(b"time,ant")
     )
-
     offset_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"A,B")
+        "AXES", np.bytes_(b"time,ant")
     )
-
     assert val == val_mock
     assert offset == offset_mock
 
@@ -84,225 +135,114 @@ def test_should_create_soltab_group():
     solset = MagicMock(name="solset")
     solset.create_group.return_value = soltab
 
-    soltb = export_to_h5parm.create_soltab_group(solset, "phase")
+    result = export_to_h5parm.create_soltab_group(solset, "phase")
 
     solset.create_group.assert_called_once_with("phase000")
     soltab.attrs.__setitem__.assert_called_once_with(
         "TITLE", np.bytes_("phase")
     )
+    assert result == soltab
 
-    assert soltb == soltab
+
+def test_should_raise_exception_for_unexpected_calibration_set_dims(
+    calibration_set,
+):
+    calibration_set = calibration_set.transpose("antenna_name", "time", ...)
+
+    with pytest.raises(ValueError, match="Unexpected dims:"):
+        export_to_h5parm.export_gaintable_to_h5parm(calibration_set, "unused")
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.np"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.h5py"
-)
-def test_should_raise_exceptions(h5py_mock, np_mock):
-    gaintable_mock = MagicMock(name="gaintable")
-    with pytest.raises(ValueError, match=r"Unexpected dims:"):
-        export_to_h5parm.export_gaintable_to_h5parm(gaintable_mock, "filename")
-
-    gaintable_mock.CALPARAM_GAIN.sizes = [
-        "time",
-        "antenna_name",
-        "frequency",
-        "polarization",
-    ]
-    np_mock.array_equal.return_value = False
-
-    with pytest.raises(
-        ValueError, match="Subsequent pipelines assume linear pol order"
-    ):
-        export_to_h5parm.export_gaintable_to_h5parm(gaintable_mock, "filename")
-
-    np_mock.array_equal.return_value = True
-    gaintable_mock.configuration = None
-    gaintable_mock.assign_coords.return_value = gaintable_mock
-    gaintable_mock.drop_vars.return_value = gaintable_mock
-    gaintable_mock.isel.return_value = gaintable_mock
-    gaintable_mock.rename.return_value = gaintable_mock
+def test_should_raise_exceptions(calibration_set):
+    calibration_set = calibration_set.assign_coords(
+        antenna_name=np.asarray(
+            [None] * calibration_set.antenna_name.size, dtype=object
+        )
+    )
 
     with pytest.raises(
         ValueError, match="Missing gt config. H5Parm requires antenna names"
     ):
-        export_to_h5parm.export_gaintable_to_h5parm(gaintable_mock, "filename")
+        export_to_h5parm.export_gaintable_to_h5parm(calibration_set, "unused")
 
 
-@pytest.mark.skip(
-    "Need to fix this test after recent changes as part of this commit. "
-    "Integration test for the same already exists."
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.create_soltab_datasets"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.create_soltab_group"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.np"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.h5py"
-)
-def test_should_export_gaintable_to_h5parm(
-    h5py_mock, np_mock, mock_soltab_group, mock_soltab_dataset
+def test_should_raise_exception_for_non_linear_calibration_set_pols(
+    calibration_set,
 ):
-    gaintable_mock = MagicMock(name="gaintable")
-    stacked_gaintable_mock = MagicMock(name="stack_gaintable")
-    mock_file = MagicMock(name="file")
-    mock_solset = MagicMock(name="solset")
-    mock_file.create_group.return_value = mock_solset
-    h5py_mock.File.return_value.__enter__.return_value = mock_file
-
-    mock_val = MagicMock(name="val")
-    mock_weight = MagicMock(name="CALPARAM_WEIGHT")
-
-    mock_soltab_dataset.return_value = [mock_val, mock_weight]
-
-    gaintable_mock.rename.return_value = gaintable_mock
-    np_mock.asarray.return_value = "assarray"
-
-    gaintable_mock.CALPARAM_GAIN.sizes = [
-        "time",
-        "antenna_name",
-        "frequency",
-        "receptor_label1",
-        "receptor_label2",
-    ]
-
-    gaintable_mock.stack.return_value = stacked_gaintable_mock
-    stacked_gaintable_mock.assign_coords.return_value = stacked_gaintable_mock
-    stacked_gaintable_mock.isel.return_value = stacked_gaintable_mock
-    stacked_gaintable_mock.squeeze.return_value = stacked_gaintable_mock
-
-    export_to_h5parm.export_gaintable_to_h5parm(
-        gaintable_mock, "filename", squeeze=True
+    calibration_set = calibration_set.assign_coords(
+        polarization=["RR", "RL", "LR", "LL"]
     )
-    gaintable_mock.rename.assert_called_once_with(
-        {"antenna_name": "ant", "frequency": "freq"}
-    )
-    gaintable_mock.stack.assert_called_once_with(
-        pol=("receptor_label1", "receptor_label2")
-    )
-
-    mock_soltab_group.assert_has_calls(
-        [call(mock_solset, "amplitude"), call(mock_solset, "phase")]
-    )
-
-    mock_soltab_dataset.assert_has_calls(
-        [
-            call(mock_soltab_group.return_value, stacked_gaintable_mock),
-            call(mock_soltab_group.return_value, stacked_gaintable_mock),
-        ]
-    )
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.np"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.h5py"
-)
-def test_should_raise_exceptions_for_clock(h5py_mock, np_mock):
-    delaytable_mock = MagicMock(name="gaintable")
-    delaytable_mock.delay.sizes = ["time"]
-    with pytest.raises(ValueError, match=r"Unexpected dims:"):
-        delayed_export = export_to_h5parm.export_clock_to_h5parm(
-            delaytable_mock, "filename"
-        )
-        delayed_export.compute()
-
-    delaytable_mock.delay.sizes = ["time", "antenna", "pol"]
-    np_mock.array_equal.return_value = False
-    delaytable_mock.rename.return_value = delaytable_mock
 
     with pytest.raises(
         ValueError, match="Subsequent pipelines assume linear pol order"
     ):
-        delayed_export = export_to_h5parm.export_clock_to_h5parm(
-            delaytable_mock, "filename"
-        )
-        delayed_export.compute()
+        export_to_h5parm.export_gaintable_to_h5parm(calibration_set, "unused")
 
-    np_mock.array_equal.return_value = True
-    delaytable_mock.configuration = None
-    delaytable_mock.assign_coords.return_value = delaytable_mock
+
+def test_should_keep_all_pols_and_axes_of_calibration_set_by_default(
+    calibration_set,
+):
+    calibration_set = calibration_set.isel(time=[0])
+
+    exported = _export_calibration_set(calibration_set)
+
+    assert list(exported.CALPARAM_GAIN.sizes) == ["time", "ant", "freq", "pol"]
+    assert list(exported.pol.data.astype(str)) == ["XX", "XY", "YX", "YY"]
+    assert list(exported.ant.data.astype(str)) == list(
+        calibration_set.antenna_name.data.astype(str)
+    )
+
+
+def test_should_exclude_cross_pols_of_calibration_set(calibration_set):
+    exported = _export_calibration_set(
+        calibration_set, exclude_cross_pols=True
+    )
+
+    assert list(exported.pol.data.astype(str)) == ["XX", "YY"]
+
+
+def test_should_squeeze_calibration_set(calibration_set):
+    calibration_set = calibration_set.isel(time=[0])
+
+    exported = _export_calibration_set(calibration_set, squeeze=True)
+
+    assert list(exported.CALPARAM_GAIN.sizes) == ["ant", "freq", "pol"]
+
+
+def test_should_raise_exception_for_unexpected_delaytable_dims(delaytable):
+    delaytable = delaytable.transpose("antenna", "time", "pol")
+
+    with pytest.raises(ValueError, match="Unexpected dims:"):
+        export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
+
+
+def test_should_raise_exception_for_non_linear_delaytable_pols(delaytable):
+    delaytable = delaytable.assign_coords(pol=["RR", "LL"])
+
+    with pytest.raises(
+        ValueError, match="Subsequent pipelines assume linear pol order"
+    ):
+        export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
+
+
+def test_should_raise_exception_for_delaytable_without_configuration(
+    delaytable,
+):
+    delaytable.attrs["configuration"] = None
 
     with pytest.raises(
         ValueError, match="Missing gt config. H5Parm requires antenna names"
     ):
-        delayed_export = export_to_h5parm.export_clock_to_h5parm(
-            delaytable_mock, "filename"
-        )
-        delayed_export.compute()
+        export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.create_clock_soltab_datasets"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.create_soltab_group"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.np"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers."
-    "data_export.export_to_h5parm.h5py"
-)
-def test_should_export_clock_to_h5parm(
-    h5py_mock, np_mock, mock_soltab_group, mock_soltab_dataset
-):
-    delaytable_mock = MagicMock(name="gaintable")
-    renamed_delaytable_mock = MagicMock(name="gaintable")
-    mock_file = MagicMock(name="file")
-    mock_solset = MagicMock(name="solset")
-    mock_file.create_group.return_value = mock_solset
-    h5py_mock.File.return_value.__enter__.return_value = mock_file
+def test_should_keep_all_axes_of_delaytable_by_default(delaytable):
+    exported = _export_delaytable(delaytable)
 
-    mock_val = MagicMock(name="val")
-    mock_weight = MagicMock(name="CALPARAM_WEIGHT")
+    assert list(exported.delay.sizes) == ["time", "ant", "pol"]
 
-    mock_soltab_dataset.return_value = [mock_val, mock_weight]
 
-    delaytable_mock.rename.return_value = renamed_delaytable_mock
-    np_mock.asarray.return_value = "assarray"
+def test_should_squeeze_delaytable(delaytable):
+    exported = _export_delaytable(delaytable, squeeze=True)
 
-    delaytable_mock.delay.sizes = ["time", "antenna", "pol"]
-
-    renamed_delaytable_mock.assign_coords.return_value = (
-        renamed_delaytable_mock
-    )
-    renamed_delaytable_mock.squeeze.return_value = renamed_delaytable_mock
-
-    export_to_h5parm.export_clock_to_h5parm(
-        delaytable_mock, "filename", squeeze=True
-    )
-
-    delaytable_mock.rename.assert_called_once_with({"antenna": "ant"})
-    renamed_delaytable_mock.assign_coords.assert_has_calls(
-        [
-            call({"pol": "assarray"}),
-            call({"ant": "assarray"}),
-        ]
-    )
-
-    mock_soltab_group.assert_called_once_with(mock_solset, "clock")
-
-    mock_soltab_dataset.assert_called_once_with(
-        mock_soltab_group.return_value, renamed_delaytable_mock
-    )
+    assert list(exported.delay.sizes) == ["ant", "pol"]

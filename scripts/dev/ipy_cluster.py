@@ -31,6 +31,7 @@ try:
 except ImportError:
     IPYTHON_EMBED = False
 
+workers_per_node = 4
 threads_per_worker = 4
 dashboard_address = ":30088"
 scheduler_port = 34567
@@ -45,6 +46,7 @@ if __name__ == "__main__":
     with ExitStack() as stack:
         cluster: LocalCluster = stack.enter_context(
             LocalCluster(
+                n_workers=workers_per_node,
                 threads_per_worker=threads_per_worker,
                 dashboard_address=dashboard_address,
                 scheduler_port=scheduler_port,

@@ -22,7 +22,10 @@ def test_deconvolve_gaussian():
         beam_pa=20,
     )
 
-    actual_params = np.array(component.deconvolve_gaussian())
+    component.deconvolve_gaussian()
+    actual_params = np.array(
+        (component.major_ax, component.minor_ax, component.pos_ang)
+    )
     expectd_params = np.array(
         (168.6690698011579, 107.47439179828898, -29.158834703512973)
     )
@@ -53,7 +56,10 @@ def test_deconvolve_circular_gaussian():
         beam_pa=beam_pa,
     )
 
-    actual_params = np.array(component.deconvolve_gaussian())
+    component.deconvolve_gaussian()
+    actual_params = np.array(
+        (component.major_ax, component.minor_ax, component.pos_ang)
+    )
     expectd_params = np.array((beam_major, beam_minor, 90 + beam_pa))
 
     np.testing.assert_allclose(expectd_params, actual_params)
@@ -72,7 +78,10 @@ def test_deconvolve_gaussian_if_major_minor_axes_are_none():
         pos_ang=None,
     )
 
-    actual_params = np.array(component.deconvolve_gaussian())
+    component.deconvolve_gaussian()
+    actual_params = np.array(
+        (component.major_ax, component.minor_ax, component.pos_ang)
+    )
     expectd_params = np.array((0.0, 0.0, 90.0))
 
     np.testing.assert_allclose(expectd_params, actual_params)

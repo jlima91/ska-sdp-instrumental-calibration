@@ -19,6 +19,7 @@ class RunSolverConfig(PiperBaseModel):
             "jones_substitution",
             "normal_equations",
             "normal_equations_presum",
+            "dp3_gaincal",
         ],
         Field(
             description="""Calibration algorithm to use. Options are:
@@ -33,7 +34,9 @@ class RunSolverConfig(PiperBaseModel):
                 option but with an initial accumulation of visibility
                 products over time and frequency for each solution
                 interval. This can be much faster for large datasets
-                and solution intervals."""
+                and solution intervals.
+                "dp3_gaincal" - DP3 gaincal step. Requires the optional
+                dp3 package."""
         ),
     ] = "jones_substitution"
     refant: Annotated[

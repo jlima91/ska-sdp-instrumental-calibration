@@ -1,14 +1,13 @@
-from copy import copy
 from typing import Literal
 
 import dask.array as da
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from ska_sdp_datamodels.calibration import GainTable
-from ska_sdp_datamodels.science_data_model import ReceptorFrame
-from ska_sdp_datamodels.visibility import Visibility
 
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (  # noqa: F401
+    create_gaintable_from_h5parm,
+)
 from ska_sdp_instrumental_calibration.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -607,75 +606,3 @@ def plot_time_vs_freq_for_phase_multiple_baselines(
     )
 
     plt.close(fig)
-
-
-def create_gaintable_from_h5param(
-    h5parm_path: str, interval: np.ndarray, vis: Visibility = None
-) -> GainTable:
-    """
-    Load h5parm file and convert to GainTable.
-
-    Parameters
-    ----------
-    h5parm_path : str
-        Path to the h5parm file.
-    interval : np.ndarray
-        Interval array for the gain table.
-        Typically derived from ``SolutionIntervals.intervals`` property.
-    vis : Visibility, optional
-        Visibility object to extract metadata (phasecentre, configuration, receptor_frame).
-        Default is None.
-
-    Returns
-    -------
-    GainTable
-        The gain table constructed from the h5parm file.
-
-    Example
-    -------
-    >>> vis = load_ms_as_dataset_with_time_chunks(mspath, 10)
-    ... interval = SolutionIntervals(vis.time.data, "full").intervals
-    ... gaintable = create_gaintable_from_h5param(h5param_path, interval, vis)
-
-    """
-    with h5py.File(h5parm_path) as h5f:
-        solution = h5f["sol000"]
-        amplitude = solution["amplitude000"]
-        phase = solution["phase000"]
-
-        gain = amplitude["val"][...] * np.exp(phase["val"][...] * 1j)
-        gain_shape_og = gain.shape
-        # Reshaping to get 2x2 matrix
-        gain = np.reshape(gain, (*gain_shape_og[:3], 2, 2))
-
-        time = amplitude["time"][...]
-        frequency = amplitude["freq"][...]
-        residual = np.zeros((time.size, frequency.size, 2, 2))
-
-        try:
-            weight_amp = amplitude["weight"][...]
-            weight_phase = phase["weight"][...]
-            np.testing.assert_allclose(weight_amp, weight_phase)
-        except AssertionError:
-            print(
-                "WARNING: weights are different in amp and phase. Will pick weight values from amplitude."
-            )
-        weight = np.reshape(weight_amp, gain.shape)
-
-        kawrgs = {}
-        if vis:
-            kawrgs["phasecentre"] = copy(vis.phasecentre)
-            kawrgs["configuration"] = copy(vis.configuration)
-            kawrgs["receptor_frame"] = ReceptorFrame(
-                vis.visibility_acc.polarisation_frame.type
-            )
-
-        return GainTable.constructor(
-            gain=gain,
-            time=time,
-            interval=interval,
-            weight=weight,
-            residual=residual,
-            frequency=frequency,
-            **kawrgs,
-        )

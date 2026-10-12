@@ -1,3 +1,4 @@
+from copy import copy
 from typing import Literal, Union
 
 import dask.array as da
@@ -6,6 +7,7 @@ from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..numpy_processors._utils import jones_to_pol, pol_to_jones
+from .h5parm import read_h5parm_gains
 from .schema.calibration_set import GainCalibrationSetXds
 from .solution_interval import SolutionIntervals
 
@@ -303,3 +305,136 @@ def multiply_gaintables(
         )
 
     return gt
+
+
+def _check_antennas(
+    h5parm_antennas: list[str] | None, vis_antennas: list[str]
+) -> None:
+    """
+    Check that the h5parm antennas match the visibility antennas.
+
+    Parameters
+    ----------
+    h5parm_antennas
+        Antenna names along the antenna axis of the h5parm, or None if the
+        antenna axis is absent in the h5parm.
+    vis_antennas
+        Antenna names of the visibility configuration.
+
+    Raises
+    ------
+    ValueError
+        If the antennas or their order differ, or the h5parm has no
+        antenna axis while the visibility has more than one antenna.
+    """
+    if h5parm_antennas is None:
+        if len(vis_antennas) != 1:
+            raise ValueError(
+                "h5parm has no antenna axis, but visibility has "
+                f"{len(vis_antennas)} antennas"
+            )
+        return
+
+    if h5parm_antennas != vis_antennas:
+        raise ValueError(
+            "h5parm antennas do not match the visibility antennas "
+            f"(in order). h5parm: {h5parm_antennas}, "
+            f"visibility: {vis_antennas}"
+        )
+
+
+def create_gaintable_from_h5parm(
+    h5parm_path: str,
+    interval: np.ndarray,
+    vis: Visibility | None = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+) -> GainCalibrationSetXds:
+    """
+    Load an H5Parm file and convert it to a GainCalibrationSetXds.
+
+    Supports H5Parm files written by INST and DP3 (gaincal).
+
+    Data axes are reordered to (time, antenna, frequency, receptor1,
+    receptor2) based on the AXES attribute. The receptor dimensions
+    are then flattened into the polarization dimension required by
+    GainCalibrationSetXds.
+
+    If only diagonal polarisations are present, cross-polarization
+    terms are set to zero. If either the amplitude or phase soltab
+    is absent, unit amplitude or zero phase is assumed. If both are
+    present, the minimum of their weights is used.
+
+    If vis is provided, the antennas in the H5Parm file must match
+    the visibility configuration in the same order. Missing time or
+    frequency axes are restored using the mean values from vis.
+
+    Parameters
+    ----------
+    h5parm_path
+        Path to the H5Parm file.
+    interval
+        Interval array for the gain table, typically derived from
+        SolutionIntervals.intervals.
+    vis
+        Visibility used to obtain metadata such as configuration and
+        receptor frame. Required if the H5Parm has no time or
+        frequency axis.
+    jones_type
+        Jones term type: "T", "G", or "B".
+
+    Returns
+    -------
+    GainCalibrationSetXds
+        Calibration solutions represented using the new schema.
+    """
+    gain, weight, _, soltab = read_h5parm_gains(h5parm_path)
+
+    time = soltab.time
+    frequency = soltab.frequency
+
+    if vis is None and (time is None or frequency is None):
+        raise ValueError(
+            f"H5Parm {h5parm_path} has no time or frequency axis; "
+            "vis is required to restore them"
+        )
+
+    if time is None:
+        time = np.mean(vis.time.data, keepdims=True)
+
+    if frequency is None:
+        frequency = np.mean(vis.frequency.data, keepdims=True)
+
+    if vis is not None:
+        _check_antennas(
+            soltab.antenna,
+            [str(name) for name in vis.configuration.names.data],
+        )
+
+    gain = jones_to_pol(gain)
+    weight = jones_to_pol(weight)
+
+    kwargs = {}
+
+    if vis is not None:
+        kwargs["configuration"] = copy(vis.configuration)
+        kwargs["receptor_frame"] = ReceptorFrame(
+            vis.visibility_acc.polarisation_frame.type
+        )
+
+    residual = np.zeros(
+        (len(time), len(frequency), gain.shape[-1]),
+        dtype=np.float32,
+    )
+
+    gaintable = GainCalibrationSetXds.constructor(
+        gain=gain,
+        time=time,
+        interval=interval,
+        weight=weight,
+        residual=residual,
+        frequency=frequency,
+        jones_type=jones_type,
+        **kwargs,
+    )
+
+    return gaintable

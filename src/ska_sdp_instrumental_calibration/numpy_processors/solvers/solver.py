@@ -46,6 +46,10 @@ class Solver:
 
     _solvers = {}
 
+    def __init__(self, niter=50, tol=1e-6, **_):
+        self.niter = niter
+        self.tol = tol
+
     def __init_subclass__(cls, **kwargs):
         """
         Hook that runs when a new subclass is defined.
@@ -84,14 +88,10 @@ class Solver:
         """
         if solver not in cls._solvers:
             raise ValueError(
-                f"{solver} not definebd."
+                f"{solver} not defined."
                 f" Supported solvers: {', '.join(cls._solvers)}"
             )
         return cls._solvers[solver](**kwargs)
-
-    def __init__(self, niter=50, tol=1e-6, **_):
-        self.niter = niter
-        self.tol = tol
 
     def solve(
         self,

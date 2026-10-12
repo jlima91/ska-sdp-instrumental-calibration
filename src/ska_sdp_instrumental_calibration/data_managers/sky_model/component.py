@@ -4,6 +4,8 @@ Note that these are temporary functions that will be replaced by functions that
 connect to ska-sdp-global-sky-model functions.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from functools import cached_property
@@ -124,7 +126,7 @@ class Component:
         """
         return self.get_altaz(solution_time, array_location).alt.degree >= 0
 
-    def deconvolve_gaussian(self) -> tuple[float, float, float]:
+    def deconvolve_gaussian(self) -> Component:
         """
         Deconvolve MWA synthesised beam from Gaussian shape parameters.
 
@@ -142,7 +144,10 @@ class Component:
             or self.minor_ax is None
             or self.pos_ang is None
         ):
-            return 0.0, 0.0, 90.0
+            self.major_ax = 0.0
+            self.minor_ax = 0.0
+            self.pos_ang = 90.0
+            return self
 
         # fitted data on source
         fmajsq = self.major_ax * self.major_ax
@@ -178,7 +183,11 @@ class Component:
             smin = 0 if sminsq <= 0 else np.sqrt(sminsq)
             psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
 
-        return max(smaj, smin, 0), max(min(smaj, smin), 0), psmaj * 180 / np.pi
+        self.major_ax = max(smaj, smin, 0)
+        self.minor_ax = max(min(smaj, smin), 0)
+        self.pos_ang = psmaj * 180 / np.pi
+
+        return self
 
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
         """

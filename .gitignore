@@ -35,3 +35,4 @@ scripts/ska_low_sim/telescope-models/
 
 # misc
 *.patch
+.claude

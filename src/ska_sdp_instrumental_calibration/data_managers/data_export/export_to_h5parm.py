@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 
 from ...logger import setup_logger
 from ...xarray_processors.delay import DelayTable
+from ..h5parm import to_null_terminated_bytes
 from ..schema.calibration_set import GainCalibrationSetXds
 
 logger = setup_logger("data_managers.data_export")
@@ -132,14 +133,16 @@ def export_gaintable_to_h5parm(
     gaintable = gaintable.assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms
-    polstrs = _ndarray_of_null_terminated_bytes(["XX", "XY", "YX", "YY"])
+    polstrs = to_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     if not np.array_equal(gaintable["pol"].data, polstrs):
         raise ValueError("Subsequent pipelines assume linear pol order")
 
     # replace antenna indices with antenna names
     if gaintable["ant"].isnull().all():
         raise ValueError("Missing gt config. H5Parm requires antenna names")
-    antenna_names = _ndarray_of_null_terminated_bytes(gaintable["ant"].data)
+
+    antenna_names = to_null_terminated_bytes(gaintable["ant"].data)
+
     gaintable = gaintable.assign_coords({"ant": antenna_names})
 
     # Flag gains where weight == 0
@@ -204,14 +207,14 @@ def export_clock_to_h5parm(
     if not np.array_equal(delaytable.pol.data, ["XX", "YY"]):
         raise ValueError("Subsequent pipelines assume linear pol order")
 
-    polstrs = _ndarray_of_null_terminated_bytes(delaytable.pol.data)
+    polstrs = to_null_terminated_bytes(delaytable.pol.data)
     delaytable = delaytable.assign_coords({"pol": polstrs})
 
     # replace antenna indices with antenna names
     if delaytable.configuration is None:
         raise ValueError("Missing gt config. H5Parm requires antenna names")
 
-    antenna_names = _ndarray_of_null_terminated_bytes(
+    antenna_names = to_null_terminated_bytes(
         delaytable.configuration.names.data[delaytable["ant"].data]
     )
     delaytable = delaytable.assign_coords({"ant": antenna_names})
