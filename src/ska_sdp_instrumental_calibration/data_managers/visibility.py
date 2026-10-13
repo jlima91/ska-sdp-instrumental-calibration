@@ -7,7 +7,6 @@ from typing import List, Optional
 
 import dask.array as da
 import numpy as np
-import numpy.typing as npt
 import pandas
 import xarray as xr
 from astropy import units as u
@@ -329,7 +328,7 @@ def get_col_from_ms(
     ack=False,
     field_ids: List[int] = None,
     data_desc_ids: List[int] = None,
-) -> List[npt.NDArray]:
+) -> List[np.ndarray]:
     """
     Extract data from a specific column in a Measurement Set.
 
@@ -1077,18 +1076,17 @@ def read_ms_field_id(ms_path: str):
 
 
 @functools.cache
-def read_antenna_response_data(ms_path: str):
+def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
     """
     Read antenna response data from a MeasurementSet.
 
     Parameters
     ----------
-    ms_path : str
+    ms_path
         Path to the MeasurementSet directory.
 
     Returns
     -------
-    dict
         Dictionary containing station names, positions, delay directions,
         coordinate axes, and element offsets.
 

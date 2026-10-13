@@ -22,16 +22,16 @@ class Telescope:
     def __init__(
         self,
         ms_path: str,
-        element_response_model,
+        element_response_model: str,
     ):
         """
         Initialize the Telescope model.
 
         Parameters
         ----------
-        ms_path : str
+        ms_path
             Path to the measurement set.
-        element_response_model : str
+        element_response_model
             Name of the element response model.
         """
         self._ms_path = ms_path
@@ -43,8 +43,7 @@ class Telescope:
         )
 
         self.response_data = read_antenna_response_data(ms_path)
-
-        self._nstations = 0
+        self._nstations = self.response_data["station_names"].size
 
     def __dask_tokenize__(self) -> tuple[str, str, str]:
         """
@@ -78,7 +77,6 @@ class Telescope:
         """
         state = self.__dict__.copy()
         state["_telescope"] = None
-        state["_nstations"] = 0
         del state["_telescope_lock"]
         return state
 
@@ -143,7 +141,6 @@ class Telescope:
         element_offsets = self.response_data["element_offsets"]
         delay_directions = self.response_data["delay_directions"]
 
-        self._nstations = station_names.size
         root_node = eb.StationNode()
         add_child_node = root_node.add_child_node
         for name, pos, axes, offsets in zip(
