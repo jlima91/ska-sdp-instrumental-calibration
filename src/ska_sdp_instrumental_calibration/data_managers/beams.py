@@ -137,8 +137,8 @@ class BeamsLow:
                 solution_time=self.solution_time_mjd_seconds,
                 station_idx=stn,
                 frequencies=self.frequency,
+                direction=dir_itrf_zen,
                 station0=dir_itrf_zen,
-                tile0=dir_itrf_zen,
             ).squeeze(axis=(0, 1))
 
             self.scale = np.sqrt(2) / np.linalg.norm(jones, axis=(1, 2))
@@ -190,8 +190,8 @@ class BeamsLow:
         return self.telescope.station_response(
             solution_time=self.solution_time_mjd_seconds,
             frequencies=self.frequency,
-            station0=dir_itrf,
-            tile0=self.delay_dir_itrf,
+            direction=dir_itrf,
+            station0=self.delay_dir_itrf,
             scale=self.scale,
         ).squeeze(axis=0)
 

@@ -205,8 +205,8 @@ class Telescope:
         self,
         solution_time: npt.NDArray | np.float64 | float,
         frequencies: npt.NDArray | float | np.float64,
+        direction: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
-        tile0: Annotated[npt.NDArray, "shape (3,)"],
         scale: Optional[npt.NDArray] = None,
         station_idx: Optional[int] = None,
     ):
@@ -219,10 +219,13 @@ class Telescope:
             Timestamp[s] for the solution.
         frequencies : npt.NDArray or float or np.float64
             Frequency( Or array of frequencies) to compute station response.
+        direction : npt.NDArray[np.float64]
+            ITRF direction vector in which to evaluate the response, i.e.
+            the direction of arrival, shape (3,).
         station0 : npt.NDArray[np.float64]
-            Direction vector for station beam pointing, shape (3,).
-        tile0 : npt.NDArray[np.float64]
-            Direction vector for tile beam pointing, shape (3,).
+            ITRF direction vector of the station beam former reference
+            (pointing / delay) direction, shape (3,). It is also used as
+            the tile beam former reference direction.
         scale : npt.NDArray, optional
             Scaling array per frequency to apply to beams, default is None.
         station_idx: int, optional
@@ -242,7 +245,9 @@ class Telescope:
         solution_time = np.atleast_1d(solution_time)
 
         stations = (
-            range(self._nstations) if station_idx is None else [station_idx]
+            np.arange(self._nstations)
+            if station_idx is None
+            else np.array([station_idx])
         )
 
         # Not locked: the shared everybeam telescope is safe for
@@ -258,11 +263,12 @@ class Telescope:
         # threads call this one at a time anyway. Analysed for
         # everybeam v0.8.4 to v0.9.0.
         beams = self._telescope.station_response(
-            solution_time,
-            stations,
-            frequencies,
-            station0,
-            tile0,
+            times=solution_time,
+            station_indexes=stations,
+            freqs=frequencies,
+            direction=direction,
+            station0_direction=station0,
+            tile0_direction=station0,
         )
 
         if scale is not None:

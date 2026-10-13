@@ -117,8 +117,8 @@ def test_oskar_scale_computation(
         solution_time=bl.solution_time_mjd_seconds,
         station_idx=0,
         frequencies=freqs,
+        direction=radec_to_xyz_mock.return_value,
         station0=radec_to_xyz_mock.return_value,
-        tile0=radec_to_xyz_mock.return_value,
     )
 
 
@@ -195,8 +195,8 @@ def test_array_response(
     mock_telescope.station_response.assert_called_once_with(
         solution_time=bl.solution_time_mjd_seconds,
         frequencies=bl.frequency,
-        station0=radec_to_xyz_mock.return_value,
-        tile0=bl.delay_dir_itrf,
+        direction=radec_to_xyz_mock.return_value,
+        station0=bl.delay_dir_itrf,
         scale=bl.scale,
     )
 
