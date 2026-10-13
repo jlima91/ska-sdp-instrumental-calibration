@@ -98,6 +98,7 @@ class Telescope:
         position: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         coordinate_axes: Annotated[npt.NDArray[np.float64], "shape (3, 3)"],
         element_offsets: Annotated[npt.NDArray[np.float64], "shape (N, 3)"],
+        element_flags: Annotated[npt.NDArray[np.bool_], "shape (N, 2)"],
     ):
         """
         Create a single station node with given elements and coordinate system.
@@ -112,6 +113,9 @@ class Telescope:
             The coordinate axes of the station.
         element_offsets : array_like, shape (N, 3)
             The (x, y, z) offsets of N elements within the station.
+        element_flags : array_like, shape (N, 2)
+            The flags of the X and Y dipoles of the N elements. A flagged
+            dipole does not contribute to the station response.
 
         Returns
         -------
@@ -125,8 +129,14 @@ class Telescope:
             name=f"{name}",
         )
         add_child_element = station_node.add_child_element
-        for offset in element_offsets:
-            add_child_element(offset)
+        for offset, (x_flag, y_flag) in zip(
+            element_offsets, element_flags, strict=True
+        ):
+            add_child_element(
+                offset,
+                is_x_enabled=not x_flag,
+                is_y_enabled=not y_flag,
+            )
 
         return station_node
 
@@ -139,14 +149,22 @@ class Telescope:
         positions = self.response_data["positions"]
         coordinate_axes = self.response_data["coordinate_axes"]
         element_offsets = self.response_data["element_offsets"]
+        element_flags = self.response_data["element_flags"]
         delay_directions = self.response_data["delay_directions"]
 
         root_node = eb.StationNode()
         add_child_node = root_node.add_child_node
-        for name, pos, axes, offsets in zip(
-            station_names, positions, coordinate_axes, element_offsets
+        for name, pos, axes, offsets, flags in zip(
+            station_names,
+            positions,
+            coordinate_axes,
+            element_offsets,
+            element_flags,
+            strict=True,
         ):
-            station_node = self._create_station_node(name, pos, axes, offsets)
+            station_node = self._create_station_node(
+                name, pos, axes, offsets, flags
+            )
             add_child_node(station_node, pos)
         options = eb.Options()
         options.element_response_model = self._element_response_model

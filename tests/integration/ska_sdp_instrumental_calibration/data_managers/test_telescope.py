@@ -1,5 +1,6 @@
 # pylint:disable=c-extension-no-member
 import pickle
+import shutil
 import tarfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -8,6 +9,7 @@ import everybeam as eb
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
+from casacore.tables import table
 
 from ska_sdp_instrumental_calibration.data_managers.beams import (
     convert_time_to_solution_time,
@@ -19,6 +21,9 @@ TEST_ROOT = Path(__file__).resolve().parent / "../../../"
 OSKAR_TAR = TEST_ROOT / "e2e/resources/test.ms.tgz"
 ELEMENT_RESPONSE_MODEL = "oskar_dipole_cos"
 TIME = 4453655635.070823
+OFF_AXIS_SOURCE = SkyCoord(
+    ra=199.914612, dec=-23.777973, unit="deg", frame="icrs"
+)
 
 
 @pytest.fixture(scope="module")
@@ -108,8 +113,7 @@ def test_should_match_loaded_telescope_for_off_axis_direction(
     """
     frequencies = np.array([1.0e8, 1.5e8, 2.0e8])
     off_axis = radec_to_xyz(
-        SkyCoord(ra=199.914612, dec=-23.777973, unit="deg", frame="icrs"),
-        convert_time_to_solution_time(TIME),
+        OFF_AXIS_SOURCE, convert_time_to_solution_time(TIME)
     )
 
     loaded_telescope = eb.load_telescope(
@@ -133,6 +137,48 @@ def test_should_match_loaded_telescope_for_off_axis_direction(
     ).squeeze(axis=0)
 
     np.testing.assert_allclose(actual, expected)
+
+
+def test_should_disable_flagged_elements(eb_ms, direction, tmp_path):
+    flagged_ms = (tmp_path / "flagged.ms").as_posix()
+    shutil.copytree(eb_ms, flagged_ms)
+    with table(f"{flagged_ms}/PHASED_ARRAY", readonly=False, ack=False) as tb:
+        element_flag = tb.getcol("ELEMENT_FLAG")
+        # Flag the X dipole of the first half of the elements of station 0,
+        # and the Y dipole of the last element of station 1
+        nelements = element_flag.shape[2]
+        element_flag[0, 0, : nelements // 2] = True
+        element_flag[1, 1, -1] = True
+        tb.putcol("ELEMENT_FLAG", element_flag)
+
+    frequencies = np.array([1.0e8, 1.5e8])
+    off_axis = radec_to_xyz(
+        OFF_AXIS_SOURCE, convert_time_to_solution_time(TIME)
+    )
+    loaded_telescope = eb.load_telescope(
+        flagged_ms, element_response_model=ELEMENT_RESPONSE_MODEL
+    )
+    expected = np.array(
+        [
+            [
+                loaded_telescope.station_response(
+                    TIME, stn, freq, off_axis, direction
+                )
+                for freq in frequencies
+            ]
+            for stn in range(2)
+        ]
+    )
+
+    actual = Telescope(
+        flagged_ms, element_response_model=ELEMENT_RESPONSE_MODEL
+    ).station_response(TIME, frequencies, off_axis, direction)[0, :2]
+    unflagged = Telescope(
+        eb_ms, element_response_model=ELEMENT_RESPONSE_MODEL
+    ).station_response(TIME, frequencies, off_axis, direction)[0, :2]
+
+    np.testing.assert_allclose(actual, expected)
+    assert not np.allclose(actual, unflagged)
 
 
 def test_should_scale_station_response_for_telescope(telescope, direction):

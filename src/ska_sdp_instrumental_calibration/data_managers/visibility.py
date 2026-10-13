@@ -1088,13 +1088,17 @@ def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
     Returns
     -------
         Dictionary containing station names, positions, delay directions,
-        coordinate axes, and element offsets. Element offsets have shape
-        (nstations, nelements, 3).
+        coordinate axes, element offsets and element flags. Element offsets
+        have shape (nstations, nelements, 3) and element flags have shape
+        (nstations, nelements, 2), with the flags of the X and Y dipoles.
 
     Raises
     ------
     RuntimeError
         If any station name is empty.
+    ValueError
+        If the shapes of ELEMENT_OFFSET and ELEMENT_FLAG do not match
+        either of the supported layouts.
     """
     with table(f"{ms_path}/FIELD", readonly=True) as tb:
         delay_dir = tb.getcol("DELAY_DIR").flatten()
@@ -1102,11 +1106,23 @@ def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
     with table(f"{ms_path}/PHASED_ARRAY", readonly=True) as tb:
         coordinate_axes = tb.getcol("COORDINATE_AXES")
         element_offset = tb.getcol("ELEMENT_OFFSET")
-        # MSs exist with ELEMENT_OFFSET stored either as (3, nelements) or
-        # (nelements, 3) per station (see EveryBeam ReadAntennaFieldMSv3).
-        # Normalise to (nstations, nelements, 3).
-        if element_offset.shape[1] == 3:
+        element_flag = tb.getcol("ELEMENT_FLAG")
+        # MSs exist with ELEMENT_OFFSET and ELEMENT_FLAG stored either as
+        # (3, nelements) and (2, nelements), or transposed, per station
+        # (see EveryBeam ReadAntennaFieldMSv3). Normalise to
+        # (nstations, nelements, 3) and (nstations, nelements, 2).
+        # Both shapes are checked together, as either one alone is
+        # ambiguous when there are 2 or 3 elements per station.
+        offset_shape = element_offset.shape[1:]
+        flag_shape = element_flag.shape[1:]
+        if offset_shape[0] == 3 and flag_shape[0] == 2:
             element_offset = element_offset.transpose(0, 2, 1)
+            element_flag = element_flag.transpose(0, 2, 1)
+        elif not (offset_shape[1] == 3 and flag_shape[1] == 2):
+            raise ValueError(
+                "Unsupported PHASED_ARRAY layout: ELEMENT_OFFSET cell shape "
+                f"{offset_shape} and ELEMENT_FLAG cell shape {flag_shape}"
+            )
     with table(f"{ms_path}/ANTENNA", readonly=True) as anttab:
         names = np.array(anttab.getcol("NAME"))
 
@@ -1121,4 +1137,5 @@ def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
         delay_directions=delay_dir,
         coordinate_axes=coordinate_axes,
         element_offsets=element_offset,
+        element_flags=element_flag,
     )
