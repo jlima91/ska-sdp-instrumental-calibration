@@ -1088,7 +1088,8 @@ def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
     Returns
     -------
         Dictionary containing station names, positions, delay directions,
-        coordinate axes, and element offsets.
+        coordinate axes, and element offsets. Element offsets have shape
+        (nstations, nelements, 3).
 
     Raises
     ------
@@ -1100,7 +1101,12 @@ def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
 
     with table(f"{ms_path}/PHASED_ARRAY", readonly=True) as tb:
         coordinate_axes = tb.getcol("COORDINATE_AXES")
-        element_offset = tb.getcol("ELEMENT_OFFSET").transpose(2, 0, 1)
+        element_offset = tb.getcol("ELEMENT_OFFSET")
+        # MSs exist with ELEMENT_OFFSET stored either as (3, nelements) or
+        # (nelements, 3) per station (see EveryBeam ReadAntennaFieldMSv3).
+        # Normalise to (nstations, nelements, 3).
+        if element_offset.shape[1] == 3:
+            element_offset = element_offset.transpose(0, 2, 1)
     with table(f"{ms_path}/ANTENNA", readonly=True) as anttab:
         names = np.array(anttab.getcol("NAME"))
 

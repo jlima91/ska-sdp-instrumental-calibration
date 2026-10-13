@@ -97,6 +97,44 @@ def test_should_validate_station_response_for_telescope(
     np.testing.assert_allclose(beam_load_telescope, beam_create_telescope)
 
 
+def test_should_match_loaded_telescope_for_off_axis_direction(
+    eb_ms, telescope, direction
+):
+    """
+    With the source direction equal to the beam pointing direction, all
+    element phases are zero and the station layout cancels out. Use an
+    off-axis source so that the element offsets and coordinate axes of
+    each station influence the response.
+    """
+    frequencies = np.array([1.0e8, 1.5e8, 2.0e8])
+    off_axis = radec_to_xyz(
+        SkyCoord(ra=199.914612, dec=-23.777973, unit="deg", frame="icrs"),
+        convert_time_to_solution_time(TIME),
+    )
+
+    loaded_telescope = eb.load_telescope(
+        eb_ms, element_response_model=ELEMENT_RESPONSE_MODEL
+    )
+    nstations = telescope._nstations
+    expected = np.array(
+        [
+            [
+                loaded_telescope.station_response(
+                    TIME, stn, freq, off_axis, direction
+                )
+                for freq in frequencies
+            ]
+            for stn in range(nstations)
+        ]
+    )
+
+    actual = telescope.station_response(
+        TIME, frequencies, off_axis, direction
+    ).squeeze(axis=0)
+
+    np.testing.assert_allclose(actual, expected)
+
+
 def test_should_scale_station_response_for_telescope(telescope, direction):
     frequencies = np.array(
         [

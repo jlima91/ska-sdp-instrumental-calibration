@@ -7,6 +7,7 @@ from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
+    read_antenna_response_data,
     read_ms_field_id,
     read_vis_shape_from_zarr,
     read_visibility_from_zarr,
@@ -204,3 +205,39 @@ def test_should_return_first_field_name_when_multiple_fields(mock_table):
     result = read_ms_field_id(ms_path)
 
     assert result == "target_field"
+
+
+def create_antenna_response_tables(element_offset):
+    nstations = element_offset.shape[0]
+    columns = {
+        "DELAY_DIR": np.array([[[0.1, 0.2]]]),
+        "COORDINATE_AXES": np.tile(np.eye(3), (nstations, 1, 1)),
+        "ELEMENT_OFFSET": element_offset,
+        "NAME": [f"s{idx}" for idx in range(nstations)],
+        "POSITION": np.zeros((nstations, 3)),
+    }
+    tab = create_mock_table()
+    tab.getcol.side_effect = lambda name: columns[name]
+    return tab
+
+
+@pytest.mark.parametrize(
+    "stored_layout",
+    ["components_first", "elements_first"],
+)
+def test_should_read_element_offsets_per_station(mock_table, stored_layout):
+    nstations, nelements = 2, 4
+    # Distinct offsets per station and element: [station, element, xyz]
+    expected = np.arange(nstations * nelements * 3, dtype=float).reshape(
+        nstations, nelements, 3
+    )
+    stored = (
+        expected.transpose(0, 2, 1)
+        if stored_layout == "components_first"
+        else expected
+    )
+    mock_table.return_value = create_antenna_response_tables(stored)
+
+    data = read_antenna_response_data.__wrapped__("test.ms")
+
+    np.testing.assert_array_equal(data["element_offsets"], expected)
