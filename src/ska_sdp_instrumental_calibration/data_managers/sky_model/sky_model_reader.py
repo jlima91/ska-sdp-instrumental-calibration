@@ -9,6 +9,7 @@ from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.global_sky_model import LocalSkyModel, SkyComponent
 
 from .component import Component
+from .sky_model_operations import deconvolve_gaussian
 
 logger = logging.getLogger(__name__)
 
@@ -118,23 +119,7 @@ class ComponentConverters:
             An iterable of internal sky component dataclass instances with
             explicit unit-suffixed fields.
         """
-        return (
-            SkyComponent(
-                component_id=comp.component_id,
-                source_id=comp.source_id,
-                epoch=comp.epoch,
-                ra_deg=comp.ra,
-                dec_deg=comp.dec,
-                i_pol_jy=comp.i_pol,
-                ref_freq_hz=comp.ref_freq,
-                a_arcsec=comp.major_ax,
-                b_arcsec=comp.minor_ax,
-                pa_deg=comp.pos_ang,
-                spec_idx=comp.spec_idx,
-                log_spec_idx=comp.log_spec_idx,
-            )
-            for comp in components
-        )
+        return (comp.skycomponent for comp in components)
 
 
 def export_lsm_to_csv(components: list[Component], csv_path: str) -> None:
@@ -329,7 +314,15 @@ def generate_lsm_from_gleamegc(
                     alpha = float(line[3104:3113])
                     alpha_cat.append(alpha)
 
-                # With deconvolve synthesised beam from fitted shape parameters
+                # Deconvolve synthesised beam from fitted shape parameters
+                major_ax, minor_ax, pos_ang = deconvolve_gaussian(
+                    float(line[153:165]),
+                    float(line[179:187]),
+                    float(line[200:210]),
+                    float(line[247:254]),
+                    float(line[255:262]),
+                    float(line[263:273]),
+                )
 
                 model.append(
                     Component(
@@ -339,13 +332,10 @@ def generate_lsm_from_gleamegc(
                         spec_idx=[alpha],
                         ra=float(line[65:75]),
                         dec=float(line[87:97]),
-                        major_ax=float(line[153:165]),
-                        minor_ax=float(line[179:187]),
-                        pos_ang=float(line[200:210]),
-                        beam_major=float(line[247:254]),
-                        beam_minor=float(line[255:262]),
-                        beam_pa=float(line[263:273]),
-                    ).deconvolve_gaussian()
+                        major_ax=major_ax,
+                        minor_ax=minor_ax,
+                        pos_ang=pos_ang,
+                    )
                 )
 
         f.close()
