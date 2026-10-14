@@ -47,11 +47,14 @@ class Component:
     spec_idx: Optional[list] = None
     "Spectral index polynomial coefficients (up to 5 terms)."
     major_ax: Optional[float] = 0.0
-    "Fitted semi-major axis (arcsec) at reference frequency"
+    "Fitted semi-major axis, i.e. half of the FWHM (arcsec) at reference "
+    "frequency"
     minor_ax: Optional[float] = 0.0
-    "Fitted semi-minor axis (arcsec) at reference frequency"
+    "Fitted semi-minor axis, i.e. half of the FWHM (arcsec) at reference "
+    "frequency"
     pos_ang: Optional[float] = 0.0
-    "Fitted position angle (degrees) at reference frequency"
+    "Fitted position angle, from North through East (degrees) at "
+    "reference frequency"
     log_spec_idx: bool = True
     "True if logarithmic spectral model, False if linear. Default=True"
 
