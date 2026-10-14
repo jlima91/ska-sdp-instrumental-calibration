@@ -50,11 +50,14 @@ class LocalSkyComponent(SkyComponent):
             params = {}
         else:
             shape = "GAUSSIAN"
-            # From what I can tell, all params units are degrees
+            # Component holds semi-axes [arcsec] and the position angle from
+            # North through East [deg]. ska_sdp_func_python expects FWHM
+            # [deg] and the position angle from the u-axis (East) towards
+            # the v-axis (North).
             params = {
-                "bmaj": smaj / 3600.0,
-                "bmin": smin / 3600.0,
-                "bpa": spa,
+                "bmaj": 2 * smaj / 3600.0,
+                "bmin": 2 * smin / 3600.0,
+                "bpa": 90.0 - spa,
             }
 
         return LocalSkyComponent(

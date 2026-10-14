@@ -39,9 +39,9 @@ class TestLocalSkyComponent:
         )
         assert actual_component.shape == "GAUSSIAN"
         assert actual_component.params == {
-            "bmaj": 2.0,
-            "bmin": 2.5,
-            "bpa": 5.0,
+            "bmaj": 4.0,
+            "bmin": 5.0,
+            "bpa": 85.0,
         }
         np.testing.assert_allclose(
             actual_component.frequency, np.array([400, 800])
