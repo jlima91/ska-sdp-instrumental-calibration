@@ -83,17 +83,23 @@ def test_generate_lsm_from_gleam_catalogue_file(
         major_ax=219.263,
         minor_ax=146.4811,
         pos_ang=-4.158033,
-        beam_major=221.397,
-        beam_minor=152.189,
-        beam_pa=22.430508,
     )
 
-    # mock Component.deconvolve_gaussian using patch
-    with patch.object(
-        Component, "deconvolve_gaussian", return_value=expected_component
+    # mock deconvolve_gaussian to return the parsed shape parameters
+    with patch(
+        "ska_sdp_instrumental_calibration.data_managers"
+        ".sky_model.sky_model_reader.deconvolve_gaussian",
+        side_effect=lambda a, b, pa, *_: (a, b, pa),
     ) as deconvolve_gaussian_mock:
         lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
-        deconvolve_gaussian_mock.assert_called_once()
+        deconvolve_gaussian_mock.assert_called_once_with(
+            219.263,
+            146.4811,
+            -4.158033,
+            221.397,
+            152.189,
+            22.430508,
+        )
 
     open_mock.assert_called_once_with("gleamfile.dat", "r")
     fileobj.close.assert_called_once()
@@ -229,14 +235,11 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
         major_ax=219.263,
         minor_ax=146.4811,
         pos_ang=-4.158033,
-        beam_major=221.397,
-        beam_minor=152.189,
-        beam_pa=22.430508,
     )
-    with patch.object(
-        Component,
-        "deconvolve_gaussian",
-        return_value=expected_component,
+    with patch(
+        "ska_sdp_instrumental_calibration.data_managers"
+        ".sky_model.sky_model_reader.deconvolve_gaussian",
+        return_value=(219.263, 146.4811, -4.158033),
     ) as deconvolve_gaussian_mock:
         lsm = generate_lsm_from_gleamegc(
             "gleamfile.dat", phasecentre, fov=10, alpha0=-0.65
@@ -584,9 +587,6 @@ class TestComponentConverts:
                 minor_ax=0.0,
                 pos_ang=0.0,
                 log_spec_idx=True,
-                beam_major=0.0,
-                beam_minor=0.0,
-                beam_pa=0.0,
             ),
             Component(
                 component_id="Component 000001",
@@ -601,9 +601,6 @@ class TestComponentConverts:
                 minor_ax=0.0,
                 pos_ang=0.0,
                 log_spec_idx=True,
-                beam_major=0.0,
-                beam_minor=0.0,
-                beam_pa=0.0,
             ),
         ]
         # Display the result
@@ -625,9 +622,6 @@ class TestComponentConverts:
                 minor_ax=0.0,
                 pos_ang=0.0,
                 log_spec_idx=True,
-                beam_major=0.0,
-                beam_minor=0.0,
-                beam_pa=0.0,
             )
         ]
 
@@ -700,9 +694,6 @@ class TestComponentConverts:
                     minor_ax=0.0,
                     pos_ang=0.0,
                     log_spec_idx=True,
-                    beam_major=0.0,
-                    beam_minor=0.0,
-                    beam_pa=0.0,
                 ),
                 Component(
                     component_id="Component 000001",
@@ -717,9 +708,6 @@ class TestComponentConverts:
                     minor_ax=0.0,
                     pos_ang=0.0,
                     log_spec_idx=True,
-                    beam_major=0.0,
-                    beam_minor=0.0,
-                    beam_pa=0.0,
                 ),
             ]
         )
