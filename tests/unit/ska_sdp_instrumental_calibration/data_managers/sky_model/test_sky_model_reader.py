@@ -80,8 +80,9 @@ def test_generate_lsm_from_gleam_catalogue_file(
         i_pol=0.271901,
         ref_freq=200000000.0,
         spec_idx=[-0.370882],
-        major_ax=219.263,
-        minor_ax=146.4811,
+        # GLEAM axes are FWHM, halved to semi-axes
+        major_ax=219.263 / 2,
+        minor_ax=146.4811 / 2,
         pos_ang=-4.158033,
     )
 
@@ -93,11 +94,11 @@ def test_generate_lsm_from_gleam_catalogue_file(
     ) as deconvolve_gaussian_mock:
         lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
         deconvolve_gaussian_mock.assert_called_once_with(
-            219.263,
-            146.4811,
+            219.263 / 2,
+            146.4811 / 2,
             -4.158033,
-            221.397,
-            152.189,
+            221.397 / 2,
+            152.189 / 2,
             22.430508,
         )
 

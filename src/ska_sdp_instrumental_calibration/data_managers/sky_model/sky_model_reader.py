@@ -238,6 +238,15 @@ def generate_lsm_from_gleamegc(
     'Fintfit200' and 'alpha' columns for flux and spectral index. If these are
     unavailable (marked as '---'), it falls back to 'Fintwide' and ``alpha0``.
 
+    The GLEAM-EGC shape columns (``a_wide``, ``b_wide``, ``psf_a_wide`` and
+    ``psf_b_wide``) are described as "semi-major" / "semi-minor" axes, but
+    actually hold the full width at half maximum (FWHM), as produced by the
+    Aegean source finder. For example, ``psf_a_wide`` is ~130 arcsec near
+    zenith, matching the ~2 arcmin resolution of GLEAM at 200 MHz. They are
+    halved here so that the returned components hold literal semi-axes, as
+    in the GSM schema. Position angles are measured from North through East
+    in both GLEAM and the GSM, and are used unchanged.
+
     Parameters
     ----------
     gleamfile : str
@@ -314,13 +323,14 @@ def generate_lsm_from_gleamegc(
                     alpha = float(line[3104:3113])
                     alpha_cat.append(alpha)
 
-                # Deconvolve synthesised beam from fitted shape parameters
+                # Deconvolve synthesised beam from fitted shape parameters.
+                # GLEAM axes are FWHM, so halve them to get semi-axes.
                 major_ax, minor_ax, pos_ang = deconvolve_gaussian(
-                    float(line[153:165]),
-                    float(line[179:187]),
+                    float(line[153:165]) / 2,
+                    float(line[179:187]) / 2,
                     float(line[200:210]),
-                    float(line[247:254]),
-                    float(line[255:262]),
+                    float(line[247:254]) / 2,
+                    float(line[255:262]) / 2,
                     float(line[263:273]),
                 )
 
