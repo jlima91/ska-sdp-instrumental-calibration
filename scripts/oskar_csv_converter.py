@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 """
-Convert OSKAR CSV format to new sky model CSV format.
+Convert OSKAR CSV format to SKA LSM CSV format.
 
 Old OSKAR format columns:
 RA (deg), Dec (deg), I (Jy), Q (Jy), U (Jy), V (Jy), Ref. freq. (Hz),
 Spectral index, Rotation measure (rad/m^2), FWHM major (arcsec),
-FWHM minor (arcsec), Position angle (deg)
+FWHM minor (arcsec), Position angle (deg, East of North)
 
-New format columns:
+Fields may be separated by commas and/or whitespace, and anything after
+a '#' is a comment. Only the first 3 columns are required. As in OSKAR,
+rows may have 3-9, 11 (no rotation measure) or 12 columns. Q, U, V and
+the rotation measure are not part of the SKA LSM format and are dropped.
+
+OSKAR stores the full width at half maximum (FWHM) of Gaussian sources,
+while the SKA LSM stores semi-axes, so the axes are halved. Both formats
+measure the position angle from North through East, so it is unchanged.
+
+SKA LSM format columns:
 component_id, source_id, ra_deg, dec_deg, i_pol_jy, ref_freq_hz, epoch,
 a_arcsec, b_arcsec, pa_deg, spec_idx, log_spec_idx
 
@@ -17,10 +26,13 @@ https://developer.skao.int/projects/ska-sdp-global-sky-model/en/latest/design/ls
 Usage:
     python scripts/oskar_csv_converter.py input.csv
     python scripts/oskar_csv_converter.py input.csv output.csv
-    python scripts/oskar_csv_converter.py input.csv output.csv --prefix GLEAM
+    python scripts/oskar_csv_converter.py input.csv output.csv --comp-prefix GLEAM
+    python scripts/oskar_csv_converter.py input.csv --default-ref-freq 150e6
 """
 
 import argparse
+import re
+from typing import Optional
 
 import pandas as pd
 
@@ -46,44 +58,82 @@ OSKAR_HEADERS = [
 ]
 
 
-def convert_oskar_to_new_format(
+def read_oskar_csv(input_file: str) -> pd.DataFrame:
+    """
+    Read an OSKAR fixed format sky model file.
+
+    Parameters
+    ----------
+    input_file : str
+        Path to the input OSKAR sky model file.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per source, with columns ``OSKAR_HEADERS``. Optional
+        columns which are not given are set to 0, as in OSKAR.
+    """
+    rows = []
+    with open(input_file, encoding="utf-8") as f:
+        for line_num, line in enumerate(f, start=1):
+            fields = re.split(r"[,\s]+", line.split("#", 1)[0].strip())
+            fields = [field for field in fields if field]
+            if not fields:
+                continue
+
+            num_cols = len(fields)
+            if num_cols == 11:
+                # Legacy format without rotation measure
+                fields.insert(8, 0.0)
+            elif num_cols < 3 or num_cols == 10 or num_cols > 12:
+                raise ValueError(
+                    f"{input_file}:{line_num}: expected 3-9, 11 or 12 "
+                    f"columns, got {num_cols}"
+                )
+
+            values = [float(field) for field in fields]
+            rows.append(values + [0.0] * (len(OSKAR_HEADERS) - len(values)))
+
+    return pd.DataFrame(rows, columns=OSKAR_HEADERS, dtype=float)
+
+
+def convert_oskar_to_ska_lsm(
     input_file: str,
     output_file: str,
     component_prefix: str,
+    default_ref_freq: Optional[float] = None,
 ):
     """
-    Convert an OSKAR format CSV file to the new sky model format.
+    Convert an OSKAR format CSV file to the SKA LSM CSV format.
 
     Parameters
     ----------
     input_file : str
         Path to the input OSKAR CSV file.
-    output_file : str, optional
-        Path for the output CSV file in new format. Default is
-         "converted_sky_model.csv".
-    component_prefix : str, optional
-        Prefix for generating component IDs. Default is "Component".
-    log_spec_idx : bool, optional
-        Whether the spectral index uses logarithmic model. Default is True.
-
-    Returns
-    -------
-    pd.DataFrame
-        The converted DataFrame.
+    output_file : str
+        Path for the output CSV file in SKA LSM format.
+    component_prefix : str
+        Prefix for generating component IDs.
+    default_ref_freq : float, optional
+        Reference frequency (Hz) used for components whose reference
+        frequency is 0 (the OSKAR default). If not given, such components
+        raise an error.
     """
-    # Read the old file
-    df = pd.read_csv(
-        input_file,
-        sep=",",
-        comment="#",
-        names=OSKAR_HEADERS,
-        dtype=float,
-    )
+    df = read_oskar_csv(input_file)
 
-    # Headers after I are optional
-    # If those columns are None, fill in 0 instead
-    for header in OSKAR_HEADERS[3:]:
-        df[header] = df[header].fillna(0)
+    zero_ref_freq = df["Ref. freq. (Hz)"] == 0
+    if zero_ref_freq.any():
+        if default_ref_freq is None:
+            raise ValueError(
+                f"{zero_ref_freq.sum()} components in {input_file} have a "
+                "reference frequency of 0 Hz. Pass --default-ref-freq to "
+                "use a fixed reference frequency for them instead."
+            )
+        print(
+            f"Using a reference frequency of {default_ref_freq} Hz for "
+            f"{zero_ref_freq.sum()} components with 0 Hz."
+        )
+        df.loc[zero_ref_freq, "Ref. freq. (Hz)"] = default_ref_freq
 
     header_mapping = {
         "RA (deg)": "ra_deg",
@@ -97,10 +147,10 @@ def convert_oskar_to_new_format(
     }
     df = df.rename(columns=header_mapping)[header_mapping.values()]
     df["component_id"] = f"{component_prefix} " + df.index.astype(str).str.zfill(6)
-    df["spec_idx"] = df["spec_idx"].apply(lambda x: [x] if pd.notna(x) else [0.0])
+    df["spec_idx"] = df["spec_idx"].apply(lambda x: [x])
     df["log_spec_idx"] = True
 
-    # New column values are of 'semi'-major/minor axis
+    # OSKAR stores FWHM, the SKA LSM stores semi-major/minor axes
     df["a_arcsec"] = df["a_arcsec"] / 2
     df["b_arcsec"] = df["b_arcsec"] / 2
     df["source_id"] = ""
@@ -114,7 +164,7 @@ def convert_oskar_to_new_format(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert OSKAR CSV format to new sky model CSV format.",
+        description="Convert OSKAR CSV format to SKA LSM CSV format.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -128,21 +178,31 @@ def main():
         nargs="?",
         type=str,
         default="./converted_sky_model.csv",
-        help="Path for the output CSV file in new format.",
+        help="Path for the output CSV file in SKA LSM format.",
     )
     parser.add_argument(
         "--comp-prefix",
         type=str,
         default="Component",
-        help="Prefix for generating component IDs. Default: GLEAM",
+        help="Prefix for generating component IDs. Default: Component",
+    )
+
+    parser.add_argument(
+        "--default-ref-freq",
+        type=float,
+        default=None,
+        help="Reference frequency (Hz) to use for components whose "
+        "reference frequency is 0. Without it, such components cause an "
+        "error.",
     )
 
     args = parser.parse_args()
 
-    convert_oskar_to_new_format(
+    convert_oskar_to_ska_lsm(
         input_file=args.input_csv,
         output_file=args.output_csv,
         component_prefix=args.comp_prefix,
+        default_ref_freq=args.default_ref_freq,
     )
 
 
