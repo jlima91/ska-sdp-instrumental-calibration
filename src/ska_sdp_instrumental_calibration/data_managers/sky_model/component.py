@@ -13,22 +13,25 @@ from typing import Optional
 
 import numpy as np
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
+from ska_sdp_datamodels.global_sky_model import SkyComponent
+from ska_sdp_datamodels.global_sky_model.sky_model_operations import (
+    calculate_flux_at_freq,
+)
 
 from ..beams import convert_time_to_solution_time
+from .sky_model_operations import is_above_horizon
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Component:
     """
     Class for LSM components.
 
-    Class to hold catalogue data for a component of the local sky model. For
-    components with elliptical Gaussian parameters, if beam parameters are also
-    supplied, the beam will be deconvolved from the component parameters. If
-    the component parameters have already had the beam deconvolved, the beam
-    parameters should be left at zero.
+    Class to hold catalogue data for a component of the local sky model.
+    Elliptical Gaussian parameters are expected to be already deconvolved
+    from any synthesised beam.
     """
 
     component_id: str
@@ -49,15 +52,6 @@ class Component:
     "Fitted semi-minor axis (arcsec) at reference frequency"
     pos_ang: Optional[float] = 0.0
     "Fitted position angle (degrees) at reference frequency"
-    beam_major: float = 0.0
-    "Semi-major axis of a beam that is still convolved into the "
-    "main component shape (arcsec). Default=0 (no beam present)"
-    beam_minor: float = 0.0
-    "Semi-minor axis of a beam that is still convolved into the "
-    "main component shape (arcsec). Default=0 (no beam present)"
-    beam_pa: float = 0.0
-    "Position angle of a beam that is still convolved into the "
-    "main component shape (degrees). Default=0"
     log_spec_idx: bool = True
     "True if logarithmic spectral model, False if linear. Default=True"
 
@@ -124,70 +118,34 @@ class Component:
             True if the given component is above the horizon at the solution
             time for the given array location.
         """
-        return self.get_altaz(solution_time, array_location).alt.degree >= 0
+        return is_above_horizon(
+            self.skycomponent,
+            convert_time_to_solution_time(solution_time),
+            array_location,
+        )
 
-    def deconvolve_gaussian(self) -> Component:
+    @cached_property
+    def skycomponent(self) -> SkyComponent:
         """
-        Deconvolve MWA synthesised beam from Gaussian shape parameters.
+        Return the equivalent
+        ``ska_sdp_datamodels.global_sky_model.SkyComponent``.
 
-        This follows the approach of the analysisutilities function
-        deconvolveGaussian in the askap-analysis repository, written by Matthew
-        Whiting. This is based on the approach described in Wild (1970),
-        AuJPh 23, 113.
-
-        Returns
-        -------
-            Tuple of deconvolved parameters (same units as data in self)
+        It is created once and cached, so it must not be modified.
         """
-        if (
-            self.major_ax is None
-            or self.minor_ax is None
-            or self.pos_ang is None
-        ):
-            self.major_ax = 0.0
-            self.minor_ax = 0.0
-            self.pos_ang = 90.0
-            return self
-
-        # fitted data on source
-        fmajsq = self.major_ax * self.major_ax
-        fminsq = self.minor_ax * self.minor_ax
-        fdiff = fmajsq - fminsq
-        fphi = 2.0 * self.pos_ang * np.pi / 180.0
-
-        # beam data at source location
-        bmajsq = self.beam_major * self.beam_major
-        bminsq = self.beam_minor * self.beam_minor
-        bdiff = bmajsq - bminsq
-        bphi = 2.0 * self.beam_pa * np.pi / 180.0
-
-        # source data after deconvolution
-        if fdiff < 1e-6:
-            # Circular Gaussian case
-            smaj = np.sqrt(fmajsq - bminsq)
-            smin = np.sqrt(fmajsq - bmajsq)
-            psmaj = np.pi / 2.0 + self.beam_pa * np.pi / 180.0
-
-        else:
-            # General case
-            sinsphi = fdiff * np.sin(fphi) - bdiff * np.sin(bphi)
-            cossphi = fdiff * np.cos(fphi) - bdiff * np.cos(bphi)
-            sdiff = np.sqrt(
-                fdiff * fdiff
-                + bdiff * bdiff
-                - 2.0 * fdiff * bdiff * np.cos(fphi - bphi)
-            )
-            smajsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq + sdiff)
-            sminsq = 0.5 * (fmajsq + fminsq - bmajsq - bminsq - sdiff)
-            smaj = 0 if smajsq <= 0 else np.sqrt(smajsq)
-            smin = 0 if sminsq <= 0 else np.sqrt(sminsq)
-            psmaj = 0 if cossphi == 0 else np.arctan2(sinsphi, cossphi) / 2.0
-
-        self.major_ax = max(smaj, smin, 0)
-        self.minor_ax = max(min(smaj, smin), 0)
-        self.pos_ang = psmaj * 180 / np.pi
-
-        return self
+        return SkyComponent(
+            component_id=self.component_id,
+            source_id=self.source_id,
+            epoch=self.epoch,
+            ra_deg=self.ra,
+            dec_deg=self.dec,
+            i_pol_jy=self.i_pol,
+            ref_freq_hz=self.ref_freq,
+            a_arcsec=self.major_ax,
+            b_arcsec=self.minor_ax,
+            pa_deg=self.pos_ang,
+            spec_idx=self.spec_idx,
+            log_spec_idx=self.log_spec_idx,
+        )
 
     def calculate_flux(self, freq: np.ndarray) -> np.ndarray:
         """
@@ -195,7 +153,8 @@ class Component:
 
         Computes the flux using either a power-law with a frequency-dependent
         spectral index (in log-log space) or a standard polynomial expansion
-        based on the `log_spec_idx` toggle.
+        based on the `log_spec_idx` toggle. See ``calculate_flux_at_freq``
+        in ``ska_sdp_datamodels.global_sky_model.sky_model_operations``.
 
         Parameters
         ----------
@@ -208,16 +167,4 @@ class Component:
             The calculated flux density values corresponding to the input
             frequencies.
         """
-        spec_idx = self.spec_idx
-        if spec_idx is None or spec_idx == []:
-            spec_idx = [0.0]
-
-        ratio = freq / self.ref_freq
-
-        if self.log_spec_idx:
-            log_ratio = np.log10(ratio)
-            exponent = np.polyval(spec_idx[::-1], log_ratio)
-            return self.i_pol * (ratio**exponent)
-
-        full_coeffs = spec_idx[::-1] + [self.i_pol]
-        return np.polyval(full_coeffs, ratio - 1)
+        return calculate_flux_at_freq(self.skycomponent, freq)
