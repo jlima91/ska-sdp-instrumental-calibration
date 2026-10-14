@@ -1,90 +1,11 @@
+from dataclasses import FrozenInstanceError, asdict
+from unittest.mock import Mock, patch
+
 import numpy as np
+import pytest
+from ska_sdp_datamodels.global_sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
-
-
-def test_deconvolve_gaussian():
-    """
-    Given a component, deconvolve MWA synthesised beam.
-    """
-    component = Component(
-        component_id="J12345",
-        ra=260,
-        dec=-85,
-        i_pol=4.0,
-        ref_freq=200,
-        spec_idx=[2.0],
-        major_ax=250,
-        minor_ax=200,
-        pos_ang=-4,
-        beam_major=200,
-        beam_minor=150,
-        beam_pa=20,
-    )
-
-    component.deconvolve_gaussian()
-    actual_params = np.array(
-        (component.major_ax, component.minor_ax, component.pos_ang)
-    )
-    expectd_params = np.array(
-        (168.6690698011579, 107.47439179828898, -29.158834703512973)
-    )
-
-    np.testing.assert_allclose(expectd_params, actual_params)
-
-
-def test_deconvolve_circular_gaussian():
-    """
-    Given a component, deconvolve MWA synthesised beam.
-    if the gaussian is circular, then handle it appropriately.
-    """
-    beam_major = 200
-    beam_minor = 150
-    beam_pa = 20
-    component = Component(
-        component_id="J12345",
-        ra=260,
-        dec=-85,
-        i_pol=4.0,
-        ref_freq=200,
-        spec_idx=[2.0],
-        major_ax=250,
-        minor_ax=250,
-        pos_ang=-4,
-        beam_major=beam_major,
-        beam_minor=beam_minor,
-        beam_pa=beam_pa,
-    )
-
-    component.deconvolve_gaussian()
-    actual_params = np.array(
-        (component.major_ax, component.minor_ax, component.pos_ang)
-    )
-    expectd_params = np.array((beam_major, beam_minor, 90 + beam_pa))
-
-    np.testing.assert_allclose(expectd_params, actual_params)
-
-
-def test_deconvolve_gaussian_if_major_minor_axes_are_none():
-    component = Component(
-        component_id="J12345",
-        ra=260,
-        dec=-85,
-        i_pol=4.0,
-        ref_freq=200,
-        spec_idx=[2.0],
-        major_ax=None,
-        minor_ax=None,
-        pos_ang=None,
-    )
-
-    component.deconvolve_gaussian()
-    actual_params = np.array(
-        (component.major_ax, component.minor_ax, component.pos_ang)
-    )
-    expectd_params = np.array((0.0, 0.0, 90.0))
-
-    np.testing.assert_allclose(expectd_params, actual_params)
 
 
 def test_log_model_constant_spectral_index_vectorised():
@@ -218,3 +139,73 @@ def test_if_spec_idx_is_empty_list_returns_reference_flux_log_and_linear():
     expected = np.full(shape=len(freq), fill_value=flux)
     assert np.allclose(out_log, expected)
     assert np.allclose(out_lin, expected)
+
+
+def test_skycomponent_maps_all_fields():
+    component = Component(
+        component_id="J12345",
+        ra=260,
+        dec=-85,
+        i_pol=3.3,
+        ref_freq=1.0e8,
+        spec_idx=[-0.7, 0.01],
+        major_ax=10.0,
+        minor_ax=5.0,
+        pos_ang=30.0,
+        log_spec_idx=False,
+        source_id="S1",
+        epoch=2000.0,
+    )
+
+    expected = SkyComponent(
+        component_id="J12345",
+        source_id="S1",
+        ra_deg=260,
+        dec_deg=-85,
+        i_pol_jy=3.3,
+        ref_freq_hz=1.0e8,
+        epoch=2000.0,
+        a_arcsec=10.0,
+        b_arcsec=5.0,
+        pa_deg=30.0,
+        spec_idx=[-0.7, 0.01],
+        log_spec_idx=False,
+    )
+
+    assert asdict(component.skycomponent) == asdict(expected)
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers.sky_model.component"
+    ".convert_time_to_solution_time"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers.sky_model.component"
+    ".is_above_horizon"
+)
+def test_is_above_horizon_delegates_to_operations(
+    is_above_horizon_mock, convert_time_mock
+):
+    component = Component(component_id="J12345", ra=260, dec=-85, i_pol=1.0)
+    array_location = Mock(name="array_location")
+    is_above_horizon_mock.return_value = True
+
+    assert component.is_above_horizon(100.0, array_location) is True
+
+    convert_time_mock.assert_called_once_with(100.0)
+    is_above_horizon_mock.assert_called_once_with(
+        component.skycomponent, convert_time_mock.return_value, array_location
+    )
+
+
+def test_skycomponent_is_cached():
+    component = Component(component_id="J12345", ra=260, dec=-85, i_pol=1.0)
+
+    assert component.skycomponent is component.skycomponent
+
+
+def test_component_is_frozen():
+    component = Component(component_id="J12345", ra=260, dec=-85, i_pol=1.0)
+
+    with pytest.raises(FrozenInstanceError):
+        component.ra = 10.0
