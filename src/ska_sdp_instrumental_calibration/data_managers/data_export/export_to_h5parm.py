@@ -1,84 +1,18 @@
 import logging
-from typing import Iterable, Literal
 
 import h5py
 import numpy as np
-import xarray as xr
-from numpy.typing import NDArray
 
 from ...xarray_processors.delay import DelayTable
-from ..h5parm import to_null_terminated_bytes
+from ..h5parm import (
+    create_clock_soltab_datasets,
+    create_soltab_datasets,
+    create_soltab_group,
+    to_null_terminated_bytes,
+)
 from ..schema.calibration_set import GainCalibrationSetXds
 
 logger = logging.getLogger(__name__)
-
-
-def create_soltab_group(
-    solset: h5py.Group, solution_type: Literal["amplitude", "phase", "clock"]
-) -> h5py.Group:
-    """Create soltab group under given solset group.
-
-    :param solset: base-level HDF5 group to update
-    :param solution_type: only "amplitude" and "phase" are supported at present
-    :return: HDF5 group for the "solution_type" data
-    """
-    soltab = solset.create_group(f"{solution_type}000")
-    soltab.attrs["TITLE"] = np.bytes_(solution_type)
-    return soltab
-
-
-def create_soltab_datasets(
-    soltab: h5py.Group, gaintable: GainCalibrationSetXds
-):
-    """Add a dataset for each of the GainCalibrationSetXds dimensions.
-
-    :param soltab: HDF5 table to update
-    :param gaintable: GainCalibrationSetXds
-    """
-    # create a dataset for each dimension
-    for dim in list(gaintable.CALPARAM_GAIN.sizes):
-        soltab.create_dataset(dim, data=gaintable[dim].data)
-
-    # create datasets for the data and weights
-    shape = gaintable.CALPARAM_GAIN.shape
-    axes = np.bytes_(",".join(list(gaintable.CALPARAM_GAIN.sizes)))
-
-    val = soltab.create_dataset("val", shape=shape, dtype=float)
-    val.attrs["AXES"] = axes
-
-    weight = soltab.create_dataset("weight", shape=shape, dtype=float)
-    weight.attrs["AXES"] = axes
-
-    return val, weight
-
-
-def create_clock_soltab_datasets(soltab: h5py.Group, delaytable: xr.Dataset):
-    """Add a dataset for each of the Delay dimensions.
-
-    :param soltab: HDF5 table to update
-    :param delaytable: xr.Dataset
-    """
-    # create a dataset for each dimension
-    for dim in list(delaytable.delay.sizes):
-        soltab.create_dataset(dim, data=delaytable[dim].data)
-
-    # create datasets for the data and weights
-    shape = delaytable.delay.shape
-    axes = np.bytes_(",".join(list(delaytable.delay.sizes)))
-
-    val = soltab.create_dataset("val", shape=shape, dtype=float)
-    val.attrs["AXES"] = axes
-
-    offset = soltab.create_dataset("offset", shape=shape, dtype=float)
-    offset.attrs["AXES"] = axes
-
-    return val, offset
-
-
-def _ndarray_of_null_terminated_bytes(strings: Iterable[str]) -> NDArray:
-    # NOTE: making antenna names one character longer, in keeping with
-    # ska-sdp-batch-preprocess
-    return np.asarray([s.encode("ascii") + b"\0" for s in strings])
 
 
 def export_gaintable_to_h5parm(
@@ -129,7 +63,7 @@ def export_gaintable_to_h5parm(
     gaintable = gaintable.rename(
         {"antenna_name": "ant", "frequency": "freq", "polarization": "pol"}
     )
-    polstrs = _ndarray_of_null_terminated_bytes(gaintable["pol"].data)
+    polstrs = to_null_terminated_bytes(gaintable["pol"].data)
     gaintable = gaintable.assign_coords({"pol": polstrs})
 
     # check polarisations and discard unused terms

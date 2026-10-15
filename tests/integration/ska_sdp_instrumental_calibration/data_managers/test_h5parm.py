@@ -40,7 +40,12 @@ def test_should_create_soltab_datasets(h5file):
     freq = np.array([100e6, 110e6])
     pol = to_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     gaintable = xr.Dataset(
-        {"gain": (("time", "ant", "freq", "pol"), np.ones((2, 3, 2, 4)))},
+        {
+            "CALPARAM_GAIN": (
+                ("time", "ant", "freq", "pol"),
+                np.ones((2, 3, 2, 4)),
+            )
+        },
         coords={"time": TIME, "ant": ANT, "freq": freq, "pol": pol},
     )
     soltab = h5file.create_group("amplitude000")

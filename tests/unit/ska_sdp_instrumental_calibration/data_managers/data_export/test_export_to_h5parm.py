@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import xarray as xr
-from mock import MagicMock, call, patch
+from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.data_export import (
     export_to_h5parm,
@@ -56,92 +56,6 @@ def _export_delaytable(delaytable: DelayTable, **kwargs) -> xr.Dataset:
     ) as mock_datasets:
         export_to_h5parm.export_clock_to_h5parm(delaytable, "unused", **kwargs)
     return mock_datasets.call_args.args[1]
-
-
-def test_should_create_soltab_dataset():
-    soltab = MagicMock(name="soltab")
-    calibration_set = MagicMock(name="calibration_set")
-    data_mock = MagicMock(name="data")
-    calibration_set.__getitem__.return_value = data_mock
-    val_mock = MagicMock(name="val")
-    weight_mock = MagicMock(name="weight")
-    soltab.create_dataset.side_effect = ("time", "ant", val_mock, weight_mock)
-    calibration_set.CALPARAM_GAIN.sizes = ["time", "ant"]
-
-    val, weight = export_to_h5parm.create_soltab_datasets(
-        soltab, calibration_set
-    )
-
-    soltab.create_dataset.assert_has_calls(
-        [
-            call("time", data=data_mock.data),
-            call("ant", data=data_mock.data),
-            call(
-                "val", shape=calibration_set.CALPARAM_GAIN.shape, dtype=float
-            ),
-            call(
-                "weight",
-                shape=calibration_set.CALPARAM_GAIN.shape,
-                dtype=float,
-            ),
-        ]
-    )
-    calibration_set.__getitem__.assert_has_calls([call("time"), call("ant")])
-    val_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"time,ant")
-    )
-    weight_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"time,ant")
-    )
-    assert val == val_mock
-    assert weight == weight_mock
-
-
-def test_should_create_clock_soltab_dataset():
-    soltab = MagicMock(name="soltab")
-    delaytable = MagicMock(name="delaytable")
-    data_mock = MagicMock(name="data")
-    delaytable.__getitem__.return_value = data_mock
-    val_mock = MagicMock(name="val")
-    offset_mock = MagicMock(name="offset")
-    soltab.create_dataset.side_effect = ("time", "ant", val_mock, offset_mock)
-    delaytable.delay.sizes = ["time", "ant"]
-
-    val, offset = export_to_h5parm.create_clock_soltab_datasets(
-        soltab, delaytable
-    )
-
-    soltab.create_dataset.assert_has_calls(
-        [
-            call("time", data=data_mock.data),
-            call("ant", data=data_mock.data),
-            call("val", shape=delaytable.delay.shape, dtype=float),
-            call("offset", shape=delaytable.delay.shape, dtype=float),
-        ]
-    )
-    delaytable.__getitem__.assert_has_calls([call("time"), call("ant")])
-    val_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"time,ant")
-    )
-    offset_mock.attrs.__setitem__.assert_called_once_with(
-        "AXES", np.bytes_(b"time,ant")
-    )
-    assert val == val_mock
-    assert offset == offset_mock
-
-
-def test_should_create_soltab_group():
-    soltab = MagicMock(name="soltab")
-    solset = MagicMock(name="solset")
-    solset.create_group.return_value = soltab
-
-    result = export_to_h5parm.create_soltab_group(solset, "phase")
-
-    solset.create_group.assert_called_once_with("phase000")
-    soltab.attrs.__setitem__.assert_called_once_with(
-        "TITLE", np.bytes_("phase")
-    )
-    assert result == soltab
 
 
 def test_should_raise_exception_for_unexpected_calibration_set_dims(
