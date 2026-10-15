@@ -78,7 +78,7 @@ def test_should_assert_on_solution_length():
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
     ".predict.as_dask_scalar",
-    side_effect=lambda obj: ("wrapped", obj),
+    side_effect=lambda obj, name=None: ("wrapped", obj),
 )
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(
@@ -237,7 +237,7 @@ def test_should_predict_visibilities(
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
     ".predict.as_dask_scalar",
-    side_effect=lambda obj: ("wrapped", obj),
+    side_effect=lambda obj, name=None: ("wrapped", obj),
 )
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(
@@ -330,7 +330,7 @@ def test_should_predict_visibilities_non_da_type_station_rm(
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
     ".predict.as_dask_scalar",
-    side_effect=lambda obj: ("wrapped", obj),
+    side_effect=lambda obj, name=None: ("wrapped", obj),
 )
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(

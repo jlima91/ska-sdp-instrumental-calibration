@@ -38,7 +38,7 @@ def test_should_predict_central_beams_for_numpy():
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
     ".beams.as_dask_scalar",
-    side_effect=lambda obj: ("wrapped", obj),
+    side_effect=lambda obj, name=None: ("wrapped", obj),
 )
 @patch("ska_sdp_instrumental_calibration.xarray_processors.beams.xr.concat")
 @patch(
@@ -74,7 +74,9 @@ def test_should_predict_central_beams(
     data_array_mock.assert_called_once_with(
         gaintable_mock.frequency, name="frequency_xdr"
     )
-    as_dask_scalar_mock.assert_called_once_with(beams_factory)
+    as_dask_scalar_mock.assert_called_once_with(
+        beams_factory, name="beams_factory"
+    )
     frequency_mock.pipe.assert_called_once_with(
         with_chunks, gaintable_mock.chunksizes
     )

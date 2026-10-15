@@ -149,7 +149,9 @@ def predict_vis(
     # Wrap it as a single graph key, so that it is tokenized and
     # transferred once, instead of being embedded in every task.
     # Always passed positionally (even if None) to keep argument order.
-    common_input_args.append(as_dask_scalar(beams_factory))
+    common_input_args.append(
+        as_dask_scalar(beams_factory, name="beams_factory")
+    )
     common_input_core_dims.append([])
 
     # Process station_rm
@@ -179,7 +181,7 @@ def predict_vis(
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
             vis.uvw.isel(time=slc),
-            as_dask_scalar(local_sky_model),
+            as_dask_scalar(local_sky_model, name="local_sky_model"),
             *common_input_args,
             input_core_dims=[
                 ["baselineid", "spatial"],

@@ -76,7 +76,7 @@ def prediction_central_beams(
     ).pipe(with_chunks, gaintable.chunksizes)
 
     # Single graph key, tokenized and transferred once
-    beams_factory_xdr = as_dask_scalar(beams_factory)
+    beams_factory_xdr = as_dask_scalar(beams_factory, name="beams_factory")
 
     response = xr.concat(
         [

@@ -278,6 +278,18 @@ def test_as_dask_scalar_uses_deterministic_token():
     ) != dask.base.tokenize(as_dask_scalar(_Offset(2)))
 
 
+def test_as_dask_scalar_name_is_key_prefix_unique_per_object():
+    first = as_dask_scalar(_Offset(1), name="offset")
+    same = as_dask_scalar(_Offset(1), name="offset")
+    other = as_dask_scalar(_Offset(2), name="offset")
+
+    assert first.data.name.startswith("offset-")
+    assert dask.utils.key_split(first.data.name) == "offset"
+    assert first.data.name == same.data.name
+    assert first.data.name != other.data.name
+    assert unwrap_dask_scalar(first.data.compute(scheduler="sync")).value == 1
+
+
 def test_as_dask_scalar_wraps_none():
     wrapped = as_dask_scalar(None)
 
