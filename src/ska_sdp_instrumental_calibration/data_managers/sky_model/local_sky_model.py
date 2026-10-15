@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from astropy.coordinates.earth import EarthLocation
 from astropy.coordinates.sky_coordinate import SkyCoord
+from dask.tokenize import normalize_token
 
 from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
@@ -48,6 +49,21 @@ class LocalSkyModel:
     def __init__(self, components: list[Component], solution_time: float):
         self.components = components
         self.soln_time = solution_time
+
+    def __dask_tokenize__(self) -> tuple:
+        """
+        Deterministic dask token for the local sky model.
+
+        Tokenizes the solution time and the dataclass fields of the
+        components, which avoids pickling the whole model.
+
+        Returns
+        -------
+            Normalized token of this sky model.
+        """
+        return normalize_token(
+            (type(self).__name__, self.soln_time, self.components)
+        )
 
     def create_vis(
         self,

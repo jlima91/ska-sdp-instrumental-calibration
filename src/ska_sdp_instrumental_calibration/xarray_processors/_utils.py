@@ -1,8 +1,11 @@
 import logging
-from typing import TypeVar
+from typing import Any, TypeVar
 
+import dask
+import dask.array as da
 import numpy as np
 import xarray as xr
+from dask.tokenize import tokenize
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,64 @@ def with_chunks(obj: T_xarray_obj, chunks: dict) -> T_xarray_obj:
     relevant_chunks = {dim: chunks[dim] for dim in obj.sizes if dim in chunks}
 
     return obj.chunk(relevant_chunks) if relevant_chunks else obj
+
+
+def as_dask_scalar(obj: Any, name: str | None = None) -> xr.DataArray:
+    """
+    Wrap a python object into a 0-d, dask backed, object DataArray.
+
+    The object is stored once in the dask graph under a key derived from
+    its token (see ``__dask_tokenize__``). Passing the result as a
+    positional argument of ``xr.apply_ufunc`` makes every block depend on
+    that single key, instead of embedding a copy of the object in every
+    task. Use :py:func:`unwrap_dask_scalar` inside the ufunc to retrieve
+    the object.
+
+    Parameters
+    ----------
+    obj
+        Any python object.
+    name
+        Optional prefix of the dask graph key, to identify the object in
+        dask dashboards and graphs. The token of ``obj`` is appended to
+        it, so the key stays unique per object. If None, dask's default
+        ``from-value`` prefix is used.
+
+    Returns
+    -------
+        0-d DataArray of ``object`` dtype holding ``obj``.
+    """
+    if name is not None:
+        name = f"{name}-{tokenize(obj)}"
+
+    return xr.DataArray(
+        da.from_delayed(
+            dask.delayed(obj, pure=True),
+            shape=(),
+            dtype=object,
+            meta=np.empty((), dtype=object),
+            name=name,
+        )
+    )
+
+
+def unwrap_dask_scalar(wrapped: np.ndarray | Any) -> Any:
+    """
+    Retrieve the object wrapped by :py:func:`as_dask_scalar`.
+
+    Parameters
+    ----------
+    wrapped
+        The block received by the ufunc, an object ndarray of size 1.
+        Non-ndarray inputs are returned as is.
+
+    Returns
+    -------
+        The wrapped python object.
+    """
+    if isinstance(wrapped, np.ndarray):
+        return wrapped.item()
+    return wrapped
 
 
 def normalize_data(data):

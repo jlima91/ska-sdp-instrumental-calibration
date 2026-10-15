@@ -2,6 +2,17 @@
 
 set -e
 
+# Only run for commit message templates (not for merges, -m, etc.)
+if [[ "$2" != "" && "$2" != "template" ]]; then
+    exit 0
+fi
+
+# Prompts need a terminal. In non-interactive workflows (IDEs, agents, CI)
+# the commit message is left untouched.
+if ! (exec < /dev/tty) 2>/dev/null; then
+    exit 0
+fi
+
 exec < /dev/tty
 
 # Function to prompt the user with a message
@@ -24,11 +35,6 @@ ask_yes_no() {
         esac
     done
 }
-
-# Only run for commit message templates (not for merges, etc.)
-if [[ "$2" != "" && "$2" != "template" ]]; then
-    exit 0
-fi
 
 # Get commit message file path
 COMMIT_MSG_FILE="$1"

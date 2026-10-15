@@ -386,21 +386,7 @@ if $enable_monitor:
         "resources": {
             "level": 0,
             "save_dir": "$report_dir",
-        },
-        "logs": {
-            "filter_plugins": [
-                {
-                    "name": "SKASDPFilter",
-                    "kwargs": {"pipeline": "INST"},
-                }
-            ],
-            "consumer_plugins": [
-                {
-                    "name": "CSVFile",
-                    "kwargs": {"file_path": "$report_dir/events.csv"},
-                }
-            ],
-        },
+        }
     }
 
 batchlet_config["generate_reports_on_failure"] = True

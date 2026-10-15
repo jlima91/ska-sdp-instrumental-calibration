@@ -2,7 +2,13 @@
 
 set -e
 
-exec < /dev/tty
+# Prompts need a terminal. Non-interactive workflows (IDEs, agents, CI)
+# skip the prompts with a warning, but still run all the checks below.
+INTERACTIVE=0
+if (exec < /dev/tty) 2>/dev/null; then
+    exec < /dev/tty
+    INTERACTIVE=1
+fi
 
 # List of files to track
 ENV_FILES=("pyproject.toml")
@@ -23,27 +29,36 @@ if [[ $CHECK_FOR_ENV_FILE_CHANGE -eq 1 ]] ; then
     echo -e "\nChanges detected in \"$file\""
     echo -e "\nThis might be due to staged changes OR because you moved git's local HEAD.\n"
 
-    read -rp 'Have you updated your local python environment? [y/n] ' response
-    case "$response" in
-        [Yy]*) ;;
-        [Nn]*) echo -e "\nPlease update the python environment and reinstall the package using poetry.'\n" ; exit 1;;
-        *) echo -e "\nPlease answer yes or no. Exiting.\n"; exit 1 ;;
-    esac
+    if [[ $INTERACTIVE -eq 0 ]] ; then
+        echo -e "Non-interactive shell: ensure your local python environment is updated.\n"
+    else
+        read -rp 'Have you updated your local python environment? [y/n] ' response
+        case "$response" in
+            [Yy]*) ;;
+            [Nn]*) echo -e "\nPlease update the python environment and reinstall the package using poetry.'\n" ; exit 1;;
+            *) echo -e "\nPlease answer yes or no. Exiting.\n"; exit 1 ;;
+        esac
+    fi
 fi
 
 # check for changes in Dockerfile
 if [[ " ${STAGED_FILES} " == *"Dockerfile"*  ]] ; then
     echo -e "\nChanges detected in \"Dockerfile\""
     echo
-    read -rp 'Have you performed linting of Dockerfile [y/n] ' response
-    case "$response" in
-        [Yy]*) ;;
-        [Nn]*) echo -e "\nPlease run the 'make oci-lint' to lint the Dockerfile\n" ; exit 1;;
-        *) echo -e "\nPlease answer yes or no. Exiting.\n"; exit 1 ;;
-    esac
+    if [[ $INTERACTIVE -eq 0 ]] ; then
+        echo -e "Non-interactive shell: ensure 'make oci-lint' passes for the Dockerfile.\n"
+    else
+        read -rp 'Have you performed linting of Dockerfile [y/n] ' response
+        case "$response" in
+            [Yy]*) ;;
+            [Nn]*) echo -e "\nPlease run the 'make oci-lint' to lint the Dockerfile\n" ; exit 1;;
+            *) echo -e "\nPlease answer yes or no. Exiting.\n"; exit 1 ;;
+        esac
+    fi
 fi
 
-exec <&-
+# Detach stdin, so that the checks below never wait for input
+exec < /dev/null
 
 
 # Running lints, test, build

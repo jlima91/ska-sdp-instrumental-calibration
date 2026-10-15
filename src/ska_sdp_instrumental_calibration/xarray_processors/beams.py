@@ -6,25 +6,26 @@ import xarray as xr
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.gaintable import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol
-from ._utils import with_chunks
+from ._utils import as_dask_scalar, unwrap_dask_scalar, with_chunks
 
 logger = logging.getLogger(__name__)
 
 
 def _prediction_central_beams_ufunc(
     frequency: np.ndarray,
+    beams_factory: np.ndarray | BeamsFactory,
     soln_time: float,
-    beams_factory: BeamsFactory,
 ):
     """
     frequency: np.ndarray, (frequency,)
+    beams_factory: BeamsFactory, or 0-d object array wrapping it
     soln_time: float
-    beams_factory: BeamsFactory
 
     Returns
     -------
     np.ndarray (frequency, antenna, npol)
     """
+    beams_factory = unwrap_dask_scalar(beams_factory)
     beams = beams_factory.get_beams_low(frequency, soln_time)
 
     # NOTE: This ID mapping will not always work when the eb_ms file is
@@ -75,12 +76,16 @@ def prediction_central_beams(
         gaintable.frequency, name="frequency_xdr"
     ).pipe(with_chunks, gaintable.chunksizes)
 
+    # Single graph key, tokenized and transferred once
+    beams_factory_xdr = as_dask_scalar(beams_factory, name="beams_factory")
+
     response = xr.concat(
         [
             xr.apply_ufunc(
                 _prediction_central_beams_ufunc,
                 frequency_xdr,
-                input_core_dims=[[]],
+                beams_factory_xdr,
+                input_core_dims=[[], []],
                 output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
@@ -96,7 +101,6 @@ def prediction_central_beams(
                 },
                 kwargs={
                     "soln_time": val,
-                    "beams_factory": beams_factory,
                 },
             ).transpose("antenna_name", "frequency", "polarization")
             for val in gaintable.time.data

@@ -8,6 +8,12 @@ from ska_sdp_instrumental_calibration.xarray_processors.beams import (
 )
 
 
+def _object_scalar(obj):
+    wrapped = np.empty((), dtype=object)
+    wrapped[()] = obj
+    return wrapped
+
+
 def test_should_predict_central_beams_for_numpy():
     beams_mock = MagicMock(name="beams")
     array_response_mock = MagicMock(name="array_response")
@@ -17,7 +23,9 @@ def test_should_predict_central_beams_for_numpy():
     transposed_mock = array_response_mock.transpose.return_value
     transposed_mock.shape = (3, 5, 2, 2)
 
-    expected = _prediction_central_beams_ufunc("frequency", 0.23, beams_mock)
+    expected = _prediction_central_beams_ufunc(
+        "frequency", _object_scalar(beams_mock), 0.23
+    )
 
     beams_mock.get_beams_low.assert_called_once_with("frequency", 0.23)
     beams_mock.array_response.assert_called_once_with(
@@ -30,6 +38,11 @@ def test_should_predict_central_beams_for_numpy():
     assert expected == transposed_mock.reshape.return_value
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".beams.as_dask_scalar",
+    side_effect=lambda obj, name=None: ("wrapped", obj),
+)
 @patch("ska_sdp_instrumental_calibration.xarray_processors.beams.xr.concat")
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
@@ -39,7 +52,7 @@ def test_should_predict_central_beams_for_numpy():
     "ska_sdp_instrumental_calibration.xarray_processors" ".beams.xr.DataArray"
 )
 def test_should_predict_central_beams(
-    data_array_mock, apply_ufunc_mock, concat_mock
+    data_array_mock, apply_ufunc_mock, concat_mock, as_dask_scalar_mock
 ):
     gaintable_mock = MagicMock(name="gaintable")
     gaintable_mock.time.data = [1, 2]
@@ -64,6 +77,9 @@ def test_should_predict_central_beams(
     data_array_mock.assert_called_once_with(
         gaintable_mock.frequency, name="frequency_xdr"
     )
+    as_dask_scalar_mock.assert_called_once_with(
+        beams_factory, name="beams_factory"
+    )
     frequency_mock.pipe.assert_called_once_with(
         with_chunks, gaintable_mock.chunksizes
     )
@@ -73,7 +89,8 @@ def test_should_predict_central_beams(
             call(
                 _prediction_central_beams_ufunc,
                 frequency_mock,
-                input_core_dims=[[]],
+                ("wrapped", beams_factory),
+                input_core_dims=[[], []],
                 output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
@@ -89,13 +106,13 @@ def test_should_predict_central_beams(
                 },
                 kwargs={
                     "soln_time": 1,
-                    "beams_factory": beams_factory,
                 },
             ),
             call(
                 _prediction_central_beams_ufunc,
                 frequency_mock,
-                input_core_dims=[[]],
+                ("wrapped", beams_factory),
+                input_core_dims=[[], []],
                 output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
@@ -111,7 +128,6 @@ def test_should_predict_central_beams(
                 },
                 kwargs={
                     "soln_time": 2,
-                    "beams_factory": beams_factory,
                 },
             ),
         ]
