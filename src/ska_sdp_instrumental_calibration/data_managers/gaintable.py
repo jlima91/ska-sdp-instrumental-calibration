@@ -158,16 +158,16 @@ def create_gaintable_from_visibility(
     )
 
     # Attach solution interval slices as attribute
+    # pylint can't see through the xradio schema decorator, which makes
+    # the constructor return an xarray.Dataset
     # pylint: disable-next=no-member
-    gain_table.attrs["soln_interval_slices"] = (
-        soln_intervals.indices
-    )  # pylint: disable=E1101
+    gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
     # Chunk data variables
 
     if skip_default_chunk:
         return gain_table
 
-    gain_table = gain_table.chunk(time=1)  # pylint: disable=E1101
+    gain_table = gain_table.chunk(time=1)  # pylint: disable=no-member
     if (
         gain_table.frequency.size == vis.frequency.size
         and "frequency" in vis.chunksizes
