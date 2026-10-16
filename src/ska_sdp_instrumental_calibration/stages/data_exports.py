@@ -3,19 +3,14 @@ import os
 from functools import reduce
 from typing import Annotated, Literal, Optional
 
-import h5py
 import xarray as xr
 from pydantic import Field
-from ska_sdp_datamodels.calibration.calibration_functions import (
-    convert_gaintable_to_hdf,
-)
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
-from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..data_managers.sdm import get_gaintable_file_path
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
@@ -46,31 +41,6 @@ def group_upstream_by_field_id(upstream_outputs):
     return reduce(accumulate_by_field_id, upstream_outputs, {})
 
 
-def export_gaintable_to_hdf5(
-    gaintable: GainCalibrationSetXds,
-    filename: str,
-    exclude_cross_pols: bool = False,
-):
-    """Export a GainTable to HDF5 format
-
-    :param gaintable: GainCalibrationSetXds or list
-    :param filename: Name of HDF5 file
-    :param exclude_cross_pols: If cross pols should be excluded in export
-    :return: None
-    """
-
-    # remove cross pols if not required
-    if exclude_cross_pols:
-        gaintable = gaintable.isel(polarization=[0, 3])
-
-    with h5py.File(filename, "w") as f:
-        f.attrs["number_data_models"] = 1
-        gf = f.create_group("GainTable0")
-        convert_gaintable_to_hdf(gaintable, gf)
-
-        f.flush()
-
-
 @ConfigurableStage(name="export_gain_table")
 @Tags.AGGREGATOR
 def export_gaintable_stage(
@@ -84,7 +54,7 @@ def export_gaintable_stage(
         ),
     ] = "gaintable",
     export_format: Annotated[
-        Literal["h5parm", "hdf5"],
+        Literal["h5parm"],
         Field(
             description="""Export file format""",
         ),
@@ -108,7 +78,7 @@ def export_gaintable_stage(
         file_name : str
             Base name for the output file (without extension).
         export_format : str
-            Format to export the gain table 'Hdf5' and 'H5parm'.
+            Format to export the gain table. Only 'h5parm' is supported.
         export_metadata : bool
             Export metadata to YAML file.
     Returns
@@ -119,7 +89,6 @@ def export_gaintable_stage(
     final_upstream = UpstreamOutput()
     export_functions = {
         "h5parm": export_gaintable_to_h5parm,
-        "hdf5": export_gaintable_to_hdf5,
     }
     grouped_upstream_output = group_upstream_by_field_id(_upstream_output_)
     for field_id, upstream_outputs in grouped_upstream_output.items():

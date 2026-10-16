@@ -5,7 +5,6 @@ from ska_sdp_instrumental_calibration.stages.data_exports import (
     INST_METADATA_FILE,
     concat_gaintables,
     export_gaintable_stage,
-    export_gaintable_to_hdf5,
 )
 from ska_sdp_instrumental_calibration.tagger import Tags
 
@@ -145,39 +144,6 @@ def test_should_export_gaintable_as_h5parm(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.data_exports"
-    ".export_gaintable_to_hdf5"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
-    side_effect=lambda f: f,
-)
-def test_should_export_gaintable_as_hdf5(
-    delayed_mock, concat_mock, export_gaintable_hdf5_mock
-):
-
-    upstream_output = _get_prepopulated_upstream_output()
-    concat_mock.return_value = upstream_output
-    export_gaintable_hdf5_mock.return_value = "field_a_export"
-
-    export_gaintable_stage(
-        [upstream_output],
-        _output_dir_="dir/to/save",
-        file_name="test_gains",
-        export_format="hdf5",
-        export_metadata=False,
-    )
-
-    export_gaintable_hdf5_mock.assert_called_once_with(
-        upstream_output.gaintable, "dir/to/save/field_a_test_gains.hdf5", False
-    )
-    delayed_mock.assert_called_once_with(export_gaintable_hdf5_mock)
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports"
     ".export_gaintable_to_h5parm"
 )
 @patch("ska_sdp_instrumental_calibration.stages.data_exports.INSTMetaData")
@@ -268,81 +234,3 @@ def _get_prepopulated_upstream_output(
     upstream_output["calibration_purpose"] = calibration_purpose
     upstream_output.calibration_tables = "gaintable"
     return upstream_output
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports."
-    "convert_gaintable_to_hdf"
-)
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.h5py.File")
-def test_export_gaintable_to_hdf5(
-    h5py_file_mock,
-    convert_mock,
-):
-    """Test GainTable export without polarization filtering."""
-
-    gaintable_mock = Mock(name="gaintable")
-
-    file_handle_mock = Mock(name="file_handle")
-    file_handle_mock.attrs = {}
-    group_mock = Mock(name="group")
-
-    h5py_file_mock.return_value.__enter__.return_value = file_handle_mock
-    file_handle_mock.create_group.return_value = group_mock
-
-    export_gaintable_to_hdf5(
-        gaintable_mock,
-        "test.hdf5",
-        exclude_cross_pols=False,
-    )
-
-    h5py_file_mock.assert_called_once_with(
-        "test.hdf5",
-        "w",
-    )
-
-    file_handle_mock.create_group.assert_called_once_with("GainTable0")
-
-    convert_mock.assert_called_once_with(
-        gaintable_mock,
-        group_mock,
-    )
-
-    file_handle_mock.flush.assert_called_once()
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.stages.data_exports."
-    "convert_gaintable_to_hdf"
-)
-@patch("ska_sdp_instrumental_calibration.stages.data_exports.h5py.File")
-def test_export_gaintable_to_hdf5_exclude_cross_pols(
-    h5py_file_mock,
-    convert_mock,
-):
-    """Test GainTable export with XY/YX removed."""
-
-    filtered_gaintable_mock = Mock(name="filtered_gaintable")
-
-    gaintable_mock = Mock(name="gaintable")
-    gaintable_mock.isel.return_value = filtered_gaintable_mock
-
-    file_handle_mock = Mock(name="file_handle")
-    file_handle_mock.attrs = {}
-    group_mock = Mock(name="group")
-
-    h5py_file_mock.return_value.__enter__.return_value = file_handle_mock
-    file_handle_mock.create_group.return_value = group_mock
-
-    export_gaintable_to_hdf5(
-        gaintable_mock,
-        "test.hdf5",
-        exclude_cross_pols=True,
-    )
-
-    gaintable_mock.isel.assert_called_once_with(polarization=[0, 3])
-
-    convert_mock.assert_called_once_with(
-        filtered_gaintable_mock,
-        group_mock,
-    )
