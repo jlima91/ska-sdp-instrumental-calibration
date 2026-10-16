@@ -98,7 +98,9 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     delayed_gain_plot()
 
-    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
+    gaintable.rename.assert_has_calls(
+        [call(polarization="Jones_Solutions"), call(antenna_name="Station")]
+    )
 
     gaintable.assign_coords.assert_called_once_with(
         {"Jones_Solutions": ["J_XX", "J_XY", "J_YY"]}
@@ -112,9 +114,7 @@ def test_should_plot_gaintable_for_freq(np_mock, divide_bandpass_mock):
 
     divide_bandpass_mock.assert_called_once_with(gaintable, 2)
 
-    gaintable.swap_dims.assert_has_calls(
-        [call({"antenna_name": "Station"}), call({"frequency": "Channel"})]
-    )
+    gaintable.swap_dims.assert_called_once_with({"frequency": "Channel"})
     amp_gain_mock.plot.scatter.assert_has_calls(
         [
             call(
@@ -273,7 +273,9 @@ def test_should_plot_gaintable_for_time(np_mock):
 
     delayed_gain_plot()
 
-    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
+    gaintable.rename.assert_has_calls(
+        [call(polarization="Jones_Solutions"), call(antenna_name="Station")]
+    )
 
     gaintable.assign_coords.assert_called_once_with(
         {"Jones_Solutions": ["J_XX", "J_XY", "J_YY"]}
@@ -284,7 +286,7 @@ def test_should_plot_gaintable_for_time(np_mock):
             call(Jones_Solutions=["J_XX", "J_YY"]),
         ]
     )
-    gaintable.swap_dims.assert_called_once_with({"antenna_name": "Station"})
+    gaintable.swap_dims.assert_not_called()
     gaintable.assign.assert_called_once_with({"time": ANY})
 
     amp_gain_mock.plot.scatter.assert_has_calls(
@@ -448,7 +450,9 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
 
     delayed_plot_gain()
 
-    gaintable.rename.assert_called_once_with(polarization="Jones_Solutions")
+    gaintable.rename.assert_has_calls(
+        [call(polarization="Jones_Solutions"), call(antenna_name="Station")]
+    )
 
     phase_gain_mock.squeeze.return_value.plot.imshow.assert_called_once_with(
         x="Channel",

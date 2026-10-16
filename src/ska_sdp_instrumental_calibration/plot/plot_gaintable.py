@@ -459,7 +459,7 @@ class PlotGaintable:
 
         This method renames the polarization dimension to
         'Jones_Solutions' dimension, renames the coordinates to
-        strings (e.g., 'J_XX'), adds a 'Station' coordinate,
+        strings (e.g., 'J_XX'), renames the antenna dimension to 'Station',
         and optionally filters out cross-polarizations.
 
         Parameters
@@ -483,13 +483,8 @@ class PlotGaintable:
         ]
         gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
 
-        gaintable.coords["Station"] = (
-            "antenna_name",
-            gaintable.antenna_name.data,
-        )
-
-        return gaintable.sel(Jones_Solutions=sols).swap_dims(
-            {"antenna_name": "Station"}
+        return gaintable.sel(Jones_Solutions=sols).rename(
+            antenna_name="Station"
         )
 
 
