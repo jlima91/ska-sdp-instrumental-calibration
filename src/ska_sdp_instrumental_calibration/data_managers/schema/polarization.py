@@ -45,6 +45,39 @@ def npol_to_nrec(npol: int) -> int:
         ) from None
 
 
+def pol_index(rec1: int, rec2: int, nrec: int = 2) -> int:
+    """
+    Index of a Jones element on the flat polarization axis.
+
+    The polarization axis holds the ``(nrec, nrec)`` Jones matrix
+    flattened in row-major order, as done by :func:`jones_to_pol`.
+
+    Parameters
+    ----------
+    rec1
+        Receptor index of the first antenna (Jones row).
+    rec2
+        Receptor index of the second antenna (Jones column).
+    nrec
+        Number of receptors per antenna.
+
+    Returns
+    -------
+        Index along the polarization axis, e.g. 3 for YY when nrec is 2.
+
+    Raises
+    ------
+    ValueError
+        If ``rec1`` or ``rec2`` is not in ``range(nrec)``.
+    """
+    if not (0 <= rec1 < nrec and 0 <= rec2 < nrec):
+        raise ValueError(
+            f"Receptor indices ({rec1}, {rec2}) out of range for "
+            f"nrec={nrec}"
+        )
+    return rec1 * nrec + rec2
+
+
 def pol_to_jones(x: T_AnyArray) -> T_AnyArray:
     """
     Convert polarization into (2x2 or 1x1) Jones matrices.

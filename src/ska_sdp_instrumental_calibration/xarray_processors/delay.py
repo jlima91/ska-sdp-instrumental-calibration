@@ -8,7 +8,7 @@ from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..data_managers.schema.polarization import jones_to_pol
+from ..data_managers.schema.polarization import jones_to_pol, pol_index
 from ..numpy_processors._utils import stack_2x2
 from ._utils import with_chunks
 
@@ -138,7 +138,7 @@ def calculate_delays_from_gain(
     # To get index of XX, YY from flattened 2x2 polarization
     # i.e. (XX, XY, YX, YY)
     for rec1idx, rec2idx in ((0, 0), (1, 1)):
-        polidx = rec1idx * 2 + rec2idx
+        polidx = pol_index(rec1idx, rec2idx)
         pols.append(gaintable["polarization"][polidx].item())
 
         gain = gain_gain_chunked[..., polidx]
@@ -272,7 +272,7 @@ def apply_delay_to_gaintable(
     # gaintable stores them in flattened 2x2 matrix (polarization)
     # while delaytable stores them in 1x2 array
     for delay_pol_idx, rec1idx, rec2idx in ((0, 0, 0), (1, 1, 1)):
-        gain = gaintable["CALPARAM_GAIN"][..., rec1idx * 2 + rec2idx]
+        gain = gaintable["CALPARAM_GAIN"][..., pol_index(rec1idx, rec2idx)]
         delay = delaytable["delay"].isel(pol=delay_pol_idx)
         offset = delaytable["offset"].isel(pol=delay_pol_idx)
 

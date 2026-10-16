@@ -8,7 +8,7 @@ from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..data_managers.schema.polarization import jones_to_pol
+from ..data_managers.schema.polarization import jones_to_pol, pol_index
 from ..numpy_processors._utils import stack_2x2
 from ..scheduler import delayed
 from ._utils import with_chunks
@@ -687,7 +687,7 @@ def flag_on_gains(
         if skip_cross_pol and rec1idx != rec2idx:
             continue
 
-        polidx = rec1idx * 2 + rec2idx
+        polidx = pol_index(rec1idx, rec2idx)
         pol = gaintable["polarization"][polidx].item()
 
         with warnings.catch_warnings():
