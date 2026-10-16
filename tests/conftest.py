@@ -92,8 +92,8 @@ def generate_vis():
     jones = create_gaintable_from_visibility(
         vis, jones_type="B", skip_default_chunk=True
     ).compute()
-    jones.CALPARAM_GAIN.data[..., 0, 0] = 1 - 0.1j
-    jones.CALPARAM_GAIN.data[..., 1, 1] = 3 + 0j
+    jones.CALPARAM_GAIN.data[..., 0] = 1 - 0.1j
+    jones.CALPARAM_GAIN.data[..., 3] = 3 + 0j
     jones.CALPARAM_GAIN.data += np.random.normal(
         0, 0.2, jones.CALPARAM_GAIN.shape
     )
@@ -150,8 +150,8 @@ def generate_ionospehric_vis():
 
     phi = (-8.44797245 * 1e9) / jones.CALPARAM_GAIN.frequency.data
 
-    jones.CALPARAM_GAIN.data[..., :, 0] = np.exp(1j * phi)
-    jones.CALPARAM_GAIN.data[..., :, 3] = np.exp(1j * phi)
+    jones.CALPARAM_GAIN.data[..., 0] = np.exp(1j * phi)
+    jones.CALPARAM_GAIN.data[..., 3] = np.exp(1j * phi)
 
     return vis, jones
 
