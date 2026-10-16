@@ -7,7 +7,6 @@ from typing import Literal, Union, cast
 import numpy
 import xarray
 from numpy.typing import NDArray
-from ska_sdp_datamodels.xarray_accessor import XarrayAccessorMixin
 from xradio.measurement_set.schema import (
     AntennaNameArray,
     Polarization,
@@ -15,8 +14,6 @@ from xradio.measurement_set.schema import (
 )
 from xradio.schema.bases import xarray_dataarray_schema, xarray_dataset_schema
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
-
-from .polarization import npol_to_nrec
 
 Time = Literal["time"]
 AntennaName = Literal["antenna_name"]
@@ -206,28 +203,3 @@ class GainCalibrationSetXds:
         # The xradio decorator makes calling the class build and schema-check
         # an xarray.Dataset (not an instance of this class)
         return cast(xarray.Dataset, cls(**fields))
-
-
-@xarray.register_dataset_accessor("calibration_set")
-class GainCalibrationSetAccessor(XarrayAccessorMixin):
-    """GainCalibrationSetXds property accessor"""
-
-    @property
-    def ntimes(self) -> int:
-        """Number of times (i.e. rows) in this table"""
-        return self._obj.sizes["time"]
-
-    @property
-    def nants(self) -> int:
-        """Number of dishes/stations"""
-        return self._obj.sizes["antenna_name"]
-
-    @property
-    def nchan(self) -> int:
-        """Number of channels"""
-        return self._obj.sizes["frequency"]
-
-    @property
-    def nrec(self) -> int:
-        """Number of polarisation in receptors"""
-        return npol_to_nrec(self._obj.sizes["polarization"])

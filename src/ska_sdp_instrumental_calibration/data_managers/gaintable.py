@@ -192,7 +192,7 @@ def reset_gaintable(gaintable: GainCalibrationSetXds) -> GainCalibrationSetXds:
         Gaintable with data variables resetted to their intial sensible values.
     """
     gain_shape = gaintable.CALPARAM_GAIN.shape
-    nrec = gaintable.calibration_set.nrec
+    nrec = npol_to_nrec(gaintable.sizes["polarization"])
     gain = da.broadcast_to(
         jones_to_pol(da.eye(nrec, dtype=gaintable.CALPARAM_GAIN.dtype)),
         gain_shape,

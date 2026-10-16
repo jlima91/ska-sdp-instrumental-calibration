@@ -1,11 +1,7 @@
 import dask.array as da
 import numpy as np
 import pytest
-import xarray as xr
 
-from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
-    GainCalibrationSetAccessor,
-)
 from ska_sdp_instrumental_calibration.data_managers.schema.polarization import (  # noqa: E501
     jones_to_pol,
     npol_to_nrec,
@@ -80,14 +76,3 @@ def test_jones_to_pol_should_invert_pol_to_jones():
     x = np.arange(5 * 4).reshape(5, 4)
 
     np.testing.assert_array_equal(jones_to_pol(pol_to_jones(x)), x)
-
-
-def test_nrec_accessor_should_raise_for_two_pols():
-    gaintable = xr.Dataset(
-        coords={"polarization": ["XX", "YY"]},
-    )
-
-    with pytest.raises(
-        ValueError, match="Unsupported number of polarizations: 2"
-    ):
-        _ = GainCalibrationSetAccessor(gaintable).nrec

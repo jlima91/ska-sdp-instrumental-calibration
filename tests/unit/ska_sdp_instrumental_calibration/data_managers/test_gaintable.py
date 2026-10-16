@@ -134,10 +134,10 @@ def test_should_skip_default_chunk(generate_vis):
 @patch("ska_sdp_instrumental_calibration.data_managers.gaintable.da")
 def test_should_reset_gaintable(da_mock, jones_to_pol_mock):
     gaintable = MagicMock(name="gaintable")
-    gaintable.calibration_set.nrec = 2
+    gaintable.sizes = {"polarization": 4}
     r_gaintable = reset_gaintable(gaintable)
     da_mock.eye.assert_called_once_with(
-        gaintable.calibration_set.nrec,
+        2,
         dtype=gaintable.CALPARAM_GAIN.dtype,
     )
     jones_to_pol_mock.assert_called_once_with(da_mock.eye.return_value)
