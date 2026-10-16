@@ -6,9 +6,9 @@ import numpy as np
 from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
-from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 from .h5parm import read_h5parm_gains
 from .schema.calibration_set import GainCalibrationSetXds
+from .schema.polarization import jones_to_pol, pol_to_jones
 from .solution_interval import SolutionIntervals
 
 

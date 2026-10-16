@@ -8,12 +8,9 @@ from numpy.exceptions import ComplexWarning
 from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 
-from ska_sdp_instrumental_calibration.numpy_processors._utils import (
-    jones_to_pol,
-    stack_2x2,
-)
-
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
+from ..data_managers.schema.polarization import jones_to_pol
+from ..numpy_processors._utils import stack_2x2
 from ._utils import with_chunks
 
 logger = logging.getLogger()

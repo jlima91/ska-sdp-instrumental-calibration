@@ -4,7 +4,7 @@ from ska_sdp_datamodels.visibility.vis_io_ms import create_visibility_from_ms
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
 )
-from ska_sdp_instrumental_calibration.numpy_processors._utils import (
+from ska_sdp_instrumental_calibration.data_managers.schema.polarization import (  # noqa: E501
     jones_to_pol,
     pol_to_jones,
 )

@@ -5,7 +5,7 @@ import xarray as xr
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..numpy_processors._utils import jones_to_pol
+from ..data_managers.schema.polarization import jones_to_pol
 from ._utils import as_dask_scalar, unwrap_dask_scalar, with_chunks
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..numpy_processors._utils import pol_to_jones
+from ..data_managers.schema.polarization import pol_to_jones
 
 logger = logging.getLogger(__name__)
 

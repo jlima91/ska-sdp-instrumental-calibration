@@ -18,7 +18,7 @@ from xradio.measurement_set.schema import (
 from xradio.schema.bases import xarray_dataarray_schema, xarray_dataset_schema
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-from ...numpy_processors._utils import NPOL_TO_NREC
+from .polarization import npol_to_nrec
 
 Time = Literal["time"]
 AntennaName = Literal["antenna_name"]
@@ -230,4 +230,4 @@ class GainCalibrationSetAccessor(XarrayAccessorMixin):
     @property
     def nrec(self) -> int:
         """Number of polarisation in receptors"""
-        return NPOL_TO_NREC[self._obj.sizes["polarization"]]
+        return npol_to_nrec(self._obj.sizes["polarization"])
