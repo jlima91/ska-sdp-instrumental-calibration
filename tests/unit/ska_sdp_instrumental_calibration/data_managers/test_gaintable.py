@@ -37,6 +37,49 @@ def test_should_generate_gaintable_with_defaults(generate_vis):
     ]
 
 
+@pytest.mark.parametrize(
+    "polarisation",
+    [["XX", "XY", "YX", "YY"], ["RR", "RL", "LR", "LL"]],
+    ids=["linear", "circular"],
+)
+def test_should_take_names_and_pols_from_visibility(
+    generate_vis, polarisation
+):
+    vis, _ = generate_vis
+    vis = vis.assign_coords(polarisation=polarisation)
+
+    gaintable = create_gaintable_from_visibility(vis)
+
+    assert gaintable.polarization.data.tolist() == polarisation
+    assert (
+        gaintable.antenna_name.data.tolist()
+        == vis.configuration.names.data.tolist()
+    )
+
+
+@pytest.mark.parametrize(
+    "polarisation",
+    [
+        ["XX", "YY", "XY", "YX"],
+        ["I", "Q", "U", "V"],
+        ["XX", "YY"],
+        ["I"],
+    ],
+    ids=["linearFITS", "stokesIQUV", "linearnp", "stokesI"],
+)
+def test_should_raise_for_unsupported_visibility_pols(
+    generate_vis, polarisation
+):
+    vis, _ = generate_vis
+    vis = vis.isel(polarisation=slice(0, len(polarisation)))
+    vis = vis.assign_coords(polarisation=polarisation)
+
+    with pytest.raises(
+        ValueError, match="Unsupported visibility polarizations"
+    ):
+        create_gaintable_from_visibility(vis)
+
+
 def test_should_generate_gaintable_for_jonetypes_B(generate_vis):
     vis, jones = generate_vis
     vis = vis.chunk(frequency=1)
@@ -221,7 +264,8 @@ def _h5parm_gains(
 def test_create_gaintable_from_h5parm_should_create_without_vis(
     read_h5parm_gains_mock,
 ):
-    gain, weight, _, soltab = _h5parm_gains()
+    antennas = ["ANT0", "ANT1", "ANT2"]
+    gain, weight, _, soltab = _h5parm_gains(antenna=antennas)
     read_h5parm_gains_mock.return_value = (gain, weight, None, soltab)
     interval = np.array([10.0, 10.0])
 
@@ -243,6 +287,25 @@ def test_create_gaintable_from_h5parm_should_create_without_vis(
     np.testing.assert_allclose(gaintable.CALPARAM_INTERVAL.data, interval)
     np.testing.assert_allclose(gaintable.frequency.data, soltab.frequency)
     assert gaintable.jones_type == "B"
+    assert gaintable.antenna_name.data.tolist() == antennas
+    assert gaintable.polarization.data.tolist() == ["XX", "XY", "YX", "YY"]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers.gaintable."
+    "read_h5parm_gains"
+)
+def test_create_gaintable_from_h5parm_should_raise_for_absent_antenna_no_vis(
+    read_h5parm_gains_mock,
+):
+    read_h5parm_gains_mock.return_value = _h5parm_gains(antenna=None)
+
+    with pytest.raises(
+        ValueError,
+        match="H5Parm gains.h5 has no antenna axis; "
+        "vis is required to provide the antenna names",
+    ):
+        create_gaintable_from_h5parm("gains.h5", np.array([10.0, 10.0]))
 
 
 @pytest.mark.parametrize(

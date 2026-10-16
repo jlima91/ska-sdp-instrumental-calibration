@@ -71,10 +71,6 @@ def export_gaintable_to_h5parm(
     if not np.array_equal(gaintable["pol"].data, polstrs):
         raise ValueError("Subsequent pipelines assume linear pol order")
 
-    # replace antenna indices with antenna names
-    if gaintable["ant"].isnull().all():
-        raise ValueError("Missing gt config. H5Parm requires antenna names")
-
     antenna_names = to_null_terminated_bytes(gaintable["ant"].data)
 
     gaintable = gaintable.assign_coords({"ant": antenna_names})

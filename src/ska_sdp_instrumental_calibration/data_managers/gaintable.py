@@ -1,15 +1,47 @@
-from copy import copy
 from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
-from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.visibility import Visibility
 
 from .h5parm import read_h5parm_gains
 from .schema.calibration_set import GainCalibrationSetXds
-from .schema.polarization import jones_to_pol, pol_to_jones
+from .schema.polarization import (
+    CIRCULAR_POLS,
+    LINEAR_POLS,
+    jones_to_pol,
+    npol_to_nrec,
+    pol_to_jones,
+)
 from .solution_interval import SolutionIntervals
+
+
+def _get_vis_polarization(vis: Visibility) -> np.ndarray:
+    """
+    Polarization labels of a Visibility, checked to be all 4 linear or
+    circular correlations in row-major Jones order.
+
+    Parameters
+    ----------
+    vis
+        Visibility to read the ``polarisation`` coordinate from.
+
+    Returns
+    -------
+        Polarization labels, e.g. ``XX XY YX YY``.
+
+    Raises
+    ------
+    ValueError
+        If the labels are not ``XX XY YX YY`` or ``RR RL LR LL``.
+    """
+    polarization = np.asarray(vis.polarisation.data, dtype=str)
+    if tuple(polarization) not in (LINEAR_POLS, CIRCULAR_POLS):
+        raise ValueError(
+            f"Unsupported visibility polarizations {polarization.tolist()}. "
+            f"Expected {list(LINEAR_POLS)} or {list(CIRCULAR_POLS)}"
+        )
+    return polarization
 
 
 def create_gaintable_from_visibility(
@@ -20,17 +52,13 @@ def create_gaintable_from_visibility(
     skip_default_chunk: bool = False,
 ) -> GainCalibrationSetXds:
     """
-    Create a unity- or identity-initialised GainTable consistent with the
+    Create an identity-initialised GainTable consistent with the
     given Visibility.
 
-    GainTable either represents:
-
-    - a collection of complex-valued scalar gains, if Visibility carries only
-      Stokes I data.
-    - a collection of 2x2 complex-valued Jones matrices otherwise.
-
-    In the first case, gains are initialised to unity. In the second case,
-    Jones matrices are initialised to the identity matrix.
+    The GainTable holds 2x2 complex-valued Jones matrices, flattened into
+    the polarization axis and initialised to the identity matrix. The
+    antenna names and polarization labels are taken from the Visibility,
+    which must carry all 4 linear or circular correlations.
 
     Parameters
     ----------
@@ -73,6 +101,12 @@ def create_gaintable_from_visibility(
     -------
         Gaintable suitable for storing calibration solutions of given
         visibility
+
+    Raises
+    ------
+    ValueError
+        If ``jones_type`` is unknown, or the Visibility polarizations are
+        not ``XX XY YX YY`` or ``RR RL LR LL``.
     """
     # Backward compatibility. Should be removed as "auto" is vary vague
     if timeslice == "auto":
@@ -93,11 +127,9 @@ def create_gaintable_from_visibility(
     else:
         raise ValueError(f"Unknown Jones type {jones_type}")
 
-    # There is only one receptor frame in Visibility
-    # Use it for both receptor1 and receptor2
-    receptor_frame = ReceptorFrame(vis.visibility_acc.polarisation_frame.type)
-    nrec = receptor_frame.nrec
-    npol = nrec * nrec
+    polarization = _get_vis_polarization(vis)
+    npol = len(polarization)
+    nrec = npol_to_nrec(npol)
 
     gain_shape = [ntimes, nants, nfrequency, npol]
 
@@ -120,9 +152,8 @@ def create_gaintable_from_visibility(
         weight=gain_weight,
         residual=gain_residual,
         frequency=gain_frequency,
-        receptor_frame=receptor_frame,
-        # phasecentre=vis.phasecentre,
-        configuration=vis.configuration,
+        antenna_name=vis.configuration.names.data,
+        polarization=polarization,
         jones_type=jones_type,
     )
 
@@ -365,8 +396,12 @@ def create_gaintable_from_h5parm(
     present, the minimum of their weights is used.
 
     If vis is provided, the antennas in the H5Parm file must match
-    the visibility configuration in the same order. Missing time or
+    the visibility configuration in the same order, and the antenna
+    names and polarization labels are taken from vis. Missing time or
     frequency axes are restored using the mean values from vis.
+
+    Without vis, the antenna names are taken from the H5Parm antenna
+    axis and the polarization labels are ``XX XY YX YY``.
 
     Parameters
     ----------
@@ -376,9 +411,9 @@ def create_gaintable_from_h5parm(
         Interval array for the gain table, typically derived from
         SolutionIntervals.intervals.
     vis
-        Visibility used to obtain metadata such as configuration and
-        receptor frame. Required if the H5Parm has no time or
-        frequency axis.
+        Visibility used to obtain the antenna names and polarization
+        labels. Required if the H5Parm has no time, frequency or
+        antenna axis.
     jones_type
         Jones term type: "T", "G", or "B".
 
@@ -386,6 +421,19 @@ def create_gaintable_from_h5parm(
     -------
     GainCalibrationSetXds
         Calibration solutions represented using the new schema.
+
+    Raises
+    ------
+    ValueError
+        If the H5Parm has no time, frequency or antenna axis and ``vis``
+        is not given, its antennas differ from those of ``vis``, or the
+        ``vis`` polarizations are not ``XX XY YX YY`` or ``RR RL LR LL``.
+
+    Examples
+    --------
+    >>> vis = load_ms_as_dataset_with_time_chunks(mspath, 10)
+    >>> interval = SolutionIntervals(vis.time.data, "full").intervals
+    >>> gaintable = create_gaintable_from_h5parm(h5parm_path, interval, vis)
     """
     gain, weight, _, soltab = read_h5parm_gains(h5parm_path)
 
@@ -409,17 +457,20 @@ def create_gaintable_from_h5parm(
             soltab.antenna,
             [str(name) for name in vis.configuration.names.data],
         )
+        antenna_name = vis.configuration.names.data
+        polarization = _get_vis_polarization(vis)
+    else:
+        if soltab.antenna is None:
+            raise ValueError(
+                f"H5Parm {h5parm_path} has no antenna axis; "
+                "vis is required to provide the antenna names"
+            )
+        antenna_name = soltab.antenna
+        # read_h5parm_gains returns 2x2 Jones in XX XY YX YY index order
+        polarization = LINEAR_POLS
 
     gain = jones_to_pol(gain)
     weight = jones_to_pol(weight)
-
-    kwargs = {}
-
-    if vis is not None:
-        kwargs["configuration"] = copy(vis.configuration)
-        kwargs["receptor_frame"] = ReceptorFrame(
-            vis.visibility_acc.polarisation_frame.type
-        )
 
     residual = np.zeros(
         (len(time), len(frequency), gain.shape[-1]),
@@ -433,8 +484,9 @@ def create_gaintable_from_h5parm(
         weight=weight,
         residual=residual,
         frequency=frequency,
+        antenna_name=antenna_name,
+        polarization=polarization,
         jones_type=jones_type,
-        **kwargs,
     )
 
     return gaintable

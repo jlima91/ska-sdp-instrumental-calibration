@@ -2,13 +2,11 @@
 MSv4 (xradio) schema for calibration solutions (GainCalibrationSetXds).
 """
 
-from typing import Literal, Optional, Sequence, Union, cast
+from typing import Literal, Union, cast
 
 import numpy
 import xarray
 from numpy.typing import NDArray
-from ska_sdp_datamodels.configuration import Configuration
-from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.xarray_accessor import XarrayAccessorMixin
 from xradio.measurement_set.schema import (
     AntennaNameArray,
@@ -131,59 +129,68 @@ class GainCalibrationSetXds:
     @classmethod
     def constructor(
         cls,
-        gain: Optional[NDArray] = None,
-        time: Optional[NDArray] = None,
-        interval: Optional[NDArray] = None,
-        weight: Optional[NDArray] = None,
-        residual: Optional[NDArray] = None,
-        frequency: Optional[NDArray] = None,
-        receptor_frame: Optional[
-            Union[ReceptorFrame, Sequence[ReceptorFrame]]
-        ] = None,
-        configuration: Optional[Configuration] = None,
-        jones_type: Literal["T", "G", "B", "K"] = "T",
+        *,
+        gain: NDArray,
+        weight: NDArray,
+        residual: NDArray,
+        time: NDArray,
+        interval: NDArray,
+        frequency: NDArray,
+        antenna_name: NDArray[numpy.str_],
+        polarization: NDArray[numpy.str_],
+        jones_type: Literal["T", "G", "B", "K"],
     ) -> xarray.Dataset:
         """
-        Create a GainCalibrationSetXds dataset.
+        Create a schema-checked GainCalibrationSetXds dataset.
 
-        :param gain: Complex gains [ntimes, nants, nchan, npol]
-        :param time: Centroids of solutions, in seconds elapsed since the MJD
-            reference epoch [ntimes]
-        :param interval: Intervals of validity in seconds [ntimes]
-        :param weight: Weights of gains [ntimes, nants, nchan, npol]
-        :param residual: Residuals of fit [ntimes, nchan, npol]
-        :param frequency: Channel frequencies in Hz [nchan]
-        :param receptor_frame: Measured and ideal (model) data receptor
-            frames. If None, use a linear receptor frame for both. If
-            ReceptorFrame instance, use it for both. If two-element sequence,
-            interpret as [receptor1, receptor2].
-        :param configuration: Array configuration, used for antenna names.
-            If None, antenna names are the antenna indices as strings.
-        :param jones_type: Capital letter denoting the Jones term this
-            GainTable will represent.
-        :return: Schema-checked xarray.Dataset
+        Parameters
+        ----------
+        gain
+            Complex gains ``[ntimes, nants, nchan, npol]``.
+        weight
+            Weights of gains, same shape as ``gain``.
+        residual
+            Residuals of fit ``[ntimes, nchan, npol]``.
+        time
+            Centroids of solutions, in seconds elapsed since the MJD
+            reference epoch ``[ntimes]``.
+        interval
+            Intervals of validity in seconds ``[ntimes]``.
+        frequency
+            Channel frequencies in Hz ``[nchan]``.
+        antenna_name
+            Antenna names ``[nants]``.
+        polarization
+            Polarization labels ``[npol]``, e.g. ``XX XY YX YY``. The
+            values are not checked; the caller must pass valid
+            PolarizationArray names.
+        jones_type
+            Capital letter denoting the Jones term this table represents.
+
+        Returns
+        -------
+            Schema-checked xarray.Dataset.
+
+        Raises
+        ------
+        ValueError
+            If the number of antenna names or polarization labels does
+            not match the shape of ``gain``.
         """
-        if gain is None:
-            raise ValueError("gain is required")
+        antenna_name = numpy.asarray(antenna_name, dtype=str)
+        polarization = numpy.asarray(polarization, dtype=str)
 
-        nants = gain.shape[1]
-        if configuration is not None:
-            antenna_names = configuration.names.data
-        else:
-            antenna_names = [str(ant) for ant in range(nants)]
+        if len(antenna_name) != gain.shape[1]:
+            raise ValueError(
+                f"Got {len(antenna_name)} antenna names for "
+                f"{gain.shape[1]} antennas in gain"
+            )
 
-        if receptor_frame is None:
-            receptor_frame = ReceptorFrame("linear")
-
-        if isinstance(receptor_frame, ReceptorFrame):
-            receptor1, receptor2 = (receptor_frame, receptor_frame)
-        else:
-            receptor1, receptor2 = receptor_frame
-            if not receptor1.nrec == receptor2.nrec:
-                raise ValueError(
-                    "When providing two receptor frames, "
-                    "they must have the same number of polarisation hands"
-                )
+        if len(polarization) != gain.shape[-1]:
+            raise ValueError(
+                f"Got {len(polarization)} polarization labels for "
+                f"{gain.shape[-1]} polarizations in gain"
+            )
 
         fields = dict(
             CALPARAM_GAIN=gain,
@@ -191,16 +198,9 @@ class GainCalibrationSetXds:
             CALPARAM_RESIDUAL=residual,
             CALPARAM_INTERVAL=interval,
             time=numpy.asarray(time),
-            antenna_name=numpy.asarray(antenna_names, dtype=str),
+            antenna_name=antenna_name,
             frequency=numpy.asarray(frequency),
-            polarization=numpy.asarray(
-                [
-                    f"{r1}{r2}"
-                    for r1 in receptor1.names
-                    for r2 in receptor2.names
-                ],
-                dtype=str,
-            ),
+            polarization=polarization,
             jones_type=jones_type,
         )
         # The xradio decorator makes calling the class build and schema-check

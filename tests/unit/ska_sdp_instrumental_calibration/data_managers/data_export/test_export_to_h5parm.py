@@ -67,19 +67,6 @@ def test_should_raise_exception_for_unexpected_calibration_set_dims(
         export_to_h5parm.export_gaintable_to_h5parm(calibration_set, "unused")
 
 
-def test_should_raise_exceptions(calibration_set):
-    calibration_set = calibration_set.assign_coords(
-        antenna_name=np.asarray(
-            [None] * calibration_set.antenna_name.size, dtype=object
-        )
-    )
-
-    with pytest.raises(
-        ValueError, match="Missing gt config. H5Parm requires antenna names"
-    ):
-        export_to_h5parm.export_gaintable_to_h5parm(calibration_set, "unused")
-
-
 def test_should_raise_exception_for_non_linear_calibration_set_pols(
     calibration_set,
 ):
