@@ -11,7 +11,7 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
     set_coeffs_and_params,
 )
 
-from ..data_managers.gaintable import GainCalibrationSetXds
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 
 __all__ = ["run_ionospheric_solver", "IonosphericSolver"]

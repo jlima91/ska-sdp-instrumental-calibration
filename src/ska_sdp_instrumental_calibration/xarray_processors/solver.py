@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from ska_sdp_datamodels.visibility import Visibility
 
-from ..data_managers.gaintable import GainCalibrationSetXds
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 from ..numpy_processors.solvers import Solver
 

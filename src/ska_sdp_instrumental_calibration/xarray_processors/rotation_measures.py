@@ -8,7 +8,7 @@ import xarray as xr
 from astropy import constants as const
 from scipy.optimize import curve_fit
 
-from ..data_managers.gaintable import GainCalibrationSetXds
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol, pol_to_jones
 
 __all__ = [

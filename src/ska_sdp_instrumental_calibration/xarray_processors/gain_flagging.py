@@ -7,7 +7,7 @@ from numpy.exceptions import ComplexWarning
 from scipy.ndimage import generic_filter
 from scipy.optimize import curve_fit
 
-from ..data_managers.gaintable import GainCalibrationSetXds
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..numpy_processors._utils import jones_to_pol, stack_2x2
 from ..scheduler import delayed
 from ._utils import with_chunks
