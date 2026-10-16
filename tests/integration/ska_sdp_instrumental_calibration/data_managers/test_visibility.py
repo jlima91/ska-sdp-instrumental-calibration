@@ -7,6 +7,7 @@ from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
     check_if_cache_files_exist,
+    read_antenna_response_data,
     read_ms_field_id,
     read_vis_shape_from_zarr,
     read_visibility_from_zarr,
@@ -204,3 +205,62 @@ def test_should_return_first_field_name_when_multiple_fields(mock_table):
     result = read_ms_field_id(ms_path)
 
     assert result == "target_field"
+
+
+def create_antenna_response_tables(element_offset, element_flag):
+    nstations = element_offset.shape[0]
+    columns = {
+        "DELAY_DIR": np.array([[[0.1, 0.2]]]),
+        "COORDINATE_AXES": np.tile(np.eye(3), (nstations, 1, 1)),
+        "ELEMENT_OFFSET": element_offset,
+        "ELEMENT_FLAG": element_flag,
+        "NAME": [f"s{idx}" for idx in range(nstations)],
+        "POSITION": np.zeros((nstations, 3)),
+    }
+    tab = create_mock_table()
+    tab.getcol.side_effect = lambda name: columns[name]
+    return tab
+
+
+@pytest.mark.parametrize(
+    "stored_layout",
+    ["components_first", "elements_first"],
+)
+@pytest.mark.parametrize("nelements", [2, 3, 4])
+def test_should_read_element_offsets_and_flags_per_station(
+    mock_table, stored_layout, nelements
+):
+    nstations = 2
+    # Distinct offsets per station and element: [station, element, xyz]
+    expected_offsets = np.arange(
+        nstations * nelements * 3, dtype=float
+    ).reshape(nstations, nelements, 3)
+    # Flags per station and element: [station, element, (x, y)]
+    expected_flags = np.zeros((nstations, nelements, 2), dtype=bool)
+    expected_flags[0, 1, 0] = True
+    expected_flags[1, -1, 1] = True
+
+    if stored_layout == "components_first":
+        stored_offsets = expected_offsets.transpose(0, 2, 1)
+        stored_flags = expected_flags.transpose(0, 2, 1)
+    else:
+        stored_offsets = expected_offsets
+        stored_flags = expected_flags
+    mock_table.return_value = create_antenna_response_tables(
+        stored_offsets, stored_flags
+    )
+
+    data = read_antenna_response_data.__wrapped__("test.ms")
+
+    np.testing.assert_array_equal(data["element_offsets"], expected_offsets)
+    np.testing.assert_array_equal(data["element_flags"], expected_flags)
+
+
+def test_should_raise_for_inconsistent_element_layout(mock_table):
+    # Offsets stored as (3, nelements) but flags as (nelements, 2)
+    mock_table.return_value = create_antenna_response_tables(
+        np.zeros((2, 3, 4)), np.zeros((2, 4, 2), dtype=bool)
+    )
+
+    with pytest.raises(ValueError, match="Unsupported PHASED_ARRAY layout"):
+        read_antenna_response_data.__wrapped__("test.ms")
