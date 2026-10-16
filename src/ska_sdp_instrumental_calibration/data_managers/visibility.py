@@ -979,9 +979,10 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )
 
-    # open with zarr's default chunks, then rechunk in-memory
-    zarr_data = with_chunks(
-        xr.open_dataset(vis_zarr_file, chunks={}, engine="zarr"), vis_chunks
+    # Opening dataset by passing chunks directly helps improving
+    # performance by reducing dask tasks
+    zarr_data = xr.open_dataset(
+        vis_zarr_file, chunks=vis_chunks, engine="zarr"
     )
 
     with open(attributes_file, "rb") as file:
