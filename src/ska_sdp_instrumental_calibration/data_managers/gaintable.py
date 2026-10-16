@@ -292,18 +292,37 @@ def divide_bandpass_by_ref_ant_preserve_phase(
 
 
 def multiply_gaintables(
-    gt: GainCalibrationSetXds, dgt: GainCalibrationSetXds, time_tolerance=1e-3
+    gt: GainCalibrationSetXds,
+    dgt: GainCalibrationSetXds,
+    time_tolerance: float = 1e-3,
 ) -> GainCalibrationSetXds:
     """
     Multiply two GainCalibrationSetXds.
 
-    Returns gt * dgt.
+    Computes ``gt * dgt``: for 2x2 Jones gains this is the matrix product
+    ``G_gt @ G_dgt`` per antenna, time and frequency; for scalar gains it
+    is the element-wise product. Weights are multiplied element-wise.
 
-    :param gt: First GainCalibrationSetXds
-    :param dgt: Second GainCalibrationSetXds
-    :param time_tolerance: Maximum tolerance of time
-                separation in the GainCalibrationSetXds data
-    :return: Multiplication product
+    Parameters
+    ----------
+    gt
+        First gaintable. It is updated in place and returned.
+    dgt
+        Second gaintable.
+    time_tolerance
+        Maximum allowed separation, in seconds, between the time
+        coordinates of the two gaintables.
+
+    Returns
+    -------
+        ``gt``, holding the product.
+
+    Raises
+    ------
+    ValueError
+        If the time coordinates differ by more than ``time_tolerance``,
+        or the gaintables have a different or unsupported number of
+        receptors.
     """
 
     # Test if times align
