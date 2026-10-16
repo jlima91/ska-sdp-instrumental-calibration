@@ -7,9 +7,13 @@ from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_h5parm,
     create_gaintable_from_visibility,
     divide_bandpass_by_ref_ant_preserve_phase,
+    multiply_gaintables,
     reset_gaintable,
 )
 from ska_sdp_instrumental_calibration.data_managers.h5parm import SoltabData
+from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
+    GainCalibrationSetXds,
+)
 
 
 def test_should_raise_exception_for_jonestype(generate_vis):
@@ -415,3 +419,121 @@ def test_create_gaintable_from_h5parm_should_check_antennas_against_vis(
         )
 
     check_antennas_mock.assert_called_once_with(antennas[::-1], antennas)
+
+
+def _gaintable(gain, weight=None, time=None, polarization=None):
+    """Build a GainCalibrationSetXds from a gain array."""
+    ntimes, nants, nchan, npol = gain.shape
+    return GainCalibrationSetXds.constructor(
+        gain=gain,
+        weight=np.ones(gain.shape) if weight is None else weight,
+        residual=np.zeros((ntimes, nchan, npol)),
+        time=np.arange(ntimes, dtype=float) if time is None else time,
+        interval=np.ones(ntimes),
+        frequency=np.linspace(1e8, 2e8, nchan),
+        antenna_name=np.array([f"ANT{i}" for i in range(nants)]),
+        polarization=np.array(polarization or ["XX", "XY", "YX", "YY"][:npol]),
+        jones_type="B",
+    )
+
+
+def _random_gains(rng, shape):
+    return rng.normal(size=shape) + 1j * rng.normal(size=shape)
+
+
+def test_multiply_gaintables_should_matrix_multiply_jones():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain1 = _random_gains(rng, shape)
+    gain2 = _random_gains(rng, shape)
+    jones1 = gain1.reshape(*shape[:-1], 2, 2)
+    jones2 = gain2.reshape(*shape[:-1], 2, 2)
+    # Non-commuting matrices, so a swapped operand order is detected
+    assert not np.allclose(jones1 @ jones2, jones2 @ jones1)
+
+    result = multiply_gaintables(_gaintable(gain1), _gaintable(gain2))
+
+    np.testing.assert_allclose(
+        result.CALPARAM_GAIN.data, (jones1 @ jones2).reshape(shape)
+    )
+
+
+def test_multiply_gaintables_should_keep_gains_for_unity_second_table():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain = _random_gains(rng, shape)
+    unity = np.broadcast_to(
+        np.array([1, 0, 0, 1], dtype=complex), shape
+    ).copy()
+
+    result = multiply_gaintables(_gaintable(gain), _gaintable(unity))
+
+    np.testing.assert_allclose(result.CALPARAM_GAIN.data, gain)
+
+
+def test_multiply_gaintables_should_multiply_weights_elementwise():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    weight1 = rng.uniform(size=shape)
+    weight2 = rng.uniform(size=shape)
+    gt = _gaintable(np.ones(shape, dtype=complex), weight=weight1)
+    dgt = _gaintable(np.ones(shape, dtype=complex), weight=weight2)
+    # gt shares weight1's buffer, which is updated in place
+    expected = weight1 * weight2
+
+    result = multiply_gaintables(gt, dgt)
+
+    np.testing.assert_allclose(result.CALPARAM_WEIGHT.data, expected)
+
+
+def test_multiply_gaintables_should_multiply_scalar_gains():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 1)
+    gain1 = _random_gains(rng, shape)
+    gain2 = _random_gains(rng, shape)
+    # The first table shares gain1's buffer, which is updated in place
+    expected = gain1 * gain2
+
+    result = multiply_gaintables(
+        _gaintable(gain1, polarization=["I"]),
+        _gaintable(gain2, polarization=["I"]),
+    )
+
+    np.testing.assert_allclose(result.CALPARAM_GAIN.data, expected)
+
+
+def test_multiply_gaintables_should_update_first_table_in_place():
+    shape = (2, 3, 4, 4)
+    gt = _gaintable(np.full(shape, 2, dtype=complex))
+    dgt = _gaintable(np.full(shape, 3, dtype=complex))
+
+    result = multiply_gaintables(gt, dgt)
+
+    assert result is gt
+
+
+def test_multiply_gaintables_should_accept_time_within_tolerance():
+    shape = (2, 3, 4, 4)
+    gt = _gaintable(np.ones(shape, dtype=complex), time=np.array([0.0, 1.0]))
+    dgt = _gaintable(
+        np.ones(shape, dtype=complex), time=np.array([0.0005, 1.0])
+    )
+
+    multiply_gaintables(gt, dgt, time_tolerance=1e-3)
+
+
+def test_multiply_gaintables_should_raise_for_misaligned_time():
+    shape = (2, 3, 4, 4)
+    gt = _gaintable(np.ones(shape, dtype=complex), time=np.array([0.0, 1.0]))
+    dgt = _gaintable(np.ones(shape, dtype=complex), time=np.array([0.0, 1.5]))
+
+    with pytest.raises(ValueError, match="not aligned in time"):
+        multiply_gaintables(gt, dgt, time_tolerance=1e-3)
+
+
+def test_multiply_gaintables_should_raise_for_different_nrec():
+    gt = _gaintable(np.ones((2, 3, 4, 4), dtype=complex))
+    dgt = _gaintable(np.ones((2, 3, 4, 1), dtype=complex), polarization=["I"])
+
+    with pytest.raises(ValueError, match="different structures"):
+        multiply_gaintables(gt, dgt)
