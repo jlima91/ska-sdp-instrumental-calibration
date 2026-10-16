@@ -662,9 +662,6 @@ def flag_on_gains(
     """
     original_chunks = gaintable.chunksizes
     gaintable = gaintable.chunk(time=1, antenna_name=1, frequency=-1)
-    # Create a datarray to store antenna names
-    # Rename "id" dimension from configuration to "antenna"
-    # to match with gaintable's dimensions
     antenna_names_xdr = gaintable["antenna_name"]
     fit_names = _fit_names(soltype)
 
