@@ -8,10 +8,7 @@ import numpy
 import xarray
 from numpy.typing import NDArray
 from ska_sdp_datamodels.configuration import Configuration
-from ska_sdp_datamodels.science_data_model import (
-    QualityAssessment,
-    ReceptorFrame,
-)
+from ska_sdp_datamodels.science_data_model import ReceptorFrame
 from ska_sdp_datamodels.xarray_accessor import XarrayAccessorMixin
 from xradio.measurement_set.schema import (
     AntennaNameArray,
@@ -234,47 +231,3 @@ class GainCalibrationSetAccessor(XarrayAccessorMixin):
     def nrec(self) -> int:
         """Number of polarisation in receptors"""
         return NPOL_TO_NREC[self._obj.sizes["polarization"]]
-
-    def copy(self, deep=False, data=None, zero=False):
-        """
-        Copy GainCalibrationSetXds
-
-        :param deep: perform deep-copy
-        :param data: data to use in new object; see docstring of
-                     xarray.core.dataset.Dataset.copy
-        :param zero: if True, set gain data to zero in copied object
-        """
-        new_gt = self._obj.copy(deep=deep, data=data)
-        if zero:
-            new_gt["CALPARAM_GAIN"].data[...] = 0.0
-        return new_gt
-
-    def qa_gain_table(self, context=None) -> QualityAssessment:
-        """Assess the quality of a gaintable
-
-        :return: QualityAssessment
-        """
-        weight_data = self._obj.WEIGHT.data
-        if numpy.max(weight_data) <= 0.0:
-            raise ValueError("qa_gain_table: All gaintable weights are zero")
-
-        gain_data = self._obj.CALPARAM_GAIN.data
-        agt = numpy.abs(gain_data[weight_data > 0.0])
-        pgt = numpy.angle(gain_data[weight_data > 0.0])
-        rgt = self._obj.RESIDUAL.data[numpy.sum(weight_data, axis=1) > 0.0]
-        data = {
-            "shape": self._obj.CALPARAM_GAIN.shape,
-            "maxabs-amp": numpy.max(agt),
-            "minabs-amp": numpy.min(agt),
-            "rms-amp": numpy.std(agt),
-            "medianabs-amp": numpy.median(agt),
-            "maxabs-phase": numpy.max(pgt),
-            "minabs-phase": numpy.min(pgt),
-            "rms-phase": numpy.std(pgt),
-            "medianabs-phase": numpy.median(pgt),
-            "residual": numpy.max(rgt),
-        }
-        qa = QualityAssessment(
-            origin="qa_gain_table", data=data, context=context
-        )
-        return qa
