@@ -8,7 +8,7 @@ from typing import TypeVar
 import dask.array as da
 import numpy as np
 
-T_AnyArray = TypeVar("AnyArray", np.ndarray, da.Array)
+T_AnyArray = TypeVar("T_AnyArray", np.ndarray, da.Array)
 
 # Polarization size -> receptors per antenna
 NPOL_TO_NREC = {1: 1, 4: 2}
