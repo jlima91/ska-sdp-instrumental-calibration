@@ -93,10 +93,11 @@ def test_calculate_and_apply_delay():
             "CALPARAM_WEIGHT": weights,
         },
         coords=coords,
-        attrs={"configuration": "Antenna Configuration"},
     )
 
     delay = calculate_delays_from_gain(gaintable, 4)
+
+    assert delay.antenna_name.data.tolist() == ["antenna1", "antenna2"]
 
     actual_gaintable = apply_delay_to_gaintable(gaintable, delay, inverse=True)
 
@@ -143,6 +144,9 @@ def test_create_delaytable_from_vis(generate_vis):
         2,
     )
 
+    np.testing.assert_array_equal(
+        actual_delaytable.antenna_name.data, gaintable.antenna_name.data
+    )
     np.testing.assert_allclose(actual_delaytable.delay.values, 0.0, atol=1e-10)
     np.testing.assert_allclose(
         actual_delaytable.offset.values, 0.0, atol=1e-10

@@ -65,15 +65,13 @@ def test_export_gaintable_to_h5parm(generate_vis, tmp_path):
 def test_export_clock_to_h5parm(generate_vis, tmp_path):
     vis, calibration_set = generate_vis
     rng = np.random.default_rng(42)
-    antenna_indices = np.arange(calibration_set.antenna_name.size)
     shape = (2, calibration_set.antenna_name.size, 2)
     delaytable = DelayTable.constructor(
         delay=rng.normal(scale=1e-9, size=shape),
         offset=rng.uniform(-0.5, 0.5, size=shape),
         time=calibration_set.time.data[:2],
-        antenna=antenna_indices,
+        antenna_name=calibration_set.antenna_name.data,
         pol=["XX", "YY"],
-        configuration=vis.configuration,
     )
 
     filename = str(tmp_path / "clock.h5parm")

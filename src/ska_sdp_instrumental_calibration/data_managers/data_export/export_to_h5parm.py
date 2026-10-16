@@ -127,12 +127,12 @@ def export_clock_to_h5parm(
     logger.info(f"exporting cal solutions to {filename}")
 
     # check delaytable gain and weight dimensions
-    dims = ["time", "antenna", "pol"]
+    dims = ["time", "antenna_name", "pol"]
     if list(delaytable.delay.sizes) != dims:
         raise ValueError(f"Unexpected dims: {list(delaytable.delay.sizes)}")
 
     # adjust dimensions to be consistent with H5Parm output format
-    delaytable = delaytable.rename({"antenna": "ant"})
+    delaytable = delaytable.rename({"antenna_name": "ant"})
 
     if not np.array_equal(delaytable.pol.data, ["XX", "YY"]):
         raise ValueError("Subsequent pipelines assume linear pol order")
@@ -140,13 +140,7 @@ def export_clock_to_h5parm(
     polstrs = to_null_terminated_bytes(delaytable.pol.data)
     delaytable = delaytable.assign_coords({"pol": polstrs})
 
-    # replace antenna indices with antenna names
-    if delaytable.configuration is None:
-        raise ValueError("Missing gt config. H5Parm requires antenna names")
-
-    antenna_names = to_null_terminated_bytes(
-        delaytable.configuration.names.data[delaytable["ant"].data]
-    )
+    antenna_names = to_null_terminated_bytes(delaytable["ant"].data)
     delaytable = delaytable.assign_coords({"ant": antenna_names})
 
     # remove axes of length one if required

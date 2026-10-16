@@ -301,24 +301,27 @@ def plot_curve_fit(
 
 @delayed
 @safe
-def plot_station_delays(delaytable, path_prefix):
+def plot_station_delays(delaytable, station_xyz, path_prefix):
     """
-    Plot the station delays against the station configuration
+    Plot the station delays against the station positions
 
     Parameters
     ----------
         delaytable: xr.Dataset
             Delay dataset
+        station_xyz: np.ndarray
+            ECEF station positions, in the order of
+            ``delaytable.antenna_name``. Shape: (nants, 3).
         path_prefix: str
             Path prefix to save the plots.
     """
 
-    latitude, longitude, _ = ecef_to_lla(*delaytable.configuration.xyz.data.T)
+    latitude, longitude, _ = ecef_to_lla(*station_xyz.T)
     calibration_delay = delaytable.delay.data / 1e-9
     fig, ax = plt.subplots(2, 2, figsize=(10, 8))
 
     fig, subfigs = plt.subplots(figsize=(20, 10), ncols=2, nrows=2)
-    station_name = delaytable.configuration.names.data
+    station_name = delaytable.antenna_name.data
     fig.suptitle("Station Delays")
     for idx, ax in enumerate(subfigs[0]):
         sc = ax.scatter(

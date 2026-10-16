@@ -72,9 +72,9 @@ def test_should_create_clock_soltab_datasets(h5file):
         delay=np.zeros((2, 3, 2)),
         offset=np.zeros((2, 3, 2)),
         time=TIME,
-        antenna=ANT,
+        antenna_name=ANT,
         pol=pol,
-    ).rename({"antenna": "ant"})
+    ).rename({"antenna_name": "ant"})
     soltab = h5file.create_group("clock000")
 
     val, offset = create_clock_soltab_datasets(soltab, delaytable)

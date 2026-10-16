@@ -130,7 +130,6 @@ def delay_calibration_stage(
 
         _upstream_output_["gaintable"] = gaintable_without_delay
 
-    delaytable.attrs["configuration"] = vis.configuration
     initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
     vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
@@ -153,6 +152,7 @@ def delay_calibration_stage(
 
         plot_station_delays(
             delaytable,
+            vis.configuration.xyz.data,
             path_prefix,
         )
 

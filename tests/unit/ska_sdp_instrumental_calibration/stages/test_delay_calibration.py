@@ -314,14 +314,19 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         ]
     )
 
+    station_xyz = (
+        apply_gaintable_to_dataset_mock.return_value.configuration.xyz.data
+    )
     plot_station_delays_mock.assert_has_calls(
         [
             call(
                 delaytable_mock,
+                station_xyz,
                 "/output/path/plots/delay",
             ),
             call(
                 delaytable_mock,
+                station_xyz,
                 "/output/path/plots/delay_1",
             ),
         ]

@@ -5,7 +5,6 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from numpy.exceptions import ComplexWarning
-from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
@@ -26,7 +25,7 @@ class DelayTable(xr.Dataset):
     - time: time centroids of solutions, in seconds elapsed since the MJD
       reference epoch, ``[ntimes]``.
 
-    - antenna: integer antenna indices starting at 0, ``[nants]``.
+    - antenna_name: antenna names, ``[nants]``.
 
     - pol: polarisation labels, e.g. ``['XX', 'YY']``, ``[npol]``.
 
@@ -43,22 +42,19 @@ class DelayTable(xr.Dataset):
     - data_model: name of this class, used internally for saving to / loading
       from files.
 
-    - configuration: Array configuration as a Configuration object.
-
     Here is an example::
 
         <xarray.DelayTable>
-        Dimensions:  (time: 1, antenna: 115, pol: 2)
+        Dimensions:       (time: 1, antenna_name: 115, pol: 2)
         Coordinates:
-          * time     (time) float64 5.085e+09
-          * antenna  (antenna) int64 0 1 2 ... 113 114
-          * pol      (pol) <U2 'XX' 'YY'
+          * time          (time) float64 5.085e+09
+          * antenna_name  (antenna_name) <U7 'C1' 'C2' ... 'S16-6'
+          * pol           (pol) <U2 'XX' 'YY'
         Data variables:
-            delay    (time, antenna, pol) float64 ...
-            offset   (time, antenna, pol) float64 ...
+            delay         (time, antenna_name, pol) float64 ...
+            offset        (time, antenna_name, pol) float64 ...
         Attributes:
             data_model:     DelayTable
-            configuration:  <xarray.Configuration>
     """
 
     __slots__ = ()
@@ -72,9 +68,8 @@ class DelayTable(xr.Dataset):
         delay: np.ndarray,
         offset: np.ndarray,
         time: np.ndarray,
-        antenna: np.ndarray,
+        antenna_name: np.ndarray,
         pol: list[str],
-        configuration: Configuration | None = None,
     ) -> "DelayTable":
         """
         Create a DelayTable instance directly from numpy arrays.
@@ -90,26 +85,22 @@ class DelayTable(xr.Dataset):
         time
             Centroids of solutions, in seconds elapsed since the MJD
             reference epoch ``[ntimes]``.
-        antenna
-            Integer antenna indices ``[nants]``.
+        antenna_name
+            Antenna names ``[nants]``.
         pol
             Polarisation labels, e.g. ``['XX', 'YY']``.
-        configuration
-            Configuration object describing the array configuration.
         """
         coords = {
             "time": time,
-            "antenna": antenna,
+            "antenna_name": antenna_name,
             "pol": list(pol),
         }
+        dims = ["time", "antenna_name", "pol"]
         datavars = {
-            "delay": xr.DataArray(delay, dims=["time", "antenna", "pol"]),
-            "offset": xr.DataArray(offset, dims=["time", "antenna", "pol"]),
+            "delay": xr.DataArray(delay, dims=dims),
+            "offset": xr.DataArray(offset, dims=dims),
         }
-        attrs = {
-            "data_model": "DelayTable",
-            "configuration": configuration,
-        }
+        attrs = {"data_model": "DelayTable"}
         return cls(data_vars=datavars, coords=coords, attrs=attrs)
 
 
@@ -197,9 +188,8 @@ def calculate_delays_from_gain(
             axis=-1,
         ).reshape(ntime, nant, 2),
         time=gaintable["time"].values,
-        antenna=np.arange(nant),
+        antenna_name=gaintable["antenna_name"].values,
         pol=pols,
-        configuration=None,
     )
 
 
@@ -281,8 +271,6 @@ def apply_delay_to_gaintable(
     # We calculate delays only for diagonal terms
     # gaintable stores them in flattened 2x2 matrix (polarization)
     # while delaytable stores them in 1x2 array
-    # match the gaintable's antenna dimension
-    delaytable = delaytable.drop_vars("antenna").rename(antenna="antenna_name")
     for delay_pol_idx, rec1idx, rec2idx in ((0, 0, 0), (1, 1, 1)):
         gain = gaintable["CALPARAM_GAIN"][..., rec1idx * 2 + rec2idx]
         delay = delaytable["delay"].isel(pol=delay_pol_idx)

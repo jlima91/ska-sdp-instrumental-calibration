@@ -20,17 +20,15 @@ def calibration_set(generate_vis) -> xr.Dataset:
 
 
 @pytest.fixture
-def delaytable(generate_vis, calibration_set) -> DelayTable:
-    """Build a delay table using the visibility's antenna configuration."""
-    vis, _ = generate_vis
+def delaytable(calibration_set) -> DelayTable:
+    """Build a delay table using the calibration set's antenna names."""
     shape = (1, calibration_set.antenna_name.size, 2)
     return DelayTable.constructor(
         delay=np.zeros(shape),
         offset=np.zeros(shape),
         time=calibration_set.time.data[:1],
-        antenna=np.arange(calibration_set.antenna_name.size),
+        antenna_name=calibration_set.antenna_name.data,
         pol=["XX", "YY"],
-        configuration=vis.configuration,
     )
 
 
@@ -111,7 +109,7 @@ def test_should_squeeze_calibration_set(calibration_set):
 
 
 def test_should_raise_exception_for_unexpected_delaytable_dims(delaytable):
-    delaytable = delaytable.transpose("antenna", "time", "pol")
+    delaytable = delaytable.transpose("antenna_name", "time", "pol")
 
     with pytest.raises(ValueError, match="Unexpected dims:"):
         export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
@@ -122,17 +120,6 @@ def test_should_raise_exception_for_non_linear_delaytable_pols(delaytable):
 
     with pytest.raises(
         ValueError, match="Subsequent pipelines assume linear pol order"
-    ):
-        export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
-
-
-def test_should_raise_exception_for_delaytable_without_configuration(
-    delaytable,
-):
-    delaytable.attrs["configuration"] = None
-
-    with pytest.raises(
-        ValueError, match="Missing gt config. H5Parm requires antenna names"
     ):
         export_to_h5parm.export_clock_to_h5parm(delaytable, "unused")
 
