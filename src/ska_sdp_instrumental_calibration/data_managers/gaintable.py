@@ -292,69 +292,46 @@ def divide_bandpass_by_ref_ant_preserve_phase(
 
 
 def multiply_gaintables(
-    gt: GainCalibrationSetXds,
-    dgt: GainCalibrationSetXds,
-    time_tolerance: float = 1e-3,
+    gt: GainCalibrationSetXds, dgt: GainCalibrationSetXds
 ) -> GainCalibrationSetXds:
     """
     Multiply two GainCalibrationSetXds.
 
-    Computes ``gt * dgt``: for 2x2 Jones gains this is the matrix product
-    ``G_gt @ G_dgt`` per antenna, time and frequency; for scalar gains it
-    is the element-wise product. Weights are multiplied element-wise.
+    Computes ``gt * dgt``: the 2x2 Jones matrix product ``G_gt @ G_dgt``
+    per time, antenna and frequency. Weights are multiplied
+    element-wise. Neither input is modified.
+
+    Both gaintables are assumed to have 4 polarizations (linear or
+    circular) and the same time, antenna and frequency coordinates.
 
     Parameters
     ----------
     gt
-        First gaintable. It is updated in place and returned.
+        First gaintable.
     dgt
         Second gaintable.
-    time_tolerance
-        Maximum allowed separation, in seconds, between the time
-        coordinates of the two gaintables.
 
     Returns
     -------
-        ``gt``, holding the product.
-
-    Raises
-    ------
-    ValueError
-        If the time coordinates differ by more than ``time_tolerance``,
-        or the gaintables have a different or unsupported number of
-        receptors.
+        A new gaintable holding the product, with the coordinates and
+        attributes of ``gt``.
     """
-
-    # Test if times align
-    mismatch = np.max(np.abs(gt["time"].data - dgt["time"].data))
-    if mismatch > time_tolerance:
-        raise ValueError(
-            f"Gaintables not aligned in time: max mismatch {mismatch} seconds"
+    gain = jones_to_pol(
+        np.einsum(
+            "...ki,...ij->...kj",
+            pol_to_jones(gt["CALPARAM_GAIN"].data),
+            pol_to_jones(dgt["CALPARAM_GAIN"].data),
         )
-    if dgt.calibration_set.nrec == gt.calibration_set.nrec:
-        if dgt.calibration_set.nrec == 2:
-            gt["CALPARAM_GAIN"].data = jones_to_pol(
-                np.einsum(
-                    "...ki,...ij->...kj",
-                    pol_to_jones(gt["CALPARAM_GAIN"].data),
-                    pol_to_jones(dgt["CALPARAM_GAIN"].data),
-                )
-            )
-            gt["CALPARAM_WEIGHT"].data *= dgt["CALPARAM_WEIGHT"].data
-        elif dgt.calibration_set.nrec == 1:
-            gt["CALPARAM_GAIN"].data *= dgt["CALPARAM_GAIN"].data
-            gt["CALPARAM_WEIGHT"].data *= dgt["CALPARAM_WEIGHT"].data
-        else:
-            raise ValueError(
-                f"Gain tables have illegal structures {str(gt)} {str(dgt)}"
-            )
+    )
 
-    else:
-        raise ValueError(
-            f"Gain tables have different structures {str(gt)} {str(dgt)}"
-        )
-
-    return gt
+    return gt.assign(
+        {
+            "CALPARAM_GAIN": gt["CALPARAM_GAIN"].copy(data=gain),
+            "CALPARAM_WEIGHT": gt["CALPARAM_WEIGHT"].copy(
+                data=gt["CALPARAM_WEIGHT"].data * dgt["CALPARAM_WEIGHT"].data
+            ),
+        }
+    )
 
 
 def _check_antennas(

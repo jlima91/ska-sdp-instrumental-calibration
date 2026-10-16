@@ -186,10 +186,7 @@ class UpstreamOutput:
         combined_gaintable = None
         for key in self.__calibration_tables:
             if combined_gaintable is None:
-                # NOTE: multiply_gaintables mutates the first argument
-                # Make a copy of the very first argument before
-                # proceeding
-                combined_gaintable = self.__stage_outputs[key].copy()
+                combined_gaintable = self.__stage_outputs[key]
             else:
                 combined_gaintable = multiply_gaintables(
                     combined_gaintable, self.__stage_outputs[key]
