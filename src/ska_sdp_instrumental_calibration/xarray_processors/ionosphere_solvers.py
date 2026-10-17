@@ -16,6 +16,508 @@ __all__ = ["run_ionospheric_solver", "IonosphericSolver"]
 
 logger = logging.getLogger(__name__)
 
+import logging
+
+import h5py
+import numpy as np
+import xarray as xr
+from astropy.io import fits
+from astropy.time import Time
+
+LOGGER = logging.getLogger(__name__)
+
+def _project_stations_to_uvw(
+    station_xyz_m: np.ndarray,
+    times_mjd: np.ndarray,
+    phasecentre,
+    longitude_rad: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Project geocentric station XYZ positions onto the UV plane.
+
+    Parameters
+    ----------
+    station_xyz_m
+        Geocentric station coordinates with shape ``(antenna, 3)`` in metres.
+    times_mjd
+        Observation times as Modified Julian Dates.
+    phasecentre
+        Observation phase centre as an Astropy SkyCoord.
+    longitude_rad
+        Array longitude in radians.
+
+    Returns
+    -------
+    station_u_m, station_v_m
+        Arrays with shape ``(time, antenna)`` in metres.
+
+    Notes
+    -----
+    Station positions are centred on the array before projection because
+    only relative positions are required for station-based phase gains.
+    """
+    station_xyz_m = np.asarray(station_xyz_m, dtype=float)
+    times_mjd = np.asarray(times_mjd, dtype=float)
+
+    if station_xyz_m.ndim != 2 or station_xyz_m.shape[1] != 3:
+        raise ValueError(
+            "station_xyz_m must have shape (antenna, 3), "
+            f"received {station_xyz_m.shape}."
+        )
+
+    # Place the array centre at the TEC-screen origin.
+    xyz = station_xyz_m - station_xyz_m.mean(axis=0)
+
+    x_coord = xyz[:, 0]
+    y_coord = xyz[:, 1]
+    z_coord = xyz[:, 2]
+
+    observation_times = Time(
+        times_mjd,
+        format="mjd",
+        scale="utc",
+    )
+
+    local_sidereal_time = observation_times.sidereal_time(
+        "apparent",
+        longitude=longitude_rad,
+    ).rad
+
+    hour_angle = local_sidereal_time - phasecentre.icrs.ra.rad
+    declination = phasecentre.icrs.dec.rad
+
+    sin_ha = np.sin(hour_angle)[:, np.newaxis]
+    cos_ha = np.cos(hour_angle)[:, np.newaxis]
+
+    sin_dec = np.sin(declination)
+    cos_dec = np.cos(declination)
+
+    station_u_m = (
+        sin_ha * x_coord[np.newaxis, :]
+        + cos_ha * y_coord[np.newaxis, :]
+    )
+
+    station_v_m = (
+        -sin_dec * cos_ha * x_coord[np.newaxis, :]
+        + sin_dec * sin_ha * y_coord[np.newaxis, :]
+        + cos_dec * z_coord[np.newaxis, :]
+    )
+
+    return station_u_m, station_v_m
+
+
+def _screen_indices_for_times(
+    solution_times: np.ndarray,
+    observation_start_time: float,
+    screen_time_interval_s: float,
+    number_of_screens: int,
+) -> np.ndarray:
+    """
+    Map solution timestamps to nearest TEC-screen slices.
+
+    This reproduces OSKAR's elapsed-time nearest-slice behaviour.
+    """
+    if number_of_screens <= 0:
+        raise ValueError("The TEC screen contains no time planes.")
+
+    if screen_time_interval_s <= 0:
+        # OSKAR advances one screen per simulation time step when the interval
+        # is unavailable. Here, one screen is selected per gain solution.
+        return np.clip(
+            np.arange(solution_times.size),
+            0,
+            number_of_screens - 1,
+        )
+
+    elapsed_time_s = (
+        np.asarray(solution_times, dtype=float)
+        - float(observation_start_time)
+    )
+
+    indices = np.floor(
+        elapsed_time_s / screen_time_interval_s + 0.5
+    ).astype(int)
+
+    return np.clip(
+        indices,
+        0,
+        number_of_screens - 1,
+    )
+
+
+def _sample_phasecentre_tec(
+    screen: np.ndarray,
+    station_u_m: np.ndarray,
+    station_v_m: np.ndarray,
+    pixel_size_x_m: float,
+    pixel_size_y_m: float,
+) -> np.ndarray:
+    """
+    Sample one TEC screen for all stations at the phase centre.
+
+    At the phase centre, ``l = m = 0``, so the pierce-point coordinates
+    depend only on the projected station U and V positions.
+
+    Parameters
+    ----------
+    screen
+        Two-dimensional TEC screen with shape ``(y, x)``.
+    station_u_m, station_v_m
+        Projected station coordinates with shape ``(antenna,)``.
+    pixel_size_x_m, pixel_size_y_m
+        Screen pixel sizes in metres.
+
+    Returns
+    -------
+    np.ndarray
+        TEC values with shape ``(antenna,)``.
+    """
+    screen = np.asarray(screen)
+
+    if screen.ndim != 2:
+        raise ValueError(
+            f"Expected a two-dimensional TEC screen, got {screen.shape}."
+        )
+
+    if pixel_size_x_m <= 0 or pixel_size_y_m <= 0:
+        raise ValueError(
+            "TEC-screen pixel sizes must be greater than zero."
+        )
+
+    ny, nx = screen.shape
+
+    pixel_x = (
+        nx // 2
+        + np.rint(station_u_m / pixel_size_x_m).astype(int)
+    )
+    pixel_y = (
+        ny // 2
+        + np.rint(station_v_m / pixel_size_y_m).astype(int)
+    )
+
+    valid = (
+        (pixel_x >= 0)
+        & (pixel_x < nx)
+        & (pixel_y >= 0)
+        & (pixel_y < ny)
+    )
+
+    tec = np.zeros(station_u_m.shape, dtype=float)
+
+
+    # NumPy indexes images as [y, x].
+    tec[valid] = screen[
+        pixel_y[valid],
+        pixel_x[valid],
+    ]
+
+    return tec
+
+
+def _tec_to_jones_gains(
+    tec: np.ndarray,
+    frequency_hz: np.ndarray,
+) -> np.ndarray:
+    """
+    Convert station TEC values into diagonal Jones matrices.
+
+    Parameters
+    ----------
+    tec
+        TEC values with shape ``(time, antenna)`` in TECU.
+    frequency_hz
+        Gain frequencies with shape ``(frequency,)`` in Hz.
+
+    Returns
+    -------
+    np.ndarray
+        Gain matrices with shape
+        ``(time, antenna, frequency, 2, 2)``.
+    """
+    tec = np.asarray(tec, dtype=float)
+    frequency_hz = np.asarray(frequency_hz, dtype=float)
+
+    if tec.ndim != 2:
+        raise ValueError(
+            "tec must have shape (time, antenna), "
+            f"received {tec.shape}."
+        )
+
+    if frequency_hz.ndim != 1:
+        raise ValueError(
+            "frequency_hz must be one-dimensional, "
+            f"received {frequency_hz.shape}."
+        )
+
+    if np.any(frequency_hz <= 0):
+        raise ValueError("All gain frequencies must be positive.")
+
+    phase = (
+        -8.44797245e9
+        * tec[:, :, np.newaxis]
+        / frequency_hz[np.newaxis, np.newaxis, :]
+    )
+
+    scalar_gain = np.exp(1j * phase)
+
+    gains = np.zeros(
+        (*scalar_gain.shape, 2, 2),
+        dtype=np.complex128,
+    )
+
+    gains[..., 0, 0] = scalar_gain
+    gains[..., 1, 1] = scalar_gain
+
+    # Cross-polarisation terms remain zero.
+    return gains
+
+
+def run_ionospheric_solver_ext(
+    vis: Visibility,
+    external_tec_fits: str,
+    gaintable: GainTable,
+) -> GainTable:
+    """
+    Construct phase-centre ionospheric gains from an external OSKAR TEC screen.
+
+    This produces a direction-independent gain table for the observation phase
+    centre. For the phase centre, the source direction cosines are ``l=m=0``;
+    therefore each station samples the TEC screen using only its projected
+    U/V position.
+
+    The function uses the gain-table time and frequency grids. The returned
+    gains have shape ``(time, antenna, frequency, receptor1, receptor2)``.
+
+    Parameters
+    ----------
+    vis
+        Visibility dataset containing the observation phase centre,
+        configuration, and observation timing.
+    external_tec_fits
+        Path to the external FITS TEC-screen cube used by OSKAR.
+    gaintable
+        GainTable defining output solution times, frequencies, antennas,
+        receptors, attributes, and chunking.
+
+    Returns
+    -------
+    GainTable
+        A copy of ``gaintable`` containing TEC-derived diagonal Jones gains,
+        with the original chunking restored.
+    """
+    if gaintable.configuration is not None:
+        configuration = gaintable.configuration
+    elif vis.configuration is not None:
+        configuration = vis.configuration
+    else:
+        raise ValueError(
+            "A telescope configuration is required to obtain station "
+            "coordinates."
+        )
+
+    if gaintable.phasecentre is not None:
+        phasecentre = gaintable.phasecentre
+    elif vis.phasecentre is not None:
+        phasecentre = vis.phasecentre
+    else:
+        raise ValueError(
+            "A phase centre is required for station UV projection."
+        )
+
+    station_xyz_m = np.asarray(configuration.xyz.data)
+
+    if station_xyz_m.shape[0] != gaintable.sizes["antenna"]:
+        raise ValueError(
+            "Configuration and GainTable antenna counts differ: "
+            f"{station_xyz_m.shape[0]} != "
+            f"{gaintable.sizes['antenna']}."
+        )
+
+    location = configuration.location
+
+    if location is None:
+        raise ValueError(
+            "The telescope configuration has no EarthLocation metadata."
+        )
+
+    gain_times = np.asarray(
+        gaintable.coords["time"].data,
+        dtype=float,
+    )
+    gain_frequencies = np.asarray(
+        gaintable.coords["frequency"].data,
+        dtype=float,
+    )
+
+    # SKA/RASCIL time coordinates are normally seconds since MJD = 0.
+    gain_times_mjd = gain_times / 86400.0
+
+    station_u_m, station_v_m = _project_stations_to_uvw(
+        station_xyz_m=station_xyz_m,
+        times_mjd=gain_times_mjd,
+        phasecentre=phasecentre,
+        longitude_rad=location.lon.rad,
+    )
+
+    original_chunks = gaintable.chunksizes
+
+    with fits.open(
+        external_tec_fits,
+        mode="readonly",
+        memmap=True,
+    ) as hdul:
+        hdu = hdul[0]
+        header = hdu.header
+        tec_cube = hdu.data
+
+        # Remove only singleton axes while retaining TIME, Y and X.
+        tec_cube = np.squeeze(tec_cube)
+
+        if tec_cube.ndim == 2:
+            # Static screen.
+            tec_cube = tec_cube[np.newaxis, ...]
+        elif tec_cube.ndim != 3:
+            raise ValueError(
+                "Expected TEC data with shape (time, y, x) or (y, x), "
+                f"received {tec_cube.shape} after removing singleton axes."
+            )
+
+        pixel_size_x_m = abs(
+            float(
+                header.get(
+                    "CDELT1",
+                    header.get("CD1_1", 0.0),
+                )
+            )
+        )
+        pixel_size_y_m = abs(
+            float(
+                header.get(
+                    "CDELT2",
+                    header.get("CD2_2", 0.0),
+                )
+            )
+        )
+
+        if pixel_size_x_m <= 0 or pixel_size_y_m <= 0:
+            raise ValueError(
+                "Could not determine positive TEC-screen pixel sizes from "
+                "CDELT1/CDELT2 or CD1_1/CD2_2."
+            )
+
+        screen_time_interval_s = abs(
+            float(header.get("CDELT3", 0.0))
+        )
+
+        # OSKAR aligns screen zero with the observation start and ignores the
+        # screen time-axis CRVAL/CRPIX.
+        if "datetime" in vis:
+            observation_start_datetime = np.asarray(
+                vis["datetime"].data
+            )[0]
+
+            gain_datetimes = np.asarray(
+                gaintable["datetime"].data
+            )
+
+            solution_elapsed_s = (
+                gain_datetimes - observation_start_datetime
+            ) / np.timedelta64(1, "s")
+
+            # _screen_indices_for_times expects absolute-like values whose
+            # difference gives elapsed seconds.
+            screen_indices = _screen_indices_for_times(
+                solution_times=solution_elapsed_s,
+                observation_start_time=0.0,
+                screen_time_interval_s=screen_time_interval_s,
+                number_of_screens=tec_cube.shape[0],
+            )
+        else:
+            vis_start_time = float(
+                np.asarray(vis.coords["time"].data)[0]
+            )
+
+            screen_indices = _screen_indices_for_times(
+                solution_times=gain_times,
+                observation_start_time=vis_start_time,
+                screen_time_interval_s=screen_time_interval_s,
+                number_of_screens=tec_cube.shape[0],
+            )
+
+        tec_by_time_and_station = np.empty(
+            (
+                gain_times.size,
+                station_xyz_m.shape[0],
+            ),
+            dtype=float,
+        )
+
+        cached_screen_index = None
+        cached_screen = None
+
+        for time_index, screen_index in enumerate(screen_indices):
+            screen_index = int(screen_index)
+
+            if screen_index != cached_screen_index:
+                # With memmap enabled, only the requested screen plane is
+                # accessed rather than copying the complete cube.
+                cached_screen = tec_cube[screen_index]
+                cached_screen_index = screen_index
+
+            tec_by_time_and_station[time_index] = (
+                _sample_phasecentre_tec(
+                    screen=cached_screen,
+                    station_u_m=station_u_m[time_index],
+                    station_v_m=station_v_m[time_index],
+                    pixel_size_x_m=pixel_size_x_m,
+                    pixel_size_y_m=pixel_size_y_m,
+                )
+            )
+
+    solved_gains = _tec_to_jones_gains(
+        tec=tec_by_time_and_station,
+        frequency_hz=gain_frequencies,
+    )
+
+    expected_shape = tuple(
+        gaintable["gain"].shape
+    )
+
+    if solved_gains.shape != expected_shape:
+        raise ValueError(
+            "TEC-derived gains do not match the GainTable layout: "
+            f"{solved_gains.shape} != {expected_shape}. "
+            "Expected GainTable dimensions in the order "
+            "(time, antenna, frequency, receptor1, receptor2)."
+        )
+
+    solved_gain_array = xr.DataArray(
+        solved_gains,
+        dims=gaintable["gain"].dims,
+        coords=gaintable["gain"].coords,
+        attrs=gaintable["gain"].attrs,
+        name="gain",
+    )
+
+    LOGGER.info(
+        "Created phase-centre TEC gains from %d screen planes for "
+        "%d solution times, %d antennas and %d frequencies.",
+        len(np.unique(screen_indices)),
+        gain_times.size,
+        station_xyz_m.shape[0],
+        gain_frequencies.size,
+    )
+
+    solved_gaintable = gaintable.assign(
+        gain=solved_gain_array,
+    )
+
+    if original_chunks:
+        solved_gaintable = solved_gaintable.chunk(
+            original_chunks
+        )
+
+    return solved_gaintable
 
 def run_ionospheric_solver(
     vis: Visibility,

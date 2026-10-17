@@ -8,7 +8,7 @@ from ska_sdp_piper.piper import ConfigurableStage
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere
 from ...xarray_processors import with_chunks
-from ...xarray_processors.ionosphere_solvers import run_ionospheric_solver
+from ...xarray_processors.ionosphere_solvers import run_ionospheric_solver, run_ionospheric_solver_ext
 from .._utils import get_plots_path
 
 logger = logging.getLogger()
@@ -60,6 +60,14 @@ def ionospheric_delay_stage(
             description="""Plot all station Phase vs Frequency""",
         ),
     ] = True,
+    external_tec_fits: Annotated[
+        Optional[str],
+        Field(
+            description="""Path to an external FITS file containing a TEC screen.
+            If provided, the external TEC screen is used for ionospheric
+            calibration. If None, the standard ionospheric solver is used.""",
+        ),
+        ] = None,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.
@@ -115,16 +123,24 @@ def ionospheric_delay_stage(
 
     initialtable = initialtable.pipe(with_chunks, vis_chunks)
 
-    gaintable = run_ionospheric_solver(  # pylint: disable=E1121
-        vis,
-        modelvis,
-        initialtable,
-        cluster_indexes,
-        block_diagonal,
-        niter,
-        tol,
-        zernike_limit,
-    )
+    if external_tec_fits:
+
+        gaintable = run_ionospheric_solver_ext(
+            vis,
+            external_tec_fits,
+            initialtable
+        )
+    else:
+        gaintable = run_ionospheric_solver(  # pylint: disable=E1121
+            vis,
+            modelvis,
+            initialtable,
+            cluster_indexes,
+            block_diagonal,
+            niter,
+            tol,
+            zernike_limit,
+        )
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_["exclude_cross_pols_in_gains"] = True
