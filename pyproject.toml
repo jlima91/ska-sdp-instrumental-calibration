@@ -25,7 +25,7 @@ url = "https://artefact.skao.int/repository/pypi-internal/simple"
 priority = "supplemental"
 
 [tool.poetry.dependencies]
-python = ">=3.11"
+python = ">=3.11,<3.14"
 astropy = ">=6.1"
 dask = { version = ">=2024.11", extras = ["distributed", "array", "diagnostics"] }
 xarray = ">=2024.7"
