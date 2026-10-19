@@ -116,8 +116,9 @@ def convert_oskar_to_ska_lsm(
         Prefix for generating component IDs.
     default_ref_freq : float, optional
         Reference frequency (Hz) used for components whose reference
-        frequency is 0 (the OSKAR default). If not given, such components
-        raise an error.
+        frequency is 0 (the OSKAR default). Their spectral index is set to
+        0, as OSKAR applies no spectral scaling to them. If not given, such
+        components raise an error.
     """
     df = read_oskar_csv(input_file)
 
@@ -131,9 +132,13 @@ def convert_oskar_to_ska_lsm(
             )
         print(
             f"Using a reference frequency of {default_ref_freq} Hz for "
-            f"{zero_ref_freq.sum()} components with 0 Hz."
+            f"{zero_ref_freq.sum()} components with 0 Hz, and setting "
+            "their spectral index to 0."
         )
         df.loc[zero_ref_freq, "Ref. freq. (Hz)"] = default_ref_freq
+        # OSKAR applies no spectral scaling when the reference frequency is
+        # 0, so these components must stay flat-spectrum.
+        df.loc[zero_ref_freq, "Spectral index"] = 0.0
 
     header_mapping = {
         "RA (deg)": "ra_deg",
