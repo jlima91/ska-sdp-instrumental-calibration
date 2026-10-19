@@ -50,6 +50,9 @@ python-test:
 docs-build:
   before_script: *python_before_script
 
+oci-image-build:
+  before_script: *python_before_script
+
 integration-setup:
   stage: integration-setup
   script:
