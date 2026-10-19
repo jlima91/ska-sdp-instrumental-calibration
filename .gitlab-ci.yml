@@ -14,7 +14,6 @@ stages:
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
   POETRY_DOCS_INSTALL_GROUPS: main,docs
-  CUSTOM_PYTHON_VERSION: "3.11"
 
 include:
   - project: 'ska-telescope/templates-repository'
@@ -31,27 +30,6 @@ include:
       - 'gitlab-ci/includes/finaliser.gitlab-ci.yml'
       # SonarQube Scan
       - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
-
-# remove this before_script once CI images get upgraded to python >=3.11
-.python_before_script: &python_before_script
-  - pipx install uv
-  - uv venv .venv/ -p $CUSTOM_PYTHON_VERSION --clear
-  - source .venv/bin/activate
-  - poetry config virtualenvs.in-project true
-  - poetry config virtualenvs.create $POETRY_CONFIG_VIRTUALENVS_CREATE
-  - poetry install --all-extras
-
-python-lint:
-  before_script: *python_before_script
-
-python-test:
-  before_script: *python_before_script
-
-docs-build:
-  before_script: *python_before_script
-
-oci-image-build:
-  before_script: *python_before_script
 
 integration-setup:
   stage: integration-setup
@@ -88,7 +66,6 @@ integration-test:
       git clone https://github.com/abhinavn17/ARatmospy
       export PYTHONPATH=$PWD/src/:$PWD/ARatmospy:$PYTHONPATH
       python -m unittest discover tests/validation/ -p "*.py"
-
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_PIPELINE_SOURCE == "schedule"
