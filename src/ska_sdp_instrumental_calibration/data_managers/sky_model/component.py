@@ -12,7 +12,7 @@ from functools import cached_property
 from typing import Optional
 
 import numpy as np
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord
+from astropy.coordinates import EarthLocation, SkyCoord
 from ska_sdp_datamodels.global_sky_model import SkyComponent
 from ska_sdp_datamodels.global_sky_model.sky_model_operations import (
     calculate_flux_at_freq,
@@ -24,7 +24,7 @@ from .sky_model_operations import is_above_horizon
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Component:
     """
     Class for LSM components.
@@ -69,38 +69,6 @@ class Component:
         Return the SkyCoord direction of the component.
         """
         return SkyCoord(ra=self.ra, dec=self.dec, unit="deg")
-
-    def get_altaz(
-        self, solution_time: float, array_location: EarthLocation
-    ) -> SkyCoord:
-        """
-        Get the AltAz coordinate of the component at given solution time
-        and array location.
-
-        Parameters
-        ----------
-        solution_time
-            Solution time (seconds since mjd epoch)
-        array_location
-            Location of the array.
-
-        Returns
-        -------
-            A new object with the component's direction coordinate
-            represented in the given AltAz frame.
-
-        Notes
-        -----
-        The solution time is converted to a datetime object using the
-        py:func:`convert_time_to_solution_time` function before being passed to
-        `AltAz`.
-        """
-        return self.direction.transform_to(
-            AltAz(
-                obstime=convert_time_to_solution_time(solution_time),
-                location=array_location,
-            )
-        )
 
     def is_above_horizon(
         self, solution_time: float, array_location: EarthLocation

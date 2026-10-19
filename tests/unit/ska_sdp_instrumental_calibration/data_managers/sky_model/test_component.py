@@ -1,8 +1,7 @@
-from dataclasses import FrozenInstanceError, asdict
+from dataclasses import asdict
 from unittest.mock import Mock, patch
 
 import numpy as np
-import pytest
 from ska_sdp_datamodels.global_sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
@@ -202,10 +201,3 @@ def test_skycomponent_is_cached():
     component = Component(component_id="J12345", ra=260, dec=-85, i_pol=1.0)
 
     assert component.skycomponent is component.skycomponent
-
-
-def test_component_is_frozen():
-    component = Component(component_id="J12345", ra=260, dec=-85, i_pol=1.0)
-
-    with pytest.raises(FrozenInstanceError):
-        component.ra = 10.0
