@@ -5,7 +5,9 @@ LocalSkyComponent backed by the
 This is the replacement for ``local_sky_component.LocalSkyComponent``, which
 depends on the deprecated ``ska_sdp_datamodels.sky_model.SkyComponent``.
 The public API (``create_from_component``, ``create_vis`` and ``direction``)
-is kept the same.
+is kept the same, but instead accepts the new
+``ska_sdp_datamodels.global_sky_model.SkyComponent`` dataclasses instead
+of ``Component``.
 """
 
 from dataclasses import dataclass, field
