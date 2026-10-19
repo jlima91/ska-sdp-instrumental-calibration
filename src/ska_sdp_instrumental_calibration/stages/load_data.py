@@ -236,6 +236,8 @@ def _load_data(
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
 
+    logger.info("Visibility dataset dimensions: %s", dict(vis.sizes))
+
     _upstream_output_["ms_prefix"] = os.path.splitext(ms_file)[0]
     _upstream_output_["vis"] = vis
     _upstream_output_["gaintable"] = create_gaintable_from_visibility(
