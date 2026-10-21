@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from string import Template
 
@@ -15,7 +15,12 @@ from resources import (  # pylint: disable=import-error
     SKY_MODEL,
     TEL_MODEL,
 )
-from ska_sdp_datamodels.sky_model import LocalSkyModel
+from ska_sdp_datamodels.sky_model import (
+    SkyComponent,
+    SkyModel,
+    SkyModelMetadata,
+    write_skymodel_to_lsm_csv,
+)
 from utils.oskar_tec_ro import run_tec_screens  # pylint: disable=import-error
 
 from .constants import (
@@ -160,20 +165,22 @@ def migrate_sky_model(sky_model_path, output_dir):
         ]
     ]
 
-    column_names = [col for col in df]
-    vector_columns = ["spec_idx"]
-
-    local_sky_model = LocalSkyModel(
-        column_names=column_names,
-        num_rows=len(df),
-        vector_columns=vector_columns,
+    components = {
+        row["component_id"]: SkyComponent(**row)
+        for row in df.to_dict("records")
+    }
+    sky_model = SkyModel(
+        metadata=SkyModelMetadata(
+            version="1.0",
+            catalogue_name=Path(sky_model_path).stem,
+            uploaded_at=datetime.now(timezone.utc).isoformat(),
+            description="Converted from OSKAR sky model for validation",
+        ),
+        components=components,
     )
 
-    for idx, row in enumerate(df.to_dict("records")):
-        local_sky_model.set_row(idx, row)
-
     lsm_path = os.path.join(output_dir, "local_sky_model.csv")
-    local_sky_model.save(lsm_path)
+    write_skymodel_to_lsm_csv(sky_model, lsm_path)
 
     return lsm_path
 

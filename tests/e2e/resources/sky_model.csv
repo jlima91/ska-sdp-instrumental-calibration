@@ -1,5 +1,9 @@
 # (component_id,source_id,ra_deg,dec_deg,i_pol_jy,ref_freq_hz,epoch,a_arcsec,b_arcsec,pa_deg,spec_idx,log_spec_idx) = format
 # NUMBER_OF_COMPONENTS=1434
+# CATALOGUE_METADATA_VERSION=1.0
+# CATALOGUE_METADATA_CATALOGUE_NAME=sky_model
+# CATALOGUE_METADATA_UPLOADED_AT=2026-10-21T00:00:00+00:00
+# CATALOGUE_METADATA_DESCRIPTION=Test sky model for INST e2e tests
 Component 000000,,197.914612,-22.277973,45.91633,143000000,0,0,0,0,"[0,,,,]",true
 Component 000001,,198.034622,-20.447077,3.442318,143000000,0,0,0,0,"[-0.675622,,,,]",true
 Component 000002,,197.964172,-21.374998,3.065251,143000000,0,0,0,0,"[-0.826286,,,,]",true
