@@ -106,7 +106,8 @@ def calculate_delays_from_gain(
     gaintable: GainCalibrationSetXds, oversample: int
 ) -> DelayTable:
     """
-    Applies the delay to the given gaintable
+    Calculates per-antenna delays and phase offsets from the gains of
+    the given gaintable
 
     Parameters
     ----------
@@ -119,9 +120,9 @@ def calculate_delays_from_gain(
     -------
         A dataset holding delay data
     """
-    # 1. Delay fit needs the whole band, so only frequency is rechunked.
-    #    Time and antenna keep the gaintable chunks, so that delays for
-    #    all antennas in a chunk are calculated in a single task.
+    # Delay fit needs the whole band, so only frequency is rechunked.
+    # Time and antenna keep the gaintable chunks, so that delays for
+    # all antennas in a chunk are calculated in a single task.
     gain = gaintable["CALPARAM_GAIN"].chunk(frequency=-1)
     weight = gaintable["CALPARAM_WEIGHT"].chunk(frequency=-1)
     # We calculate delays only for the diagonal terms
@@ -171,9 +172,9 @@ def _calculate_delays_ufunc_(
     calculate_delays_from_gain and numpy based
     delay functions (coarse_delay, update_delay)
 
-    Delays are calculated at once for all time, antenna
-    and frequency dimensions of the chunk, and only for the
-    diagonal terms (XX, YY).
+    Delays are calculated at once for all times and antennas
+    of the chunk, using the full frequency band, and only for
+    the diagonal terms (XX, YY).
 
     Parameters
     ----------
@@ -222,21 +223,21 @@ def apply_delay_to_gaintable(
     delaytable
         DelayTable which holds calculated delays
     inverse
-        Whether to invert the delayes before appluing
+        Whether to invert the delays before applying
 
     Returns
     -------
         Gaintable with updated gains
     """
-    # 1. Gains are merged across frequency, so that the whole band is
-    #    processed in a single task, instead of a task per frequency chunk.
-    gain_nochunk = gaintable["CALPARAM_GAIN"].chunk(frequency=-1)
+    # Gains are merged across frequency, so that the whole band is
+    # processed in a single task, instead of a task per frequency chunk.
+    gain = gaintable["CALPARAM_GAIN"].chunk(frequency=-1)
 
     # Frequency is passed as an argument (not in kwargs), so that
-    # dask aligns it with the frequency chunks of the gains.
+    # xarray aligns it with the frequency dimension of the gains.
     delay_rotated_gain = xr.apply_ufunc(
         _apply_delay_ufunc_,
-        gain_nochunk,
+        gain,
         delaytable["delay"],
         delaytable["offset"],
         gaintable["frequency"],
@@ -310,7 +311,8 @@ def update_delay(
     delay: np.ndarray,
 ) -> tuple[np.ndarray[float], np.ndarray[float]]:
     """
-    Updates the delay to the gains
+    Refines the delay and offset by a weighted least-squares linear fit
+    of the residual phase (in cycles) against frequency
 
     Parameters
     ----------
@@ -318,9 +320,9 @@ def update_delay(
     wgt: np.ndarray. float (..., freq)
     freq: np.ndarray. float (freq,)
     _offset: np.ndarray. float (..., 1)
-        Calculated offset per station
+        Initial offset per station
     delay: np.ndarray. float (..., 1)
-        Calculated delays per station
+        Initial delay per station
 
     Returns
     -------
