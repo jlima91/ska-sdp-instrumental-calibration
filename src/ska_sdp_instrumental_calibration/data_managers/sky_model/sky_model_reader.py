@@ -1,7 +1,6 @@
 import logging
 from dataclasses import asdict, fields
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -28,29 +27,6 @@ GLEAMEGC_REFERENCE = "https://doi.org/10.1093/mnras/stw2337"
 
 
 class ComponentConverters:
-    @staticmethod
-    def create_lsm_df(local_sky_model: LocalSkyModel) -> pd.DataFrame:
-        """
-        Create a pandas DataFrame from a LocalSkyModel instance.
-
-        Parameters
-        ----------
-        local_sky_model : LocalSkyModel
-            The local sky model object containing astronomical component
-            data.
-
-        Returns
-        -------
-        :class:`pandas.DataFrame`
-            A DataFrame where columns correspond to the sky model's
-            defined fields and rows represent individual components.
-        """
-        cols = local_sky_model.column_names
-
-        components_table = zip(*[local_sky_model[col] for col in cols])
-
-        return pd.DataFrame(components_table, columns=cols)
-
     @staticmethod
     def df_to_components(df: pd.DataFrame) -> list[SkyComponent]:
         """
@@ -100,139 +76,6 @@ def export_lsm_to_csv(components: list[SkyComponent], csv_path: str) -> None:
     # it should be "./test.csv"
     # To solve this, we can use os.path.abspath(csv_path)
     local_sky_model.save(csv_path)
-
-
-def generate_lsm_from_csv(
-    csvfile: str,
-    phasecentre: SkyCoord,
-    fov: float = 5.0,
-    flux_limit: float = 0.0,
-) -> list[SkyComponent]:
-    """
-    Generate a local sky model using a CSV file.
-
-    This function reads a CSV file and converts it into a list of
-    :class:`~SkyComponent` objects. If the CSV file cannot be found, the
-    function raises a ValueError.
-
-    The CSV file is expected to have a commented line header and the following
-    10 columns in order:
-    component_id, ra, dec, i_pol, major_ax, minor_ax, pos_ang, ref_freq,
-    spec_idx, log_spec_idx.
-
-    The spec_idx column should contain a JSON array of spectral indices
-    (e.g., "[-0.7,0.01,0.123]"). The log_spec_idx column is a boolean
-    indicating whether the spectral index was calculated using a logarithmic
-    (true) or linear (false) model.
-
-    All components are treated as Gaussians, though many may default to point
-    sources.
-
-    Parameters
-    ----------
-    csvfile : str
-        The path to the CSV file. Must follow the format described above.
-    phasecentre : SkyCoord
-        The phase centre of the observation, serving as the reference point for
-        the sky model.
-    fov : float, optional
-        The field of view diameter in degrees. Components outside this radius
-        (centered on `phasecentre`) are excluded. Default is 5.0.
-    flux_limit : float, optional
-        The minimum flux density in Jy. Components below this limit are
-        excluded. Default is 0.0.
-
-    Returns
-    -------
-    list[SkyComponent]
-        A list of sky components extracted from the CSV file.
-
-    Raises
-    ------
-    ValueError
-        If the `csvfile` does not exist or cannot be opened.
-    """
-    if not Path(csvfile).is_file():
-        raise ValueError(f"Cannot open csv file {csvfile}")
-
-    local_sky_model = LocalSkyModel.load(csvfile)
-    lsm_df = ComponentConverters.create_lsm_df(local_sky_model)
-
-    lsm_df = _filter_by_fov_and_flux(lsm_df, phasecentre, fov, flux_limit)
-
-    model = ComponentConverters.df_to_components(lsm_df)
-
-    logger.info(f"extracted {len(model)} csv components")
-    return model
-
-
-def generate_lsm_from_gleamegc(
-    gleamfile: str,
-    phasecentre: SkyCoord,
-    fov: float = 5.0,
-    flux_limit: float = 0.0,
-    alpha0: float = -0.78,
-) -> list[SkyComponent]:
-    """
-    Generate a local sky model using the GLEAM-EGC catalogue.
-
-    This is a wrapper around :func:`read_gleamegc` that returns a list of
-    :class:`~SkyComponent` objects. If the file cannot be found, a warning is
-    logged and a single point source at the phase centre is returned.
-
-    Parameters
-    ----------
-    gleamfile : str
-        The path to the catalogue file. Must follow the GLEAM-EGC data format.
-    phasecentre : SkyCoord
-        The phase centre of the observation, serving as the reference point for
-        the sky model.
-    fov : float, optional
-        The field of view diameter in degrees. Components outside this radius
-        (centered on ``phasecentre``) are excluded. Default is 5.0.
-    flux_limit : float, optional
-        The minimum flux density in Jy. Components below this limit are
-        excluded. Default is 0.0.
-    alpha0 : float, optional
-        The nominal spectral index to use when fitted data are unspecified in
-        the catalogue. Default is -0.78.
-
-    Returns
-    -------
-    list[SkyComponent]
-        A list of sky components extracted from the catalogue.
-    """
-    if not Path(gleamfile).is_file():
-        logger.warning(
-            f"Cannot open gleam catalogue file {gleamfile}. "
-            "Returning point source with unit flux at phase centre."
-        )
-        return [
-            SkyComponent(
-                component_id="default",
-                source_id="",
-                ra_deg=phasecentre.ra.degree,
-                dec_deg=phasecentre.dec.degree,
-                i_pol_jy=1.0,
-                ref_freq_hz=200e6,
-                epoch=0.0,
-                a_arcsec=0.0,
-                b_arcsec=0.0,
-                pa_deg=0.0,
-                spec_idx=[0.0],
-                log_spec_idx=True,
-            )
-        ]
-
-    sky_model = read_gleamegc(
-        gleamfile,
-        phase_centre=phasecentre,
-        fov_deg=fov,
-        flux_limit=flux_limit,
-        alpha0=alpha0,
-    )
-
-    return list(sky_model.components.values())
 
 
 def read_gleamegc(
@@ -367,29 +210,3 @@ def read_gleamegc(
     )
 
     return SkyModel(metadata=metadata, components=components)
-
-
-def _filter_by_fov_and_flux(df, phasecentre, fov, flux_limit):
-    deg2rad = np.pi / 180.0
-    max_separation = fov / 2 * deg2rad
-
-    df = df[df["i_pol_jy"] >= flux_limit]
-
-    ra_rad = deg2rad * df["ra_deg"]
-    dec_rad = deg2rad * df["dec_deg"]
-    separation = _calculate_separation(
-        ra_rad, dec_rad, phasecentre.ra.radian, phasecentre.dec.radian
-    )
-
-    return df[separation <= max_separation]
-
-
-def _calculate_separation(ra, dec, ra0, dec0):
-    return np.arccos(
-        np.sin(dec) * np.sin(dec0)
-        + np.cos(dec) * np.cos(dec0) * np.cos(ra - ra0)
-    )
-
-
-def _to_float(x):
-    return float(x) if x and x.strip() else None
