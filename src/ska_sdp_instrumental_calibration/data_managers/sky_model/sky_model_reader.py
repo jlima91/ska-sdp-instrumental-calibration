@@ -52,31 +52,23 @@ class ComponentConverters:
 
         return pd.DataFrame(components_table, columns=cols)
 
-    @classmethod
-    def df_to_components(cls, df: pd.DataFrame) -> list[Component]:
+    @staticmethod
+    def df_to_components(df: pd.DataFrame) -> list[SkyComponent]:
         """
-        Convert a pandas DataFrame into a list of Component objects.
+        Convert a pandas DataFrame into a list of SkyComponent objects.
 
         Parameters
         ----------
         df : pd.DataFrame
-            The input dataframe where each row represents a component.
+            The input dataframe where each row represents a component. The
+            column names must match the ``SkyComponent`` fields.
 
         Returns
         -------
-        list of Component
-            A list containing the converted Component instances.
+        list of SkyComponent
+            A list containing the converted SkyComponent instances.
         """
-
-        # Creation of components from sky_components (datamodel) can be removed
-        # when validation part goes to LocalSkyModel (datamodel)
-        # and maybe we will entirly use Component from datamodels.
-
-        sky_components = (SkyComponent(**row) for row in df.to_dict("records"))
-
-        return list(
-            ComponentConverters.sky_components_to_components(sky_components)
-        )
+        return [SkyComponent(**row) for row in df.to_dict("records")]
 
     @staticmethod
     def sky_components_to_components(
@@ -136,14 +128,14 @@ class ComponentConverters:
         return (comp.skycomponent for comp in components)
 
 
-def export_lsm_to_csv(components: list[Component], csv_path: str) -> None:
+def export_lsm_to_csv(components: list[SkyComponent], csv_path: str) -> None:
     """
-    Export a list of Component instances to a CSV file.
+    Export a list of SkyComponent instances to a CSV file.
 
     Parameters
     ----------
-    components : list[Component]
-        A list of component objects from the external library.
+    components : list[SkyComponent]
+        A list of sky components.
     csv_path : str
         The destination path for the CSV file.
 
@@ -159,10 +151,8 @@ def export_lsm_to_csv(components: list[Component], csv_path: str) -> None:
         num_rows=len(components),
         vector_columns=vector_columns,
     )
-    for row, sky_com in enumerate(
-        ComponentConverters.components_to_sky_components(components)
-    ):
-        local_sky_model.set_row(row, asdict(sky_com))
+    for row, sky_comp in enumerate(components):
+        local_sky_model.set_row(row, asdict(sky_comp))
 
     # .save method will fail with provide just file name like "test.csv"
     # it should be "./test.csv"
@@ -175,13 +165,13 @@ def generate_lsm_from_csv(
     phasecentre: SkyCoord,
     fov: float = 5.0,
     flux_limit: float = 0.0,
-) -> list[Component]:
+) -> list[SkyComponent]:
     """
     Generate a local sky model using a CSV file.
 
     This function reads a CSV file and converts it into a list of
-    :class:`~Component` objects. If the CSV file cannot be found, the function
-    raises a ValueError.
+    :class:`~SkyComponent` objects. If the CSV file cannot be found, the
+    function raises a ValueError.
 
     The CSV file is expected to have a commented line header and the following
     10 columns in order:
@@ -212,8 +202,8 @@ def generate_lsm_from_csv(
 
     Returns
     -------
-    list[Component]
-        A list of component objects extracted from the CSV file.
+    list[SkyComponent]
+        A list of sky components extracted from the CSV file.
 
     Raises
     ------
@@ -240,12 +230,12 @@ def generate_lsm_from_gleamegc(
     fov: float = 5.0,
     flux_limit: float = 0.0,
     alpha0: float = -0.78,
-) -> list[Component]:
+) -> list[SkyComponent]:
     """
     Generate a local sky model using the GLEAM-EGC catalogue.
 
     This is a wrapper around :func:`read_gleamegc` that returns a list of
-    :class:`~Component` objects. If the file cannot be found, a warning is
+    :class:`~SkyComponent` objects. If the file cannot be found, a warning is
     logged and a single point source at the phase centre is returned.
 
     Parameters
@@ -267,8 +257,8 @@ def generate_lsm_from_gleamegc(
 
     Returns
     -------
-    list[Component]
-        A list of component objects extracted from the catalogue.
+    list[SkyComponent]
+        A list of sky components extracted from the catalogue.
     """
     if not Path(gleamfile).is_file():
         logger.warning(
@@ -276,11 +266,19 @@ def generate_lsm_from_gleamegc(
             "Returning point source with unit flux at phase centre."
         )
         return [
-            Component(
+            SkyComponent(
                 component_id="default",
-                ra=phasecentre.ra.degree,
-                dec=phasecentre.dec.degree,
-                i_pol=1.0,
+                source_id="",
+                ra_deg=phasecentre.ra.degree,
+                dec_deg=phasecentre.dec.degree,
+                i_pol_jy=1.0,
+                ref_freq_hz=200e6,
+                epoch=0.0,
+                a_arcsec=0.0,
+                b_arcsec=0.0,
+                pa_deg=0.0,
+                spec_idx=[0.0],
+                log_spec_idx=True,
             )
         ]
 
@@ -292,11 +290,7 @@ def generate_lsm_from_gleamegc(
         alpha0=alpha0,
     )
 
-    return list(
-        ComponentConverters.sky_components_to_components(
-            sky_model.components.values()
-        )
-    )
+    return list(sky_model.components.values())
 
 
 def read_gleamegc(

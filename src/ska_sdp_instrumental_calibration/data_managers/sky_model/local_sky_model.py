@@ -4,15 +4,16 @@ import numpy as np
 from astropy.coordinates.earth import EarthLocation
 from astropy.coordinates.sky_coordinate import SkyCoord
 from dask.tokenize import normalize_token
+from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
 )
 
 from ...numpy_processors.rotation_matrix import generate_rotation_matrices
-from ..beams import BeamsFactory
-from .component import Component
+from ..beams import BeamsFactory, convert_time_to_solution_time
 from .local_sky_component import LocalSkyComponent
+from .sky_model_operations import is_above_horizon
 from .sky_model_reader import (
     export_lsm_to_csv,
     generate_lsm_from_csv,
@@ -32,21 +33,21 @@ class LocalSkyModel:
 
     Parameters
     ----------
-    components : list[Component]
-        A list of component objects representing the sources in the sky model.
+    components : list[SkyComponent]
+        A list of sky components representing the sources in the sky model.
     solution_time : float
         The solution time associated with this sky model. This typically
         represents the timestamp or interval for which the model is valid.
 
     Attributes
     ----------
-    components : list[Component]
+    components : list[SkyComponent]
         The list of sky components managed by this model.
     soln_time : float
         The specific time instance for which this model is valid.
     """
 
-    def __init__(self, components: list[Component], solution_time: float):
+    def __init__(self, components: list[SkyComponent], solution_time: float):
         self.components = components
         self.soln_time = solution_time
 
@@ -146,7 +147,7 @@ class LocalSkyModel:
         )
         for comp in self.components:
             skycomponent = LocalSkyComponent.create_from_component(
-                comp.skycomponent, frequency
+                comp, frequency
             )
             predicted_vis = predicted_vis + skycomponent.create_vis(
                 uvw,
@@ -195,7 +196,7 @@ class GlobalSkyModel:
 
     Attributes
     ----------
-    components: list[Component]
+    components: list[SkyComponent]
         The list of sky components loaded into the global model
     """
 
@@ -273,9 +274,10 @@ class GlobalSkyModel:
             A new object containing only the visible components for the
             specified parameters.
         """
+        obstime = convert_time_to_solution_time(solution_time)
         components = [
             comp
             for comp in self.components
-            if comp.is_above_horizon(solution_time, array_location)
+            if is_above_horizon(comp, obstime, array_location)
         ]
         return LocalSkyModel(components, solution_time)
