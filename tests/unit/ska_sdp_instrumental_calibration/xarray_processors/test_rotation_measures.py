@@ -220,7 +220,7 @@ def test_should_get_plot_params_for_station():
     l_sq = np.array([1, 2])
     rm_data = RotationMeasureData.constructor(
         time=np.array([1, 2]),
-        antenna=np.array([1, 2]),
+        antenna_name=np.array([1, 2]),
         frequency=np.array([1, 2]),
         resolution=resolutions,
         polarization=["XX"],
@@ -248,7 +248,7 @@ def test_should_get_plot_params_for_station_and_time():
     l_sq = np.array([1, 2])
     rm_data = RotationMeasureData.constructor(
         time=np.array([1, 2]),
-        antenna=np.array([1, 2]),
+        antenna_name=np.array([1, 2]),
         frequency=np.array([1, 2]),
         resolution=resolutions,
         polarization=["XX"],

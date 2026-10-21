@@ -16,7 +16,7 @@ logger = logging.getLogger()
 class DelayTable(xr.Dataset):
     """
     Container for per-antenna, per-polarisation delay solutions computed
-    from a GainTable.
+    from a GainCalibrationSetXds.
 
     **Coordinates**
 

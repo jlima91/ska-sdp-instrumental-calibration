@@ -27,7 +27,7 @@ class RotationMeasureData(xr.Dataset):
     **Coordinates**
     - time: time centroids of solutions, in seconds elapsed since the MJD
       reference epoch, ``[ntimes]``.
-    - antenna: integer antenna indices starting at 0, ``[nants]``.
+    - antenna_name: antenna names, ``[nants]``.
     - frequency: center frequencies of the observations in Hz, ``[nchan]``.
     - resolution: Faraday depth search grid space values in rad/m^2,
       ``[nres]``.
@@ -57,21 +57,21 @@ class RotationMeasureData(xr.Dataset):
     Here is an example::
 
         <xarray.RotationMeasureData>
-        Dimensions:  (time: 1, antenna: 115, frequency: 256,
+        Dimensions:  (time: 1, antenna_name: 115, frequency: 256,
                       resolution: 1024, polarization: 4)
         Coordinates:
           * time        (time) float64 5.085e+09
-          * antenna     (antenna) int64 0 1 2 ... 113 114
+          * antenna_name (antenna_name) <U8 'C1' 'C2' ... 'S16-6'
           * frequency   (frequency) float64 ...
           * resolution  (resolution) float32 ...
           * polarization (polarization)  'XX' 'XY' 'YX' 'YY'
         Data variables:
             lambda_sq   (frequency) float32 ...
-            rm_spec     (time, antenna, resolution) complex128 ...
-            rm_est      (time, antenna) float64 ...
-            rm_peak     (time, antenna) float64 ...
-            const_rot   (time, antenna) float64 ...
-            J           (time, antenna, frequency, polarization) ...
+            rm_spec     (time, antenna_name, resolution) complex128 ...
+            rm_est      (time, antenna_name) float64 ...
+            rm_peak     (time, antenna_name) float64 ...
+            const_rot   (time, antenna_name) float64 ...
+            J           (time, antenna_name, frequency, polarization) ...
         Attributes:
             data_model:     RotationMeasureData
     """
@@ -85,7 +85,7 @@ class RotationMeasureData(xr.Dataset):
     def constructor(
         cls,
         time: np.ndarray,
-        antenna: np.ndarray,
+        antenna_name: np.ndarray,
         frequency: np.ndarray,
         resolution: np.ndarray,
         polarization: np.ndarray,
@@ -101,32 +101,31 @@ class RotationMeasureData(xr.Dataset):
 
         Parameters
         ----------
-        time : np.ndarray
+        time
             Array of time coordinates.
-        antenna : np.ndarray
-            Array of antenna coordinates.
-        frequency : np.ndarray
+        antenna_name
+            Array of antenna name coordinates.
+        frequency
             Array of frequency coordinates.
-        resolution : np.ndarray
+        resolution
             Array of resolution coordinates.
-        polarization : np.ndarray
+        polarization
             Array of polarization coordinates.
-        lambda_sq : np.ndarray
+        lambda_sq
             Array of squared wavelength values.
-        rm_spec : np.ndarray or da.Array
+        rm_spec
             Rotation measure spectrum data array.
-        rm_est : np.ndarray or da.Array
+        rm_est
             Estimated rotation measure data array.
-        rm_peak : np.ndarray or da.Array
+        rm_peak
             Peak rotation measure data array.
-        const_rot : np.ndarray or da.Array
+        const_rot
             Constant rotation data array.
-        J : np.ndarray or da.Array
+        J
             Jones matrix data array.
 
         Returns
         -------
-        RotationMeasureData
             The constructed rotation measure dataset.
         """
         data_vars = dict(
@@ -140,7 +139,7 @@ class RotationMeasureData(xr.Dataset):
 
         coords = dict(
             time=time,
-            antenna_name=antenna,
+            antenna_name=antenna_name,
             frequency=frequency,
             resolution=resolution,
             polarization=polarization,
@@ -335,7 +334,7 @@ def model_rotations(
 
     template = RotationMeasureData.constructor(
         time=gaintable.coords["time"].values,
-        antenna=gaintable.coords["antenna_name"].values,
+        antenna_name=gaintable.coords["antenna_name"].values,
         frequency=gaintable.coords["frequency"].values,
         resolution=rm_vals_coords,
         polarization=gaintable.coords["polarization"].values,

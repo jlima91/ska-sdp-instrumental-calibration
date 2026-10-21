@@ -61,7 +61,8 @@ def apply_gaintable_to_dataset(
     inverse=False,
 ) -> Visibility:
     """
-    Apply calibration gains from a GainTable to a Visibility dataset.
+    Apply calibration gains from a GainCalibrationSetXds to a Visibility
+    dataset.
 
     This function modifies visibility data by applying antenna-based Jones
     matrices. It supports both calibration (removing instrumental effects by

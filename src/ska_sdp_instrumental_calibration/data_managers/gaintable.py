@@ -52,10 +52,10 @@ def create_gaintable_from_visibility(
     skip_default_chunk: bool = False,
 ) -> GainCalibrationSetXds:
     """
-    Create an identity-initialised GainTable consistent with the
+    Create an identity-initialised GainCalibrationSetXds consistent with the
     given Visibility.
 
-    The GainTable holds 2x2 complex-valued Jones matrices, flattened into
+    The gaintable holds 2x2 complex-valued Jones matrices, flattened into
     the polarization axis and initialised to the identity matrix. The
     antenna names and polarization labels are taken from the Visibility,
     which must carry all 4 linear or circular correlations.
@@ -66,7 +66,7 @@ def create_gaintable_from_visibility(
         Visibility to create gaintable from
     timeslice
         Defines the time scale over which each gain solution is
-        valid. This is used to define the time axis of the GainTable. This
+        valid. This is used to define the time axis of the gaintable. This
         parameter is interpreted as follows depending on its type:
 
         - ``float``: this is a custom time interval in seconds.
@@ -79,7 +79,7 @@ def create_gaintable_from_visibility(
 
     jones_type
         Type of Jones term, one of {"T", "G", "B"}.
-        The frequency axis of the output GainTable depends on the value
+        The frequency axis of the output gaintable depends on the value
         provided:
 
         - "B": the output frequency axis is the same as that of the input
@@ -249,12 +249,16 @@ def divide_bandpass_by_ref_ant_preserve_phase(
 
     which is applied to all antennas in ``complex_gains``.
 
-    Args:
-        complex_gains (np.ndarray): The complex gains that will be normalised
-        ref_ant (int): The desired reference antenna to use
+    Parameters
+    ----------
+    gaintable
+        Gaintable whose complex gains will be normalised.
+    ref_ant
+        The desired reference antenna to use.
 
-    Returns:
-        GainTable: The normalised bandpass solutions
+    Returns
+    -------
+        The normalised bandpass solutions.
     """
     gains = pol_to_jones(np.copy(gaintable.CALPARAM_GAIN.data))
 

@@ -102,10 +102,19 @@ def create_soltab_group(
 def create_soltab_datasets(
     soltab: h5py.Group, gaintable: GainCalibrationSetXds
 ):
-    """Add a dataset for each of the GainCalibrationSetXds dimensions.
+    """
+    Add a dataset for each of the GainCalibrationSetXds dimensions.
 
-    :param soltab: HDF5 table to update
-    :param gaintable: GainCalibrationSetXds
+    Parameters
+    ----------
+    soltab
+        HDF5 table to update.
+    gaintable
+        Gaintable whose dimensions and shape define the datasets.
+
+    Returns
+    -------
+        The ``val`` and ``weight`` HDF5 datasets.
     """
     # create a dataset for each dimension
     for dim in list(gaintable.CALPARAM_GAIN.sizes):

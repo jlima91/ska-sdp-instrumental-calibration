@@ -52,14 +52,14 @@ def prediction_central_beams(
 
     The calculation is parallelized over frequency chunks using `xarray` and
     `dask`. The resulting beam responses are stored as gains in a new
-    `GainTable`.
+    `GainCalibrationSetXds`.
 
     Parameters
     ----------
     gaintable : GainCalibrationSetXds
-        The template GainTable defining the time, frequency, and antenna
-        structure for the prediction. The existing `gain` data in this table
-        is ignored, but coordinates and attributes are preserved.
+        The template gaintable defining the time, frequency, and antenna
+        structure for the prediction. The existing `CALPARAM_GAIN` data in
+        this table is ignored, but coordinates and attributes are preserved.
     beams_factory : BeamsFactory
         The factory object responsible for generating or retrieving the
         antenna beam models (e.g., based on antenna type, time, and frequency).
@@ -67,9 +67,10 @@ def prediction_central_beams(
     Returns
     -------
     GainCalibrationSetXds
-        A new GainTable where the `gain` variable contains the predicted
-        central beam responses (complex Jones matrices). The shape matches
-        the input gaintable: (time, antenna, frequency, polarization).
+        A new gaintable where the `CALPARAM_GAIN` variable contains the
+        predicted central beam responses (complex Jones matrices). The shape
+        matches
+        the input gaintable: (time, antenna_name, frequency, polarization).
     """
     # need to calculate central beam response across entire frequency
     frequency_xdr = xr.DataArray(

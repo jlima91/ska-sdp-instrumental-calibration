@@ -120,7 +120,7 @@ class GainCalibrationSetXds:
     frequency: Coord[Frequency, float]
     polarization: Coordof[PolarizationArray]
 
-    jones_type: Attr[Literal["T", "G", "B", "K"]]
+    jones_type: Attr[Literal["T", "G", "B"]]
     type: Attr[Literal["gain_table"]] = "gain_table"
 
     @classmethod
@@ -135,7 +135,7 @@ class GainCalibrationSetXds:
         frequency: NDArray,
         antenna_name: NDArray[numpy.str_],
         polarization: NDArray[numpy.str_],
-        jones_type: Literal["T", "G", "B", "K"],
+        jones_type: Literal["T", "G", "B"],
     ) -> xarray.Dataset:
         """
         Create a schema-checked GainCalibrationSetXds dataset.
