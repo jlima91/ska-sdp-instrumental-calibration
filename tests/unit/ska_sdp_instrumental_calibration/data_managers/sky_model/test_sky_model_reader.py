@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     export_lsm_to_csv,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
+    read_gleamegc,
     sky_model_reader,
 )
 
@@ -37,22 +39,34 @@ def csv_file():
     os.remove(tmp.name)
 
 
-@patch("builtins.open")
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
+@pytest.fixture
+def phasecentre():
+    phasecentre = MagicMock(name="phasecentre")
+    phasecentre.ra.radian = 350 * np.pi / 180
+    phasecentre.dec.radian = -85.0 * np.pi / 180
+    return phasecentre
+
+
+@pytest.fixture
+def gleam_open():
+    """Patch ``open`` to yield the given GLEAM lines."""
+    with patch("builtins.open") as open_mock:
+        fileobj = MagicMock(name="gleamfile object")
+        fileobj.__iter__.return_value = [GLEAMFILE_LINE]
+
+        open_mock.return_value = open_mock
+        open_mock.__enter__.return_value = fileobj
+        yield open_mock, fileobj
+
+
 @patch(
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.sky_model_reader.logger"
 )
-def test_generate_lsm_from_gleam_catalogue_file(
-    logger_mock, path_mock, open_mock
-):
+def test_read_gleamegc(logger_mock, gleam_open, phasecentre):
     """
-    Test that a if a gleam catalogue file is passed to the function
-    generate_lsm_from_gleamegc, it reads the catalogue file line by line,
-    and returns a list of Components, where each component satisfies
+    Test that read_gleamegc reads the catalogue file line by line,
+    and returns a SkyModel, where each component satisfies
     following criterions:
 
     1. The integrated flux of the component in the wide range is greater
@@ -60,30 +74,22 @@ def test_generate_lsm_from_gleam_catalogue_file(
 
     2. The component is within the field of view
     """
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
+    open_mock, fileobj = gleam_open
 
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    fileobj = MagicMock(name="gleamfile object")
-    fileobj.__iter__.return_value = [GLEAMFILE_LINE]
-
-    open_mock.return_value = open_mock
-    open_mock.__enter__.return_value = fileobj
-
-    expected_component = Component(
+    expected_component = SkyComponent(
         component_id="J235139-894114",
-        ra=357.914368,
-        dec=-89.687309,
-        i_pol=0.271901,
-        ref_freq=200000000.0,
-        spec_idx=[-0.370882],
+        source_id="",
+        ra_deg=357.914368,
+        dec_deg=-89.687309,
+        i_pol_jy=0.271901,
+        ref_freq_hz=200000000.0,
+        epoch=0.0,
         # GLEAM axes are FWHM, halved to semi-axes
-        major_ax=219.263 / 2,
-        minor_ax=146.4811 / 2,
-        pos_ang=-4.158033,
+        a_arcsec=219.263 / 2,
+        b_arcsec=146.4811 / 2,
+        pa_deg=-4.158033,
+        spec_idx=[-0.370882],
+        log_spec_idx=True,
     )
 
     # mock deconvolve_gaussian to return the parsed shape parameters
@@ -92,7 +98,9 @@ def test_generate_lsm_from_gleam_catalogue_file(
         ".sky_model.sky_model_reader.deconvolve_gaussian",
         side_effect=lambda a, b, pa, *_: (a, b, pa),
     ) as deconvolve_gaussian_mock:
-        lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre, fov=10)
+        sky_model = read_gleamegc(
+            "gleamfile.dat", phase_centre=phasecentre, fov_deg=10
+        )
         deconvolve_gaussian_mock.assert_called_once_with(
             219.263 / 2,
             146.4811 / 2,
@@ -110,7 +118,182 @@ def test_generate_lsm_from_gleam_catalogue_file(
         "alpha: mean = -0.37, median = -0.37, used = -0.78"
     )
 
-    assert lsm == [expected_component]
+    assert sky_model.components == {"J235139-894114": expected_component}
+
+
+def test_read_gleamegc_sets_metadata(gleam_open):
+    sky_model = read_gleamegc("gleamfile.dat")
+
+    metadata = sky_model.metadata
+    assert metadata.catalogue_name == "GLEAM-EGC"
+    assert metadata.version == "1.0"
+    assert metadata.reference == "https://doi.org/10.1093/mnras/stw2337"
+    assert metadata.freq_min_hz == 72e6
+    assert metadata.freq_max_hz == 231e6
+
+    uploaded_at = datetime.fromisoformat(metadata.uploaded_at)
+    assert uploaded_at.tzinfo == timezone.utc
+
+
+def test_read_gleamegc_does_not_filter_by_fov_without_phase_centre(
+    gleam_open,
+):
+    sky_model = read_gleamegc("gleamfile.dat")
+
+    assert list(sky_model.components) == ["J235139-894114"]
+
+
+def test_read_gleamegc_raises_when_fov_set_without_phase_centre():
+    with pytest.raises(ValueError, match="phase_centre must be provided"):
+        read_gleamegc("gleamfile.dat", fov_deg=10)
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
+def test_should_exclude_component_when_flux_is_less_than_min_flux(
+    logger_mock, gleam_open, phasecentre
+):
+    """
+    Test that for a Component in the gleam catalogue file,
+    if its integrated flux in the wide range is less than
+    minimum flux density, then its excluded from the list of components.
+    """
+    open_mock, fileobj = gleam_open
+
+    sky_model = read_gleamegc(
+        "gleamfile.dat",
+        phase_centre=phasecentre,
+        fov_deg=5.0,
+        flux_limit=1.0,
+    )
+
+    open_mock.assert_called_once_with("gleamfile.dat", "r")
+    fileobj.close.assert_called_once()
+
+    logger_mock.info.assert_called_once_with("extracted 0 GLEAM components")
+    logger_mock.debug.assert_called_once_with(
+        "alpha: mean = nan, median = nan, used = -0.78"
+    )
+
+    assert sky_model.components == {}
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.logger"
+)
+def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
+    logger_mock, gleam_open, phasecentre
+):
+    """
+    Test that for a Component in the gleam catalogue file,
+    if its integrated flux at 200 Mhz is unspecified, then:
+
+    1. flux of the component is set to its integrated flux in the wide range
+
+    2. spectral index (alpha) of the component is set to the nominal
+    spectral index value (passed as a parameter)
+    """
+    _, fileobj = gleam_open
+    line = GLEAMFILE_LINE[:3135] + "  ---     " + GLEAMFILE_LINE[3145:]
+    fileobj.__iter__.return_value = [line]
+
+    with patch(
+        "ska_sdp_instrumental_calibration.data_managers"
+        ".sky_model.sky_model_reader.deconvolve_gaussian",
+        return_value=(219.263, 146.4811, -4.158033),
+    ) as deconvolve_gaussian_mock:
+        sky_model = read_gleamegc(
+            "gleamfile.dat",
+            phase_centre=phasecentre,
+            fov_deg=10,
+            alpha0=-0.65,
+        )
+        deconvolve_gaussian_mock.assert_called_once()
+
+    logger_mock.info.assert_called_once_with("extracted 1 GLEAM components")
+    logger_mock.debug.assert_called_once_with(
+        "alpha: mean = nan, median = nan, used = -0.65"
+    )
+
+    # flux and alpha are set to Fintwide and alpha0 respectively
+    component = sky_model.components["J235139-894114"]
+    assert component.i_pol_jy == 0.248581
+    assert component.spec_idx == [-0.65]
+    assert component.log_spec_idx is True
+
+
+def test_exclude_component_when_its_out_of_fov(gleam_open, phasecentre):
+    """
+    Test that for a Component in the gleam catalogue file,
+    if its position is far away from the phase centre (outside of the
+    field of view), then its excluded from the final list of components.
+    """
+    sky_model = read_gleamegc(
+        "gleamfile.dat", phase_centre=phasecentre, fov_deg=5.0
+    )
+
+    assert sky_model.components == {}
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.Path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.sky_model_reader.read_gleamegc"
+)
+def test_generate_lsm_from_gleamegc_converts_sky_model_to_components(
+    read_gleamegc_mock, path_mock, phasecentre
+):
+    path_mock.return_value = path_mock
+    path_mock.is_file.return_value = True
+
+    sky_component = SkyComponent(
+        component_id="J235139-894114",
+        source_id="",
+        ra_deg=357.914368,
+        dec_deg=-89.687309,
+        i_pol_jy=0.271901,
+        ref_freq_hz=200e6,
+        epoch=0.0,
+        a_arcsec=109.6315,
+        b_arcsec=73.24055,
+        pa_deg=-4.158033,
+        spec_idx=[-0.370882],
+        log_spec_idx=True,
+    )
+    read_gleamegc_mock.return_value.components = {
+        "J235139-894114": sky_component
+    }
+
+    lsm = generate_lsm_from_gleamegc(
+        "gleamfile.dat", phasecentre, fov=10, flux_limit=0.5, alpha0=-0.65
+    )
+
+    read_gleamegc_mock.assert_called_once_with(
+        "gleamfile.dat",
+        phase_centre=phasecentre,
+        fov_deg=10,
+        flux_limit=0.5,
+        alpha0=-0.65,
+    )
+    assert lsm == [
+        Component(
+            component_id="J235139-894114",
+            ra=357.914368,
+            dec=-89.687309,
+            i_pol=0.271901,
+            ref_freq=200e6,
+            spec_idx=[-0.370882],
+            major_ax=109.6315,
+            minor_ax=73.24055,
+            pos_ang=-4.158033,
+        )
+    ]
 
 
 @patch(
@@ -146,148 +329,6 @@ def test_generate_unit_flux_source_at_phase_centre_if_gleamfile_not_found(
     assert lsm == [
         Component(component_id="default", ra=2.0, dec=5.0, i_pol=1.0)
     ]
-
-
-@patch("builtins.open")
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.logger"
-)
-def test_should_exclude_component_when_flux_is_less_than_min_flux(
-    logger_mock, path_mock, open_mock
-):
-    """
-    Test that for a Component in the gleam catalogue file,
-    if its integrated flux in the wide range is less than
-    minimum flux density, then its excluded from the list of components.
-    """
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
-
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    fileobj = MagicMock(name="gleamfile object")
-    fileobj.__iter__.return_value = [GLEAMFILE_LINE]
-
-    open_mock.return_value = open_mock
-    open_mock.__enter__.return_value = fileobj
-
-    lsm = generate_lsm_from_gleamegc(
-        "gleamfile.dat", phasecentre, flux_limit=1.0
-    )
-
-    open_mock.assert_called_once_with("gleamfile.dat", "r")
-    fileobj.close.assert_called_once()
-
-    logger_mock.info.assert_called_once_with("extracted 0 GLEAM components")
-    logger_mock.debug.assert_called_once_with(
-        "alpha: mean = nan, median = nan, used = -0.78"
-    )
-
-    assert lsm == []
-
-
-@patch("builtins.open")
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.logger"
-)
-def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
-    logger_mock, path_mock, open_mock
-):
-    """
-    Test that for a Component in the gleam catalogue file,
-    if its integrated flux at 200 Mhz is unspecified, then:
-
-    1. flux of the component is set to its integrated flux in the wide range
-
-    2. spectral index (alpha) of the component is set to the nominal
-    spectral index value (passed as a parameter)
-    """
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
-
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    fileobj = MagicMock(name="gleamfile object")
-    line = GLEAMFILE_LINE[:3135] + "  ---     " + GLEAMFILE_LINE[3145:]
-    fileobj.__iter__.return_value = [line]
-
-    open_mock.return_value = open_mock
-    open_mock.__enter__.return_value = fileobj
-
-    expected_component = Component(
-        component_id="J235139-894114",
-        ra=357.914368,
-        dec=-89.687309,
-        i_pol=0.248581,
-        ref_freq=200000000.0,
-        spec_idx=[-0.65],
-        major_ax=219.263,
-        minor_ax=146.4811,
-        pos_ang=-4.158033,
-    )
-    with patch(
-        "ska_sdp_instrumental_calibration.data_managers"
-        ".sky_model.sky_model_reader.deconvolve_gaussian",
-        return_value=(219.263, 146.4811, -4.158033),
-    ) as deconvolve_gaussian_mock:
-        lsm = generate_lsm_from_gleamegc(
-            "gleamfile.dat", phasecentre, fov=10, alpha0=-0.65
-        )
-        deconvolve_gaussian_mock.assert_called_once()
-
-    open_mock.assert_called_once_with("gleamfile.dat", "r")
-    fileobj.close.assert_called_once()
-
-    logger_mock.info.assert_called_once_with("extracted 1 GLEAM components")
-    logger_mock.debug.assert_called_once_with(
-        "alpha: mean = nan, median = nan, used = -0.65"
-    )
-
-    # flux and alpha are set to Fintwide and alpha0 respectively
-    assert lsm == [expected_component]
-
-
-@patch("builtins.open")
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.sky_model_reader.Path"
-)
-def test_exclude_component_when_its_out_of_fov(path_mock, open_mock):
-    """
-    Test that for a Component in the gleam catalogue file,
-    if its position is far away from the phase centre (outside of the
-    field of view), then its excluded from the final list of components.
-    """
-    path_mock.return_value = path_mock
-    path_mock.is_file.return_value = True
-
-    phasecentre = MagicMock(name="phasecentre")
-    phasecentre.ra.radian = 350 * np.pi / 180
-    phasecentre.dec.radian = -85.0 * np.pi / 180
-
-    fileobj = MagicMock(name="gleamfile object")
-    fileobj.__iter__.return_value = [GLEAMFILE_LINE]
-
-    open_mock.return_value = open_mock
-    open_mock.__enter__.return_value = fileobj
-
-    lsm = generate_lsm_from_gleamegc("gleamfile.dat", phasecentre)
-
-    assert lsm == []
 
 
 @patch(
