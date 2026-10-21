@@ -17,7 +17,7 @@ LocalSkyModel = local_sky_model.LocalSkyModel
     ".sky_model.local_sky_model.LocalSkyComponent.create_from_component"
 )
 def test_should_create_local_sky_model(create_from_component_mock):
-    components = ["A", "B", "C"]
+    components = [MagicMock(name=name) for name in ["A", "B", "C"]]
     skycomponent = MagicMock(name="skycomponent")
     skycomponent.create_vis.return_value = np.ones((1, 1, 1, 1))
     create_from_component_mock.return_value = skycomponent
@@ -33,11 +33,7 @@ def test_should_create_local_sky_model(create_from_component_mock):
     )
 
     create_from_component_mock.assert_has_calls(
-        [
-            call("A", frequency, polarisation),
-            call("B", frequency, polarisation),
-            call("C", frequency, polarisation),
-        ]
+        [call(comp.skycomponent, frequency) for comp in components]
     )
 
     skycomponent.create_vis.assert_has_calls(
@@ -60,7 +56,7 @@ def test_should_create_local_sky_model_with_beam_and_rotation(
     create_from_component_mock, gen_rot_mat_mock
 ):
     beams_factory = MagicMock(name="beams_factory")
-    components = ["A", "B", "C"]
+    components = [MagicMock(name=name) for name in ["A", "B", "C"]]
     skycomponent = MagicMock(name="skycomponent")
     skycomponent.create_vis.return_value = np.ones((1, 1, 1, 1))
     create_from_component_mock.return_value = skycomponent
@@ -83,11 +79,7 @@ def test_should_create_local_sky_model_with_beam_and_rotation(
     )
 
     create_from_component_mock.assert_has_calls(
-        [
-            call("A", frequency, polarisation),
-            call("B", frequency, polarisation),
-            call("C", frequency, polarisation),
-        ]
+        [call(comp.skycomponent, frequency) for comp in components]
     )
 
     gen_rot_mat_mock.assert_called_once_with(

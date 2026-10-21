@@ -1,87 +1,69 @@
 import numpy as np
 from astropy.coordinates import SkyCoord
 from mock import ANY, Mock, patch
+from ska_sdp_datamodels.global_sky_model import SkyComponent
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
-    Component,
-    local_sky_model,
+    local_sky_component,
 )
 
-GlobalSkyModel = local_sky_model.GlobalSkyModel
-LocalSkyComponent = local_sky_model.LocalSkyComponent
+LocalSkyComponent = local_sky_component.LocalSkyComponent
 
 
 class TestLocalSkyComponent:
-    def test_create_skycomponent_from_component(self):
-        component = Component(
+    def setup_method(self):
+        self.skycomponent = SkyComponent(
             component_id="J12345",
-            ra=260,
-            dec=-85,
-            i_pol=4.0,
-            ref_freq=200,
-            major_ax=7200,
-            minor_ax=9000,
-            pos_ang=5.0,
-            spec_idx=[2.0],
+            source_id="",
+            ra_deg=260,
+            dec_deg=-85,
+            i_pol_jy=4.0,
+            ref_freq_hz=200,
+            epoch=0.0,
         )
 
+    def test_create_from_component(self):
         actual_component = LocalSkyComponent.create_from_component(
-            component, [400, 800]
+            self.skycomponent, [400, 800], "polarisation"
+        )
+
+        assert actual_component.skycomponent is self.skycomponent
+        assert actual_component.polarisation_frame == PolarisationFrame(
+            "linear"
+        )
+        np.testing.assert_allclose(
+            actual_component.frequency, np.array([400, 800])
+        )
+
+    def test_direction(self):
+        actual_component = LocalSkyComponent.create_from_component(
+            self.skycomponent, [400, 800]
         )
 
         assert actual_component.direction == SkyCoord(
             ra=260, dec=-85, unit="deg"
         )
-        assert actual_component.name == "J12345"
-        assert actual_component.polarisation_frame == PolarisationFrame(
-            "linear"
-        )
-        assert actual_component.shape == "GAUSSIAN"
-        assert actual_component.params == {
-            "bmaj": 4.0,
-            "bmin": 5.0,
-            "bpa": 85.0,
-        }
-        np.testing.assert_allclose(
-            actual_component.frequency, np.array([400, 800])
-        )
-        np.testing.assert_allclose(
-            actual_component.flux, np.array([[16, 0, 0, 16], [64, 0, 0, 64]])
-        )
-
-    def test_create_skycomponent_from_point_source(self):
-        component = Component(
-            component_id="J12345",
-            ra=260,
-            dec=-85,
-            i_pol=4.0,
-            ref_freq=200,
-            spec_idx=[2.0],
-        )
-
-        actual_component = LocalSkyComponent.create_from_component(
-            component, [400, 800]
-        )
-
-        assert actual_component.shape == "POINT"
-        assert actual_component.params == {}
 
     @patch(
         "ska_sdp_instrumental_calibration.data_managers.sky_model"
         ".local_sky_component.dft_skycomponent"
     )
     def test_should_create_vis(self, dft_skycomponent_mock):
-        lsm = Mock(name="lsm")
-        comp = LocalSkyComponent.create_vis(
-            lsm, "uvw", "phasecentre", "antenna1", "antenna2"
+        lsc = LocalSkyComponent.create_from_component(
+            self.skycomponent, [400, 800]
         )
+
+        vis = lsc.create_vis("uvw", "phasecentre", "antenna1", "antenna2")
 
         dft_skycomponent_mock.assert_called_once_with(
-            uvw="uvw", skycomponent=lsm, phase_centre="phasecentre"
+            uvw="uvw",
+            skycomponent=self.skycomponent,
+            phase_centre="phasecentre",
+            frequency=lsc.frequency,
+            polarisation_frame=PolarisationFrame("linear"),
         )
-
-        assert comp == dft_skycomponent_mock.return_value
+        assert vis == dft_skycomponent_mock.return_value
 
     @patch(
         "ska_sdp_instrumental_calibration.data_managers.sky_model"
@@ -94,21 +76,57 @@ class TestLocalSkyComponent:
     def test_should_create_vis_with_beam_and_no_faraday(
         self, dft_skycomponent_mock, apply_antenna_mock
     ):
-        lsm = Mock(name="lsm")
+        lsc = LocalSkyComponent.create_from_component(
+            self.skycomponent, [400, 800]
+        )
         beam = Mock(name="beam")
         beam.array_response.return_value = np.array([1, 2])
 
-        comp = LocalSkyComponent.create_vis(
-            lsm, "uvw", "phasecentre", "antenna1", "antenna2", beam, None
+        vis = lsc.create_vis(
+            "uvw", "phasecentre", "antenna1", "antenna2", beam, None
         )
 
-        beam.array_response.assert_called_once_with(direction=lsm.direction)
-
+        beam.array_response.assert_called_once_with(direction=lsc.direction)
         apply_antenna_mock.assert_called_once_with(
             dft_skycomponent_mock.return_value, ANY, "antenna1", "antenna2"
         )
+        np.testing.assert_array_equal(
+            apply_antenna_mock.call_args.args[1], np.array([[1, 2]])
+        )
+        assert vis == apply_antenna_mock.return_value
 
-        assert comp == apply_antenna_mock.return_value
+    @patch(
+        "ska_sdp_instrumental_calibration.data_managers.sky_model"
+        ".local_sky_component.apply_antenna_gains_to_visibility"
+    )
+    @patch(
+        "ska_sdp_instrumental_calibration.data_managers.sky_model"
+        ".local_sky_component.dft_skycomponent"
+    )
+    def test_should_create_vis_with_faraday_and_no_beam(
+        self, dft_skycomponent_mock, apply_antenna_mock
+    ):
+        lsc = LocalSkyComponent.create_from_component(
+            self.skycomponent, [400, 800]
+        )
+        faraday_rot_matrix = np.array([[1], [2]])
+
+        vis = lsc.create_vis(
+            "uvw",
+            "phasecentre",
+            "antenna1",
+            "antenna2",
+            None,
+            faraday_rot_matrix,
+        )
+
+        apply_antenna_mock.assert_called_once_with(
+            dft_skycomponent_mock.return_value,
+            faraday_rot_matrix,
+            "antenna1",
+            "antenna2",
+        )
+        assert vis == apply_antenna_mock.return_value
 
     @patch(
         "ska_sdp_instrumental_calibration.data_managers.sky_model"
@@ -121,12 +139,14 @@ class TestLocalSkyComponent:
     def test_should_create_vis_with_beam_and_faraday(
         self, dft_skycomponent_mock, apply_antenna_mock
     ):
-        lsm = Mock(name="lsm")
+        lsc = LocalSkyComponent.create_from_component(
+            self.skycomponent, [400, 800]
+        )
         beam = Mock(name="beam")
-        beam.array_response.return_value = np.array([1, 2])
-        faraday_rot_matrix = np.array([[1], [2]])
-        comp = LocalSkyComponent.create_vis(
-            lsm,
+        beam.array_response.return_value = np.eye(2)[np.newaxis, ...]
+        faraday_rot_matrix = 2 * np.eye(2)[np.newaxis, np.newaxis, ...]
+
+        vis = lsc.create_vis(
             "uvw",
             "phasecentre",
             "antenna1",
@@ -135,42 +155,8 @@ class TestLocalSkyComponent:
             faraday_rot_matrix,
         )
 
-        beam.array_response.assert_called_once_with(direction=lsm.direction)
-
-        apply_antenna_mock.assert_called_once_with(
-            dft_skycomponent_mock.return_value, ANY, "antenna1", "antenna2"
+        beam.array_response.assert_called_once_with(direction=lsc.direction)
+        np.testing.assert_array_equal(
+            apply_antenna_mock.call_args.args[1], faraday_rot_matrix
         )
-
-        assert comp == apply_antenna_mock.return_value
-
-
-class TestGlobalSkyModel:
-    @patch(
-        "ska_sdp_instrumental_calibration.data_managers.sky_model"
-        ".local_sky_model.export_lsm_to_csv"
-    )
-    @patch(
-        "ska_sdp_instrumental_calibration.data_managers.sky_model"
-        ".local_sky_model.generate_lsm_from_csv"
-    )
-    def test_should_export_sky_model_components_to_csv(
-        self, mock_generate_lsm, mock_export_lsm_to_csv
-    ):
-        mock_generate_lsm.return_value = [
-            "component1",
-            "component2",
-        ]
-
-        gsm = GlobalSkyModel(
-            phasecentre=SkyCoord(ra=0, dec=-30, unit="deg"),
-            lsm_csv_path="lsm.csv",
-        )
-
-        gsm.export_sky_model_csv("output.csv")
-        mock_export_lsm_to_csv.assert_called_once_with(
-            [
-                "component1",
-                "component2",
-            ],
-            "output.csv",
-        )
+        assert vis == apply_antenna_mock.return_value

@@ -1,73 +1,83 @@
+"""
+LocalSkyComponent backed by the
+``ska_sdp_datamodels.global_sky_model.SkyComponent`` dataclass.
+
+It evaluates a sky component at the frequencies of an observation and
+predicts its visibilities.
+"""
+
+from dataclasses import dataclass, field
+from functools import cached_property
+
 import numpy as np
+from astropy.coordinates import SkyCoord
+from ska_sdp_datamodels.global_sky_model import SkyComponent
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
-from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
-from ska_sdp_func_python.imaging import dft_skycomponent
 
 from ..beams import BeamsLow
-from .component import Component
+from .sky_model_operations import dft_skycomponent
 
 
-class LocalSkyComponent(SkyComponent):
+@dataclass
+class LocalSkyComponent:
+    """
+    A sky component evaluated at the frequencies of an observation.
+
+    All sources are unpolarised and specified in the linear polarisation
+    frame using XX = YY = Stokes I.
+    """
+
+    skycomponent: SkyComponent
+    "Sky component from the global / local sky model"
+    frequency: np.ndarray
+    "Frequencies of shape (n_freqs,). Units: [Hz]"
+    polarisation_frame: PolarisationFrame = field(
+        default_factory=lambda: PolarisationFrame("linear")
+    )
+    "Polarisation frame of the predicted visibilities"
 
     @staticmethod
-    def create_from_component(comp: Component, freq: np.ndarray, *_):
+    def create_from_component(
+        comp: SkyComponent, freq: np.ndarray, *_
+    ) -> "LocalSkyComponent":
         """
-        Construct a LocalSkyComponent from a Component.
+        Construct a LocalSkyComponent from a SkyComponent.
 
-        All sources are unpolarised and specified in the linear polarisation
-        frame using XX = YY = Stokes I.
-
-        After deconvolving the gaussian for a given component, components
-        with non-zero widths after this process are stored with
-        shape = "GAUSSIAN". Otherwise shape = "POINT".
+        Convention as discussed in "2025-09-23 Low G3 SDP Sync"
+        meeting on 23 Sept 2025 08:00 - 09:00 UTC: all sources are
+        unpolarised and specified in the linear polarisation frame using
+        XX = YY = Stokes I.
 
         Parameters
         ----------
-        comp : Component
-            An instance of Component
+        comp : SkyComponent
+            An instance of SkyComponent. Its Gaussian shape parameters
+            are expected to be already deconvolved.
         freq : ndarray
-            An array of frequency values in Hz
+            Frequencies of shape (n_freqs,). Units: [Hz]
 
         Returns
         -------
         LocalSkyComponent
             An instance of LocalSkyComponent
         """
-        freq = np.array(freq)
-
-        # assume 4 pols
-        flux = np.zeros((len(freq), 4))
-
-        # Convention as disscussed in "2025-09-23 Low G3 SDP Sync"
-        # meeting on 23 Sept 2025 08:00 - 09:00 UTC.
-
-        flux[:, 0] = flux[:, 3] = comp.calculate_flux(freq)
-
-        smaj, smin, spa = comp.major_ax, comp.minor_ax, comp.pos_ang
-        if smaj == 0 and smin == 0:
-            shape = "POINT"
-            params = {}
-        else:
-            shape = "GAUSSIAN"
-            # Component holds semi-axes [arcsec] and the position angle from
-            # North through East [deg]. ska_sdp_func_python expects FWHM
-            # [deg] and the position angle from the u-axis (East) towards
-            # the v-axis (North).
-            params = {
-                "bmaj": 2 * smaj / 3600.0,
-                "bmin": 2 * smin / 3600.0,
-                "bpa": 90.0 - spa,
-            }
-
         return LocalSkyComponent(
-            direction=comp.direction,
-            frequency=freq,
-            name=comp.component_id,
-            flux=flux,
+            skycomponent=comp,
+            frequency=np.array(freq),
             polarisation_frame=PolarisationFrame("linear"),
-            shape=shape,
-            params=params,
+        )
+
+    @cached_property
+    def direction(self) -> SkyCoord:
+        """
+        Return the SkyCoord direction of the component, built from its
+        ``ra_deg`` and ``dec_deg``.
+        """
+        return SkyCoord(
+            ra=self.skycomponent.ra_deg,
+            dec=self.skycomponent.dec_deg,
+            unit="deg",
         )
 
     def create_vis(
@@ -85,7 +95,8 @@ class LocalSkyComponent(SkyComponent):
         Parameters
         ----------
         uvw : np.ndarray
-            UVW coordinates of shape (time, frequency, baselineid, spatial).
+            UVW coordinates of shape (time, baselineid, spatial).
+            Units: [m]
         phasecentre : SkyCoord
             Phase centre of the observation.
         antenna1 : np.ndarray
@@ -97,16 +108,22 @@ class LocalSkyComponent(SkyComponent):
         beams : BeamsLow, optional
             Beams object containing the primary beam.
         faraday_rot_matrix : np.ndarray, optional
-            4D faraday rotation matrix of shape (antenna, frequency, 2, 2).
+            Faraday rotation matrix of shape (1, antenna, frequency, 2, 2),
+            where the first axis is a time axis of length 1.
+            Dimensionless.
 
         Returns
         -------
         np.ndarray
             Visibility for the given LocalSkyComponent. This has shape
-            (time, frequency, baselineid, polarisation).
+            (time, baselineid, frequency, polarisation). Units: [Jy]
         """
         sky_comp_vis = dft_skycomponent(
-            uvw=uvw, skycomponent=self, phase_centre=phasecentre
+            uvw=uvw,
+            skycomponent=self.skycomponent,
+            phase_centre=phasecentre,
+            frequency=self.frequency,
+            polarisation_frame=self.polarisation_frame,
         )
         if beams is None and faraday_rot_matrix is None:
             return sky_comp_vis
