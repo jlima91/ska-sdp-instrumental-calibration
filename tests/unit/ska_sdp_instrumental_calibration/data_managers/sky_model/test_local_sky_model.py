@@ -1,15 +1,28 @@
 import numpy as np
 from dask.base import tokenize
 from mock import ANY, MagicMock, call, patch
+from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     local_sky_model,
 )
-from ska_sdp_instrumental_calibration.data_managers.sky_model.component import (  # noqa: E501
-    Component,
-)
 
 LocalSkyModel = local_sky_model.LocalSkyModel
+GlobalSkyModel = local_sky_model.GlobalSkyModel
+
+
+def make_sky_component(component_id, ra_deg, dec_deg, i_pol_jy, **kwargs):
+    return SkyComponent(
+        component_id=component_id,
+        source_id="",
+        ra_deg=ra_deg,
+        dec_deg=dec_deg,
+        i_pol_jy=i_pol_jy,
+        ref_freq_hz=200e6,
+        epoch=0.0,
+        log_spec_idx=True,
+        **kwargs,
+    )
 
 
 @patch(
@@ -33,7 +46,7 @@ def test_should_create_local_sky_model(create_from_component_mock):
     )
 
     create_from_component_mock.assert_has_calls(
-        [call(comp.skycomponent, frequency) for comp in components]
+        [call(comp, frequency) for comp in components]
     )
 
     skycomponent.create_vis.assert_has_calls(
@@ -79,7 +92,7 @@ def test_should_create_local_sky_model_with_beam_and_rotation(
     )
 
     create_from_component_mock.assert_has_calls(
-        [call(comp.skycomponent, frequency) for comp in components]
+        [call(comp, frequency) for comp in components]
     )
 
     gen_rot_mat_mock.assert_called_once_with(
@@ -106,13 +119,23 @@ def test_should_create_local_sky_model_with_beam_and_rotation(
 
 def test_should_tokenize_local_sky_model_deterministically():
     components = [
-        Component(component_id="A", ra=1.0, dec=2.0, i_pol=3.0),
-        Component(component_id="B", ra=4.0, dec=5.0, i_pol=6.0),
+        make_sky_component("A", 1.0, 2.0, 3.0, spec_idx=[-0.7]),
+        make_sky_component("B", 4.0, 5.0, 6.0, spec_idx=np.array([-0.7])),
+    ]
+    same_components = [
+        make_sky_component("A", 1.0, 2.0, 3.0, spec_idx=[-0.7]),
+        make_sky_component("B", 4.0, 5.0, 6.0, spec_idx=np.array([-0.7])),
+    ]
+    changed_components = [
+        make_sky_component("A", 1.0, 2.0, 3.0, spec_idx=[-0.7]),
+        make_sky_component("B", 4.0, 5.0, 6.0, spec_idx=np.array([-0.8])),
     ]
 
     token = tokenize(LocalSkyModel(components, 10.0))
 
-    assert token == tokenize(LocalSkyModel(list(components), 10.0))
+    assert token == tokenize(LocalSkyModel(components, 10.0))
+    assert token == tokenize(LocalSkyModel(same_components, 10.0))
+    assert token != tokenize(LocalSkyModel(changed_components, 10.0))
     assert token != tokenize(LocalSkyModel(components, 20.0))
     assert token != tokenize(LocalSkyModel(components[:1], 10.0))
 
@@ -124,3 +147,40 @@ def test_should_not_pickle_local_sky_model_while_tokenizing():
         LocalSkyModel, "__reduce_ex__", side_effect=AssertionError
     ):
         tokenize(lsm)
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.local_sky_model.is_above_horizon"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.local_sky_model.convert_time_to_solution_time"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.local_sky_model.generate_lsm_from_csv"
+)
+def test_should_get_local_sky_model_with_components_above_horizon(
+    generate_lsm_from_csv_mock, convert_time_mock, is_above_horizon_mock
+):
+    components = [
+        make_sky_component("A", 1.0, 2.0, 3.0),
+        make_sky_component("B", 4.0, 5.0, 6.0),
+    ]
+    generate_lsm_from_csv_mock.return_value = components
+    is_above_horizon_mock.side_effect = [False, True]
+    array_location = MagicMock(name="array_location")
+
+    gsm = GlobalSkyModel("phasecentre", lsm_csv_path="sky_model.csv")
+    lsm = gsm.get_local_sky_model(10.0, array_location)
+
+    convert_time_mock.assert_called_once_with(10.0)
+    is_above_horizon_mock.assert_has_calls(
+        [
+            call(comp, convert_time_mock.return_value, array_location)
+            for comp in components
+        ]
+    )
+    assert lsm.components == [components[1]]
+    assert lsm.soln_time == 10.0
