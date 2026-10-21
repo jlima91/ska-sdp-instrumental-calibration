@@ -6,7 +6,7 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 from astropy.coordinates import SkyCoord
-from ska_sdp_datamodels.global_sky_model import LocalSkyModel, SkyComponent
+from ska_sdp_datamodels.sky_model import LocalSkyModel, SkyComponent
 
 from .component import Component
 from .sky_model_operations import deconvolve_gaussian

@@ -1,9 +1,6 @@
 import numpy as np
 import pytest
-from astropy.coordinates import SkyCoord
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.sky_model import SkyComponent
-from ska_sdp_func_python.imaging.dft import dft_skycomponent_visibility
 
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_visibility,
@@ -11,6 +8,9 @@ from ska_sdp_instrumental_calibration.data_managers.gaintable import (
 from ska_sdp_instrumental_calibration.data_managers.schema.polarization import (  # noqa: E501
     jones_to_pol,
     pol_to_jones,
+)
+from ska_sdp_instrumental_calibration.data_managers.sky_model.sky_model_operations import (  # noqa: E501
+    dft_skycomponent,
 )
 from ska_sdp_instrumental_calibration.numpy_processors.solvers import (
     dp3_solvers,
@@ -324,14 +324,23 @@ def test_should_solve_gain_with_skymodel_prediction(
     # An unpolarised point source away from the phase centre, so that the
     # DP3 prediction depends on the uvw coordinates and their sign
     component = SkyComponent(
-        direction=SkyCoord(ra=2.0, dec=-25.0, unit="deg"),
-        frequency=vis.frequency.data,
-        name="src",
-        flux=np.ones((vis.frequency.size, 4)) * [1, 0, 0, 1],
-        polarisation_frame=PolarisationFrame("linear"),
-        shape="Point",
+        component_id="src",
+        source_id="",
+        ra_deg=2.0,
+        dec_deg=-25.0,
+        i_pol_jy=1.0,
+        ref_freq_hz=150e6,
+        epoch=0.0,
+        spec_idx=[0.0],
+        log_spec_idx=True,
     )
-    vis = dft_skycomponent_visibility(vis, component)
+    vis.vis.data = dft_skycomponent(
+        uvw=vis.uvw.data,
+        skycomponent=component,
+        phase_centre=vis.phasecentre,
+        frequency=vis.frequency.data,
+        polarisation_frame=vis.visibility_acc.polarisation_frame,
+    )
 
     # DP3 predicts XX = YY = I for an unpolarised source
     skymodel_path = tmp_path / "skymodel.txt"

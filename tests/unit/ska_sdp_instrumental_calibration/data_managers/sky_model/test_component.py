@@ -2,7 +2,7 @@ from dataclasses import asdict
 from unittest.mock import Mock, patch
 
 import numpy as np
-from ska_sdp_datamodels.global_sky_model import SkyComponent
+from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import Component
 

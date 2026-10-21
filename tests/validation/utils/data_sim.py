@@ -15,7 +15,7 @@ from resources import (  # pylint: disable=import-error
     SKY_MODEL,
     TEL_MODEL,
 )
-from ska_sdp_datamodels.global_sky_model import LocalSkyModel
+from ska_sdp_datamodels.sky_model import LocalSkyModel
 from utils.oskar_tec_ro import run_tec_screens  # pylint: disable=import-error
 
 from .constants import (

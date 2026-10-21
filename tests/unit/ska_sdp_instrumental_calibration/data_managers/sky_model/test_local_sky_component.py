@@ -1,8 +1,8 @@
 import numpy as np
 from astropy.coordinates import SkyCoord
 from mock import ANY, Mock, patch
-from ska_sdp_datamodels.global_sky_model import SkyComponent
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
+from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     local_sky_component,

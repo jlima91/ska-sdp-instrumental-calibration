@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from mock import MagicMock, patch
-from ska_sdp_datamodels.global_sky_model import SkyComponent
+from ska_sdp_datamodels.sky_model import SkyComponent
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model import (
     Component,
