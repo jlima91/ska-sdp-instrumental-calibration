@@ -5,6 +5,7 @@ from .sky_model_reader import (
     export_lsm_to_csv,
     generate_lsm_from_csv,
     generate_lsm_from_gleamegc,
+    read_gleamegc,
 )
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "generate_lsm_from_csv",
     "generate_lsm_from_gleamegc",
     "export_lsm_to_csv",
+    "read_gleamegc",
 ]

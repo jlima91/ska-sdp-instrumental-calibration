@@ -1,17 +1,31 @@
 import logging
 from dataclasses import asdict, fields
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 import numpy as np
 import pandas as pd
 from astropy.coordinates import SkyCoord
-from ska_sdp_datamodels.sky_model import LocalSkyModel, SkyComponent
+from ska_sdp_datamodels.sky_model import (
+    LocalSkyModel,
+    SkyComponent,
+    SkyModel,
+    SkyModelMetadata,
+)
+
+# NOTE: _make_fov_and_flux_filter is private to ska_sdp_datamodels, so it may
+# change or disappear in a future release without notice. It is reused here so
+# that GLEAM and LSM CSV reads apply the same FoV filter.
+from ska_sdp_datamodels.sky_model.sky_model_io import _make_fov_and_flux_filter
 
 from .component import Component
 from .sky_model_operations import deconvolve_gaussian
 
 logger = logging.getLogger(__name__)
+
+# Hurley-Walker et al. (2017), MNRAS 464, 1146
+GLEAMEGC_REFERENCE = "https://doi.org/10.1093/mnras/stw2337"
 
 
 class ComponentConverters:
@@ -230,22 +244,9 @@ def generate_lsm_from_gleamegc(
     """
     Generate a local sky model using the GLEAM-EGC catalogue.
 
-    This function parses a GLEAM-EGC formatted file and converts it into a list
-    of :class:`~Component` objects. If the file cannot be found, a warning is
+    This is a wrapper around :func:`read_gleamegc` that returns a list of
+    :class:`~Component` objects. If the file cannot be found, a warning is
     logged and a single point source at the phase centre is returned.
-
-    All components are treated as Gaussians. The function attempts to use
-    'Fintfit200' and 'alpha' columns for flux and spectral index. If these are
-    unavailable (marked as '---'), it falls back to 'Fintwide' and ``alpha0``.
-
-    The GLEAM-EGC shape columns (``a_wide``, ``b_wide``, ``psf_a_wide`` and
-    ``psf_b_wide``) are described as "semi-major" / "semi-minor" axes, but
-    actually hold the full width at half maximum (FWHM), as produced by the
-    Aegean source finder. For example, ``psf_a_wide`` is ~130 arcsec near
-    zenith, matching the ~2 arcmin resolution of GLEAM at 200 MHz. They are
-    halved here so that the returned components hold literal semi-axes, as
-    in the GSM schema. Position angles are measured from North through East
-    in both GLEAM and the GSM, and are used unchanged.
 
     Parameters
     ----------
@@ -283,16 +284,80 @@ def generate_lsm_from_gleamegc(
             )
         ]
 
-    deg2rad = np.pi / 180.0
-    max_separation = fov / 2 * deg2rad
+    sky_model = read_gleamegc(
+        gleamfile,
+        phase_centre=phasecentre,
+        fov_deg=fov,
+        flux_limit=flux_limit,
+        alpha0=alpha0,
+    )
 
-    ra0 = phasecentre.ra.radian
-    dec0 = phasecentre.dec.radian
-    cosdec0 = np.cos(dec0)
-    sindec0 = np.sin(dec0)
+    return list(
+        ComponentConverters.sky_components_to_components(
+            sky_model.components.values()
+        )
+    )
 
-    # Model is a list of components
-    model = []
+
+def read_gleamegc(
+    gleamfile: str,
+    phase_centre: Optional[SkyCoord] = None,
+    fov_deg: Optional[float] = None,
+    flux_limit: float = 0.0,
+    alpha0: float = -0.78,
+) -> SkyModel:
+    """
+    Read the GLEAM-EGC catalogue into a :class:`SkyModel`.
+
+    All components are treated as Gaussians. The function attempts to use
+    'Fintfit200' and 'alpha' columns for flux and spectral index. If these are
+    unavailable (marked as '---'), it falls back to 'Fintwide' and ``alpha0``.
+
+    The GLEAM-EGC shape columns (``a_wide``, ``b_wide``, ``psf_a_wide`` and
+    ``psf_b_wide``) are described as "semi-major" / "semi-minor" axes, but
+    actually hold the full width at half maximum (FWHM), as produced by the
+    Aegean source finder. For example, ``psf_a_wide`` is ~130 arcsec near
+    zenith, matching the ~2 arcmin resolution of GLEAM at 200 MHz. They are
+    halved here so that the returned components hold literal semi-axes, as
+    in the GSM schema. Position angles are measured from North through East
+    in both GLEAM and the GSM, and are used unchanged.
+
+    Parameters
+    ----------
+    gleamfile : str
+        The path to the catalogue file. Must follow the GLEAM-EGC data format.
+    phase_centre : SkyCoord, optional
+        Centre of the field of view. Required if ``fov_deg`` is set.
+    fov_deg : float, optional
+        The field of view diameter in degrees. Components further than
+        ``fov_deg / 2`` from ``phase_centre`` are excluded. If None, no
+        positional filtering is applied.
+    flux_limit : float, optional
+        The minimum wide-band flux density (``Fintwide``) in Jy. Components
+        at or below this limit are excluded. Default is 0.0.
+    alpha0 : float, optional
+        The nominal spectral index to use when fitted data are unspecified in
+        the catalogue. Default is -0.78.
+
+    Returns
+    -------
+    SkyModel
+        Sky model with the GLEAM-EGC components and catalogue metadata.
+
+    Raises
+    ------
+    ValueError
+        If ``fov_deg`` is set without ``phase_centre``.
+    FileNotFoundError
+        If ``gleamfile`` does not exist.
+    """
+    # The flux cut stays on Fintwide below, so only the FoV filter is used.
+    # Raises ValueError if fov_deg is set without phase_centre.
+    accept_position = _make_fov_and_flux_filter(
+        ["ra_deg", "dec_deg"], phase_centre, fov_deg, min_flux_jy=None
+    )
+
+    components = {}
 
     with open(gleamfile, "r") as f:
 
@@ -305,13 +370,12 @@ def generate_lsm_from_gleamegc(
 
             if Fintwide > flux_limit:
 
-                ra = float(line[65:75]) * deg2rad
-                dec = float(line[87:97]) * deg2rad
-                separation = np.arccos(
-                    np.sin(dec) * sindec0
-                    + np.cos(dec) * cosdec0 * np.cos(ra - ra0)
-                )
-                if separation > max_separation:
+                ra_token = line[65:75]
+                dec_token = line[87:97]
+
+                if accept_position is not None and not accept_position(
+                    [ra_token, dec_token]
+                ):
                     continue
 
                 Fintfit200 = line[3135:3145]
@@ -334,23 +398,22 @@ def generate_lsm_from_gleamegc(
                     float(line[263:273]),
                 )
 
-                model.append(
-                    Component(
-                        component_id=name,
-                        i_pol=flux,
-                        ref_freq=200e6,
-                        spec_idx=[alpha],
-                        ra=float(line[65:75]),
-                        dec=float(line[87:97]),
-                        major_ax=major_ax,
-                        minor_ax=minor_ax,
-                        pos_ang=pos_ang,
-                    )
+                components[name] = SkyComponent(
+                    component_id=name,
+                    source_id="",
+                    ra_deg=float(ra_token),
+                    dec_deg=float(dec_token),
+                    i_pol_jy=flux,
+                    ref_freq_hz=200e6,
+                    epoch=0.0,
+                    a_arcsec=major_ax,
+                    b_arcsec=minor_ax,
+                    pa_deg=pos_ang,
+                    spec_idx=[alpha],
+                    log_spec_idx=True,
                 )
 
-        f.close()
-
-        logger.info(f"extracted {len(model)} GLEAM components")
+        logger.info(f"extracted {len(components)} GLEAM components")
         if alpha_cat:
             logger.debug(
                 f"alpha: mean = {np.mean(alpha_cat):.2f}, "
@@ -358,7 +421,16 @@ def generate_lsm_from_gleamegc(
                 + f"used = {alpha0:.2f}"
             )
 
-    return model
+    metadata = SkyModelMetadata(
+        version="1.0",
+        catalogue_name="GLEAM-EGC",
+        uploaded_at=datetime.now(timezone.utc).isoformat(),
+        reference=GLEAMEGC_REFERENCE,
+        freq_min_hz=72e6,
+        freq_max_hz=231e6,
+    )
+
+    return SkyModel(metadata=metadata, components=components)
 
 
 def _filter_by_fov_and_flux(df, phasecentre, fov, flux_limit):
