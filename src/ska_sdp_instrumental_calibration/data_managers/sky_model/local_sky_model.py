@@ -146,7 +146,7 @@ class LocalSkyModel:
         )
         for comp in self.components:
             skycomponent = LocalSkyComponent.create_from_component(
-                comp, frequency, polarisation
+                comp.skycomponent, frequency
             )
             predicted_vis = predicted_vis + skycomponent.create_vis(
                 uvw,
