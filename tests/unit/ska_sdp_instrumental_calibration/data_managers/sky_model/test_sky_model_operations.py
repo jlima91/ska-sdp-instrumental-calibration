@@ -4,11 +4,11 @@ from astropy import constants as const
 from astropy import units
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
-from ska_sdp_datamodels.global_sky_model import SkyComponent
-from ska_sdp_datamodels.global_sky_model.sky_model_io import (
+from ska_sdp_datamodels.science_data_model import PolarisationFrame
+from ska_sdp_datamodels.sky_model import SkyComponent
+from ska_sdp_datamodels.sky_model.sky_model_io import (
     read_skymodel_from_lsm_csv,
 )
-from ska_sdp_datamodels.science_data_model import PolarisationFrame
 
 from ska_sdp_instrumental_calibration.data_managers.sky_model.sky_model_operations import (  # noqa: E501
     deconvolve_gaussian,

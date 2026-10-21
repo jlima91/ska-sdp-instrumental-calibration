@@ -1,6 +1,6 @@
 """
 LocalSkyComponent backed by the
-``ska_sdp_datamodels.global_sky_model.SkyComponent`` dataclass.
+``ska_sdp_datamodels.sky_model.SkyComponent`` dataclass.
 
 It evaluates a sky component at the frequencies of an observation and
 predicts its visibilities.
@@ -11,8 +11,8 @@ from functools import cached_property
 
 import numpy as np
 from astropy.coordinates import SkyCoord
-from ska_sdp_datamodels.global_sky_model import SkyComponent
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
+from ska_sdp_datamodels.sky_model import SkyComponent
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
 
 from ..beams import BeamsLow

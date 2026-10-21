@@ -4574,14 +4574,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-datamodels"
-version = "2.1.0"
+version = "3.1.0"
 description = "SKA SDP Python-based Data Models"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_datamodels-2.1.0-py3-none-any.whl", hash = "sha256:657e120b8e716b32d22c2b8c5591aaa7c5eb6800705a4ba26299887ec4748293"},
-    {file = "ska_sdp_datamodels-2.1.0.tar.gz", hash = "sha256:250d8215261f04f7b7bf70db10dc228e75baccfaf03372b9f940d34e5aef1cc2"},
+    {file = "ska_sdp_datamodels-3.1.0-py3-none-any.whl", hash = "sha256:5c0ab8864c3425fbd0e4bc3eb2d748566333535517573d614b4f4cbdf91dc67b"},
+    {file = "ska_sdp_datamodels-3.1.0.tar.gz", hash = "sha256:fef258d591d0b23b060a46cce1d14ad5df0d82fed7053c2a6ebd93ca2b706630"},
 ]
 
 [package.dependencies]
@@ -4675,14 +4675,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-func-python"
-version = "1.2.1"
+version = "2.0.1"
 description = "SKA SDP Python-Based Processing Functions"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_func_python-1.2.1-py3-none-any.whl", hash = "sha256:35a09bd3332a2aefa96e6278b279a52a965861eeb4c8b605800b69a3b556f22c"},
-    {file = "ska_sdp_func_python-1.2.1.tar.gz", hash = "sha256:3f45f3709404562ccbeb3a6b697a74c9fe805d55d7068182a341e4c42b74515c"},
+    {file = "ska_sdp_func_python-2.0.1-py3-none-any.whl", hash = "sha256:cef000dcd62320818280f78d3266962059dd222264cb5125e0fbb4cde2fd5c51"},
+    {file = "ska_sdp_func_python-2.0.1.tar.gz", hash = "sha256:d46e0dec85fce19508fd433562e27d2ba5700c505a00c705318fd02a4e617ab3"},
 ]
 
 [package.dependencies]
@@ -4694,7 +4694,7 @@ numpy = ">=1.26"
 photutils = ">=1.12"
 reproject = ">=0.14"
 scipy = ">=1.15"
-ska-sdp-datamodels = {version = ">=2.0.0", markers = "python_version >= \"3.10\" and python_version < \"3.14\""}
+ska-sdp-datamodels = {version = ">=3.0.0", markers = "python_version >= \"3.10\" and python_version < \"3.14\""}
 xarray = ">=2024.9"
 
 [package.extras]
@@ -5558,4 +5558,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "db562c4c46e2b4e45548d6dc7c519d70c8629183a13d55bceb9544d8f7518c20"
+content-hash = "3ad5330a9b08aee750818c991d2fa5bf0a7f40b10dbb882cff5fc729278a7f50"

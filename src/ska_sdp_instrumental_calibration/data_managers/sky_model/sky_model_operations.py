@@ -1,15 +1,15 @@
 """
-Generic operations on the ``ska_sdp_datamodels.global_sky_model``
+Generic operations on the ``ska_sdp_datamodels.sky_model``
 dataclasses (e.g. ``SkyComponent``).
 
 These functions do not depend on anything specific to this repository, and
 are intended to be moved to ska-sdp-func-python
-(``ska_sdp_func_python.global_sky_model.sky_model_operations``).
+(``ska_sdp_func_python.sky_component``).
 
-The DFT functions replace the deprecated
+The DFT functions replace the removed
 ``ska_sdp_func_python.imaging.dft_skycomponent``, which operated on the old
-``ska_sdp_datamodels.sky_model.SkyComponent``. They use the same parameter
-names and units as ``ska_sdp_datamodels.global_sky_model.SkyComponent``.
+xarray-based ``SkyComponent``. They use the same parameter names and units
+as ``ska_sdp_datamodels.sky_model.SkyComponent``.
 """
 
 __all__ = [
@@ -28,13 +28,13 @@ import numpy as np
 from astropy import constants as const
 from astropy.coordinates import AltAz, EarthLocation, SkyCoord
 from astropy.time import Time
-from ska_sdp_datamodels.global_sky_model import SkyComponent
-from ska_sdp_datamodels.global_sky_model.sky_model_operations import (
-    calculate_flux_at_freq,
-)
 from ska_sdp_datamodels.science_data_model import PolarisationFrame
 from ska_sdp_datamodels.science_data_model.polarisation_functions import (
     convert_pol_frame,
+)
+from ska_sdp_datamodels.sky_model import SkyComponent
+from ska_sdp_datamodels.sky_model.sky_model_operations import (
+    calculate_flux_at_freq,
 )
 
 
@@ -117,7 +117,7 @@ def gaussian_tapers(
 
     This is a copy of ``ska_sdp_func_python.imaging.dft.gaussian_tapers``,
     modified to accept the shape parameters with the names and units of
-    ``ska_sdp_datamodels.global_sky_model.SkyComponent``. It should be
+    ``ska_sdp_datamodels.sky_model.SkyComponent``. It should be
     replaced once an equivalent function is available in
     ska-sdp-func-python.
 
@@ -360,7 +360,7 @@ def deconvolve_gaussian(
     semi-axis inputs give semi-axis outputs.
 
     The returned values are intended to populate ``a_arcsec``, ``b_arcsec``
-    and ``pa_deg`` of ``ska_sdp_datamodels.global_sky_model.SkyComponent``,
+    and ``pa_deg`` of ``ska_sdp_datamodels.sky_model.SkyComponent``,
     which the GSM schema defines as the deconvolved Gaussian semi-major
     axis, semi-minor axis (literal semi-axes, i.e. half of the FWHM) and
     position angle (from North through East). Inputs in FWHM, such as the

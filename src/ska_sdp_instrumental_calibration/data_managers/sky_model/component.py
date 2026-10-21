@@ -13,8 +13,8 @@ from typing import Optional
 
 import numpy as np
 from astropy.coordinates import EarthLocation, SkyCoord
-from ska_sdp_datamodels.global_sky_model import SkyComponent
-from ska_sdp_datamodels.global_sky_model.sky_model_operations import (
+from ska_sdp_datamodels.sky_model import SkyComponent
+from ska_sdp_datamodels.sky_model.sky_model_operations import (
     calculate_flux_at_freq,
 )
 
@@ -99,7 +99,7 @@ class Component:
     def skycomponent(self) -> SkyComponent:
         """
         Return the equivalent
-        ``ska_sdp_datamodels.global_sky_model.SkyComponent``.
+        ``ska_sdp_datamodels.sky_model.SkyComponent``.
 
         It is created once and cached, so it must not be modified.
         """
@@ -125,7 +125,7 @@ class Component:
         Computes the flux using either a power-law with a frequency-dependent
         spectral index (in log-log space) or a standard polynomial expansion
         based on the `log_spec_idx` toggle. See ``calculate_flux_at_freq``
-        in ``ska_sdp_datamodels.global_sky_model.sky_model_operations``.
+        in ``ska_sdp_datamodels.sky_model.sky_model_operations``.
 
         Parameters
         ----------
