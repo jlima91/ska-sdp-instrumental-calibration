@@ -2,7 +2,7 @@ import logging
 from dataclasses import asdict, fields
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,6 @@ from ska_sdp_datamodels.sky_model import (
 # that GLEAM and LSM CSV reads apply the same FoV filter.
 from ska_sdp_datamodels.sky_model.sky_model_io import _make_fov_and_flux_filter
 
-from .component import Component
 from .sky_model_operations import deconvolve_gaussian
 
 logger = logging.getLogger(__name__)
@@ -69,63 +68,6 @@ class ComponentConverters:
             A list containing the converted SkyComponent instances.
         """
         return [SkyComponent(**row) for row in df.to_dict("records")]
-
-    @staticmethod
-    def sky_components_to_components(
-        sky_components: Iterable[SkyComponent],
-    ) -> Iterable[Component]:
-        """
-        Convert SkyComponent instances to external Component instances.
-
-        Parameters
-        ----------
-        sky_components : Iterable[SkyComponent]
-            An iterable of internal sky component dataclass instances.
-
-        Returns
-        -------
-        Iterable[Component]
-            An iterable of component objects compatible with the
-            external local sky model library.
-        """
-        return (
-            Component(
-                component_id=sky_comp.component_id,
-                source_id=sky_comp.source_id,
-                epoch=sky_comp.epoch,
-                ra=sky_comp.ra_deg,
-                dec=sky_comp.dec_deg,
-                i_pol=sky_comp.i_pol_jy,
-                ref_freq=sky_comp.ref_freq_hz,
-                spec_idx=list(sky_comp.spec_idx),
-                major_ax=sky_comp.a_arcsec,
-                minor_ax=sky_comp.b_arcsec,
-                pos_ang=sky_comp.pa_deg,
-                log_spec_idx=sky_comp.log_spec_idx,
-            )
-            for sky_comp in sky_components
-        )
-
-    @staticmethod
-    def components_to_sky_components(
-        components: Iterable[Component],
-    ) -> Iterable[SkyComponent]:
-        """
-        Convert external Component instances to SkyComponent instances.
-
-        Parameters
-        ----------
-        components : Iterable[Component]
-            An iterable of component objects from the external local sky
-            model library.
-
-        Returns
-        -------
-        Iterable[SkyComponent]
-            An iterable of internal sky component dataclass instances with
-            explicit unit-suffixed fields.
-        """
-        return (comp.skycomponent for comp in components)
 
 
 def export_lsm_to_csv(components: list[SkyComponent], csv_path: str) -> None:
