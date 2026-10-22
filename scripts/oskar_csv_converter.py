@@ -16,6 +16,9 @@ OSKAR stores the full width at half maximum (FWHM) of Gaussian sources,
 while the SKA LSM stores semi-axes, so the axes are halved. Both formats
 measure the position angle from North through East, so it is unchanged.
 
+The output starts with a CATALOGUE_METADATA_* header, which the pipeline
+needs to read the file. The catalogue name defaults to the input file stem.
+
 SKA LSM format columns:
 component_id, source_id, ra_deg, dec_deg, i_pol_jy, ref_freq_hz, epoch,
 a_arcsec, b_arcsec, pa_deg, spec_idx, log_spec_idx
@@ -28,17 +31,22 @@ Usage:
     python scripts/oskar_csv_converter.py input.csv output.csv
     python scripts/oskar_csv_converter.py input.csv output.csv --comp-prefix GLEAM
     python scripts/oskar_csv_converter.py input.csv --default-ref-freq 150e6
+    python scripts/oskar_csv_converter.py input.csv --catalogue-name MyCat \
+        --catalogue-version 2.0.0 --author "A. Person"
 """
 
 import argparse
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-
-from ska_sdp_instrumental_calibration.data_managers.sky_model.sky_model_reader import (
-    ComponentConverters,
-    export_lsm_to_csv,
+from ska_sdp_datamodels.sky_model import (
+    SkyComponent,
+    SkyModel,
+    SkyModelMetadata,
+    write_skymodel_to_lsm_csv,
 )
 
 # Old OSKAR CSV headers
@@ -102,6 +110,10 @@ def convert_oskar_to_ska_lsm(
     output_file: str,
     component_prefix: str,
     default_ref_freq: Optional[float] = None,
+    catalogue_name: Optional[str] = None,
+    catalogue_version: str = "1.0.0",
+    description: Optional[str] = None,
+    author: Optional[str] = None,
 ):
     """
     Convert an OSKAR format CSV file to the SKA LSM CSV format.
@@ -119,6 +131,15 @@ def convert_oskar_to_ska_lsm(
         frequency is 0 (the OSKAR default). Their spectral index is set to
         0, as OSKAR applies no spectral scaling to them. If not given, such
         components raise an error.
+    catalogue_name : str, optional
+        Catalogue name written to the metadata header. Defaults to the
+        input file stem.
+    catalogue_version : str
+        Catalogue version written to the metadata header.
+    description : str, optional
+        Catalogue description written to the metadata header.
+    author : str, optional
+        Catalogue author written to the metadata header.
     """
     df = read_oskar_csv(input_file)
 
@@ -160,9 +181,22 @@ def convert_oskar_to_ska_lsm(
     df["b_arcsec"] = df["b_arcsec"] / 2
     df["source_id"] = ""
     df["epoch"] = 0.0
-    # Convert to components and write to CSV
-    components = ComponentConverters.df_to_components(df)
-    export_lsm_to_csv(components, output_file)
+
+    components = {
+        row["component_id"]: SkyComponent(**row)
+        for row in df.to_dict("records")
+    }
+    sky_model = SkyModel(
+        metadata=SkyModelMetadata(
+            version=catalogue_version,
+            catalogue_name=catalogue_name or Path(input_file).stem,
+            uploaded_at=datetime.now(timezone.utc).isoformat(),
+            description=description,
+            author=author,
+        ),
+        components=components,
+    )
+    write_skymodel_to_lsm_csv(sky_model, output_file)
 
     print(f"Converted {len(df)} components from {input_file} to {output_file}")
 
@@ -200,6 +234,31 @@ def main():
         "reference frequency is 0. Without it, such components cause an "
         "error.",
     )
+    parser.add_argument(
+        "--catalogue-name",
+        type=str,
+        default=None,
+        help="Catalogue name for the metadata header. "
+        "Default: the input file stem",
+    )
+    parser.add_argument(
+        "--catalogue-version",
+        type=str,
+        default="1.0.0",
+        help="Catalogue version for the metadata header. Default: 1.0.0",
+    )
+    parser.add_argument(
+        "--description",
+        type=str,
+        default=None,
+        help="Catalogue description for the metadata header.",
+    )
+    parser.add_argument(
+        "--author",
+        type=str,
+        default=None,
+        help="Catalogue author for the metadata header.",
+    )
 
     args = parser.parse_args()
 
@@ -208,6 +267,10 @@ def main():
         output_file=args.output_csv,
         component_prefix=args.comp_prefix,
         default_ref_freq=args.default_ref_freq,
+        catalogue_name=args.catalogue_name,
+        catalogue_version=args.catalogue_version,
+        description=args.description,
+        author=args.author,
     )
 
 
