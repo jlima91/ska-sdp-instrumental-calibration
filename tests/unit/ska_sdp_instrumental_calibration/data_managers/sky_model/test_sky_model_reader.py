@@ -106,7 +106,7 @@ def test_read_gleamegc_sets_metadata(gleam_open):
 
     metadata = sky_model.metadata
     assert metadata.catalogue_name == "GLEAM-EGC"
-    assert metadata.version == "1.0"
+    assert metadata.version == "1.0.0"
     assert metadata.reference == "https://doi.org/10.1093/mnras/stw2337"
     assert metadata.freq_min_hz == 72e6
     assert metadata.freq_max_hz == 231e6

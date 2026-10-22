@@ -1,6 +1,6 @@
 # (component_id,source_id,ra_deg,dec_deg,i_pol_jy,ref_freq_hz,epoch,a_arcsec,b_arcsec,pa_deg,spec_idx,log_spec_idx) = format
 # NUMBER_OF_COMPONENTS=1434
-# CATALOGUE_METADATA_VERSION=1.0
+# CATALOGUE_METADATA_VERSION=1.0.0
 # CATALOGUE_METADATA_CATALOGUE_NAME=sky_model
 # CATALOGUE_METADATA_UPLOADED_AT=2026-10-21T00:00:00+00:00
 # CATALOGUE_METADATA_DESCRIPTION=Test sky model for INST e2e tests

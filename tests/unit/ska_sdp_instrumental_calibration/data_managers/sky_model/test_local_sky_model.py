@@ -170,7 +170,7 @@ def gleamfile(tmp_path):
 def make_sky_model(components):
     return SkyModel(
         metadata=SkyModelMetadata(
-            version="1.0",
+            version="1.0.0",
             catalogue_name="test",
             uploaded_at="2026-01-01T00:00:00+00:00",
         ),
@@ -249,7 +249,7 @@ def test_should_raise_when_no_catalogue_provided():
 LSM_CSV_CONTENT = """\
 # (component_id,source_id,ra_deg,dec_deg,i_pol_jy,ref_freq_hz,epoch,a_arcsec,b_arcsec,pa_deg,spec_idx,log_spec_idx) = format
 # NUMBER_OF_COMPONENTS=3
-# CATALOGUE_METADATA_VERSION=1.0
+# CATALOGUE_METADATA_VERSION=1.0.0
 # CATALOGUE_METADATA_CATALOGUE_NAME=test
 # CATALOGUE_METADATA_UPLOADED_AT=2026-01-01T00:00:00+00:00
 inside,,10.0,-30.0,2.0,200000000,0,1.0,0.5,10.0,"[-0.7,0.01]",true

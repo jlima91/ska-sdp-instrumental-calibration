@@ -171,7 +171,7 @@ def migrate_sky_model(sky_model_path, output_dir):
     }
     sky_model = SkyModel(
         metadata=SkyModelMetadata(
-            version="1.0",
+            version="1.0.0",
             catalogue_name=Path(sky_model_path).stem,
             uploaded_at=datetime.now(timezone.utc).isoformat(),
             description="Converted from OSKAR sky model for validation",
