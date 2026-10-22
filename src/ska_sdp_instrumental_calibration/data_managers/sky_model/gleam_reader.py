@@ -1,13 +1,10 @@
 import logging
-from dataclasses import asdict, fields
 from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
-import pandas as pd
 from astropy.coordinates import SkyCoord
 from ska_sdp_datamodels.sky_model import (
-    LocalSkyModel,
     SkyComponent,
     SkyModel,
     SkyModelMetadata,
@@ -24,58 +21,6 @@ logger = logging.getLogger(__name__)
 
 # Hurley-Walker et al. (2017), MNRAS 464, 1146
 GLEAMEGC_REFERENCE = "https://doi.org/10.1093/mnras/stw2337"
-
-
-class ComponentConverters:
-    @staticmethod
-    def df_to_components(df: pd.DataFrame) -> list[SkyComponent]:
-        """
-        Convert a pandas DataFrame into a list of SkyComponent objects.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            The input dataframe where each row represents a component. The
-            column names must match the ``SkyComponent`` fields.
-
-        Returns
-        -------
-        list of SkyComponent
-            A list containing the converted SkyComponent instances.
-        """
-        return [SkyComponent(**row) for row in df.to_dict("records")]
-
-
-def export_lsm_to_csv(components: list[SkyComponent], csv_path: str) -> None:
-    """
-    Export a list of SkyComponent instances to a CSV file.
-
-    Parameters
-    ----------
-    components : list[SkyComponent]
-        A list of sky components.
-    csv_path : str
-        The destination path for the CSV file.
-
-    Returns
-    -------
-    None
-    """
-    column_names = [field.name for field in fields(SkyComponent)]
-    vector_columns = ["spec_idx"]
-
-    local_sky_model = LocalSkyModel(
-        column_names=column_names,
-        num_rows=len(components),
-        vector_columns=vector_columns,
-    )
-    for row, sky_comp in enumerate(components):
-        local_sky_model.set_row(row, asdict(sky_comp))
-
-    # .save method will fail with provide just file name like "test.csv"
-    # it should be "./test.csv"
-    # To solve this, we can use os.path.abspath(csv_path)
-    local_sky_model.save(csv_path)
 
 
 def read_gleamegc(
