@@ -8,7 +8,10 @@ from ska_sdp_piper.piper import ConfigurableStage
 from ...data_managers.gaintable import create_gaintable_from_visibility
 from ...plot import PlotGaintableTargetIonosphere
 from ...xarray_processors import with_chunks
-from ...xarray_processors.ionosphere_solvers import run_ionospheric_solver, run_ionospheric_solver_ext
+from ...xarray_processors.ionosphere_solvers import (
+    run_ionospheric_solver,
+    run_ionospheric_solver_ext,
+)
 from .._utils import get_plots_path
 
 logger = logging.getLogger()
@@ -63,11 +66,12 @@ def ionospheric_delay_stage(
     external_tec_fits: Annotated[
         Optional[str],
         Field(
-            description="""Path to an external FITS file containing a TEC screen.
-            If provided, the external TEC screen is used for ionospheric
-            calibration. If None, the standard ionospheric solver is used.""",
+            description="""Path to an external FITS file containing a
+            TEC screen. If provided, the external TEC screen is used
+            for ionospheric calibration. If None, the standard ionospheric
+            solver is used.""",
         ),
-        ] = None,
+    ] = None,
 ):
     """
     Calculates and applies ionospheric delay corrections to visibility data.
@@ -126,9 +130,7 @@ def ionospheric_delay_stage(
     if external_tec_fits:
 
         gaintable = run_ionospheric_solver_ext(
-            vis,
-            external_tec_fits,
-            initialtable
+            vis, external_tec_fits, initialtable
         )
     else:
         gaintable = run_ionospheric_solver(  # pylint: disable=E1121
