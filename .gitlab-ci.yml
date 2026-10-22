@@ -32,21 +32,6 @@ include:
       # SonarQube Scan
       - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
 
-# remove this before_script once default CI images get upgraded to ubuntu24/python3.12
-.python_before_script: &python_before_script
-  - uv venv .venv/ -p $CUSTOM_PYTHON_VERSION --clear
-  - source .venv/bin/activate
-  - poetry install --all-extras
-
-python-lint:
-  before_script: *python_before_script
-
-python-test:
-  before_script: *python_before_script
-
-docs-build:
-  before_script: *python_before_script
-
 # integration-setup:
 #   stage: integration-setup
 #   script:
@@ -82,6 +67,7 @@ docs-build:
 #       git clone https://github.com/abhinavn17/ARatmospy
 #       export PYTHONPATH=$PWD/src/:$PWD/ARatmospy:$PYTHONPATH
 #       python -m unittest discover tests/validation/ -p "*.py"
+# 
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 #     - if: $CI_PIPELINE_SOURCE == "schedule"
