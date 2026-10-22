@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import numpy as np
 import pytest
 from astropy.coordinates import SkyCoord
@@ -276,27 +278,30 @@ def test_should_filter_csv_global_sky_model_by_fov_and_flux(tmp_path):
     assert component.log_spec_idx
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.local_sky_model.export_lsm_to_csv"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers"
-    ".sky_model.local_sky_model.read_gleamegc"
-)
-def test_should_export_global_sky_model_csv(
-    read_gleamegc_mock, export_mock, gleamfile
-):
-    components = [
-        make_sky_component("A", 1.0, 2.0, 3.0),
-        make_sky_component("B", 4.0, 5.0, 6.0),
+def test_should_export_global_sky_model_csv_and_read_it_back(tmp_path):
+    csv_path = tmp_path / "sky_model.csv"
+    csv_path.write_text(LSM_CSV_CONTENT)
+    phasecentre = SkyCoord(ra=10.0, dec=-30.0, unit="deg")
+    gsm = GlobalSkyModel(
+        phasecentre, fov=100.0, flux_limit=0.0, lsm_csv_path=str(csv_path)
+    )
+    output_path = tmp_path / "output.csv"
+
+    gsm.export_sky_model_csv(str(output_path))
+    exported = GlobalSkyModel(
+        phasecentre, fov=100.0, flux_limit=0.0, lsm_csv_path=str(output_path)
+    )
+
+    assert exported.sky_model.metadata == gsm.sky_model.metadata
+    assert list(exported.sky_model.components) == [
+        "inside",
+        "faint",
+        "outside",
     ]
-    read_gleamegc_mock.return_value = make_sky_model(components)
-
-    gsm = GlobalSkyModel("phasecentre", gleamfile=gleamfile)
-    gsm.export_sky_model_csv("output.csv")
-
-    export_mock.assert_called_once_with(components, "output.csv")
+    for comp_id, component in gsm.sky_model.components.items():
+        np.testing.assert_equal(
+            asdict(exported.sky_model.components[comp_id]), asdict(component)
+        )
 
 
 @patch(

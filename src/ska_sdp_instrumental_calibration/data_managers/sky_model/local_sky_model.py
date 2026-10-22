@@ -9,6 +9,7 @@ from ska_sdp_datamodels.sky_model import (
     SkyComponent,
     SkyModel,
     read_skymodel_from_lsm_csv,
+    write_skymodel_to_lsm_csv,
 )
 
 from ska_sdp_instrumental_calibration.exceptions import (
@@ -19,7 +20,7 @@ from ...numpy_processors.rotation_matrix import generate_rotation_matrices
 from ..beams import BeamsFactory, convert_time_to_solution_time
 from .local_sky_component import LocalSkyComponent
 from .sky_model_operations import is_above_horizon
-from .sky_model_reader import export_lsm_to_csv, read_gleamegc
+from .sky_model_reader import read_gleamegc
 
 logger = logging.getLogger()
 
@@ -260,9 +261,11 @@ class GlobalSkyModel:
         self.sky_model: SkyModel = sky_model
 
     def export_sky_model_csv(self, output_csv_path: str):
-        export_lsm_to_csv(
-            list(self.sky_model.components.values()), output_csv_path
-        )
+        """
+        Write the sky model, including its catalogue metadata, to an LSM CSV
+        file that can be read back with ``lsm_csv_path``.
+        """
+        write_skymodel_to_lsm_csv(self.sky_model, output_csv_path)
 
     def get_local_sky_model(
         self, solution_time: float, array_location: EarthLocation
