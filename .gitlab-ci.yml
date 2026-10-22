@@ -8,8 +8,8 @@ stages:
   - scan
   - publish
   - pages
-# - integration-setup
-# - integration-test
+  # - integration-setup
+  # - integration-test
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
@@ -32,6 +32,21 @@ include:
       # SonarQube Scan
       - 'gitlab-ci/includes/sonar-scan.gitlab-ci.yml'
 
+# remove this before_script once default CI images get upgraded to ubuntu24/python3.12
+.python_before_script: &python_before_script
+  - uv venv .venv/ -p $CUSTOM_PYTHON_VERSION --clear
+  - source .venv/bin/activate
+  - poetry install --all-extras
+
+python-lint:
+  before_script: *python_before_script
+
+python-test:
+  before_script: *python_before_script
+
+docs-build:
+  before_script: *python_before_script
+
 # integration-setup:
 #   stage: integration-setup
 #   script:
@@ -40,7 +55,7 @@ include:
 #       ls-remote --exit-code --refs --sort='version:refname' --tags https://gitlab.com/ska-telescope/sdp/ska-sdp-spack.git '*.*.*' \
 #       | tail --lines=1 \
 #       | cut --delimiter='/' --fields=3)
-# 
+
 #       COMMIT_SHORT_SHA=$(git ls-remote https://gitlab.com/ska-telescope/sdp/ska-sdp-spack.git HEAD | cut -c 1-8)
 #       echo "SKA_SDP_SPACK_IMAGE=registry.gitlab.com/ska-telescope/sdp/ska-sdp-spack/ska-sdp-spack-ubuntu:${VERSION}-dev.c${COMMIT_SHORT_SHA}" > build.env
 #   artifacts:
@@ -51,7 +66,7 @@ include:
 #     - if: $CI_PIPELINE_SOURCE == "schedule"
 #     - if: $CI_PIPELINE_SOURCE == "push"
 #       when: never
-# 
+
 # integration-test:
 #   image:
 #     name: $SKA_SDP_SPACK_IMAGE
@@ -67,7 +82,6 @@ include:
 #       git clone https://github.com/abhinavn17/ARatmospy
 #       export PYTHONPATH=$PWD/src/:$PWD/ARatmospy:$PYTHONPATH
 #       python -m unittest discover tests/validation/ -p "*.py"
-# 
 #   rules:
 #     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 #     - if: $CI_PIPELINE_SOURCE == "schedule"
