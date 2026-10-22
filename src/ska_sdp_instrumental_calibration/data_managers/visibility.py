@@ -76,6 +76,12 @@ def create_template_vis_from_ms(
         yields no rows in the MS.
     KeyError
         If the polarization configuration in the MS is not recognized.
+
+    Notes
+    -----
+    The ``time_centroid`` data variable, added to Visibility in
+    ska-sdp-datamodels 3.1.0, is dropped from the templates as it is not
+    used by the INST pipeline.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -279,6 +285,11 @@ def create_template_vis_from_ms(
                         [ntimes, nbaselines, nchan, npol], dtype=weight_dtype
                     )
                     bv_uvw = da.empty([ntimes, nbaselines, 3], dtype=uvw_dtype)
+                    # Pass explicitly, else constructor materialises a
+                    # numpy broadcast of time to [ntimes, nbaselines, nchan]
+                    bv_time_centroid = da.empty(
+                        [ntimes, nbaselines, nchan], dtype=np.float64
+                    )
 
                     bv_times = np.zeros([ntimes])
                     bv_integration_time = np.zeros([ntimes])
@@ -292,6 +303,7 @@ def create_template_vis_from_ms(
                         uvw=bv_uvw,
                         baselines=baselines,
                         time=bv_times,
+                        time_centroid=bv_time_centroid,
                         frequency=cfrequency,
                         channel_bandwidth=cchannel_bandwidth,
                         vis=bv_vis,
@@ -305,6 +317,12 @@ def create_template_vis_from_ms(
                         meta=meta,
                         low_precision="float64",
                     )
+
+                    # time_centroid (datamodels >= 3.1.0) is never read
+                    # from the MS nor used downstream; keeping it would
+                    # only add a large per-baseline/channel array to the
+                    # template and every dataset derived from it
+                    vis_template = vis_template.drop_vars("time_centroid")
 
                     # Need to reassign with correct dtype
                     vis_template = vis_template.assign(
