@@ -3,6 +3,28 @@
 # main
 
 1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.
+2. Require `ska-sdp-datamodels >= 3.1` and `ska-sdp-func-python >= 2`. The
+   sky model is now held as a datamodels `SkyModel` of `SkyComponent`s.
+3. **Breaking:** the LSM CSV sky model (`lsm_csv_path`, and
+   `sky/<field_id>/sky_model.csv` in SDM mode) must start with a
+   `CATALOGUE_METADATA_*` header (at least `VERSION`, `CATALOGUE_NAME` and
+   `UPLOADED_AT`). Older CSVs without it fail to load; regenerate them with
+   `oskar-csv-converter` or `gleam-csv-converter`.
+4. **Breaking:** a missing `gleamfile` or `lsm_csv_path` now raises
+   `FileNotFoundError`. A missing `gleamfile` no longer falls back to a unit
+   point source at the phase centre, and a missing CSV no longer raises
+   `ValueError`.
+5. The exported sky model CSV now includes the catalogue metadata header, so
+   it can be fed back to the pipeline as `lsm_csv_path`.
+6. Add the `gleam-csv-converter` script, which converts the GLEAM-EGC
+   catalogue to an LSM CSV. `oskar-csv-converter` now writes the metadata
+   header, with new `--catalogue-name`, `--catalogue-version`,
+   `--description` and `--author` options.
+7. Remove `Component`, `generate_lsm_from_csv`, `generate_lsm_from_gleamegc`,
+   `export_lsm_to_csv` and `ComponentConverters` from
+   `data_managers.sky_model`. `GlobalSkyModel.components` is replaced by
+   `GlobalSkyModel.sky_model`, and GLEAM files are read with
+   `read_gleamegc`, which returns a `SkyModel`.
 
 ## 1.5.0
 

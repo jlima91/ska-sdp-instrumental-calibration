@@ -32,12 +32,19 @@ All above dependencies are installed along with the pipeline using [standard ins
 
 For prediction of model visibilities, here are the pre-requisites:
 
- * The GLEAM extragalactic catalogue or a [OSKAR](https://ska-telescope.gitlab.io/sim/oskar/sky_model/sky_model.html#sky-model-file-fixed-format) csv file. This and other catalogues will
+ * The GLEAM extragalactic catalogue or a sky model CSV file in the
+   [SKA LSM format](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/latest/design/lsm-file-structure.html).
+   This and other catalogues will
    soon be available via
    [global-sky-model](https://developer.skao.int/projects/ska-sdp-global-sky-model/en/),
    but at present a hard copy is needed for prediction of model visibilities. The
    gleamegc catalogue can be downloaded via FTP from
    [VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/100).
+   The LSM CSV must start with a `CATALOGUE_METADATA_*` header (at least
+   `VERSION`, `CATALOGUE_NAME` and `UPLOADED_AT`), otherwise it fails to load.
+   Use the `oskar-csv-converter` or `gleam-csv-converter` scripts to convert an
+   [OSKAR](https://ska-telescope.gitlab.io/sim/oskar/sky_model/sky_model.html#sky-model-file-fixed-format)
+   sky model or the GLEAM-EGC catalogue into this format.
  * A measurement set with appropriate metadata to initialise the everybeam beam models.
    An appropriate measurement set for basic tests can be downloaded using the
    [everybeam package](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/)
