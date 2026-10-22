@@ -86,6 +86,7 @@ ska-sdp-instrumental-target-calibration = "ska_sdp_instrumental_calibration.targ
 ska-sdp-instrumental-target-ionospheric = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_ionospheric_calibration"
 clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
 oskar-csv-converter = {reference = "scripts/oskar_csv_converter.py", type = "file"}
+gleam-csv-converter = {reference = "scripts/gleam_csv_converter.py", type = "file"}
 
 [tool.coverage.run]
 branch = true

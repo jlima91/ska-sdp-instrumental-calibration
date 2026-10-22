@@ -14,7 +14,7 @@ RUN poetry install --only main --no-root
 
 # Install the package itself (non-editable) into the virtual environment
 COPY src ./src
-COPY scripts/clean-with-gains scripts/oskar_csv_converter.py ./scripts/
+COPY scripts/clean-with-gains scripts/oskar_csv_converter.py scripts/gleam_csv_converter.py ./scripts/
 RUN .venv/bin/pip install --no-cache-dir --no-dependencies .
 
 
