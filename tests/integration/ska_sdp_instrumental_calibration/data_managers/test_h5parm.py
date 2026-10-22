@@ -40,7 +40,12 @@ def test_should_create_soltab_datasets(h5file):
     freq = np.array([100e6, 110e6])
     pol = to_null_terminated_bytes(["XX", "XY", "YX", "YY"])
     gaintable = xr.Dataset(
-        {"gain": (("time", "ant", "freq", "pol"), np.ones((2, 3, 2, 4)))},
+        {
+            "CALPARAM_GAIN": (
+                ("time", "ant", "freq", "pol"),
+                np.ones((2, 3, 2, 4)),
+            )
+        },
         coords={"time": TIME, "ant": ANT, "freq": freq, "pol": pol},
     )
     soltab = h5file.create_group("amplitude000")
@@ -67,9 +72,9 @@ def test_should_create_clock_soltab_datasets(h5file):
         delay=np.zeros((2, 3, 2)),
         offset=np.zeros((2, 3, 2)),
         time=TIME,
-        antenna=ANT,
+        antenna_name=ANT,
         pol=pol,
-    ).rename({"antenna": "ant"})
+    ).rename({"antenna_name": "ant"})
     soltab = h5file.create_group("clock000")
 
     val, offset = create_clock_soltab_datasets(soltab, delaytable)

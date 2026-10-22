@@ -8,7 +8,9 @@ logger = logging.getLogger()
 def sliding_window_smooth(
     gaintable: xr.Dataset, window_size: int, mode: str
 ) -> xr.Dataset:
-    rolled_gain = gaintable.gain.rolling(frequency=window_size, center=True)
+    rolled_gain = gaintable.CALPARAM_GAIN.rolling(
+        frequency=window_size, center=True
+    )
 
     if mode == "mean":
         logger.info("Using sliding window smooth with mean mode.")
@@ -20,5 +22,9 @@ def sliding_window_smooth(
         raise ValueError(f"Unsupported sliding window smooth mode {mode}")
 
     return gaintable.assign(
-        {"gain": smooth_gain.chunk(gaintable.gain.chunksizes)}
+        {
+            "CALPARAM_GAIN": smooth_gain.chunk(
+                gaintable.CALPARAM_GAIN.chunksizes
+            )
+        }
     )

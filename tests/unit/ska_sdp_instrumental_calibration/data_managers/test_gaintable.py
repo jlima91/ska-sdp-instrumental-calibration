@@ -1,3 +1,4 @@
+import dask.array as da
 import numpy as np
 import pytest
 from mock import MagicMock, patch
@@ -7,9 +8,13 @@ from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     create_gaintable_from_h5parm,
     create_gaintable_from_visibility,
     divide_bandpass_by_ref_ant_preserve_phase,
+    multiply_gaintables,
     reset_gaintable,
 )
 from ska_sdp_instrumental_calibration.data_managers.h5parm import SoltabData
+from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
+    GainCalibrationSetXds,
+)
 
 
 def test_should_raise_exception_for_jonestype(generate_vis):
@@ -23,18 +28,61 @@ def test_should_generate_gaintable_with_defaults(generate_vis):
     gaintable = create_gaintable_from_visibility(vis)
 
     expected_frequency = np.mean(vis.frequency.data, keepdims=True)
-    gain_shape = (len(vis.time.data), vis.visibility_acc.nants, 1, 2, 2)
-    residual_shape = (len(vis.time.data), 1, 2, 2)
+    gain_shape = (len(vis.time.data), vis.visibility_acc.nants, 1, 4)
+    residual_shape = (len(vis.time.data), 1, 4)
 
     np.testing.assert_allclose(gaintable.frequency.data, expected_frequency)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
-    assert gaintable.residual.shape == residual_shape
-    assert gaintable.soln_interval_slices == [
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
+    assert gaintable.CALPARAM_RESIDUAL.shape == residual_shape
+    assert gaintable.attrs["soln_interval_slices"] == [
         slice(0, 1, 1),
         slice(1, 2, 1),
         slice(2, 3, 1),
     ]
+
+
+@pytest.mark.parametrize(
+    "polarisation",
+    [["XX", "XY", "YX", "YY"], ["RR", "RL", "LR", "LL"]],
+    ids=["linear", "circular"],
+)
+def test_should_take_names_and_pols_from_visibility(
+    generate_vis, polarisation
+):
+    vis, _ = generate_vis
+    vis = vis.assign_coords(polarisation=polarisation)
+
+    gaintable = create_gaintable_from_visibility(vis)
+
+    assert gaintable.polarization.data.tolist() == polarisation
+    assert (
+        gaintable.antenna_name.data.tolist()
+        == vis.configuration.names.data.tolist()
+    )
+
+
+@pytest.mark.parametrize(
+    "polarisation",
+    [
+        ["XX", "YY", "XY", "YX"],
+        ["I", "Q", "U", "V"],
+        ["XX", "YY"],
+        ["I"],
+    ],
+    ids=["linearFITS", "stokesIQUV", "linearnp", "stokesI"],
+)
+def test_should_raise_for_unsupported_visibility_pols(
+    generate_vis, polarisation
+):
+    vis, _ = generate_vis
+    vis = vis.isel(polarisation=slice(0, len(polarisation)))
+    vis = vis.assign_coords(polarisation=polarisation)
+
+    with pytest.raises(
+        ValueError, match="Unsupported visibility polarizations"
+    ):
+        create_gaintable_from_visibility(vis)
 
 
 def test_should_generate_gaintable_for_jonetypes_B(generate_vis):
@@ -46,14 +94,13 @@ def test_should_generate_gaintable_for_jonetypes_B(generate_vis):
         len(vis.time.data),
         vis.visibility_acc.nants,
         len(vis.frequency.data),
-        2,
-        2,
+        4,
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
-    assert gaintable.soln_interval_slices == [
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
+    assert gaintable.attrs["soln_interval_slices"] == [
         slice(0, 1, 1),
         slice(1, 2, 1),
         slice(2, 3, 1),
@@ -70,46 +117,50 @@ def test_should_skip_default_chunk(generate_vis):
         len(vis.time.data),
         vis.visibility_acc.nants,
         len(vis.frequency.data),
-        2,
-        2,
+        4,
     )
 
     np.testing.assert_allclose(gaintable.frequency.data, vis.frequency.data)
-    assert gaintable.gain.shape == gain_shape
-    assert gaintable.weight.shape == gain_shape
-    assert gaintable.soln_interval_slices == [
+    assert gaintable.CALPARAM_GAIN.shape == gain_shape
+    assert gaintable.CALPARAM_WEIGHT.shape == gain_shape
+    assert gaintable.attrs["soln_interval_slices"] == [
         slice(0, 1, 1),
         slice(1, 2, 1),
         slice(2, 3, 1),
     ]
 
 
+@patch("ska_sdp_instrumental_calibration.data_managers.gaintable.jones_to_pol")
 @patch("ska_sdp_instrumental_calibration.data_managers.gaintable.da")
-def test_should_reset_gaintable(da_mock, generate_vis):
-    vis, jones = generate_vis
+def test_should_reset_gaintable(da_mock, jones_to_pol_mock):
     gaintable = MagicMock(name="gaintable")
+    gaintable.sizes = {"polarization": 4}
     r_gaintable = reset_gaintable(gaintable)
-    da_mock.eye.asserrt_called_once_with(
-        gaintable.gain.shape[-1], dtype=gaintable.gain.dtype
+    da_mock.eye.assert_called_once_with(
+        2,
+        dtype=gaintable.CALPARAM_GAIN.dtype,
     )
+    jones_to_pol_mock.assert_called_once_with(da_mock.eye.return_value)
 
     da_mock.broadcast_to.assert_called_once_with(
-        da_mock.eye.return_value, gaintable.gain.shape
+        jones_to_pol_mock.return_value,
+        gaintable.CALPARAM_GAIN.shape,
     )
 
     da_mock.ones.assert_called_once_with(
-        gaintable.weight.shape, dtype=gaintable.weight.dtype
+        gaintable.CALPARAM_WEIGHT.shape, dtype=gaintable.CALPARAM_WEIGHT.dtype
     )
 
     da_mock.zeros.assert_called_once_with(
-        gaintable.residual.shape, dtype=gaintable.residual.dtype
+        gaintable.CALPARAM_RESIDUAL.shape,
+        dtype=gaintable.CALPARAM_RESIDUAL.dtype,
     )
 
     gaintable.copy.assert_called_once_with(deep=True)
     assert r_gaintable == gaintable.copy.return_value
-    assert r_gaintable.gain.data == da_mock.broadcast_to.return_value
-    assert r_gaintable.weight.data == da_mock.ones.return_value
-    assert r_gaintable.residual.data == da_mock.zeros.return_value
+    assert r_gaintable.CALPARAM_GAIN.data == da_mock.broadcast_to.return_value
+    assert r_gaintable.CALPARAM_WEIGHT.data == da_mock.ones.return_value
+    assert r_gaintable.CALPARAM_RESIDUAL.data == da_mock.zeros.return_value
 
 
 def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
@@ -118,13 +169,13 @@ def test_should_divide_bandpass_by_ref_ant_and_preserve_phase(generate_vis):
     gaintable = create_gaintable_from_visibility(vis, jones_type="B")
 
     actual_gaintable = divide_bandpass_by_ref_ant_preserve_phase(gaintable, 0)
-    complex_gains = actual_gaintable.gain.data
+    complex_gains = actual_gaintable.CALPARAM_GAIN.data
 
-    x_angle = np.angle(complex_gains[:, 0, :, 0, 0])
-    y_angle = np.angle(complex_gains[:, 0, :, 1, 1])
+    x_angle = np.angle(complex_gains[:, 0, :, 0])
+    y_angle = np.angle(complex_gains[:, 0, :, 3])
 
     actual_amp = np.abs(complex_gains)
-    expected_amp = np.abs(gaintable.gain.data)
+    expected_amp = np.abs(gaintable.CALPARAM_GAIN.data)
 
     assert np.allclose(x_angle[np.isfinite(x_angle)], 0)
     assert np.allclose(y_angle[np.isfinite(y_angle)], 0)
@@ -218,7 +269,8 @@ def _h5parm_gains(
 def test_create_gaintable_from_h5parm_should_create_without_vis(
     read_h5parm_gains_mock,
 ):
-    gain, weight, _, soltab = _h5parm_gains()
+    antennas = ["ANT0", "ANT1", "ANT2"]
+    gain, weight, _, soltab = _h5parm_gains(antenna=antennas)
     read_h5parm_gains_mock.return_value = (gain, weight, None, soltab)
     interval = np.array([10.0, 10.0])
 
@@ -227,13 +279,38 @@ def test_create_gaintable_from_h5parm_should_create_without_vis(
     )
 
     read_h5parm_gains_mock.assert_called_once_with("gains.h5")
-    np.testing.assert_allclose(gaintable.gain.data, gain)
-    np.testing.assert_allclose(gaintable.weight.data, weight)
-    np.testing.assert_allclose(gaintable.residual.data, np.zeros((2, 4, 2, 2)))
+    np.testing.assert_allclose(
+        gaintable.CALPARAM_GAIN.data, gain.reshape(*gain.shape[:-2], -1)
+    )
+    np.testing.assert_allclose(
+        gaintable.CALPARAM_WEIGHT.data, weight.reshape(*weight.shape[:-2], -1)
+    )
+    np.testing.assert_allclose(
+        gaintable.CALPARAM_RESIDUAL.data, np.zeros((2, 4, 4))
+    )
     np.testing.assert_allclose(gaintable.time.data, soltab.time)
-    np.testing.assert_allclose(gaintable.interval.data, interval)
+    np.testing.assert_allclose(gaintable.CALPARAM_INTERVAL.data, interval)
     np.testing.assert_allclose(gaintable.frequency.data, soltab.frequency)
     assert gaintable.jones_type == "B"
+    assert gaintable.antenna_name.data.tolist() == antennas
+    assert gaintable.polarization.data.tolist() == ["XX", "XY", "YX", "YY"]
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers.gaintable."
+    "read_h5parm_gains"
+)
+def test_create_gaintable_from_h5parm_should_raise_for_absent_antenna_no_vis(
+    read_h5parm_gains_mock,
+):
+    read_h5parm_gains_mock.return_value = _h5parm_gains(antenna=None)
+
+    with pytest.raises(
+        ValueError,
+        match="H5Parm gains.h5 has no antenna axis; "
+        "vis is required to provide the antenna names",
+    ):
+        create_gaintable_from_h5parm("gains.h5", np.array([10.0, 10.0]))
 
 
 @pytest.mark.parametrize(
@@ -254,7 +331,7 @@ def test_create_gaintable_from_h5parm_should_raise_for_absent_axis_no_vis(
 
     with pytest.raises(
         ValueError,
-        match="h5parm gains.h5 has no time or frequency axis, "
+        match="H5Parm gains.h5 has no time or frequency axis; "
         "vis is required to restore them",
     ):
         create_gaintable_from_h5parm("gains.h5", np.array([10.0, 10.0]))
@@ -278,14 +355,14 @@ def test_create_gaintable_from_h5parm_should_use_vis_metadata(
         "gains.h5", np.array([10.0, 10.0]), vis=vis, jones_type="G"
     )
 
-    np.testing.assert_allclose(gaintable.gain.data, gain)
+    np.testing.assert_allclose(
+        gaintable.CALPARAM_GAIN.data, gain.reshape(*gain.shape[:-2], -1)
+    )
     np.testing.assert_allclose(gaintable.time.data, soltab.time)
     np.testing.assert_allclose(gaintable.frequency.data, soltab.frequency)
     assert gaintable.jones_type == "G"
-    assert gaintable.phasecentre.separation(vis.phasecentre).rad == 0.0
-    assert gaintable.configuration.names.data.tolist() == antennas
-    assert gaintable.receptor1.data.tolist() == ["X", "Y"]
-    assert gaintable.receptor2.data.tolist() == ["X", "Y"]
+    assert gaintable.antenna_name.data.tolist() == antennas
+    assert gaintable.polarization.data.tolist() == ["XX", "XY", "YX", "YY"]
 
 
 @patch(
@@ -316,7 +393,7 @@ def test_create_gaintable_from_h5parm_should_restore_axes_from_vis(
     np.testing.assert_allclose(
         gaintable.frequency.data, np.mean(vis.frequency.data, keepdims=True)
     )
-    assert gaintable.residual.shape == (1, 1, 2, 2)
+    assert gaintable.CALPARAM_RESIDUAL.shape == (1, 1, 4)
 
 
 @patch(
@@ -343,3 +420,101 @@ def test_create_gaintable_from_h5parm_should_check_antennas_against_vis(
         )
 
     check_antennas_mock.assert_called_once_with(antennas[::-1], antennas)
+
+
+def _gaintable(gain, weight=None):
+    """Build a GainCalibrationSetXds from a gain array."""
+    ntimes, nants, nchan, npol = gain.shape
+    return GainCalibrationSetXds.constructor(
+        gain=gain,
+        weight=np.ones(gain.shape) if weight is None else weight,
+        residual=np.zeros((ntimes, nchan, npol)),
+        time=np.arange(ntimes, dtype=float),
+        interval=np.ones(ntimes),
+        frequency=np.linspace(1e8, 2e8, nchan),
+        antenna_name=np.array([f"ANT{i}" for i in range(nants)]),
+        polarization=np.array(["XX", "XY", "YX", "YY"]),
+        jones_type="B",
+    )
+
+
+def _random_gains(rng, shape):
+    return rng.normal(size=shape) + 1j * rng.normal(size=shape)
+
+
+def test_multiply_gaintables_should_matrix_multiply_jones():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain1 = _random_gains(rng, shape)
+    gain2 = _random_gains(rng, shape)
+    jones1 = gain1.reshape(*shape[:-1], 2, 2)
+    jones2 = gain2.reshape(*shape[:-1], 2, 2)
+    # Non-commuting matrices, so a swapped operand order is detected
+    assert not np.allclose(jones1 @ jones2, jones2 @ jones1)
+
+    result = multiply_gaintables(_gaintable(gain1), _gaintable(gain2))
+
+    np.testing.assert_allclose(
+        result.CALPARAM_GAIN.data, (jones1 @ jones2).reshape(shape)
+    )
+
+
+def test_multiply_gaintables_should_keep_gains_for_unity_second_table():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain = _random_gains(rng, shape)
+    unity = np.broadcast_to(
+        np.array([1, 0, 0, 1], dtype=complex), shape
+    ).copy()
+
+    result = multiply_gaintables(_gaintable(gain), _gaintable(unity))
+
+    np.testing.assert_allclose(result.CALPARAM_GAIN.data, gain)
+
+
+def test_multiply_gaintables_should_multiply_weights_elementwise():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    weight1 = rng.uniform(size=shape)
+    weight2 = rng.uniform(size=shape)
+    gt = _gaintable(np.ones(shape, dtype=complex), weight=weight1)
+    dgt = _gaintable(np.ones(shape, dtype=complex), weight=weight2)
+
+    result = multiply_gaintables(gt, dgt)
+
+    np.testing.assert_allclose(result.CALPARAM_WEIGHT.data, weight1 * weight2)
+
+
+def test_multiply_gaintables_should_not_modify_inputs():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain1 = _random_gains(rng, shape)
+    weight1 = rng.uniform(size=shape)
+    gt = _gaintable(gain1.copy(), weight=weight1.copy())
+    dgt = _gaintable(_random_gains(rng, shape), weight=rng.uniform(size=shape))
+
+    result = multiply_gaintables(gt, dgt)
+
+    assert result is not gt
+    np.testing.assert_array_equal(gt.CALPARAM_GAIN.data, gain1)
+    np.testing.assert_array_equal(gt.CALPARAM_WEIGHT.data, weight1)
+
+
+def test_multiply_gaintables_should_support_dask():
+    rng = np.random.default_rng(42)
+    shape = (2, 3, 4, 4)
+    gain1 = _random_gains(rng, shape)
+    gain2 = _random_gains(rng, shape)
+    gt = _gaintable(da.from_array(gain1, chunks=(1, -1, -1, -1)))
+    dgt = _gaintable(da.from_array(gain2, chunks=(1, -1, -1, -1)))
+
+    result = multiply_gaintables(gt, dgt)
+
+    assert isinstance(result.CALPARAM_GAIN.data, da.Array)
+    assert result.CALPARAM_GAIN.chunks == gt.CALPARAM_GAIN.chunks
+    np.testing.assert_allclose(
+        result.CALPARAM_GAIN.values,
+        multiply_gaintables(
+            _gaintable(gain1), _gaintable(gain2)
+        ).CALPARAM_GAIN.data,
+    )

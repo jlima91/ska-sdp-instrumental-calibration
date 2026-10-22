@@ -145,8 +145,8 @@ def flag_gain_stage(
     )
 
     log_flaging_statistics(
-        gaintable.weight,
-        initialtable.weight,
+        gaintable.CALPARAM_WEIGHT,
+        initialtable.CALPARAM_WEIGHT,
     )
 
     if plot_config.gain_flag_plot:
