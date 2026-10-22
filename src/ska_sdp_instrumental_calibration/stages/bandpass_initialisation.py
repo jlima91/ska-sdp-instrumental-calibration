@@ -68,7 +68,7 @@ def bandpass_initialisation_stage(
             "part of delay calibration."
         )
     else:
-        refant = parse_antenna(refant, initialtable.configuration.names)
+        refant = parse_antenna(refant, initialtable.antenna_name)
         solver = Solver.get_solver(refant=refant, niter=niter, tol=tol)
 
         logger.info(

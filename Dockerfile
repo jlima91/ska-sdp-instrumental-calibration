@@ -1,18 +1,37 @@
-FROM artefact.skao.int/ska-build-python:0.4.0 AS build
+FROM artefact.skao.int/ska-build-python-ubuntu24:1.1.2 AS builder
 
-WORKDIR /build
+ENV POETRY_NO_INTERACTION=1
+ENV POETRY_VIRTUALENVS_IN_PROJECT=1
+ENV POETRY_VIRTUALENVS_CREATE=1
 
-COPY . ./
+# Use /app so the virtual environment path matches the runner
+WORKDIR /app
 
-ENV POETRY_VIRTUALENVS_CREATE=false
+COPY pyproject.toml poetry.lock README.md LICENSE ./
 
-RUN poetry install --no-root --only main \
-    && pip install --no-compile --no-cache-dir --no-dependencies .
+# Install dependencies first to cache the layer
+RUN poetry install --only main --no-root
 
-FROM artefact.skao.int/ska-python:0.3.0
+# Install the package itself (non-editable) into the virtual environment
+COPY src ./src
+COPY scripts/clean-with-gains scripts/oskar_csv_converter.py ./scripts/
+RUN .venv/bin/pip install --no-cache-dir --no-dependencies .
+
+
+FROM artefact.skao.int/ska-python-ubuntu24:1.1.2 AS runner
+
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+ENV TZ=Etc/UTC
 
 WORKDIR /app
 
-COPY --from=build /usr/local/ /usr/local/
+# Copy virtual environment (with the installed package) from the builder
+COPY --chown=1000:1000 --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+
+# Switch to the pre-existing UID 1000 non root user
+RUN chown 1000:1000 /app
+USER 1000
 
 ENTRYPOINT ["ska-sdp-instrumental-calibration"]

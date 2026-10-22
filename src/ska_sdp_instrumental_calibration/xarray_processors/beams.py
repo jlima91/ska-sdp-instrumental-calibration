@@ -2,9 +2,10 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.calibration import GainTable
 
 from ..data_managers.beams import BeamsFactory
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
+from ..data_managers.schema.polarization import jones_to_pol
 from ._utils import as_dask_scalar, unwrap_dask_scalar, with_chunks
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ def _prediction_central_beams_ufunc(
 
     Returns
     -------
-    np.ndarray (frequency, antenna, nrec1, nrec2)
+    np.ndarray (frequency, antenna, npol)
     """
     beams_factory = unwrap_dask_scalar(beams_factory)
     beams = beams_factory.get_beams_low(frequency, soln_time)
@@ -33,13 +34,13 @@ def _prediction_central_beams_ufunc(
     response = beams.array_response(direction=beams.beam_direction)
 
     # Tranpose to apply_ufunc expected dimensions order
-    return response.transpose(1, 0, 2, 3)
+    return jones_to_pol(response.transpose(1, 0, 2, 3))
 
 
 def prediction_central_beams(
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     beams_factory: BeamsFactory,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     Predict the central beam response for the provided gaintable configuration.
 
@@ -51,24 +52,25 @@ def prediction_central_beams(
 
     The calculation is parallelized over frequency chunks using `xarray` and
     `dask`. The resulting beam responses are stored as gains in a new
-    `GainTable`.
+    `GainCalibrationSetXds`.
 
     Parameters
     ----------
-    gaintable : GainTable
-        The template GainTable defining the time, frequency, and antenna
-        structure for the prediction. The existing `gain` data in this table
-        is ignored, but coordinates and attributes are preserved.
+    gaintable : GainCalibrationSetXds
+        The template gaintable defining the time, frequency, and antenna
+        structure for the prediction. The existing `CALPARAM_GAIN` data in
+        this table is ignored, but coordinates and attributes are preserved.
     beams_factory : BeamsFactory
         The factory object responsible for generating or retrieving the
         antenna beam models (e.g., based on antenna type, time, and frequency).
 
     Returns
     -------
-    GainTable
-        A new GainTable where the `gain` variable contains the predicted
-        central beam responses (complex Jones matrices). The shape matches
-        the input gaintable: (time, antenna, frequency, receptor1, receptor2).
+    GainCalibrationSetXds
+        A new gaintable where the `CALPARAM_GAIN` variable contains the
+        predicted central beam responses (complex Jones matrices). The shape
+        matches
+        the input gaintable: (time, antenna_name, frequency, polarization).
     """
     # need to calculate central beam response across entire frequency
     frequency_xdr = xr.DataArray(
@@ -85,7 +87,7 @@ def prediction_central_beams(
                 frequency_xdr,
                 beams_factory_xdr,
                 input_core_dims=[[], []],
-                output_core_dims=[("antenna", "receptor1", "receptor2")],
+                output_core_dims=[("antenna_name", "polarization")],
                 dask="parallelized",
                 output_dtypes=[
                     np.complex128,
@@ -94,21 +96,20 @@ def prediction_central_beams(
                 dataset_join="outer",
                 dask_gufunc_kwargs={
                     "output_sizes": {
-                        "antenna": gaintable.antenna.size,
-                        "receptor1": gaintable.receptor1.size,
-                        "receptor2": gaintable.receptor2.size,
+                        "antenna_name": gaintable.antenna_name.size,
+                        "polarization": gaintable.polarization.size,
                     }
                 },
                 kwargs={
                     "soln_time": val,
                 },
-            ).transpose("antenna", "frequency", "receptor1", "receptor2")
+            ).transpose("antenna_name", "frequency", "polarization")
             for val in gaintable.time.data
         ],
         dim="time",
     )
 
-    response = response.assign_coords(gaintable.gain.coords)
-    response = response.assign_attrs(gaintable.gain.attrs)
+    response = response.assign_coords(gaintable.CALPARAM_GAIN.coords)
+    response = response.assign_attrs(gaintable.CALPARAM_GAIN.attrs)
 
-    return gaintable.assign({"gain": response})
+    return gaintable.assign({"CALPARAM_GAIN": response})

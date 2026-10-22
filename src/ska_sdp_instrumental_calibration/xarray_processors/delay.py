@@ -5,10 +5,9 @@ from functools import partial
 import numpy as np
 import xarray as xr
 from numpy.exceptions import ComplexWarning
-from ska_sdp_datamodels.calibration import GainTable
-from ska_sdp_datamodels.configuration import Configuration
 from ska_sdp_datamodels.visibility import Visibility
 
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ._utils import with_chunks
 
 logger = logging.getLogger()
@@ -17,14 +16,14 @@ logger = logging.getLogger()
 class DelayTable(xr.Dataset):
     """
     Container for per-antenna, per-polarisation delay solutions computed
-    from a GainTable.
+    from a GainCalibrationSetXds.
 
     **Coordinates**
 
     - time: time centroids of solutions, in seconds elapsed since the MJD
       reference epoch, ``[ntimes]``.
 
-    - antenna: integer antenna indices starting at 0, ``[nants]``.
+    - antenna_name: antenna names, ``[nants]``.
 
     - pol: polarisation labels, e.g. ``['XX', 'YY']``, ``[npol]``.
 
@@ -41,22 +40,19 @@ class DelayTable(xr.Dataset):
     - data_model: name of this class, used internally for saving to / loading
       from files.
 
-    - configuration: Array configuration as a Configuration object.
-
     Here is an example::
 
         <xarray.DelayTable>
-        Dimensions:  (time: 1, antenna: 115, pol: 2)
+        Dimensions:       (time: 1, antenna_name: 115, pol: 2)
         Coordinates:
-          * time     (time) float64 5.085e+09
-          * antenna  (antenna) int64 0 1 2 ... 113 114
-          * pol      (pol) <U2 'XX' 'YY'
+          * time          (time) float64 5.085e+09
+          * antenna_name  (antenna_name) <U7 'C1' 'C2' ... 'S16-6'
+          * pol           (pol) <U2 'XX' 'YY'
         Data variables:
-            delay    (time, antenna, pol) float64 ...
-            offset   (time, antenna, pol) float64 ...
+            delay         (time, antenna_name, pol) float64 ...
+            offset        (time, antenna_name, pol) float64 ...
         Attributes:
             data_model:     DelayTable
-            configuration:  <xarray.Configuration>
     """
 
     __slots__ = ()
@@ -70,9 +66,8 @@ class DelayTable(xr.Dataset):
         delay: np.ndarray,
         offset: np.ndarray,
         time: np.ndarray,
-        antenna: np.ndarray,
+        antenna_name: np.ndarray,
         pol: list[str],
-        configuration: Configuration | None = None,
     ) -> "DelayTable":
         """
         Create a DelayTable instance directly from numpy arrays.
@@ -88,39 +83,36 @@ class DelayTable(xr.Dataset):
         time
             Centroids of solutions, in seconds elapsed since the MJD
             reference epoch ``[ntimes]``.
-        antenna
-            Integer antenna indices ``[nants]``.
+        antenna_name
+            Antenna names ``[nants]``.
         pol
             Polarisation labels, e.g. ``['XX', 'YY']``.
-        configuration
-            Configuration object describing the array configuration.
         """
         coords = {
             "time": time,
-            "antenna": antenna,
+            "antenna_name": antenna_name,
             "pol": list(pol),
         }
+        dims = ["time", "antenna_name", "pol"]
         datavars = {
-            "delay": xr.DataArray(delay, dims=["time", "antenna", "pol"]),
-            "offset": xr.DataArray(offset, dims=["time", "antenna", "pol"]),
+            "delay": xr.DataArray(delay, dims=dims),
+            "offset": xr.DataArray(offset, dims=dims),
         }
-        attrs = {
-            "data_model": "DelayTable",
-            "configuration": configuration,
-        }
+        attrs = {"data_model": "DelayTable"}
         return cls(data_vars=datavars, coords=coords, attrs=attrs)
 
 
 def calculate_delays_from_gain(
-    gaintable: GainTable, oversample: int
+    gaintable: GainCalibrationSetXds, oversample: int
 ) -> DelayTable:
     """
-    Applies the delay to the given gaintable
+    Calculates per-antenna delays and phase offsets from the gains of
+    the given gaintable
 
     Parameters
     ----------
     gaintable
-        Gaintable
+        GainCalibrationSetXds
     oversample
         Oversample rate required for the delay
 
@@ -131,15 +123,10 @@ def calculate_delays_from_gain(
     # Delay fit needs the whole band, so only frequency is rechunked.
     # Time and antenna keep the gaintable chunks, so that delays for
     # all antennas in a chunk are calculated in a single task.
-    gain = gaintable["gain"].chunk(frequency=-1)
-    weight = gaintable["weight"].chunk(frequency=-1)
-
-    # We only calculate delays based on diagonal terms
-    pols = [
-        f"{gaintable['receptor1'][idx].item()}"
-        f"{gaintable['receptor2'][idx].item()}"
-        for idx in (0, 1)
-    ]
+    gain = gaintable["CALPARAM_GAIN"].chunk(frequency=-1)
+    weight = gaintable["CALPARAM_WEIGHT"].chunk(frequency=-1)
+    # We calculate delays only for the diagonal terms
+    pols = gaintable["polarization"].data[[0, 3]].tolist()
 
     with warnings.catch_warnings():
         # apply_ufunc throws a false warning, when it detects that
@@ -152,8 +139,8 @@ def calculate_delays_from_gain(
             gain,
             weight,
             input_core_dims=[
-                ["frequency", "receptor1", "receptor2"],
-                ["frequency", "receptor1", "receptor2"],
+                ["frequency", "polarization"],
+                ["frequency", "polarization"],
             ],
             output_core_dims=[["pol"], ["pol"]],
             output_dtypes=[np.float64, np.float64],
@@ -166,12 +153,11 @@ def calculate_delays_from_gain(
         )
 
     return DelayTable.constructor(
-        delay=delay.transpose("time", "antenna", "pol").data,
-        offset=offset.transpose("time", "antenna", "pol").data,
+        delay=delay.transpose("time", "antenna_name", "pol").data,
+        offset=offset.transpose("time", "antenna_name", "pol").data,
         time=gaintable["time"].values,
-        antenna=gaintable["antenna"].values,
+        antenna_name=gaintable["antenna_name"].values,
         pol=pols,
-        configuration=gaintable.attrs["configuration"],
     )
 
 
@@ -186,43 +172,47 @@ def _calculate_delays_ufunc_(
     calculate_delays_from_gain and numpy based
     delay functions (coarse_delay, update_delay)
 
-    Delays are calculated at once for all leading dimensions
-    (time, antenna) of the chunk, using only the diagonal
-    terms of the 2x2 gain matrix.
+    Delays are calculated at once for all times and antennas
+    of the chunk, using the full frequency band, and only for
+    the diagonal terms (XX, YY).
 
     Parameters
     ----------
-    gain: (time, nant, freq, nrec, nrec) (np.complex64)
-    weight: (time, nant, freq, nrec, nrec) (float)
+    gain: (time, nant, freq, 4) (np.complex64)
+    weight: (time, nant, freq, 4) (float)
     frequency: (freq,) (float)
     oversample: int
 
     Returns
     -------
-        delay: (time, nant, pol)
-        offset: (time, nant, pol)
+        delay: (time, nant, 2)
+        offset: (time, nant, 2)
     """
-    # Pick diagonal terms, keeping frequency as the last axis
+    # Select only diagonal terms
+    # Keeping frequency as the last axis
     # Shape: (time, nant, pol, freq)
-    gain = np.stack([gain[..., 0, 0], gain[..., 1, 1]], axis=-2)
-    weight = np.stack([weight[..., 0, 0], weight[..., 1, 1]], axis=-2)
+    gain_diagonal = gain[..., [0, 3]].transpose(0, 1, 3, 2)
+    weight_diagonal = weight[..., [0, 3]].transpose(0, 1, 3, 2)
 
-    delay_coarse = coarse_delay(gain, frequency, oversample)
+    delay_coarse = coarse_delay(gain_diagonal, frequency, oversample)
     delay, offset = update_delay(
-        gain,
-        weight,
+        gain_diagonal,
+        weight_diagonal,
         frequency,
         np.zeros_like(delay_coarse),
         delay_coarse,
     )
 
-    # Remove the trailing size 1 axis left by the numpy functions
+    # Remove the trailing size 1 axis (frequency)
+    # left by the numpy functions
     return delay[..., 0], offset[..., 0]
 
 
 def apply_delay_to_gaintable(
-    gaintable: GainTable, delaytable: DelayTable, inverse: bool = False
-) -> GainTable:
+    gaintable: GainCalibrationSetXds,
+    delaytable: DelayTable,
+    inverse: bool = False,
+) -> GainCalibrationSetXds:
     """
     Applies the delay to the given gaintable
 
@@ -233,38 +223,36 @@ def apply_delay_to_gaintable(
     delaytable
         DelayTable which holds calculated delays
     inverse
-        Whether to invert the delayes before appluing
+        Whether to invert the delays before applying
 
     Returns
     -------
         Gaintable with updated gains
     """
-    # gaintable stores gains in 2x2 matrix (receptor1, receptor2)
-    # while delaytable stores them in 1x2 array (pol).
-    # Both are core dimensions, so a single task rotates all
-    # polarisations of a gaintable chunk.
     # Gains are merged across frequency, so that the whole band is
     # processed in a single task, instead of a task per frequency chunk.
+    gain = gaintable["CALPARAM_GAIN"].chunk(frequency=-1)
+
     # Frequency is passed as an argument (not in kwargs), so that
-    # dask aligns it with the frequency chunks of the gains.
+    # xarray aligns it with the frequency dimension of the gains.
     delay_rotated_gain = xr.apply_ufunc(
         _apply_delay_ufunc_,
-        gaintable["gain"].chunk(frequency=-1),
+        gain,
         delaytable["delay"],
         delaytable["offset"],
         gaintable["frequency"],
-        input_core_dims=[["receptor1", "receptor2"], ["pol"], ["pol"], []],
-        output_core_dims=[["receptor1", "receptor2"]],
-        output_dtypes=[gaintable["gain"].dtype],
+        input_core_dims=[["polarization"], ["pol"], ["pol"], []],
+        output_core_dims=[["polarization"]],
+        output_dtypes=[gaintable["CALPARAM_GAIN"].dtype],
         dask="parallelized",
         kwargs=dict(inverse=inverse),
     )
 
     # Restore the chunks of the input gaintable
     return gaintable.assign(
-        gain=with_chunks(
-            delay_rotated_gain.transpose(*gaintable["gain"].dims),
-            gaintable["gain"].chunksizes,
+        CALPARAM_GAIN=with_chunks(
+            delay_rotated_gain.transpose(*gaintable["CALPARAM_GAIN"].dims),
+            gaintable["CALPARAM_GAIN"].chunksizes,
         )
     )
 
@@ -285,10 +273,10 @@ def _apply_delay_ufunc_(
 
     Parameters
     ----------
-    gain: (time, nant, freq, nrec, nrec) (complex)
-    delay: (time, nant, 1, pol) (float)
+    gain: (time, nant, freq, 4) (complex)
+    delay: (time, nant, 1, 2) (float)
         apply_ufunc inserts a size 1 axis for frequency
-    offset: (time, nant, 1, pol) (float)
+    offset: (time, nant, 1, 2) (float)
     frequency: (freq,) (float)
     inverse: bool
         Whether to invert the delays before applying
@@ -297,17 +285,8 @@ def _apply_delay_ufunc_(
     -------
         Gains with delays applied, same shape and dtype as gain
     """
-    logger.info(
-        "apply_delay_ufunc: gain shape=%s, delay shape=%s, "
-        "offset shape=%s, frequency shape=%s, inverse=%s",
-        gain.shape,
-        delay.shape,
-        offset.shape,
-        frequency.shape,
-        inverse,
-    )
-    # Shape: (time, nant, freq, pol)
-    gain_diagonal = np.stack([gain[..., 0, 0], gain[..., 1, 1]], axis=-1)
+    # Select only diagonal terms
+    gain_diagonal = gain[..., [0, 3]]
 
     rotated_diagonal = calculate_gain_rot(
         gain_diagonal,
@@ -318,8 +297,8 @@ def _apply_delay_ufunc_(
     )
 
     rotated_gain = np.zeros_like(gain)
-    rotated_gain[..., 0, 0] = rotated_diagonal[..., 0]
-    rotated_gain[..., 1, 1] = rotated_diagonal[..., 1]
+    rotated_gain[..., 0] = rotated_diagonal[..., 0]
+    rotated_gain[..., 3] = rotated_diagonal[..., 1]
 
     return rotated_gain
 
@@ -332,7 +311,8 @@ def update_delay(
     delay: np.ndarray,
 ) -> tuple[np.ndarray[float], np.ndarray[float]]:
     """
-    Updates the delay to the gains
+    Refines the delay and offset by a weighted least-squares linear fit
+    of the residual phase (in cycles) against frequency
 
     Parameters
     ----------
@@ -340,9 +320,9 @@ def update_delay(
     wgt: np.ndarray. float (..., freq)
     freq: np.ndarray. float (freq,)
     _offset: np.ndarray. float (..., 1)
-        Calculated offset per station
+        Initial offset per station
     delay: np.ndarray. float (..., 1)
-        Calculated delays per station
+        Initial delay per station
 
     Returns
     -------
@@ -448,7 +428,10 @@ def calculate_gain_rot(
 
 
 def create_delaytable_from_vis(
-    vis: Visibility, gaintable: GainTable, refant: int, oversample: int
+    vis: Visibility,
+    gaintable: GainCalibrationSetXds,
+    refant: int,
+    oversample: int,
 ) -> DelayTable:
     """
     Calculates delays from visibility data by processing each solution interval
@@ -504,21 +487,23 @@ def create_delaytable_from_vis(
         weights[refant, ...] = 1.0
 
         vis_refant_data = vis_refant.data.reshape(
-            template_gaintable["gain"].shape
+            template_gaintable["CALPARAM_GAIN"].shape
         )
-        weight_data = weights.data.reshape(template_gaintable["weight"].shape)
+        weight_data = weights.data.reshape(
+            template_gaintable["CALPARAM_WEIGHT"].shape
+        )
 
         reshaped_vis_refant = xr.DataArray(
             vis_refant_data,
-            dims=template_gaintable["gain"].dims,
+            dims=template_gaintable["CALPARAM_GAIN"].dims,
         )
         reshaped_weights = xr.DataArray(
             weight_data,
-            dims=template_gaintable["weight"].dims,
+            dims=template_gaintable["CALPARAM_WEIGHT"].dims,
         )
         baselines_table = template_gaintable.assign(
-            gain=reshaped_vis_refant,
-            weight=reshaped_weights,
+            CALPARAM_GAIN=reshaped_vis_refant,
+            CALPARAM_WEIGHT=reshaped_weights,
         )
         baselines_table = baselines_table.rename(solution_time="time")
 
