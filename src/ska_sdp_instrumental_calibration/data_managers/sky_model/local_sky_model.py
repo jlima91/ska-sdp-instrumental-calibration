@@ -18,9 +18,9 @@ from ska_sdp_instrumental_calibration.exceptions import (
 
 from ...numpy_processors.rotation_matrix import generate_rotation_matrices
 from ..beams import BeamsFactory, convert_time_to_solution_time
+from .gleam_reader import read_gleamegc
 from .local_sky_component import LocalSkyComponent
 from .sky_model_operations import is_above_horizon
-from .sky_model_reader import read_gleamegc
 
 logger = logging.getLogger()
 
