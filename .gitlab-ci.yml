@@ -8,8 +8,8 @@ stages:
   - scan
   - publish
   - pages
-#  - integration-setup
-#  - integration-test
+  - integration-setup
+  - integration-test
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
