@@ -202,7 +202,7 @@ def read_gleamegc(
         )
 
     metadata = SkyModelMetadata(
-        version="1.0",
+        version="1.0.0",
         catalogue_name="GLEAM-EGC",
         uploaded_at=datetime.now(timezone.utc).isoformat(),
         reference=GLEAMEGC_REFERENCE,
