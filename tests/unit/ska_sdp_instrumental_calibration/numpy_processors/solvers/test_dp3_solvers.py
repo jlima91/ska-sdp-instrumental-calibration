@@ -143,6 +143,8 @@ def mock_dp3(monkeypatch, gain_data):
     ), patch(
         f"{_MODULE}.default_dp3_n_threads", manager.default_dp3_n_threads
     ), patch(
+        f"{_MODULE}.set_dp3_n_threads", manager.set_dp3_n_threads
+    ), patch(
         f"{_MODULE}.read_h5parm_gains", manager.read_h5parm_gains
     ), patch(
         f"{_MODULE}._create_dp_info", manager.create_dp_info
@@ -539,7 +541,7 @@ def test_dp3_gaincal_solve_should_use_default_number_of_threads(
     _solve(vis_data, gain_data)
 
     mock_dp3["manager"].default_dp3_n_threads.assert_called_once_with()
-    mock_dp3["dp3"].set_n_threads.assert_called_once_with(8)
+    mock_dp3["manager"].set_dp3_n_threads.assert_called_once_with(8)
 
 
 def test_dp3_gaincal_solve_should_use_given_number_of_threads(
@@ -548,7 +550,7 @@ def test_dp3_gaincal_solve_should_use_given_number_of_threads(
     _solve(vis_data, gain_data, n_threads=3)
 
     mock_dp3["manager"].default_dp3_n_threads.assert_not_called()
-    mock_dp3["dp3"].set_n_threads.assert_called_once_with(3)
+    mock_dp3["manager"].set_dp3_n_threads.assert_called_once_with(3)
 
 
 def test_dp3_gaincal_solve_should_run_dp3_while_holding_lock(
@@ -562,7 +564,7 @@ def test_dp3_gaincal_solve_should_run_dp3_while_holding_lock(
     dp3_idx = [
         idx
         for idx, name in enumerate(call_names)
-        if name.startswith(("dp3.", "gaincal_step."))
+        if name.startswith(("dp3.", "gaincal_step.", "set_dp3_n_threads"))
     ]
 
     assert enter_idx < min(dp3_idx)
