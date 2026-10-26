@@ -26,6 +26,9 @@ from ska_sdp_instrumental_calibration.data_managers.schema.polarization import (
 from ska_sdp_instrumental_calibration.numpy_processors.solvers.dp3_threading import (  # noqa: E501
     is_dp3_available,
 )
+from ska_sdp_instrumental_calibration.scheduler.task_manager import (
+    task_manager,
+)
 from ska_sdp_instrumental_calibration.xarray_processors._utils import (
     simplify_baselines_dim,
 )
@@ -49,6 +52,16 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "requires_dp3" in item.keywords:
             item.add_marker(skip_dp3)
+
+
+@pytest.fixture(autouse=True)
+def clear_task_manager():
+    """
+    Discard deferred tasks registered by a test, so that they are not
+    computed by a later test which runs the global task manager.
+    """
+    yield
+    task_manager.clear()
 
 
 @pytest.fixture

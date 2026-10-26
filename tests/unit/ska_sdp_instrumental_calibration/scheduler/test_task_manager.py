@@ -20,6 +20,17 @@ def test_should_register_task():
     }
 
 
+def test_should_clear_registered_tasks():
+    task = MagicMock(name="task")
+
+    task_manager = _TaskManager()
+    task_manager.register(task)
+
+    task_manager.clear()
+
+    assert not task_manager._tracked_arrays
+
+
 @patch(
     "ska_sdp_instrumental_calibration.scheduler.task_manager.dask.persist",
 )
