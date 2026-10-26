@@ -108,7 +108,9 @@ if [[ ${#UV_PIP_PACKAGES[@]} -gt 0 ]]; then
   else
     log "Skipping installation of packages."
   fi
+fi
 
+if [[ -d "$PIP_PACKAGES_PATH" ]]; then
   python_version=$("$PYTHONEXE" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
   venv_site_packages="${PIP_PACKAGES_PATH}/lib/python${python_version}/site-packages"
   if [[ ! -d "$venv_site_packages" ]]; then

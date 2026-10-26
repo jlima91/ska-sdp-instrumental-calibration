@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 import dask.array as da
@@ -5,12 +6,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 
-from ska_sdp_instrumental_calibration.data_managers.gaintable import (  # noqa: F401
-    create_gaintable_from_h5parm,
-)
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Expected (simulated) gaintable has one extra channel at the end
 # Need to remove it before comparing
