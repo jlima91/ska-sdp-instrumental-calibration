@@ -32,13 +32,13 @@ def _freq_first_arrays():
     vis_data = np.ones((_NFREQ, _NTIME, _NBL, _NPOL), dtype=np.complex64)
     vis_vis = vis_data.copy()
     vis_flags = vis_data.copy().astype(bool)
-    vis_weight = vis_data.copy().astype(np.float32)
+    vis_weight = np.ones(vis_data.shape, dtype=np.float32)
     model_vis = 2 * vis_data.copy()
     model_flags = vis_data.copy().astype(bool)
 
     gain_data = np.ones((_NFREQ, _NTIME, _NANT, _NPOL), dtype=np.complex64)
     gain_gain = gain_data.copy()
-    gain_weight = gain_data.copy().astype(np.float32)
+    gain_weight = np.ones(gain_data.shape, dtype=np.float32)
 
     gain_residual = np.ones((_NFREQ, _NTIME, _NPOL), dtype=np.float32)
 

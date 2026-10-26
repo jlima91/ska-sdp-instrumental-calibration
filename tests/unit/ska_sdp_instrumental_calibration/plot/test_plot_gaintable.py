@@ -228,7 +228,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     gaintable.swap_dims.return_value = gaintable
     gaintable.assign.return_value = gaintable
 
-    gaintable.time = np.array([1, 2, 3, 4])
+    gaintable.time = 5242406400.0 + np.arange(4)
 
     jones_solution_mock = MagicMock(name="jones_solution_mock")
 
@@ -332,7 +332,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Gain Solutions (Phase)-"
-            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,
@@ -359,7 +359,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_amp.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Gain Solutions (Amplitude)"
-            "-[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "-[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,
@@ -388,7 +388,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Leakage Solutions (Phase)-"
-            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,
@@ -399,7 +399,7 @@ def test_should_plot_gaintable_for_time(np_mock):
     mock_facet_amp.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Leakage Solutions (Amplitude)"
-            "-[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "-[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,
@@ -419,7 +419,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     gaintable.isel.return_value = gaintable
     gaintable.sel.return_value = gaintable
 
-    gaintable.time = np.array([1, 2, 3, 4])
+    gaintable.time = 5242406400.0 + np.arange(4)
 
     jones_solution_mock = MagicMock(name="jones_solution_mock")
     jones_solution_mock.data = ["XX", "XY", "YY"]
@@ -468,7 +468,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Gain Solutions (Phase)-"
-            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,
@@ -495,7 +495,7 @@ def test_should_plot_gaintable_for_target_ionospheric(np_mock):
     mock_facet_phase.fig.suptitle.assert_called_once_with(
         (
             "Plot Title Leakage Solutions (Phase)-"
-            "[Solution Start Time: 1858-11-17T00:00:01.000000000]"
+            "[Solution Start Time: 2025-01-01T00:00:00.000000000]"
         ),
         fontsize="x-large",
         y=1.02,

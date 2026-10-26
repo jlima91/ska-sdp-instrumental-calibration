@@ -293,13 +293,13 @@ def test_create_delaytable_from_vis(generate_vis):
 
     assert isinstance(actual_delaytable, xr.Dataset)
     assert actual_delaytable.delay.shape == (
-        gaintable.dims["time"],
-        gaintable.dims["antenna_name"],
+        gaintable.sizes["time"],
+        gaintable.sizes["antenna_name"],
         2,
     )
     assert actual_delaytable.offset.shape == (
-        gaintable.dims["time"],
-        gaintable.dims["antenna_name"],
+        gaintable.sizes["time"],
+        gaintable.sizes["antenna_name"],
         2,
     )
 
