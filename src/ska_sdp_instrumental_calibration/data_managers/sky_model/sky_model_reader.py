@@ -351,11 +351,12 @@ def generate_lsm_from_gleamegc(
         f.close()
 
         logger.info(f"extracted {len(model)} GLEAM components")
-        logger.debug(
-            f"alpha: mean = {np.mean(alpha_cat):.2f}, "
-            + f"median = {np.median(alpha_cat):.2f}, "
-            + f"used = {alpha0:.2f}"
-        )
+        if alpha_cat:
+            logger.debug(
+                f"alpha: mean = {np.mean(alpha_cat):.2f}, "
+                + f"median = {np.median(alpha_cat):.2f}, "
+                + f"used = {alpha0:.2f}"
+            )
 
     return model
 

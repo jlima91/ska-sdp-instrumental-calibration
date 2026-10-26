@@ -179,9 +179,7 @@ def test_should_exclude_component_when_flux_is_less_than_min_flux(
     fileobj.close.assert_called_once()
 
     logger_mock.info.assert_called_once_with("extracted 0 GLEAM components")
-    logger_mock.debug.assert_called_once_with(
-        "alpha: mean = nan, median = nan, used = -0.78"
-    )
+    logger_mock.debug.assert_not_called()
 
     assert lsm == []
 
@@ -249,9 +247,7 @@ def test_should_set_flux_alpha_to_defaults_when_fitted_data_is_unspecified(
     fileobj.close.assert_called_once()
 
     logger_mock.info.assert_called_once_with("extracted 1 GLEAM components")
-    logger_mock.debug.assert_called_once_with(
-        "alpha: mean = nan, median = nan, used = -0.65"
-    )
+    logger_mock.debug.assert_not_called()
 
     # flux and alpha are set to Fintwide and alpha0 respectively
     assert lsm == [expected_component]

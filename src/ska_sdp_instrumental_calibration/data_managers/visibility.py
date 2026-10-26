@@ -309,8 +309,12 @@ def create_template_vis_from_ms(
                     # Need to reassign with correct dtype
                     vis_template = vis_template.assign(
                         {
-                            "weight": vis_template.weight.astype(weight_dtype),
-                            "flags": vis_template.flags.astype(flags_dtype),
+                            "weight": vis_template.weight.variable.astype(
+                                weight_dtype
+                            ),
+                            "flags": vis_template.flags.variable.astype(
+                                flags_dtype
+                            ),
                         }
                     )
 

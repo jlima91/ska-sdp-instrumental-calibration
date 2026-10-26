@@ -260,7 +260,7 @@ def divide_bandpass_by_ref_ant_preserve_phase(
     -------
         The normalised bandpass solutions.
     """
-    gains = pol_to_jones(np.copy(gaintable.CALPARAM_GAIN.data))
+    gains = pol_to_jones(np.asarray(gaintable.CALPARAM_GAIN.data))
 
     g_x = gains[..., 0, 0]
     g_y = gains[..., 1, 1]
