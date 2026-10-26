@@ -81,7 +81,8 @@ def create_template_vis_from_ms(
     -----
     The ``time_centroid`` data variable, added to Visibility in
     ska-sdp-datamodels 3.1.0, is dropped from the templates as it is not
-    used by the INST pipeline.
+    used by the INST pipeline. It is added back only when exporting
+    visibilities to MSv2.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -319,9 +320,10 @@ def create_template_vis_from_ms(
                     )
 
                     # time_centroid (datamodels >= 3.1.0) is never read
-                    # from the MS nor used downstream; keeping it would
+                    # from the MS nor used in calibration; keeping it would
                     # only add a large per-baseline/channel array to the
-                    # template and every dataset derived from it
+                    # template and every dataset derived from it. The
+                    # export_visibilities stage adds it back for MS export
                     vis_template = vis_template.drop_vars("time_centroid")
 
                     # Need to reassign with correct dtype
