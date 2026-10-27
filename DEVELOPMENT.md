@@ -14,7 +14,7 @@ Update submodules after every pull with:
 git submodule update --init
 ```
 
-## Setting up virtual environment using poetry
+## Setting up virtual environment using Poetry
 
 Use Poetry to manage the Python virtual environment for development.
 If Poetry is not installed, run the following command to [install a specific version of Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer):
@@ -40,19 +40,18 @@ Once Poetry is in `PATH`, run the following commands from the repository root:
 ```bash
 poetry env use python3.11
 
-poetry install
+poetry install --all-extras
 ```
 
 This will create a new virtual environment (either in current working directory or in poetry's user specific path) and install all the dependencies required for development.
+The `--all-extras` flag installs the optional `dp3`, `ska-sdp-func` and `ska-sdp-dataproduct-metadata` extras, which some solvers, export tasks and tests depend on.
 For detailed package requirements, see `pyproject.toml` file.
 
 To activate the environment, please run:
 
 ```bash
-poetry shell
+eval "$(poetry env activate)"
 ```
-
-You may also want to install the shell plugin; see the [installation instructions](https://github.com/python-poetry/poetry-plugin-shell?tab=readme-ov-file#installation).
 
 ## Git hooks
 
@@ -181,9 +180,9 @@ The following steps are simplified and specific to this repository:
 
 1. Make sure that all the changes are committed, and the local git working area is clean. Since we follow [trunk based development](https://developer.skao.int/en/latest/explanation/branching-policy.html#trunk-based-development), the active branch should be the `main` branch.
 
-1. Check the current version using `make show-version`.
+2. Check the current version using `make show-version`.
 
-1. To bump up the release, run either one of the following commands
+3. To bump up the release, run either one of the following commands
 
     ```bash
     make bump-patch-release
@@ -201,25 +200,25 @@ The following steps are simplified and specific to this repository:
 
     The `make show-version` command should now show the next version. Use this version for all the later changes.
 
-1. In addition to the above files, update the `__version__` variable in the following modules:
+4. In addition to the above files, update the `__version__` variable in the following modules:
 
     - `src/ska_sdp_instrumental_calibration/__init__.py`
 
-2. Add a new `H2` heading in [CHANGELOG](CHANGELOG), and add release notes under that heading. The heading should be the new version number.
+5. Add a new `H2` heading in [CHANGELOG](CHANGELOG), and add release notes under that heading. The heading should be the new version number.
 
-3. Using the new version, create a new issue on the [Release Management](https://jira.skatelescope.org/projects/REL/summary) Jira Project with a summary of your release, and set the issue status to "IN PROGRESS".
+6. Using the new version, create a new issue on the [Release Management](https://jira.skatelescope.org/projects/REL/summary) Jira Project with a summary of your release, and set the issue status to "IN PROGRESS".
 
-4. Stage all the changes, create a new commit with:
+7. Stage all the changes, create a new commit with:
 
     1. The JIRA Ticket ID = ID of the release issue created in previous step.
 
     2. The commit message title = "Bump version to V.V.V"
 
-5. Push the changes to the `main` branch. **Make sure that the pipeline is green.**
+8. Push the changes to the `main` branch. **Make sure that the pipeline is green.**
 
-6. Create a git-tag for the new version using `make create-git-tag` command.
+9. Create a git-tag for the new version using `make create-git-tag` command.
 
-7. Run `make push-git-tag` to push the tag to the main branch.
+10. Run `make push-git-tag` to push the tag to the main branch.
 
 ### Post-release
 

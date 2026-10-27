@@ -200,14 +200,17 @@ def compare_arrays(
     if check_for_nans(actual):
         actions[output](
             "info",
-            f"{meta}: NaN found in actual. " f"Comparison may be incorrect.",
+            f"{meta}: NaN found in actual. They will be removed before comparision.",
         )
 
     if check_for_nans(expected):
         actions[output](
             "info",
-            f"{meta}: NaN found in expected. " f"Comparison may be incorrect.",
+            f"{meta}: NaN found in expected. They will be removed before comparision.",
         )
+
+    actual = np.nan_to_num(actual)
+    expected = np.nan_to_num(expected)
 
     diff = actual - expected
 
