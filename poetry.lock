@@ -4629,14 +4629,14 @@ reference = "skao"
 
 [[package]]
 name = "ska-sdp-exec-piper"
-version = "2.2.0"
+version = "2.3.0"
 description = "SKA SDP Piper Execution Framework"
 optional = false
 python-versions = ">=3.10,<4.0"
 groups = ["main"]
 files = [
-    {file = "ska_sdp_exec_piper-2.2.0-py3-none-any.whl", hash = "sha256:7042db32200424ef2254c932672b9a670070809039b0f06078006e3476ecdaf2"},
-    {file = "ska_sdp_exec_piper-2.2.0.tar.gz", hash = "sha256:34211ff1ff5f329c1325694815e5c8fe21342f8c8afa4caa77d1f11760da81a0"},
+    {file = "ska_sdp_exec_piper-2.3.0-py3-none-any.whl", hash = "sha256:e577964d32fd1223f80ae157b0d95a17ba99966a6111858b7d9afcc03fdb153c"},
+    {file = "ska_sdp_exec_piper-2.3.0.tar.gz", hash = "sha256:fc4874db81a56f151e4bbb047317c6cbc74d91c39b6199df5529178db86a43e2"},
 ]
 
 [package.dependencies]
@@ -4644,6 +4644,10 @@ dask = {version = ">=2024.6", extras = ["distributed"]}
 pydantic = ">=2.11"
 pyyaml = ">=6.0.2"
 ska-ser-logging = ">=0.4.3"
+
+[package.extras]
+dask-cluster = ["ska-sdp-exec-batchlet (>=1.1.1)"]
+dask-report = ["bokeh (>=3.1.0)"]
 
 [package.source]
 type = "legacy"
@@ -5558,4 +5562,4 @@ ska-sdp-func = ["ska-sdp-func"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "db562c4c46e2b4e45548d6dc7c519d70c8629183a13d55bceb9544d8f7518c20"
+content-hash = "6facd6665d7b5560598ec90912fcc1ddfddd1cdc9261ab2d7c68eaf0397f6622"

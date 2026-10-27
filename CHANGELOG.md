@@ -3,6 +3,7 @@
 # main
 
 1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.
+2. Update `ska-sdp-exec-piper` to 2.3.0. The dask report is now written as `dask_performance_report.html` in the QA directory, and new dask cluster options (`--[no-]create-dask-cluster`, `--workers-per-node`, `--threads-per-worker`) are available.
 
 ## 1.5.0
 

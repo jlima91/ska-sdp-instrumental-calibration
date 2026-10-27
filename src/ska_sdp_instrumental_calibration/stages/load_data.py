@@ -226,8 +226,7 @@ def _load_data(
         )
         logger.info("MSv2->Zarr Visibility cache conversion: starting")
         start_time = time.perf_counter()
-        with dask.annotate(resources={"process": 1}):
-            dask.compute(writer)
+        dask.compute(writer)
         logger.info(
             "MSv2->Zarr Visibility cache conversion: finished. "
             "duration_sec = %.3f",

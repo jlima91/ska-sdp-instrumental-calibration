@@ -20,7 +20,7 @@ Use Poetry to manage the Python virtual environment for development.
 If Poetry is not installed, run the following command to [install a specific version of Poetry](https://python-poetry.org/docs/#installing-with-the-official-installer):
 
 ```bash
-curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.3.3 python3.11 -
+curl -sSL https://install.python-poetry.org | POETRY_VERSION=2.5.1 python3.11 -
 ```
 
 This installs Poetry to `$HOME/.local/bin`. To make `poetry` available, add this path to the `PATH` environment variable.
