@@ -85,8 +85,8 @@ catalogue metadata header lines before the components, for example:
    # CATALOGUE_METADATA_UPLOADED_AT=2026-01-01T00:00:00+00:00
    J000000-300000,,0.0,-30.0,1.5,200000000,0,0,0,0,"[-0.7]",true
 
-A CSV without this header fails to load. The ``oskar-csv-converter`` and
-``gleam-csv-converter`` scripts write it for you.
+A CSV without this header fails to load. The ``oskar-to-ska-lsm`` and
+``gleam-to-ska-lsm`` scripts write it for you.
 
 
 Post-run, the pipeline updates the SDM directory like this:

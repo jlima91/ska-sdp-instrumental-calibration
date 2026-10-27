@@ -85,8 +85,9 @@ ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.instrumenta
 ska-sdp-instrumental-target-calibration = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_calibration"
 ska-sdp-instrumental-target-ionospheric = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_ionospheric_calibration"
 clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
-oskar-csv-converter = {reference = "scripts/oskar_csv_converter.py", type = "file"}
-gleam-csv-converter = {reference = "scripts/gleam_csv_converter.py", type = "file"}
+oskar-to-ska-lsm = {reference = "scripts/convert/oskar_to_ska_lsm.py", type = "file"}
+gleam-to-ska-lsm = {reference = "scripts/convert/gleam_to_ska_lsm.py", type = "file"}
+ska-lsm-to-sourcedb = {reference = "scripts/convert/ska_lsm_to_sourcedb.py", type = "file"}
 
 [tool.coverage.run]
 branch = true

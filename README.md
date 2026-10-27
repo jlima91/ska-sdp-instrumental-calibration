@@ -42,7 +42,7 @@ For prediction of model visibilities, here are the pre-requisites:
    [VizieR](https://cdsarc.cds.unistra.fr/viz-bin/cat/VIII/100).
    The LSM CSV must start with a `CATALOGUE_METADATA_*` header (at least
    `VERSION`, `CATALOGUE_NAME` and `UPLOADED_AT`), otherwise it fails to load.
-   Use the `oskar-csv-converter` or `gleam-csv-converter` scripts to convert an
+   Use the `oskar-to-ska-lsm` or `gleam-to-ska-lsm` scripts to convert an
    [OSKAR](https://ska-telescope.gitlab.io/sim/oskar/sky_model/sky_model.html#sky-model-file-fixed-format)
    sky model or the GLEAM-EGC catalogue into this format.
  * A measurement set with appropriate metadata to initialise the everybeam beam models.
