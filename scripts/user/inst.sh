@@ -17,7 +17,9 @@
 # The batchlet cli can be installed using the ska-sdp-exec-batchlet package.
 # This script assumes that PATH and PYTHONPATH are already set appropriately.
 # The script captures all stdout/stderr logs of itself and main application
-# and writes them to a file path defined by variable 'stdout_log_file'.
+# and writes them to '<output-dir>/captured.log', while also mirroring them to
+# stdout (which is the slurm output file when run via sbatch), unless
+# --disable-stdout-logs is set.
 
 # Usage
 # -----
@@ -55,16 +57,34 @@
 #  --threads-per-worker N    Dask threads_per_worker value. Default: 4.
 #  --enable-monitor          Enable batchlet resource and log monitoring.
 #  --disable-stdout-logs     Do not mirror main application stdout/stderr to terminal.
+#                            Logs are only written to '<output-dir>/captured.log'.
 
 ##########################################################################################
 
 set -euo pipefail
 
+# Print the help text between the two marker lines (32 or more #) at the top
+# of this script.
 print_help() {
-  sed -n \
-    '/^##########################################################################################$/,/^##########################################################################################$/p' \
-    "$0" \
-    | sed '1d;$d;s/^# //'
+  sed -nE '/^#{32,}$/,/^#{32,}$/p' "${BASH_SOURCE[0]}" |
+    sed '1d;$d;s/^# \{0,1\}//'
+}
+
+# Show the help in $PAGER (default: less) when stdout is a terminal.
+usage_paged() {
+  if [[ -t 1 ]]; then
+    # PAGER may hold options, e.g. "less -R", so split it into words
+    # shellcheck disable=SC2086
+    print_help | ${PAGER:-less -FX}
+  else
+    print_help
+  fi
+}
+
+# Report a command-line error and point to --help.
+usage_error() {
+  log ERROR "$*"$'\n'"Run '$(basename "${BASH_SOURCE[0]}") --help' for usage."
+  exit 1
 }
 
 # The following functions are duplicated from scripts/dev/_utils.sh because
@@ -163,7 +183,7 @@ report_dir=""
 temp_dir=""
 reuse_dirs=False
 disable_dask_cluster=False
-memory_per_worker="16GB"
+memory_per_worker="auto"
 threads_per_worker="4"
 enable_monitor=False
 disable_stdout_logs=False
@@ -236,7 +256,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
     ;;
   --help | -h)
-    print_help
+    usage_paged
     exit 0
     ;;
   --)
@@ -247,8 +267,7 @@ while [[ "$#" -gt 0 ]]; do
     done
     ;;
   -*)
-    log ERROR "Unknown option: $1"
-    exit 1
+    usage_error "Unknown option: $1"
     ;;
   *)
     ms_paths+=("$1")
@@ -258,29 +277,42 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 if [[ "${#ms_paths[@]}" -lt 1 ]]; then
-  log ERROR "At least one measurement set path must be passed as positional arg. Exiting."
-  exit 1
+  usage_error "At least one measurement set path must be passed as positional arg."
 fi
 
-[[ $reuse_dirs == False ]] && unique_dir output_dir
+# Until captured.log is set up, buffer all output in a temp file, and replay it
+# afterwards so that captured.log is complete. Original stdout is kept on fd 3.
+# If the script exits before that, the buffer is replayed to fd 3.
+early_log_file="$(mktemp)"
+exec 3>&1 >"$early_log_file" 2>&1
+trap 'cat "$early_log_file" >&3; rm -f "$early_log_file"' EXIT
+
+if [[ $reuse_dirs == False ]]; then unique_dir output_dir; fi
 
 report_dir=${report_dir:-"${output_dir}/${default_report_dir}"}
-[[ $reuse_dirs == False ]] && unique_dir report_dir
+if [[ $reuse_dirs == False ]]; then unique_dir report_dir; fi
 
 temp_dir=${temp_dir:-"${output_dir}/${default_temp_dir}"}
-[[ $reuse_dirs == False ]] && unique_dir temp_dir
+if [[ $reuse_dirs == False ]]; then unique_dir temp_dir; fi
 
 mkdir -p "$output_dir" "$report_dir" "$temp_dir"
 
-stdout_log_file="$output_dir/captured.log"
-log "Captured stdout/stderr logs are stored at: ${stdout_log_file@Q}"
+captured_log_file="$output_dir/captured.log"
 
 if [[ "$disable_stdout_logs" == True ]]; then
-  log WARN "Disabling terminal output.. if required monitor ${stdout_log_file@Q} file.."
-  exec >"$stdout_log_file" 2>&1
+  log "Disabling terminal output.. if required monitor ${captured_log_file@Q} file.." >&3
+  exec >"$captured_log_file" 2>&1
 else
-  exec > >(tee "$stdout_log_file") 2>&1
+  # tee ignores INT/TERM, so that logs written during shutdown are not lost
+  exec > >(trap '' INT TERM; exec tee "$captured_log_file" >&3) 2>&1
 fi
+
+trap - EXIT
+cat "$early_log_file"
+rm -f "$early_log_file"
+exec 3>&-
+
+log "Captured stdout/stderr logs are stored at: ${captured_log_file@Q}"
 
 log "Output paths are set to:
   output_dir=${output_dir@Q}
@@ -302,6 +334,35 @@ if [[ -n "${SLURM_JOB_ID:-}" ]]; then
     slurm_log+=$'\n  '"${slurm_var}=${slurm_value@Q}"
   done
   log "$slurm_log"
+
+  # On exit, store the slurm job details in report_dir, and copy the slurm
+  # output file into output_dir. Both are captured while the job is still
+  # running, so lines/stats written by slurm after this script exits are missing.
+  slurm_job_info_file="$report_dir/slurm-${SLURM_JOB_ID}-job-info.txt"
+  slurm_out_file="$(scontrol show job "$SLURM_JOB_ID" 2>/dev/null | grep -oP '^\s*StdOut=\K.*' || true)"
+
+  save_slurm_job_info() {
+    {
+      echo "### scontrol show job $SLURM_JOB_ID"
+      scontrol show job "$SLURM_JOB_ID" || true
+      echo "### sacct -j $SLURM_JOB_ID"
+      sacct -j "$SLURM_JOB_ID" \
+        --format=JobID,JobName%30,Partition,State,ExitCode,Start,End,Elapsed,NNodes,NCPUS,NodeList%30,AveCPU,MaxRSS,MaxVMSize,MaxDiskRead,MaxDiskWrite \
+        || true
+    } >"$slurm_job_info_file" 2>&1
+
+    if [[ -f "$slurm_out_file" ]]; then
+      cp "$slurm_out_file" "$output_dir/"
+    fi
+  }
+  trap save_slurm_job_info EXIT
+
+  log "Slurm job details will be stored at ${slurm_job_info_file@Q} on exit"
+  if [[ -f "$slurm_out_file" ]]; then
+    log "Slurm output file ${slurm_out_file@Q} will be copied to ${output_dir@Q} on exit"
+  else
+    log WARN "Slurm output file not found, it will not be copied to ${output_dir@Q}"
+  fi
 fi
 
 # set dask config
