@@ -25,6 +25,7 @@ class RotationMeasureData(xr.Dataset):
     Rotation Measure (RM) modeling outputs.
 
     **Coordinates**
+
     - time: time centroids of solutions, in seconds elapsed since the MJD
       reference epoch, ``[ntimes]``.
     - antenna_name: antenna names, ``[nants]``.
@@ -33,9 +34,10 @@ class RotationMeasureData(xr.Dataset):
       ``[nres]``.
     - polarization: polarization labels of the flattened Jones matrices,
       ``[npol]``. Most likely ``['XX', 'XY', 'YX', 'YY']``
-        or ``['I']``.
+      or ``['I']``.
 
     **Data variables**
+
     - lambda_sq: wavelength squared values calculated across the
       frequency axis, real-valued ``[nchan]``.
     - rm_spec: Faraday dispersion function complex spectrum profiles,
@@ -51,6 +53,7 @@ class RotationMeasureData(xr.Dataset):
       ``[ntimes, nants, nchan, npol]``.
 
     **Attributes**
+
     - data_model: name of this class, used internally for saving to /
       loading from files.
 
