@@ -1,9 +1,12 @@
 from pathlib import Path
 
+import pytest
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.sdm import (
     get_gaintable_file_path,
+    get_qa_metric_dir,
+    get_qa_metric_field_id,
     prepare_qa_path,
 )
 
@@ -68,3 +71,39 @@ def test_should_get_gaintable_file_path_with_sdm(sdm_mock):
     sdm_model_path.parent.mkdir.assert_called_once_with(
         exist_ok=True, parents=True
     )
+
+
+def test_should_return_output_path_as_qa_metric_dir_when_sdm_path_is_none():
+    assert get_qa_metric_dir("output_dir", sdm_path=None) == "output_dir"
+
+
+def test_should_return_latest_inst_logs_dir_as_qa_metric_dir(tmp_path):
+    logs = tmp_path / "logs"
+    (logs / "01-inst").mkdir(parents=True)
+    (logs / "02-inst").mkdir()
+
+    assert get_qa_metric_dir(None, sdm_path=str(tmp_path)) == str(
+        logs / "02-inst"
+    )
+
+
+def test_should_raise_error_when_sdm_path_for_qa_metric_does_not_exist():
+    with pytest.raises(FileNotFoundError):
+        get_qa_metric_dir(None, sdm_path="non_existent_sdm_path")
+
+
+def test_should_get_qa_metric_field_id_from_logs_dir_with_sdm():
+    assert get_qa_metric_field_id("sdm/logs/02-inst", sdm_path="sdm") == "02"
+
+
+def test_should_get_qa_metric_field_id_from_gaintable_without_sdm(tmp_path):
+    (tmp_path / "field_id_gaintable.h5parm").touch()
+
+    assert get_qa_metric_field_id(str(tmp_path)) == "field_id"
+
+
+def test_should_raise_error_when_no_gaintable_for_qa_metric_field_id(
+    tmp_path,
+):
+    with pytest.raises(FileNotFoundError):
+        get_qa_metric_field_id(str(tmp_path))

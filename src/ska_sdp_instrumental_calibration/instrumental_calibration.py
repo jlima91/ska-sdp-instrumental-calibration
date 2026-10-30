@@ -10,6 +10,7 @@ from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
 from .data_managers.sdm import prepare_qa_path
+from .qa_metrics import generate_qa_metric
 from .scheduler import InstrumentalDaskRunner
 from .stages import (
     bandpass_calibration_stage,
@@ -163,3 +164,27 @@ def experimental(**cli_args):
         logger.warning("No Config provided. Using the default stage order")
     logger.warning("==========================================")
     ska_sdp_instrumental_calibration.run(**cli_args)
+
+
+@ska_sdp_instrumental_calibration.sub_command(
+    "qa-metric",
+    *RUN_CLI_ARGS,
+    sdm_cli_arg,
+    help="Generate the QA metric HTML report of INST run",
+)
+def qa_metric(sdm_path, output_path, **cli_args):
+    """
+    Write the QA metric HTML report for bandpass of the INST run.
+    The report goes to the logs directory of the latest INST run
+    if an SDM path is provided, else to the output folder provided.
+
+    Parameters
+    ----------
+    sdm_path: str
+        Science Data Model directory of the INST run
+    output_path: str
+        Output directory of the INST run. Ignored if sdm_path is also provided
+    cli_args: varargs
+            other CLI arguments
+    """
+    generate_qa_metric(output_path, sdm_path)

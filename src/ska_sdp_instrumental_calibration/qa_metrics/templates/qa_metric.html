@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$title</title>
+<style>
+$style
+</style>
+</head>
+<body>
+<header>
+<h1>$title</h1>
+<div class="toolbar">
+  <button onclick="setAllSectionsOpen(true)">Expand all</button>
+  <button onclick="setAllSectionsOpen(false)">Collapse all</button>
+</div>
+</header>
+<main>
+$sections
+</main>
+<script>
+function setAllSectionsOpen(open) {
+  document.querySelectorAll("details").forEach(function (section) {
+    section.open = open;
+  });
+}
+</script>
+</body>
+</html>

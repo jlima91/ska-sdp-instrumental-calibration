@@ -2,6 +2,7 @@ from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.instrumental_calibration import (  # noqa: E501
     experimental,
+    qa_metric,
 )
 from ska_sdp_instrumental_calibration.stages import (
     bandpass_calibration_stage,
@@ -228,3 +229,13 @@ def test_should_warn_user_if_no_config_is_provided_in_experimental(
     )
 
     inst_pipeline_mock.run.assert_called_once_with(config_path=None)
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.instrumental_calibration."
+    "generate_qa_metric"
+)
+def test_should_generate_qa_metric_from_sub_command(generate_qa_metric_mock):
+    qa_metric(sdm_path="sdm_path", output_path="output_path")
+
+    generate_qa_metric_mock.assert_called_once_with("output_path", "sdm_path")

@@ -1,11 +1,14 @@
 """SDM class to manage science data model"""
 
+import glob
 import os
 from pathlib import Path
 
 from ska_sdp_datamodels.science_data_model.science_data_model import (
     ScienceDataModel,
 )
+
+GAINTABLE_FILE_NAME = "gaintable.h5parm"
 
 
 def get_gaintable_file_path(
@@ -85,3 +88,73 @@ def prepare_qa_path(
     logs_path.mkdir(parents=True, exist_ok=True)
 
     return str(logs_path)
+
+
+def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
+    """
+    Get the directory to write the QA metric of the latest INST run to.
+
+    Parameters
+    ----------
+    output_path
+        Output directory of the INST run. Used if no SDM path is provided.
+    sdm_path
+        Path to an existing SDM directory. Takes precedence over
+        ``output_path``.
+
+    Returns
+    -------
+        The logs directory of the latest INST run if an SDM path is
+        provided, else ``output_path``.
+    """
+    if sdm_path is None:
+        return str(output_path)
+
+    if not os.path.exists(sdm_path):
+        raise FileNotFoundError(
+            f"Provided SDM path {sdm_path} does not exist. "
+            "Please provide a valid path."
+        )
+
+    latest_run_path = ScienceDataModel(sdm_path).get_latest_logs_dir("inst")
+    if latest_run_path is None:
+        raise FileNotFoundError(
+            f"No latest INST logs found in SDM {sdm_path}."
+        )
+
+    return str(latest_run_path)
+
+
+def get_qa_metric_field_id(
+    qa_metric_dir: str, sdm_path: str | None = None
+) -> str:
+    """
+    Get the field ID to name the QA metric report.
+
+    Parameters
+    ----------
+    qa_metric_dir
+        Directory of the INST run
+    sdm_path
+        Path to the SDM directory, if the INST run is in an SDM.
+
+    Returns
+    -------
+        The index ``NN`` of the ``logs/NN-inst`` directory if an SDM path
+        is provided, else the field ID of the final gaintable in
+        ``qa_metric_dir``.
+    """
+    if sdm_path is not None:
+        return Path(qa_metric_dir).name.split("-")[0]
+
+    gaintable_paths = glob.glob(
+        os.path.join(qa_metric_dir, f"*_{GAINTABLE_FILE_NAME}")
+    )
+    if not gaintable_paths:
+        raise FileNotFoundError(
+            f"No final gaintable found in {qa_metric_dir}."
+        )
+
+    return os.path.basename(gaintable_paths[0]).removesuffix(
+        f"_{GAINTABLE_FILE_NAME}"
+    )
