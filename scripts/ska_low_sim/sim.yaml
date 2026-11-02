@@ -1,12 +1,11 @@
-scenario: "channel-rm-18s-only-tec-LOW"          # Scenario name (used for output folder prefix)
+scenario: "ska-low-aa2-68s"                       # Scenario name (used for output folder prefix)
 
 # ===============================
 # Global simulation parameters
 # ===============================
 
-n_stations: 18                                       # Number of stations
-tel_model: "/home/ska/Work/inst-data-simulation/telescope-models/SKA-Low_AA2_18S_rigid-rotation_model.tm" # Telescope model directory
-
+# generate_gaintable.py needs start and end frequencies on the 1 MHz grid
+# (50 to 350 MHz) of generate_gaintable.bandpass_spline_file.
 simulation_start_frequency_hz: 50.0e6                  # Start frequency (Hz)
 simulation_end_frequency_hz: 125.0e6                 # End frequency (Hz)
 correlated_channel_bandwidth_hz: 81.767955801105e3    # Channel width (Hz)
@@ -14,6 +13,9 @@ correlated_channel_bandwidth_hz: 81.767955801105e3    # Channel width (Hz)
 observing_time_mins: 1                              # Observation duration (minutes)
 sampling_time_sec: 3.3973862400000003                   # Dump/integration time (seconds)
 
+# Targets, by field. Only the first target is simulated by
+# simulate_visibility.py. Its MS is named visibility.scan-<scan number>.ms,
+# with scan number = scan_id_start + scan index (0 for a single scan).
 fields:
   EoR2:
     Cal1:
@@ -21,13 +23,31 @@ fields:
       dec_deg: -22.277973
       scan_id_start: 300
       transit_time: "2000-01-03 22:33:30.000"
+      # Written into the MS by postprocess_visibility.py. Optional.
+      # field_id: FIELD NAME. Default: the target name (here "Cal1").
+      # scan_intent: STATE OBS_MODE. Default: kept as written by OSKAR
+      # ("OBSERVE_TARGET#ON_SOURCE").
+      field_id: "CAL_FIELD"
+      scan_intent: "CALIBRATE_BANDPASS#ON_SOURCE"
+
+# ===============================
+# Options for get_data.py
+# ===============================
+# get_data.py downloads the missing input files referenced in this file
+# (the telescope model and the files in the simulate_visibility section).
+# Optional section.
+
+get_data:
+  s3_prefix: "s3://skao-sdp-testdata/PI27-Low-G4"  # S3 folder with the input data
 
 # ==================================
 # Options for generate_gaintable.py
 # ==================================
 
 generate_gaintable:
-  output_gaintable: &gen_gaintable "./gain-tables/custom_gaintable.h5"
+  output_gaintable: &gen_gaintable "./data/gain-tables/custom_gaintable.h5"
+  # Spline fits of the measured SKA-Low AA2 bandpass (SP5175), used for the bandpass shape
+  bandpass_spline_file: "./data/SKA_Low_AA2_SP5175_spline_data.npz"
 
   outlier_config:
     enable: true
@@ -40,32 +60,140 @@ generate_gaintable:
   time_variant: true                # Apply time-dependent effects
 
   rfi: false                        # Inject RFI band
-  rfi_start_freq_hz: 154.25347222228538e6        # Hz
-  rfi_end_freq_hz: 159.8090277778474e6           # Hz
+  # RFI band, within the simulated band. Required if rfi is true.
+  rfi_start_freq_hz: 100.0e6        # Hz
+  rfi_end_freq_hz: 105.0e6          # Hz
 
   plot: true                        # Generate diagnostic plots
-  plot_output_dir: "./gain-tables/generation_plots/"
+  plot_output_dir: "./data/gain-tables/generation_plots/"
 
 # ===============================
-# Options for run_sim.py
+# Options for generate_tec.py
+# ===============================
+# Ionospheric TEC screen with ARatmospy. The screen covers observing_time_mins,
+# its reference frequency is the centre of the band, and its size is checked
+# against the field of the first target. All keys except output_tec_screen
+# are optional, the defaults are shown.
+
+generate_tec:
+  output_tec_screen: &gen_tec_screen "./data/tec/generated_tec_screen.fits"
+  # Folder of https://github.com/abhinavn17/ARatmospy. Comment if ArScreens
+  # is on the PYTHONPATH.
+  aratmospy_dir: "./ARatmospy"
+
+  # screen_width_m: 200.0e3         # Screen width (m)
+  # subaperture_size_m: 20.0e3      # ARatmospy sub-aperture size (m)
+  # pixel_size_m: 100.0             # Pixel size (m)
+  # time_interval_sec: 12.0         # Time between screens (s). Default: sampling_time_sec
+  # alpha_mag: 0.999                # Fraction of the screen kept at each time step
+  # target_rms_tecu: 0.01           # TEC RMS (TECU) the screen is rescaled to
+  # random_seed: 42
+
+  # Layers of the ionosphere: scale size r0 (m), speed (m/s), direction (deg)
+  # and height (m)
+  # layers:
+  #   - {r0_m: 20.0e3, speed_m_per_s: 41.667, direction_deg: 60.0, height_m: 300.0e3}
+  #   - {r0_m: 20.0e3, speed_m_per_s: 20.833, direction_deg: -30.0, height_m: 310.0e3}
+
+# ===============================
+# Options for simulate_visibility.py
 # ===============================
 
-run_sim:
-  oskar_sif: "./OSKAR-2.12.2-Python3.sif" # Path to OSKAR Singularity image
+simulate_visibility:
+  # All the keys except tel_model are optional. Paths are relative to the
+  # current directory. Input files are checked before the output folder is
+  # created, and downloaded by get_data.py if missing.
 
-  # GLEAM sky model. Optional. Comment to disable.
-  gleam_file: "./sky-models/GLEAM_EGC.fits" # GLEAM catalogue FITS file
-  field_radius_deg: 10.0            # Radius of field of view (degrees)
+  # Telescope model directory (required). Copied into the output folder, and
+  # the copy is given to OSKAR. It must contain no corruptions (see gaintable
+  # and cable_delay below).
+  tel_model: "./data/telescope-models/SKA-Low_AA2_68S_rigid-rotation_model.tm"
 
-  # Corruptions to be applied. All are optional. Comment to disable.
-  # gaintable: *gen_gaintable           # Gaintable containing bandpass corruptions
-  # cable_delay: "./cable_delays/cable_length_error_40s.txt" # Cable delay error file
-  #tec_screen: "./tec/calibrator_iono_tec.fits" # Ionospheric TEC screen FITS
-  tec_screen: "./tec_scale20e3_rescaled.fits"
-  # Imaging parameters using wsclean. Optional. Comment to disable.
-  create_dirty_image: false          # Whether to run wsclean imaging
-  image_size: 1024                  # Image size (pixels)
-  pixel_size: "2arcsec"             # Pixel size (angular units)
+  # OSKAR Singularity image. Comment to run OSKAR from the current Python
+  # environment instead, which must have the oskar package installed
+  # (see README.md). Needs `singularity` on the PATH.
+  oskar_sif: "./data/OSKAR-2.13.0-Python3.sif"
 
-  # Extra parameters to pass directly to utils/run_oskar.py
-  run_oskar_extra_params: "--use-gpus --double-precision"
+  # ---------- Sky model ----------
+  # All the sky models below are combined.
+
+  # GLEAM catalogue FITS file. Comment to disable.
+  gleam_file: "./data/sky-models/GLEAM_EGC.fits"
+
+  # LoTSS DR2 catalogue FITS file. Comment to disable.
+  # lotss_file: "./data/sky-models/LoTSS_DR2.fits"
+
+  # Radius (degrees) of the GLEAM / LoTSS field around the target. Default: 10.
+  field_radius_deg: 10.0
+
+  # Custom OSKAR format sky model (.osm). Comment to disable.
+  # Copied to inputs/ in the output folder.
+  # sky_model_file: "./data/sky-models/custom_sky.osm"
+
+  # Bright sources: any of "centaurus_a", "fornax_a", "taurus_a".
+  # Default: none.
+  # bright_sources: ["centaurus_a", "fornax_a"]
+
+  # ---------- Station beam ----------
+
+  # OSKAR station type: "Aperture array" (default), "Isotropic beam" (no
+  # station beam), "Gaussian beam" or "VLA (PBCOR)".
+  # station_type: "Aperture array"
+
+  # OSKAR element pattern taper: "None" (default), "Cosine" or "Gaussian".
+  # "None" matches the EveryBeam oskar_dipole element response model,
+  # "Cosine" with element_cosine_power 1.0 matches oskar_dipole_cos.
+  # "Gaussian" has no EveryBeam equivalent.
+  # element_taper: "Cosine"
+  # element_cosine_power: 1.0       # Power of cos(theta), used with "Cosine". Default: 1.0
+  # element_gaussian_fwhm_deg: 45.0 # FWHM (degrees), used with "Gaussian". Default: 45
+
+  # ---------- OSKAR simulator ----------
+
+  # Do not simulate bandwidth and time smearing. Default: false.
+  # The MS keeps CHAN_WIDTH, but EXPOSURE is written as 0.
+  # no_smearing: true
+
+  use_gpus: true                    # Use GPUs. Default: false
+  double_precision: true            # Double precision computations (the MS is always single precision). Default: false
+  # add_noise: true                 # Add interferometric noise. Default: false
+
+  # ---------- Corruptions ----------
+  # Comment to disable.
+
+  # OSKAR gain table (bandpass corruptions), linked into the copy of the
+  # telescope model as gain_model.h5. *gen_gaintable is the output of
+  # generate_gaintable.py.
+  # gaintable: *gen_gaintable
+  gaintable: "./data/gain-tables/gain_model.h5"
+
+  # Cable length error file, linked into the copy of the telescope model as
+  # cable_length_error.txt.
+  cable_delay: "./data/cable-delays/cable_length_error_68s.txt"
+
+  # Ionospheric TEC screen FITS file. *gen_tec_screen is the output of
+  # generate_tec.py.
+  # tec_screen: *gen_tec_screen
+  # tec_screen: "./data/tec/calibrator_iono_tec.fits"
+  tec_screen: "./data/tec/tec_scale20e3_rescaled.fits"
+
+  # ---------- Images ----------
+
+  # Dirty image with DP3 (applybeam) and wsclean, in <output>/images.
+  # Needs DP3 and wsclean on the PATH, or the DP3_CMD / WSCLEAN_CMD
+  # environment variables. Default: false.
+  create_dirty_image: false
+  image_size: 1024                  # wsclean image size (pixels). Default: 1024
+  pixel_size: "2arcsec"             # wsclean pixel size (angular units). Default: "2arcsec"
+
+  # Images made with the OSKAR imager, next to the MS.
+  # oskar_imager:
+  #   make_image: true              # Dirty image. Default: false
+  #   make_psf: true                # Image of the PSF. Default: false
+  #   image_size: 2980              # Image size (pixels). Default: 2980
+  #   cellsize_arcsec: 21.66        # Pixel size (arcsec). Default: 21.66
+
+  # Extra parameters passed directly to lib/run_oskar.py, for what is not
+  # in this file (e.g. --max-sources-per-chunk). See
+  # `python lib/run_oskar.py --help`.
+  # run_oskar_extra_params: "--max-sources-per-chunk 32768"

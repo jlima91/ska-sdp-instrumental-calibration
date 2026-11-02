@@ -16,14 +16,10 @@ The following effects can be simulated:
 import logging
 import os
 import random
-import subprocess
-import sys
 
 import h5py
 import numpy as np
-import yaml
 from resources import (  # pylint: disable=import-error
-    H5PARM_CONVERTER_SCRIPT,
     SPLINE_DATA_PATH,
     TEL_MODEL,
 )
@@ -42,6 +38,7 @@ from .constants import (
     SAMPLING_TIME_SEC,
     START_FREQ_HZ,
 )
+from .h5parm import oskar_gaintable_to_h5parm
 
 random.seed(RANDOM_SEED)
 np.random.seed(RANDOM_SEED)
@@ -401,28 +398,19 @@ def calculate_gains(
 
 
 def convert_gaintable_to_h5parm(output_dir, gaintable_path, start_time):
-    """Convert the OSKAR-format gaintable h5 into a DP3-compatible H5Parm
-    using the ska_low_sim converter script.
-    """
-    converter_config = {
-        "tel_model": str(TEL_MODEL),
-        "sampling_time_sec": SAMPLING_TIME_SEC,
-        "fields": {"EoR2": {"Cal1": {"transit_time": str(start_time)}}},
-    }
-    config_path = os.path.join(output_dir, "h5parm_converter_config.yaml")
-    with open(config_path, mode="w", encoding="utf-8") as config_file:
-        yaml.safe_dump(converter_config, config_file)
+    """Convert the OSKAR-format gaintable h5 into a DP3-compatible H5Parm.
 
+    Returns the path of the H5Parm file.
+    """
     h5parm_path = os.path.join(output_dir, "sim_gaintable.h5parm")
-    command = [
-        sys.executable,
-        str(H5PARM_CONVERTER_SCRIPT),
-        config_path,
+    logger.info("Converting gaintable to H5Parm: %s", h5parm_path)
+    oskar_gaintable_to_h5parm(
         str(gaintable_path),
         h5parm_path,
-    ]
-    logger.info("Converting gaintable to H5Parm: %s", command)
-    subprocess.run(command, check=True)
+        TEL_MODEL,
+        start_time,
+        SAMPLING_TIME_SEC,
+    )
 
     return h5parm_path
 

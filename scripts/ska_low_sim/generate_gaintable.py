@@ -9,18 +9,21 @@ Authored by:
 The following effects can be simulated:
 - Bandpass amplitude shape across frequency, fitted to
   measured data and perturbed across stations.
-- Bandpass phase slopes across frequency (bazier curves)
+- Bandpass phase slopes across frequency (Bezier curves)
 - Slow time-varying gain and phase fluctuations, simulated as sinusoidal
   functions (e.g. amplitude variations with ~2.4 h period, phase variations
   with ~0.9 h period).
 - Random per-station offsets in amplitude and phase.
 - RFI (radio-frequency interference), injected as a large amplitude
   perturbation within a specified frequency band.
+- Gain outliers for random stations and channels.
 
 The script needs a YAML config file as input, which contains the necessary
 parameters.
 
-The generated gain solutions are written to an H5parm file with datasets:
+The generated gain solutions are written to an OSKAR gain model HDF5 file
+(gain_model.h5, see lib/gaintable/h5parm_from_oskar_gains.py to convert it
+to H5parm) with datasets:
 - "freq (Hz)"   : frequency axis in Hz
 - "gain_xpol"   : complex gain solutions for X polarization
 - "gain_ypol"   : complex gain solutions for Y polarization
@@ -29,32 +32,74 @@ Usage:
 python generate_gaintable.py sim.yaml
 """
 
-import random
-
-import yaml
-
 import argparse
 import os
+import random
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import BSpline
 
-# Setting seed to a fixed value in order to achieve repeatability of results.
-random.seed(100)
-np.random.seed(100)
+from lib.sim_config import SimConfig
 
-SPLINE_DATA_PATH = os.path.join(
-    os.path.dirname(__file__), "SKA_Low_AA2_SP5175_spline_data.npz"
-)
+# Fixed seed, in order to achieve repeatability of results.
+RANDOM_SEED = 100
+
+# Arbitrary control points of the Bezier curves of the bandpass phase,
+# per polarisation.
+BANDPASS_PHASE_CONTROL_POINTS = {
+    "X": ([0, 6], [0.2, -1], [0.05, -3], [1, -5]),
+    "Y": ([0, 6.1], [0.1, -1.2], [0.05, -3.2], [1, -5.3]),
+}
+
+N_POLS = 2
 
 
-def load_config(yaml_file):
-    with open(yaml_file, "r") as f:
-        cfg = yaml.safe_load(f)
-    return cfg
+@dataclass
+class GainAxes:
+    """Frequency (MHz), time (s) and station axes of the gain table."""
+
+    start_freq_mhz: float
+    end_freq_mhz: float
+    freqs_mhz: np.ndarray
+    times_s: np.ndarray
+    sampling_time_s: float
+    n_stations: int
+
+    @property
+    def n_times(self) -> int:
+        return len(self.times_s)
+
+    @classmethod
+    def from_config(cls, cfg: SimConfig) -> "GainAxes":
+        start_freq_mhz = cfg.simulation_start_frequency_hz * 1e-6
+        end_freq_mhz = cfg.simulation_end_frequency_hz * 1e-6
+        channel_width_mhz = cfg.correlated_channel_bandwidth_hz * 1e-6
+        sampling_time_s = cfg.sampling_time_sec
+        n_times = int(cfg.observing_time_mins * 60 // sampling_time_s)
+        return cls(
+            start_freq_mhz=start_freq_mhz,
+            end_freq_mhz=end_freq_mhz,
+            # TODO: Verify what is the correct way to call arange
+            freqs_mhz=np.arange(start_freq_mhz, end_freq_mhz, channel_width_mhz),
+            # TODO: Verify what is the correct way to call arange
+            times_s=np.arange(0, n_times * sampling_time_s, sampling_time_s),
+            sampling_time_s=sampling_time_s,
+            n_stations=cfg.n_stations,
+        )
+
+
+def load_config(yaml_file) -> SimConfig:
+    return SimConfig.load(yaml_file)
+
+
+def seed_random_generators(seed: int = RANDOM_SEED):
+    random.seed(seed)
+    np.random.seed(seed)
 
 
 def create_gaussian_noise(size, mu, sigma):
@@ -72,10 +117,7 @@ def create_gaussian_noise(size, mu, sigma):
     -------
     noise : array containing the noise
     """
-    noise = np.zeros(size)
-    for i in range(size):
-        noise[i] = random.gauss(mu, sigma)
-    return noise
+    return np.array([random.gauss(mu, sigma) for _ in range(size)], dtype=float)
 
 
 def cubic_Bezier(p0, p1, p2, p3, n, linear=True):
@@ -114,7 +156,8 @@ def cubic_Bezier(p0, p1, p2, p3, n, linear=True):
     if linear:
         x_linear = np.linspace(0.0, 1.0, n)
         y_linear = np.interp(x_linear, x, y)
-    return (x_linear, y_linear) if linear else (x, y)
+        return x_linear, y_linear
+    return x, y
 
 
 def find_closest(array, value):
@@ -138,236 +181,197 @@ def find_closest(array, value):
     return idx
 
 
+############################## Plotting helpers ##############################
+
+
+def _line_plot(path, title, xlabel, ylabel, series, legend=True):
+    """
+    Save a line plot. `series` is a list of (x, y, fmt, kwargs) tuples,
+    passed to plt.plot.
+    """
+    plt.figure(figsize=(10, 5))
+    for x, y, fmt, kwargs in series:
+        plt.plot(x, y, fmt, **kwargs)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    if legend:
+        plt.legend()
+    plt.grid()
+    plt.savefig(path, dpi=150)
+    plt.close()
+
+
+def _bar_plot(path, title, xlabel, ylabel, values, color):
+    plt.figure(figsize=(10, 5))
+    plt.bar(np.arange(len(values)), values, color=color)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.grid(axis="y")
+    plt.savefig(path, dpi=150)
+    plt.close()
+
+
+def _heatmap(path, title, xlabel, ylabel, data, extent, cmap, colorbar_label):
+    plt.figure(figsize=(10, 6))
+    plt.imshow(data, aspect="auto", origin="lower", extent=extent, cmap=cmap)
+    plt.colorbar(label=colorbar_label)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.savefig(path, dpi=150)
+    plt.close()
+
+
 ############################## Bandpass Amp ##############################################
 
 
-def bandpass_amplitude(
-    simulation_frequency_table, spline_data, plot=False, plot_output_dir="."
-):
+def bandpass_amplitude(freqs_mhz, spline_data, plot_output_dir: Optional[str] = None):
     """
-    Calculate phase values for bandpass
+    Calculate amplitude values for bandpass, from B-spline fits to the
+    measured bandpass. Plots are saved if plot_output_dir is given.
 
     Returns
     -------
-    station_bandpass_amplitude_X, station_bandpass_amplitude_Y
-        np.ndarray of shape (n_channels,)
+    dict of np.ndarray of shape (n_channels,), keyed by polarisation "X", "Y"
     """
     spline_frequencies = spline_data["frequencies"]
-    # Load coefficients from B-spline fitting to create bandpass that will be used for creating the gain table.
-    Perturbed_Vogel_HARP_station_polX_Az00ZA00_S21_LNA_norm = spline_data[
-        "Perturbed_Vogel_HARP_station_polX_Az00ZA00_S21_LNA_norm"
-    ]
-    knots_X = spline_data["knots_X"]
-    coefficients_X = spline_data["coefficients_X"]
-    degree_X = spline_data["degree_X"]
-    Perturbed_Vogel_HARP_station_polY_Az00ZA00_S21_LNA_norm = spline_data[
-        "Perturbed_Vogel_HARP_station_polY_Az00ZA00_S21_LNA_norm"
-    ]
-    knots_Y = spline_data["knots_Y"]
-    coefficients_Y = spline_data["coefficients_Y"]
-    degree_Y = spline_data["degree_Y"]
-
-    spline_X = BSpline(knots_X, coefficients_X, degree_X)
-    spline_Y = BSpline(knots_Y, coefficients_Y, degree_Y)
-    station_bandpass_amplitude_X = spline_X(simulation_frequency_table)
-    station_bandpass_amplitude_Y = spline_Y(simulation_frequency_table)
-
-    if plot:
-        # Evaluate splines over all frequencies for comparision
-        amp_X_fit = spline_X(spline_frequencies)
-        amp_Y_fit = spline_Y(spline_frequencies)
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(
-            spline_frequencies,
-            Perturbed_Vogel_HARP_station_polX_Az00ZA00_S21_LNA_norm,
-            "o",
-            label="Measured X-pol",
-            alpha=0.5,
+    amplitudes = {}
+    for pol in ("X", "Y"):
+        spline = BSpline(
+            spline_data[f"knots_{pol}"],
+            spline_data[f"coefficients_{pol}"],
+            spline_data[f"degree_{pol}"],
         )
-        plt.plot(spline_frequencies, amp_X_fit, "-", label="Spline fit X-pol")
-        plt.plot(
-            simulation_frequency_table,
-            station_bandpass_amplitude_X,
-            ".",
-            label="Simulation X-pol",
-        )
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Amplitude (arbitrary units)")
-        plt.title("Bandpass amplitude — X polarisation")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/bspline_bandpass_amp_X.png", dpi=150)
-        plt.close()
+        amplitudes[pol] = spline(freqs_mhz)
 
-        plt.figure(figsize=(10, 5))
-        plt.plot(
-            spline_frequencies,
-            Perturbed_Vogel_HARP_station_polY_Az00ZA00_S21_LNA_norm,
-            "o",
-            label="Measured Y-pol",
-            alpha=0.5,
-        )
-        plt.plot(spline_frequencies, amp_Y_fit, "-", label="Spline fit Y-pol")
-        plt.plot(
-            simulation_frequency_table,
-            station_bandpass_amplitude_Y,
-            ".",
-            label="Simulation Y-pol",
-        )
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Amplitude (arbitrary units)")
-        plt.title("Bandpass amplitude — Y polarisation")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/bspline_bandpass_amp_Y.png", dpi=150)
-        plt.close()
-
-    return station_bandpass_amplitude_X, station_bandpass_amplitude_Y
+        if plot_output_dir:
+            measured = spline_data[
+                f"Perturbed_Vogel_HARP_station_pol{pol}_Az00ZA00_S21_LNA_norm"
+            ]
+            # Evaluate splines over all frequencies for comparison
+            _line_plot(
+                f"{plot_output_dir}/bspline_bandpass_amp_{pol}.png",
+                f"Bandpass amplitude — {pol} polarisation",
+                "Frequency (MHz)",
+                "Amplitude (arbitrary units)",
+                [
+                    (
+                        spline_frequencies,
+                        measured,
+                        "o",
+                        {"label": f"Measured {pol}-pol", "alpha": 0.5},
+                    ),
+                    (
+                        spline_frequencies,
+                        spline(spline_frequencies),
+                        "-",
+                        {"label": f"Spline fit {pol}-pol"},
+                    ),
+                    (
+                        freqs_mhz,
+                        amplitudes[pol],
+                        ".",
+                        {"label": f"Simulation {pol}-pol"},
+                    ),
+                ],
+            )
+    return amplitudes
 
 
 ############################## Bandpass Phase ##############################################
 
 
-def bandpass_phase(
-    simulation_start_frequency,
-    simulation_end_frequency,
-    simulation_frequency_table,
-    spline_data,
-    plot=False,
-    plot_output_dir=".",
-):
+def bandpass_phase(axes: GainAxes, spline_data, plot_output_dir: Optional[str] = None):
     """
-    calculate phase values for bandpass
+    Calculate phase values (degrees) for bandpass, from Bezier curves.
+    Plots are saved if plot_output_dir is given.
 
     Returns
     -------
-    station_bandpass_phase_X, station_bandpass_phase_Y
-        np.ndarray of shape (n_channels,)
+    dict of np.ndarray of shape (n_channels,), keyed by polarisation "X", "Y"
     """
     spline_frequencies = spline_data["frequencies"]
-    # Generate phases to be included in the station bandpass.
-    p0_X = [0, 6]  # Define arbitrary control points for creating Bezier curve.
-    p1_X = [0.2, -1]
-    p2_X = [0.05, -3]
-    p3_X = [1, -5]
-    p0_Y = [0, 6.1]
-    p1_Y = [0.1, -1.2]
-    p2_Y = [0.05, -3.2]
-    p3_Y = [1, -5.3]
-    _, phase_X = cubic_Bezier(
-        p0_X, p1_X, p2_X, p3_X, n=len(spline_frequencies), linear=True
-    )
-    _, phase_Y = cubic_Bezier(
-        p0_Y, p1_Y, p2_Y, p3_Y, n=len(spline_frequencies), linear=True
-    )
-
-    # Create phase profile used for simulation.
-    station_bandpass_phase_X = np.interp(
-        simulation_frequency_table,
-        spline_frequencies[
-            np.where(spline_frequencies == simulation_start_frequency)[0][0] : np.where(
-                spline_frequencies == simulation_end_frequency
-            )[0][0]
-            + 1
-        ],
-        phase_X[
-            np.where(spline_frequencies == simulation_start_frequency)[0][0] : np.where(
-                spline_frequencies == simulation_end_frequency
-            )[0][0]
-            + 1
-        ],
-    )
-    station_bandpass_phase_Y = np.interp(
-        simulation_frequency_table,
-        spline_frequencies[
-            np.where(spline_frequencies == simulation_start_frequency)[0][0] : np.where(
-                spline_frequencies == simulation_end_frequency
-            )[0][0]
-            + 1
-        ],
-        phase_Y[
-            np.where(spline_frequencies == simulation_start_frequency)[0][0] : np.where(
-                spline_frequencies == simulation_end_frequency
-            )[0][0]
-            + 1
-        ],
-    )
-
-    if plot:
-        plt.figure(figsize=(10, 5))
-        plt.plot(spline_frequencies, phase_X, "-", label="Bazier fit X-pol")
-        plt.plot(
-            simulation_frequency_table,
-            station_bandpass_phase_X,
-            ".",
-            label="Simulation X-pol",
+    # The simulated band must start and end on the spline frequency grid
+    start_idx = np.flatnonzero(spline_frequencies == axes.start_freq_mhz)
+    end_idx = np.flatnonzero(spline_frequencies == axes.end_freq_mhz)
+    if not (start_idx.size and end_idx.size):
+        raise ValueError(
+            "simulation_start_frequency_hz and simulation_end_frequency_hz "
+            "must be on the frequency grid of the bandpass spline file: "
+            f"{spline_frequencies[0]:g} to {spline_frequencies[-1]:g} MHz, in "
+            f"steps of {spline_frequencies[1] - spline_frequencies[0]:g} MHz. "
+            f"Got {axes.start_freq_mhz:g} to {axes.end_freq_mhz:g} MHz"
         )
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Phase (degrees)")
-        plt.title("Bandpass phase — X polarisation")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/bazier_bandpass_phase_X.png", dpi=150)
-        plt.close()
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(spline_frequencies, phase_Y, "-", label="Bazier fit Y-pol")
-        plt.plot(
-            simulation_frequency_table,
-            station_bandpass_phase_Y,
-            ".",
-            label="Simulation Y-pol",
+    band = slice(start_idx[0], end_idx[0] + 1)
+    phases = {}
+    for pol, control_points in BANDPASS_PHASE_CONTROL_POINTS.items():
+        _, bezier_phase = cubic_Bezier(
+            *control_points, n=len(spline_frequencies), linear=True
         )
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Phase (degrees)")
-        plt.title("Bandpass phase — Y polarisation")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/bazier_bandpass_phase_Y.png", dpi=150)
-        plt.close()
+        # Create phase profile used for simulation.
+        phases[pol] = np.interp(
+            axes.freqs_mhz, spline_frequencies[band], bezier_phase[band]
+        )
 
-    return station_bandpass_phase_X, station_bandpass_phase_Y
+        if plot_output_dir:
+            _line_plot(
+                f"{plot_output_dir}/bazier_bandpass_phase_{pol}.png",
+                f"Bandpass phase — {pol} polarisation",
+                "Frequency (MHz)",
+                "Phase (degrees)",
+                [
+                    (
+                        spline_frequencies,
+                        bezier_phase,
+                        "-",
+                        {"label": f"Bezier fit {pol}-pol"},
+                    ),
+                    (
+                        axes.freqs_mhz,
+                        phases[pol],
+                        ".",
+                        {"label": f"Simulation {pol}-pol"},
+                    ),
+                ],
+            )
+    return phases
 
 
-############################## Gaussian noise per station (both amp and phase) ##############################################
+############################## Gaussian noise per station (both amp and phase) ##############################
 
 
-def bandpass_offset_per_station(n_stations, plot=False, plot_output_dir="."):
+def bandpass_offset_per_station(n_stations, plot_output_dir: Optional[str] = None):
     """
+    Random amplitude and phase (degrees) offsets, added to each station
+    bandpass.
 
     Returns
     -------
     amplitude_offset_per_station, phase_offset_per_station
         np.ndarray of shape (n_stations,)
     """
-    # Create an array of offset values that will be added to each station bandpass
-    mu = 0.0
-    sigma = 0.08
-    amplitude_offset_per_station = create_gaussian_noise(n_stations, mu, sigma)
-    # Create an array of offset values that will be added to each station phase.
-    mu = -2.0
-    sigma = 2.0
-    phase_offset_per_station = create_gaussian_noise(n_stations, mu, sigma)
+    amplitude_offset_per_station = create_gaussian_noise(n_stations, 0.0, 0.08)
+    phase_offset_per_station = create_gaussian_noise(n_stations, -2.0, 2.0)
 
-    if plot:
-        plt.figure(figsize=(10, 5))
-        plt.bar(np.arange(n_stations), amplitude_offset_per_station, color="skyblue")
-        plt.xlabel("Station index")
-        plt.ylabel("Amplitude offset")
-        plt.title("Amplitude offset per station")
-        plt.grid(axis="y")
-        plt.savefig(f"{plot_output_dir}/amplitude_offset_stations.png", dpi=150)
-        plt.close()
-
-        plt.figure(figsize=(10, 5))
-        plt.bar(np.arange(n_stations), phase_offset_per_station, color="salmon")
-        plt.xlabel("Station index")
-        plt.ylabel("Phase offset (degrees)")
-        plt.title("Phase offset per station")
-        plt.grid(axis="y")
-        plt.savefig(f"{plot_output_dir}/phase_offset_stations.png", dpi=150)
-        plt.close()
+    if plot_output_dir:
+        _bar_plot(
+            f"{plot_output_dir}/amplitude_offset_stations.png",
+            "Amplitude offset per station",
+            "Station index",
+            "Amplitude offset",
+            amplitude_offset_per_station,
+            "skyblue",
+        )
+        _bar_plot(
+            f"{plot_output_dir}/phase_offset_stations.png",
+            "Phase offset per station",
+            "Station index",
+            "Phase offset (degrees)",
+            phase_offset_per_station,
+            "salmon",
+        )
 
     return amplitude_offset_per_station, phase_offset_per_station
 
@@ -375,124 +379,81 @@ def bandpass_offset_per_station(n_stations, plot=False, plot_output_dir="."):
 ############################## Time dependent effects (both amp and phase) ##############################
 
 
-def time_variant_effects(
-    calibration_time,
-    n_stations,
-    number_of_cal_time_samples,
-    plot=False,
-    plot_output_dir=".",
-):
+def time_variant_effects(axes: GainAxes, plot_output_dir: Optional[str] = None):
     """
-    Calculates time variatnt effects added to the bandpass
+    Calculates time variant effects added to the bandpass: a sinusoid per
+    station, with a random period and phase.
 
     Returns
     -------
     amplitude_time_variation_profile, phase_time_variation_profile
         np.ndarrays[float] of shape (time_samples, n_stations)
     """
-    # Create a table of amplitude and phase variations.
-    amplitude_time_variation_profile = np.zeros(
-        (len(calibration_time), n_stations), dtype=np.float64
-    )
-    phase_time_variation_profile = np.zeros(
-        (len(calibration_time), n_stations), dtype=np.float64
-    )
+    n_stations = axes.n_stations
+    # The order of the random draws is kept, for repeatability.
     amplitude_variation_frequency = 1 / create_gaussian_noise(
-        n_stations, number_of_cal_time_samples * 0.75, 100
+        n_stations, axes.n_times * 0.75, 100
     )  # 0.75 is the number of scans in ~2 hours with 100 samples sigma.
     phase_variation_frequency = 1 / create_gaussian_noise(
-        n_stations, number_of_cal_time_samples * 0.5, 30
+        n_stations, axes.n_times * 0.5, 30
     )  # 0.5 is the number of scans in 3000 seconds with 30 samples sigma.
+    amplitude_function_phase = create_gaussian_noise(n_stations, 0, 0.1)  # radians
+    phase_function_phase = create_gaussian_noise(n_stations, 0, 0.2)  # radians
 
-    amplitude_fuction_amplitude = 0.1  # Amplitude of function.
-    amplitude_fuction_phase = create_gaussian_noise(
-        n_stations, 0, 0.1
-    )  # Phase of function in radians.
-    amplitude_fuction_offset = 1  # Offset of function.
-    phase_fuction_amplitude = 0.5  # Amplitude of function.
-    phase_fuction_phase = create_gaussian_noise(
-        n_stations, 0, 0.2
-    )  # Phase of function in radians.
-    phase_fuction_offset = 0  # Offset of function.
-
-    # Prepare bandpass amplitude and phase variation profiles.
-    amplitude_time_variation_profile = amplitude_fuction_offset + (
-        amplitude_fuction_amplitude
-        * np.sin(
-            2 * np.pi * amplitude_variation_frequency * calibration_time[:, np.newaxis]
-            + amplitude_fuction_phase
+    def sinusoid(offset, amplitude, frequency, phase):
+        return offset + amplitude * np.sin(
+            2 * np.pi * frequency * axes.times_s[:, np.newaxis] + phase
         )
+
+    amplitude_time_variation_profile = sinusoid(
+        1, 0.1, amplitude_variation_frequency, amplitude_function_phase
     )
-    phase_time_variation_profile = phase_fuction_offset + (
-        phase_fuction_amplitude
-        * np.sin(
-            2 * np.pi * phase_variation_frequency * calibration_time[:, np.newaxis]
-            + phase_fuction_phase
-        )
+    phase_time_variation_profile = sinusoid(
+        0, 0.5, phase_variation_frequency, phase_function_phase
     )
 
-    if plot:
-        # ---- 1. Plot single-station time series ----
-        plt.figure(figsize=(10, 5))
-        for st in range(min(3, n_stations)):  # show first 3 stations
-            plt.plot(
-                calibration_time,
-                amplitude_time_variation_profile[:, st],
-                label=f"Station {st}",
+    if plot_output_dir:
+        times = axes.times_s
+        first_stations = range(min(3, n_stations))
+        extent = [times[0], times[-1], 0, n_stations]
+        for name, profile, ylabel, cmap, colorbar_label in [
+            (
+                "amplitude",
+                amplitude_time_variation_profile,
+                "Amplitude",
+                "viridis",
+                "Amplitude factor",
+            ),
+            (
+                "phase",
+                phase_time_variation_profile,
+                "Phase (degrees)",
+                "twilight",
+                "Phase (degrees)",
+            ),
+        ]:
+            # ---- 1. Plot single-station time series ----
+            _line_plot(
+                f"{plot_output_dir}/{name}_time_series.png",
+                f"{name.capitalize()} variation vs time (first 3 stations)",
+                "Time (seconds)",
+                ylabel,
+                [
+                    (times, profile[:, st], "-", {"label": f"Station {st}"})
+                    for st in first_stations
+                ],
             )
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Amplitude")
-        plt.title("Amplitude variation vs time (first 3 stations)")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/amplitude_time_series.png", dpi=150)
-        plt.close()
-
-        plt.figure(figsize=(10, 5))
-        for st in range(min(3, n_stations)):
-            plt.plot(
-                calibration_time,
-                (phase_time_variation_profile[:, st]),
-                label=f"Station {st}",
+            # ---- 2. Plot heatmaps for all stations ----
+            _heatmap(
+                f"{plot_output_dir}/{name}_variation_heatmap.png",
+                f"{name.capitalize()} time variation profile (all stations)",
+                "Time (seconds)",
+                "Station index",
+                profile.T,
+                extent,
+                cmap,
+                colorbar_label,
             )
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Phase (degrees)")
-        plt.title("Phase variation vs time (first 3 stations)")
-        plt.legend()
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/phase_time_series.png", dpi=150)
-        plt.close()
-
-        # ---- 2. Plot heatmaps for all stations ----
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            amplitude_time_variation_profile.T,
-            aspect="auto",
-            origin="lower",
-            extent=[calibration_time[0], calibration_time[-1], 0, n_stations],
-            cmap="viridis",
-        )
-        plt.colorbar(label="Amplitude factor")
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Station index")
-        plt.title("Amplitude time variation profile (all stations)")
-        plt.savefig(f"{plot_output_dir}/amplitude_variation_heatmap.png", dpi=150)
-        plt.close()
-
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            (phase_time_variation_profile.T),
-            aspect="auto",
-            origin="lower",
-            extent=[calibration_time[0], calibration_time[-1], 0, n_stations],
-            cmap="twilight",
-        )
-        plt.colorbar(label="Phase (degrees)")
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("Station index")
-        plt.title("Phase time variation profile (all stations)")
-        plt.savefig(f"{plot_output_dir}/phase_variation_heatmap.png", dpi=150)
-        plt.close()
 
     return amplitude_time_variation_profile, phase_time_variation_profile
 
@@ -501,119 +462,114 @@ def time_variant_effects(
 
 
 def calculate_rfi(
-    simulation_frequency_table,
+    axes: GainAxes,
     rfi_start_freq,
     rfi_end_freq,
-    number_of_cal_time_samples,
-    sampling_time,
-    n_stations,
-    n_pols,
-    plot=False,
-    plot_output_dir=".",
+    plot_output_dir: Optional[str] = None,
 ):
     """
-    Generate RFI to inject into the gain table.
+    Generate RFI to inject into the gain table. Frequencies are in MHz.
 
     Returns
     -------
     np.complex128, slice
-        Complex RFI values, python array slice in frequency
+        Complex RFI values with shape (time, channel, station, pol),
+        python array slice in frequency
     """
-    rfi_start_freq_idx = find_closest(simulation_frequency_table, rfi_start_freq)
-    rfi_end_freq_idx = find_closest(simulation_frequency_table, rfi_end_freq)
+    rfi_start_freq_idx = find_closest(axes.freqs_mhz, rfi_start_freq)
+    rfi_end_freq_idx = find_closest(axes.freqs_mhz, rfi_end_freq)
     RFI_n_channels = rfi_end_freq_idx - rfi_start_freq_idx
 
     RFI_amplitude_max = 10
     RFI_amplitude_min = 2
-    RFI_amplitude = np.zeros(
-        (number_of_cal_time_samples, RFI_n_channels, n_stations, n_pols),
-        dtype=float,
-    )
     RFI_phase_max = 20
     RFI_phase_min = -20
-    RFI_phase = np.zeros(
-        (number_of_cal_time_samples, RFI_n_channels, n_stations, n_pols),
-        dtype=float,
-    )
-    for i in range(n_stations):
-        for l in range(n_pols):
-            RFI_amplitude[:, :, i, l] = (
+    shape = (axes.n_times, RFI_n_channels, axes.n_stations, N_POLS)
+    RFI_amplitude = np.zeros(shape, dtype=float)
+    RFI_phase = np.zeros(shape, dtype=float)
+    # The order of the random draws is kept, for repeatability.
+    for i in range(axes.n_stations):
+        for pol in range(N_POLS):
+            RFI_amplitude[:, :, i, pol] = (
                 RFI_amplitude_min - RFI_amplitude_max
-            ) * np.random.random_sample(
-                (number_of_cal_time_samples, RFI_n_channels)
-            ) + RFI_amplitude_max
-            RFI_phase[:, :, i, l] = (
+            ) * np.random.random_sample(shape[:2]) + RFI_amplitude_max
+            RFI_phase[:, :, i, pol] = (
                 RFI_phase_min - RFI_phase_max
-            ) * np.random.random_sample(
-                (number_of_cal_time_samples, RFI_n_channels)
-            ) + RFI_phase_max
+            ) * np.random.random_sample(shape[:2]) + RFI_phase_max
     RFI_complex = RFI_amplitude * np.exp(1j * np.deg2rad(RFI_phase))
 
-    if plot:
-        times = (
-            np.arange(number_of_cal_time_samples) * sampling_time
-        )  # s (integration length)
-        freqs = np.linspace(rfi_start_freq, rfi_end_freq, RFI_n_channels)  # MHz
-        # --- 1. Spectrum at one time, one station, one pol ---
-        t_idx, st_idx, pol_idx = 0, 0, 0
-        plt.figure(figsize=(10, 5))
-        plt.plot(freqs, RFI_amplitude[t_idx, :, st_idx, pol_idx], label="Amplitude")
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Amplitude")
-        plt.title(
-            f"RFI amplitude (time={t_idx}, station={st_idx}, pol={'X' if pol_idx==0 else 'Y'})"
-        )
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/rfi_amp_spectrum.png", dpi=150)
-        plt.close()
-
-        plt.figure(figsize=(10, 5))
-        plt.plot(freqs, RFI_phase[t_idx, :, st_idx, pol_idx], label="Phase")
-        plt.xlabel("Frequency (MHz)")
-        plt.ylabel("Phase (degrees)")
-        plt.title(f"RFI phase (time={t_idx}, station={st_idx}, pol={pol_idx})")
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/rfi_phase_spectrum.png", dpi=150)
-        plt.close()
-
-        # --- 2. Time series at one frequency, one station/pol ---
-        f_idx = RFI_n_channels // 2
-        plt.figure(figsize=(10, 5))
-        plt.plot(
-            np.arange(number_of_cal_time_samples),
-            RFI_amplitude[:, f_idx, st_idx, pol_idx],
-        )
-        plt.xlabel("Time (s)")
-        plt.ylabel("Amplitude")
-        plt.title(
-            f"RFI amplitude vs time (freq_idx={freqs[f_idx]:.1f} MHz, station={st_idx}, pol={pol_idx})"
-        )
-        plt.grid()
-        plt.savefig(f"{plot_output_dir}/rfi_amp_time_series.png", dpi=150)
-        plt.close()
-
-        # --- 3. Heatmap (freq × time) for one station/pol ---
-
-        plt.figure(figsize=(10, 6))
-        plt.imshow(
-            RFI_amplitude[:, :, st_idx, pol_idx].T,
-            aspect="auto",
-            origin="lower",
-            extent=[times[0], times[-1], freqs[0], freqs[-1]],
-            cmap="inferno",
-        )
-        plt.colorbar(label="Amplitude")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Frequency (MHz)")
-        plt.title(f"RFI amplitude heatmap (station={st_idx}, pol={pol_idx})")
-        plt.savefig(f"{plot_output_dir}/rfi_amp_heatmap.png", dpi=150)
-        plt.close()
-
-        print(
-            "Saved: rfi_amp_spectrum.png, rfi_phase_spectrum.png, rfi_amp_time_series.png, rfi_amp_heatmap.png"
+    if plot_output_dir:
+        plot_rfi(
+            axes,
+            RFI_amplitude,
+            RFI_phase,
+            rfi_start_freq,
+            rfi_end_freq,
+            plot_output_dir,
         )
 
     return RFI_complex, slice(rfi_start_freq_idx, rfi_end_freq_idx, None)
+
+
+def plot_rfi(
+    axes, RFI_amplitude, RFI_phase, rfi_start_freq, rfi_end_freq, plot_output_dir
+):
+    RFI_n_channels = RFI_amplitude.shape[1]
+    times = np.arange(axes.n_times) * axes.sampling_time_s  # s (integration length)
+    freqs = np.linspace(rfi_start_freq, rfi_end_freq, RFI_n_channels)  # MHz
+    t_idx, st_idx, pol_idx = 0, 0, 0
+
+    # --- 1. Spectrum at one time, one station, one pol ---
+    _line_plot(
+        f"{plot_output_dir}/rfi_amp_spectrum.png",
+        f"RFI amplitude (time={t_idx}, station={st_idx}, pol={'X' if pol_idx==0 else 'Y'})",
+        "Frequency (MHz)",
+        "Amplitude",
+        [
+            (
+                freqs,
+                RFI_amplitude[t_idx, :, st_idx, pol_idx],
+                "-",
+                {"label": "Amplitude"},
+            )
+        ],
+        legend=False,
+    )
+    _line_plot(
+        f"{plot_output_dir}/rfi_phase_spectrum.png",
+        f"RFI phase (time={t_idx}, station={st_idx}, pol={pol_idx})",
+        "Frequency (MHz)",
+        "Phase (degrees)",
+        [(freqs, RFI_phase[t_idx, :, st_idx, pol_idx], "-", {"label": "Phase"})],
+        legend=False,
+    )
+
+    # --- 2. Time series at one frequency, one station/pol ---
+    f_idx = RFI_n_channels // 2
+    _line_plot(
+        f"{plot_output_dir}/rfi_amp_time_series.png",
+        f"RFI amplitude vs time (freq_idx={freqs[f_idx]:.1f} MHz, station={st_idx}, pol={pol_idx})",
+        "Time (s)",
+        "Amplitude",
+        [(np.arange(axes.n_times), RFI_amplitude[:, f_idx, st_idx, pol_idx], "-", {})],
+        legend=False,
+    )
+
+    # --- 3. Heatmap (freq × time) for one station/pol ---
+    _heatmap(
+        f"{plot_output_dir}/rfi_amp_heatmap.png",
+        f"RFI amplitude heatmap (station={st_idx}, pol={pol_idx})",
+        "Time (s)",
+        "Frequency (MHz)",
+        RFI_amplitude[:, :, st_idx, pol_idx].T,
+        [times[0], times[-1], freqs[0], freqs[-1]],
+        "inferno",
+        "Amplitude",
+    )
+
+    print(
+        "Saved: rfi_amp_spectrum.png, rfi_phase_spectrum.png, rfi_amp_time_series.png, rfi_amp_heatmap.png"
+    )
 
 
 ############################## Add outliers to gains ##############################
@@ -644,15 +600,19 @@ def add_gain_outliers(gain, amp_range, n_stations_to_corrupt, n_channels_to_corr
 
     _, n_channels, n_stations = gain.shape
 
-    corrupt_stations = np.random.choice(n_stations, size=n_stations_to_corrupt, replace=False)
+    corrupt_stations = np.random.choice(
+        n_stations, size=n_stations_to_corrupt, replace=False
+    )
 
     for st in corrupt_stations:
-        corrupt_channels = np.random.choice(n_channels, size=n_channels_to_corrupt, replace=False)
-        
+        corrupt_channels = np.random.choice(
+            n_channels, size=n_channels_to_corrupt, replace=False
+        )
+
         for ch in corrupt_channels:
             amp_multiplier = np.random.uniform(*amp_range)
             phase_offset = np.random.uniform(-180.0, 180.0)
-            
+
             gain[:, ch, st] *= amp_multiplier * np.exp(1j * np.deg2rad(phase_offset))
 
     return gain
@@ -661,208 +621,140 @@ def add_gain_outliers(gain, amp_range, n_stations_to_corrupt, n_channels_to_corr
 ############################## Generate gaintables combining all effects ##############################
 
 
-def calculate_gains(cfg):
-    start_time = time.perf_counter()
+def combine_gain_effects(
+    bandpass_amp, bandpass_phase_deg, amp_time, phase_time, amp_offset, phase_offset
+):
+    """
+    Combine the bandpass (per channel), time variations (per time and
+    station) and station offsets (per station) of one polarisation.
 
-    # -------------- Unpack parameters ---------------- #
-
-    # Common simulation parameters
-    n_stations = cfg["n_stations"]
-    simulation_start_frequency = float(cfg["simulation_start_frequency_hz"]) * 1e-6
-    simulation_end_frequency = float(cfg["simulation_end_frequency_hz"]) * 1e-6
-    correlated_channel_bandwidth = float(cfg["correlated_channel_bandwidth_hz"]) * 1e-6
-    observing_time_cal = float(cfg["observing_time_mins"]) * 60
-    sampling_time = cfg["sampling_time_sec"]
-
-    # generate_gaintable specific parameters
-    generate_gaintable_cfg = cfg["generate_gaintable"]
-
-    outlier_config = generate_gaintable_cfg["outlier_config"]
-    outlier_enable = outlier_config["enable"]
-
-    station_offset = generate_gaintable_cfg.get("station_offset", True)
-    time_variant = generate_gaintable_cfg.get("time_variant", True)
-
-    rfi = generate_gaintable_cfg.get("rfi", False)
-    if rfi:
-        rfi_start_freq = float(generate_gaintable_cfg["rfi_start_freq_hz"]) * 1e-6
-        rfi_end_freq = float(generate_gaintable_cfg["rfi_end_freq_hz"]) * 1e-6
-    else:
-        rfi_start_freq = rfi_end_freq = None
-
-    plot = generate_gaintable_cfg.get("plot", False)
-    plot_output_dir = generate_gaintable_cfg.get(
-        "plot_output_dir", "./gaintable_generation_plots"
+    Returns
+    -------
+    np.ndarray[complex] of shape (n_time, n_channels, n_stations)
+    """
+    gain = (
+        amp_time
+        * (
+            bandpass_amp[:, np.newaxis, np.newaxis]
+            + amp_offset[np.newaxis, np.newaxis, :]
+        )
+    ) * np.exp(
+        1j
+        * np.deg2rad(
+            phase_time[np.newaxis, :, :]
+            + bandpass_phase_deg[:, np.newaxis, np.newaxis]
+            + phase_offset[np.newaxis, np.newaxis, :]
+        )
     )
-    if plot:
+    return np.swapaxes(gain, 0, 1)
+
+
+def calculate_gains(cfg: SimConfig):
+    """
+    Generate the gains of both polarisations.
+
+    Returns
+    -------
+    gain_xpol, gain_ypol, frequencies (MHz)
+        gains with shape (n_time, n_channels, n_stations)
+    """
+    start_time = time.perf_counter()
+    seed_random_generators()
+
+    gt_cfg = cfg.require_generate_gaintable()
+    axes = GainAxes.from_config(cfg)
+
+    plot_output_dir = gt_cfg.plot_output_dir if gt_cfg.plot else None
+    if plot_output_dir:
         os.makedirs(plot_output_dir, exist_ok=True)
 
-    # ---------------- Setup ---------------------#
-    n_pols = 2
-    spline_data = np.load(SPLINE_DATA_PATH)
+    spline_data = np.load(gt_cfg.bandpass_spline_file)
 
-    AA2_bandwidth = simulation_end_frequency - simulation_start_frequency
+    amplitudes = bandpass_amplitude(axes.freqs_mhz, spline_data, plot_output_dir)
+    phases = bandpass_phase(axes, spline_data, plot_output_dir)
 
-    number_of_correlated_channels = int(AA2_bandwidth / correlated_channel_bandwidth)
-    number_of_cal_time_samples = int(observing_time_cal // sampling_time)
+    # The random draws must happen in this order: time variations, station
+    # offsets, outliers (X then Y), RFI.
+    if gt_cfg.time_variant:
+        amp_time, phase_time = time_variant_effects(axes, plot_output_dir)
+    else:
+        amp_time = np.ones((axes.n_times, axes.n_stations), dtype=np.float64)
+        phase_time = np.zeros((axes.n_times, axes.n_stations), dtype=np.float64)
 
-    # TODO: Verify what is the correct way to call arange
-    simulation_frequency_table = np.arange(
-        simulation_start_frequency,
-        simulation_end_frequency,
-        correlated_channel_bandwidth,
-    )
-    # TODO: Verify what is the correct way to call arange
-    calibration_time = np.arange(
-        0, number_of_cal_time_samples * sampling_time, sampling_time
-    )
-
-    # ----------------- Start calculating gains ------------ #
-
-    gain_xpol = np.zeros(
-        (
-            len(simulation_frequency_table),
-            number_of_cal_time_samples,
-            n_stations,
-        ),
-        dtype=complex,
-    )
-    gain_ypol = np.zeros(
-        (
-            len(simulation_frequency_table),
-            number_of_cal_time_samples,
-            n_stations,
-        ),
-        dtype=complex,
-    )
-
-    station_bandpass_amplitude_X, station_bandpass_amplitude_Y = bandpass_amplitude(
-        simulation_frequency_table=simulation_frequency_table,
-        spline_data=spline_data,
-        plot=plot,
-        plot_output_dir=plot_output_dir,
-    )
-    station_bandpass_phase_X, station_bandpass_phase_Y = bandpass_phase(
-        simulation_start_frequency=simulation_start_frequency,
-        simulation_end_frequency=simulation_end_frequency,
-        simulation_frequency_table=simulation_frequency_table,
-        spline_data=spline_data,
-        plot=plot,
-        plot_output_dir=plot_output_dir,
-    )
-
-    if time_variant:
-        amplitude_time_variation_profile, phase_time_variation_profile = (
-            time_variant_effects(
-                calibration_time=calibration_time,
-                n_stations=n_stations,
-                number_of_cal_time_samples=number_of_cal_time_samples,
-                plot=plot,
-                plot_output_dir=plot_output_dir,
-            )
+    if gt_cfg.station_offset:
+        amp_offset, phase_offset = bandpass_offset_per_station(
+            axes.n_stations, plot_output_dir
         )
     else:
-        amplitude_time_variation_profile = np.ones(
-            (len(calibration_time), n_stations), dtype=np.float64
-        )
-        phase_time_variation_profile = np.zeros(
-            (len(calibration_time), n_stations), dtype=np.float64
-        )
+        amp_offset = phase_offset = np.zeros(axes.n_stations)
 
-    if station_offset:
-        amplitude_offset_per_station, phase_offset_per_station = (
-            bandpass_offset_per_station(
-                n_stations=n_stations, plot=plot, plot_output_dir=plot_output_dir
+    gains = {
+        pol: combine_gain_effects(
+            amplitudes[pol], phases[pol], amp_time, phase_time, amp_offset, phase_offset
+        )
+        for pol in ("X", "Y")
+    }
+
+    outliers = gt_cfg.outlier_config
+    if outliers.enable:
+        n_channels = len(axes.freqs_mhz)
+        if outliers.n_channels_to_corrupt > n_channels:
+            raise ValueError(
+                "generate_gaintable.outlier_config.n_channels_to_corrupt "
+                f"({outliers.n_channels_to_corrupt}) must be <= the number of "
+                f"channels ({n_channels})"
             )
-        )
-    else:
-        amplitude_offset_per_station = phase_offset_per_station = np.zeros(n_stations)
+        for pol in ("X", "Y"):
+            gains[pol] = add_gain_outliers(
+                gains[pol],
+                (outliers.amp_min, outliers.amp_max),
+                outliers.n_stations_to_corrupt,
+                outliers.n_channels_to_corrupt,
+            )
 
-    gain_xpol = (
-        amplitude_time_variation_profile
-        * (
-            station_bandpass_amplitude_X[:, np.newaxis, np.newaxis]
-            + amplitude_offset_per_station[np.newaxis, np.newaxis, :]
-        )
-    ) * np.exp(
-        1j
-        * np.deg2rad(
-            phase_time_variation_profile[np.newaxis, :, :]
-            + station_bandpass_phase_X[:, np.newaxis, np.newaxis]
-            + phase_offset_per_station[np.newaxis, np.newaxis, :]
-        )
-    )
-    gain_ypol = (
-        amplitude_time_variation_profile
-        * (
-            station_bandpass_amplitude_Y[:, np.newaxis, np.newaxis]
-            + amplitude_offset_per_station[np.newaxis, np.newaxis, :]
-        )
-    ) * np.exp(
-        1j
-        * np.deg2rad(
-            phase_time_variation_profile[np.newaxis, :, :]
-            + station_bandpass_phase_Y[:, np.newaxis, np.newaxis]
-            + phase_offset_per_station[np.newaxis, np.newaxis, :]
-        )
-    )
-    gain_xpol = np.swapaxes(gain_xpol, 0, 1)
-    gain_ypol = np.swapaxes(gain_ypol, 0, 1)
-
-    if outlier_enable:
-        amp_range = (outlier_config["amp_min"],outlier_config["amp_max"])
-        gain_xpol = add_gain_outliers(
-            gain_xpol,
-            amp_range,
-            outlier_config["n_stations_to_corrupt"],
-            outlier_config["n_channels_to_corrupt"],
-        )
-        gain_ypol = add_gain_outliers(
-            gain_ypol,
-            amp_range,
-            outlier_config["n_stations_to_corrupt"],
-            outlier_config["n_channels_to_corrupt"],
-        )
-
-    if rfi:
+    if gt_cfg.rfi:
         RFI_complex, freq_slice = calculate_rfi(
-            simulation_frequency_table=simulation_frequency_table,
-            rfi_start_freq=rfi_start_freq,
-            rfi_end_freq=rfi_end_freq,
-            number_of_cal_time_samples=number_of_cal_time_samples,
-            sampling_time=sampling_time,
-            n_stations=n_stations,
-            n_pols=n_pols,
-            plot=plot,
-            plot_output_dir=plot_output_dir,
+            axes,
+            gt_cfg.rfi_start_freq_hz * 1e-6,
+            gt_cfg.rfi_end_freq_hz * 1e-6,
+            plot_output_dir,
         )
         # Inject RFI into gain tables.
-        gain_xpol[:, freq_slice, :] = RFI_complex[:, :, :, 0]
-        gain_ypol[:, freq_slice, :] = RFI_complex[:, :, :, 1]
+        for pol_idx, pol in enumerate(("X", "Y")):
+            gains[pol][:, freq_slice, :] = RFI_complex[:, :, :, pol_idx]
 
     end_time = time.perf_counter()
     print("Total processing time: " + str(int(np.ceil(end_time - start_time))) + " s.")
 
-    return gain_xpol, gain_ypol, simulation_frequency_table
+    return gains["X"], gains["Y"], axes.freqs_mhz
+
+
+def write_gaintable(path, freqs_hz, gain_xpol, gain_ypol):
+    """Write the gains in the format of an OSKAR gain model (gain_model.h5)."""
+    if os.path.dirname(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    with h5py.File(path, "w") as f:
+        f.create_dataset("freq (Hz)", data=freqs_hz)
+        f.create_dataset("gain_xpol", data=gain_xpol)
+        f.create_dataset("gain_ypol", data=gain_ypol)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=str, help="Path to YAML config file")
-
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-
-    output_gaintable_path = cfg["generate_gaintable"]["output_gaintable"]
-    os.makedirs(os.path.dirname(output_gaintable_path), exist_ok=True)
+    gt_cfg = cfg.require_generate_gaintable()
+    if not os.path.isfile(gt_cfg.bandpass_spline_file):
+        raise FileNotFoundError(
+            "generate_gaintable.bandpass_spline_file not found: "
+            f"{gt_cfg.bandpass_spline_file}"
+        )
+    output_gaintable_path = gt_cfg.output_gaintable
 
     gain_xpol, gain_ypol, sim_freqs = calculate_gains(cfg)
-
-    with h5py.File(output_gaintable_path, "w") as f:
-        f.create_dataset("freq (Hz)", data=sim_freqs * 1e6)
-        f.create_dataset("gain_xpol", data=gain_xpol)
-        f.create_dataset("gain_ypol", data=gain_ypol)
+    write_gaintable(output_gaintable_path, sim_freqs * 1e6, gain_xpol, gain_ypol)
 
     print(f"Wrote gains to {output_gaintable_path}")
 
