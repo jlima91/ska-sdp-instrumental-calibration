@@ -108,6 +108,11 @@ def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
         provided, else ``output_path``.
     """
     if sdm_path is None:
+        if not os.path.exists(output_path):
+            raise FileNotFoundError(
+                f"Provided output path {output_path} does not exist. "
+                "Please provide a valid path."
+            )
         return str(output_path)
 
     if not os.path.exists(sdm_path):
@@ -125,11 +130,11 @@ def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
     return str(latest_run_path)
 
 
-def get_qa_metric_field_id(
+def get_qa_metric_source_name(
     qa_metric_dir: str, sdm_path: str | None = None
-) -> str:
+) -> str | None:
     """
-    Get the field ID to name the QA metric report.
+    Get the source name to name the QA metric report.
 
     Parameters
     ----------
@@ -140,9 +145,11 @@ def get_qa_metric_field_id(
 
     Returns
     -------
-        The index ``NN`` of the ``logs/NN-inst`` directory if an SDM path
-        is provided, else the field ID of the final gaintable in
-        ``qa_metric_dir``.
+        The source name prefix of the final gaintable in qa_metric_dir,
+        or None if there is no final gaintable.
+        If an SDM path is provided, the index ``NN`` of the ``logs/NN-inst``
+        directory is returned instead, as SDM runs are not yet mapped
+        to a source.
     """
     if sdm_path is not None:
         return Path(qa_metric_dir).name.split("-")[0]
@@ -151,9 +158,7 @@ def get_qa_metric_field_id(
         os.path.join(qa_metric_dir, f"*_{GAINTABLE_FILE_NAME}")
     )
     if not gaintable_paths:
-        raise FileNotFoundError(
-            f"No final gaintable found in {qa_metric_dir}."
-        )
+        return None
 
     return os.path.basename(gaintable_paths[0]).removesuffix(
         f"_{GAINTABLE_FILE_NAME}"

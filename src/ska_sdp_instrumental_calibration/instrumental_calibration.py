@@ -54,6 +54,14 @@ sdm_cli_arg = CLIArgument(
     help="""Directory path to store the Science Data Models""",
 )
 
+qa_output_cli_arg = CLIArgument(
+    "--output",
+    dest="output_path",
+    type=str,
+    default="./output",
+    help="""Output directory of the INST run.""",
+)
+
 """
 This is the entrypoint for instrumental calibration pipeline.
 """
@@ -168,11 +176,11 @@ def experimental(**cli_args):
 
 @ska_sdp_instrumental_calibration.sub_command(
     "qa-metric",
-    *RUN_CLI_ARGS,
+    qa_output_cli_arg,
     sdm_cli_arg,
     help="Generate the QA metric HTML report of INST run",
 )
-def qa_metric(sdm_path, output_path, **cli_args):
+def qa_metric(sdm_path, output_path):
     """
     Write the QA metric HTML report for bandpass of the INST run.
     The report goes to the logs directory of the latest INST run
@@ -184,7 +192,5 @@ def qa_metric(sdm_path, output_path, **cli_args):
         Science Data Model directory of the INST run
     output_path: str
         Output directory of the INST run. Ignored if sdm_path is also provided
-    cli_args: varargs
-            other CLI arguments
     """
     generate_qa_metric(output_path, sdm_path)

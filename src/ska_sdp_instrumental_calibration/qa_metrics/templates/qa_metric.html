@@ -3,21 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>$title</title>
+<title>{{ title }}</title>
 <style>
-$style
+{% include "qa_metric.css" %}
 </style>
 </head>
 <body>
 <header>
-<h1>$title</h1>
+<h1>{{ title }}</h1>
 <div class="toolbar">
   <button onclick="setAllSectionsOpen(true)">Expand all</button>
   <button onclick="setAllSectionsOpen(false)">Collapse all</button>
 </div>
 </header>
 <main>
-$sections
+  {% for section_title in section_titles %}
+  <details open><summary>{{ section_title }}</summary><div></div></details>
+  {% endfor %}
 </main>
 <script>
 function setAllSectionsOpen(open) {
