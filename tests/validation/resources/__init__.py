@@ -12,9 +12,5 @@ INST_TARGET_IONOSPHERIC_CONFIG = (
     __resource_dir__ / "inst_target_ionospheric.yaml"
 )
 CABLE_DELAYS = __resource_dir__ / "cable_length_error_18s.txt"
-H5PARM_CONVERTER_SCRIPT = (
-    __resource_dir__.parents[2]
-    / "scripts/ska_low_sim/utils/h5parm_from_oskar_gains.py"
-)
 
 SPLINE_DATA_PATH = __resource_dir__ / "SKA_Low_AA2_SP5175_spline_data.npz"

@@ -26,12 +26,10 @@ docs/src/api
 .eclipse
 .vscode
 
-# Additional files from scripts/ska_low_sim
-scripts/ska_low_sim/cable_delays/
-scripts/ska_low_sim/gain-tables/
-scripts/ska_low_sim/sky-models/
-scripts/ska_low_sim/tec/
-scripts/ska_low_sim/telescope-models/
+# Data downloaded (get_data.py) or generated in scripts/ska_low_sim
+scripts/ska_low_sim/data/*
+!scripts/ska_low_sim/data/SKA_Low_AA2_SP5175_spline_data.npz
+scripts/ska_low_sim/ARatmospy/
 
 # misc
 *.patch
