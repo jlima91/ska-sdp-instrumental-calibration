@@ -32,11 +32,11 @@ For more details on the SKA LSM format, please visit:
 https://developer.skao.int/projects/ska-sdp-global-sky-model/en/latest/design/lsm-file-structure.html
 
 Usage:
-    python scripts/convert/gleam_to_ska_lsm.py gleamegc.dat
-    python scripts/convert/gleam_to_ska_lsm.py gleamegc.dat output.csv
-    python scripts/convert/gleam_to_ska_lsm.py gleamegc.dat --flux-limit 0.1
-    python scripts/convert/gleam_to_ska_lsm.py gleamegc.dat --alpha0 -0.7
-    python scripts/convert/gleam_to_ska_lsm.py gleamegc.dat --comp-prefix GLEAM \
+    gleam-to-ska-lsm gleamegc.dat
+    gleam-to-ska-lsm gleamegc.dat output.csv
+    gleam-to-ska-lsm gleamegc.dat --flux-limit 0.1
+    gleam-to-ska-lsm gleamegc.dat --alpha0 -0.7
+    gleam-to-ska-lsm gleamegc.dat --comp-prefix GLEAM \
         --author "A. Person"
 """
 

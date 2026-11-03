@@ -29,8 +29,8 @@ For more details on the sourcedb format, please visit:
 https://www.astron.nl/lofarwiki/doku.php?id=public:user_software:documentation:makesourcedb
 
 Usage:
-    python scripts/convert/ska_lsm_to_sourcedb.py sky_model.csv
-    python scripts/convert/ska_lsm_to_sourcedb.py sky.csv sky.skymodel
+    ska-lsm-to-sourcedb sky_model.csv
+    ska-lsm-to-sourcedb sky.csv sky.skymodel
 """
 
 import argparse

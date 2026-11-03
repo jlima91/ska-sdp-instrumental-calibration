@@ -10,7 +10,7 @@
 6. The exported sky model CSV now includes the catalogue metadata header, so it can be fed back to the pipeline as `lsm_csv_path`.
 7. Add the `gleam-to-ska-lsm` script, which converts the GLEAM-EGC catalogue to an SKA LSM CSV. `oskar-to-ska-lsm` now writes the metadata header, with new `--catalogue-name`, `--catalogue-version`, `--description` and `--author` options.
 8. Remove `Component`, `generate_lsm_from_csv`, `generate_lsm_from_gleamegc`, `export_lsm_to_csv` and `ComponentConverters` from `data_managers.sky_model`. `GlobalSkyModel.components` is replaced by `GlobalSkyModel.sky_model`, and GLEAM files are read with `read_gleamegc`, which returns a `SkyModel`.
-9. **Breaking:** the sky model converter scripts moved to `scripts/convert/` and are named after what they convert: `oskar-csv-converter` is now `oskar-to-ska-lsm`, and `gleam-csv-converter` is now `gleam-to-ska-lsm`.
+9. **Breaking:** the sky model converter scripts moved to the new `inst_cli_tools` package, are installed as console scripts, and are named after what they convert: `oskar-csv-converter` is now `oskar-to-ska-lsm`, and `gleam-csv-converter` is now `gleam-to-ska-lsm`.
 10. Add the `ska-lsm-to-sourcedb` script, which converts an SKA LSM CSV to a sourcedb (makesourcedb) sky model, as read by DP3. The semi-axes are doubled to the FWHM that sourcedb expects.
 
 ## 1.5.0
