@@ -35,6 +35,7 @@ def create_template_vis_from_ms(
     msname: str,
     ack: bool = False,
     datacolumn: str = "DATA",
+    weightcolumn: str = "auto",
     field_ids: List[int] = None,
     data_desc_ids: List[int] = None,
 ) -> List[Visibility]:
@@ -57,6 +58,10 @@ def create_template_vis_from_ms(
     datacolumn : str, optional
         The name of the column in the MS to use for determining the data
         type of the visibility data. Default is "DATA".
+    weightcolumn : str, optional
+        The name of the column in the MS to use for determining the data
+        type of the weights. If "auto", WEIGHT_SPECTRUM is used when
+        present and filled, else WEIGHT. Default is "auto".
     field_ids : list[int], optional
         A list of field IDs to process. If None, defaults to [0].
     data_desc_ids : list[int], optional
@@ -73,7 +78,8 @@ def create_template_vis_from_ms(
     ------
     ValueError
         If the selection for a specific Field ID or Data Description ID
-        yields no rows in the MS.
+        yields no rows in the MS, or if the data or weight column is
+        absent or has no data.
     KeyError
         If the polarization configuration in the MS is not recognized.
 
@@ -111,6 +117,12 @@ def create_template_vis_from_ms(
                                 f"and DATA_DESC_ID={dd}"
                             )
 
+                        if not _column_has_data(ms, datacolumn):
+                            raise ValueError(
+                                f"Data column '{datacolumn}' is absent or "
+                                "has no data in the measurement set"
+                            )
+
                         time = ms.getcol("TIME")
                         antenna1 = ms.getcol("ANTENNA1")
                         antenna2 = ms.getcol("ANTENNA2")
@@ -118,7 +130,9 @@ def create_template_vis_from_ms(
 
                         vis_dtype = ms.getcol(datacolumn, nrow=1).dtype
                         flags_dtype = ms.getcol("FLAG", nrow=1).dtype
-                        weight_dtype = ms.getcol("WEIGHT", nrow=1).dtype
+                        weight_dtype = ms.getcol(
+                            _resolve_weight_column(ms, weightcolumn), nrow=1
+                        ).dtype
                         uvw_dtype = ms.getcol("UVW", nrow=1).dtype
 
                     start_time = np.min(time) / 86400.0
@@ -527,27 +541,27 @@ def _load_weight_xdr(
     num_baselines_in_ms: int,
     crosscorr_mask_over_baseline: Optional[np.ndarray] = None,
     polarisation_order: Optional[np.ndarray] = None,
+    weightcolumn: str = "WEIGHT",
     field_id: int = 0,
     data_desc_id: int = 0,
 ):
     start_time_idx = time_index_xdr.data[0]
     ntimes = time_index_xdr.size
 
-    weight_data_shape = (
-        weight_chunk.shape[0],
-        num_baselines_in_ms,
-        weight_chunk.shape[-1],
-    )
-
     weight_data = get_col_from_ms(
         ms_name,
-        colname="WEIGHT",
+        colname=weightcolumn,
         start_time_idx=start_time_idx,
         ntimes=ntimes,
         num_baselines=num_baselines_in_ms,
         field_ids=[field_id],
         data_desc_ids=[data_desc_id],
-    )[0].reshape(weight_data_shape)
+    )[0]
+    # Column cells are either per row (polarisation) like WEIGHT,
+    # or per channel (frequency, polarisation) like WEIGHT_SPECTRUM
+    weight_data = weight_data.reshape(
+        weight_chunk.shape[0], num_baselines_in_ms, *weight_data.shape[1:]
+    )
 
     if (
         crosscorr_mask_over_baseline is not None
@@ -557,10 +571,12 @@ def _load_weight_xdr(
             :, crosscorr_mask_over_baseline, ...
         ][..., polarisation_order]
 
+    if weight_data.ndim == 3:
+        # Weights per row: broadcast across channels
+        weight_data = weight_data[:, :, np.newaxis, ...]
+
     actual_weight_data = np.zeros_like(weight_chunk)
-    actual_weight_data[:, vis_baseline_indices_to_update, ...] = weight_data[
-        :, :, np.newaxis, ...
-    ]
+    actual_weight_data[:, vis_baseline_indices_to_update, ...] = weight_data
 
     del weight_data
 
@@ -606,14 +622,79 @@ def _load_uvw_xdr(
     return xr.DataArray(actual_uvw_data, coords=uvw_chunk.coords)
 
 
+def _column_has_data(ms: table, colname: str) -> bool:
+    """
+    Check whether a measurement set column exists and contains data.
+
+    Parameters
+    ----------
+    ms
+        Opened measurement set table (or a selection of it).
+    colname
+        Name of the column.
+
+    Returns
+    -------
+        True if the column exists and its first cell is defined.
+    """
+    # A column may exist without any data, so check its first cell
+    return colname in ms.colnames() and ms.iscelldefined(colname, 0)
+
+
+def _resolve_weight_column(ms: table, weightcolumn: str) -> str:
+    """
+    Resolve the name of the measurement set column to read weights from.
+
+    Parameters
+    ----------
+    ms
+        Opened measurement set table (or a selection of it).
+    weightcolumn
+        Name of the weight column. If "auto", WEIGHT_SPECTRUM is used when
+        present and filled, else WEIGHT (same as DP3 and CASA).
+
+    Returns
+    -------
+        Name of the column to read the weights from.
+
+    Raises
+    ------
+    ValueError
+        If the resolved column is absent or has no data.
+    """
+    if weightcolumn == "auto":
+        # WEIGHT_SPECTRUM, if present, holds the per-channel weights,
+        # and WEIGHT only their summary per row (e.g. DP3 averaging
+        # updates only WEIGHT_SPECTRUM).
+        weightcolumn = (
+            "WEIGHT_SPECTRUM"
+            if _column_has_data(ms, "WEIGHT_SPECTRUM")
+            else "WEIGHT"
+        )
+
+    if not _column_has_data(ms, weightcolumn):
+        raise ValueError(
+            f"Weight column '{weightcolumn}' is absent or has no data "
+            "in the measurement set"
+        )
+
+    return weightcolumn
+
+
 def _load_data_vars(
     vis: Visibility,
     ms_name: str,
-    datacolumn: str = "DATA",
-    field_id: int = 0,
-    data_desc_id: int = 0,
+    *,
+    datacolumn: str,
+    weightcolumn: str,
+    field_id: int,
+    data_desc_id: int,
 ):
     """
+    The keyword arguments must match the ones used to create the
+    template ``vis`` with :py:func:`create_template_vis_from_ms`,
+    hence they have no defaults.
+
     Pre-requisites:
 
       * vis dimensions:
@@ -683,6 +764,9 @@ def _load_data_vars(
 
             ms_ant1_col = ms.getcol("ANTENNA1")
             ms_ant2_col = ms.getcol("ANTENNA2")
+
+            weightcolumn = _resolve_weight_column(ms, weightcolumn)
+            logger.info("Loading weights from %s column", weightcolumn)
 
     time_index_xdr = xr.DataArray(
         da.arange(vis.time.size), coords={"time": vis.time}
@@ -778,6 +862,7 @@ def _load_data_vars(
             num_baselines_in_ms,
             crosscorr_baseline_mask,
             polarisation_order,
+            weightcolumn,
             field_id,
             data_desc_id,
         ],
@@ -815,6 +900,7 @@ def load_ms_as_dataset_with_time_chunks(
     times_per_chunk: int,
     ack: bool = False,
     datacolumn: str = "DATA",
+    weightcolumn: str = "auto",
     field_id: int = 0,
     data_desc_id: int = 0,
 ) -> Visibility:
@@ -836,6 +922,10 @@ def load_ms_as_dataset_with_time_chunks(
         Default is False.
     datacolumn : str, optional
         The name of the column to read (e.g., "DATA"). Default is "DATA".
+    weightcolumn : str, optional
+        The name of the column to read weights from. If "auto",
+        WEIGHT_SPECTRUM is used when present and filled, else WEIGHT.
+        Default is "auto".
     field_id : int, optional
         The Field ID to load. Default is 0.
     data_desc_id : int, optional
@@ -864,6 +954,7 @@ def load_ms_as_dataset_with_time_chunks(
             ms_name,
             ack=ack,
             datacolumn=datacolumn,
+            weightcolumn=weightcolumn,
             field_ids=[field_id],
             data_desc_ids=[data_desc_id],
         )[0]
@@ -880,7 +971,12 @@ def load_ms_as_dataset_with_time_chunks(
     vis_template = vis_template.pipe(with_chunks, chunks)
 
     return _load_data_vars(
-        vis_template, ms_name, datacolumn, field_id, data_desc_id
+        vis_template,
+        ms_name,
+        datacolumn=datacolumn,
+        weightcolumn=weightcolumn,
+        field_id=field_id,
+        data_desc_id=data_desc_id,
     )
 
 
@@ -898,6 +994,7 @@ def write_ms_to_zarr(
     zarr_chunks,
     ack=False,
     datacolumn="DATA",
+    weightcolumn: str = "auto",
     field_id: int = 0,
     data_desc_id: int = 0,
 ) -> Delayed:
@@ -922,6 +1019,7 @@ def write_ms_to_zarr(
             zarr_chunks["time"],
             ack=ack,
             datacolumn=datacolumn,
+            weightcolumn=weightcolumn,
             field_id=field_id,
             data_desc_id=data_desc_id,
         )
