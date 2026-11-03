@@ -17,6 +17,7 @@ def test_should_have_the_expected_default_configuration():
             "cache_directory": None,
             "ack": False,
             "datacolumn": "DATA",
+            "weightcolumn": "auto",
             "field_id": 0,
             "data_desc_id": 0,
         }
@@ -75,6 +76,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         "/cache/dir/path",
         True,
         "DATA",
+        "auto",
         2,
         4,
     )
@@ -163,6 +165,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         None,
         False,
         "DATA",
+        "auto",
         10,
         5,
     )
@@ -189,6 +192,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         },
         ack=False,
         datacolumn="DATA",
+        weightcolumn="auto",
         field_id=10,
         data_desc_id=5,
     )
@@ -258,6 +262,7 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
         "/cache/dir/path",
         False,
         "DATA",
+        "auto",
         0,
         0,
     )
@@ -341,6 +346,7 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
         "/cache/dir/path",
         True,
         "CORRECTED_DATA",
+        "WEIGHT",
         2,
         3,
     )
@@ -350,6 +356,7 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
         "/path/to/vis.ms",
         ack=True,
         datacolumn="CORRECTED_DATA",
+        weightcolumn="WEIGHT",
         field_ids=[2],
         data_desc_ids=[3],
     )
@@ -368,6 +375,7 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
         },
         ack=True,
         datacolumn="CORRECTED_DATA",
+        weightcolumn="WEIGHT",
         field_id=2,
         data_desc_id=3,
     )
