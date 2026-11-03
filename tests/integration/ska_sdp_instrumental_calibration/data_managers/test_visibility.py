@@ -3,10 +3,14 @@ import os
 import dask
 import numpy as np
 import pytest
+from casacore.tables import table
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.visibility import (
+    _resolve_weight_column,
     check_if_cache_files_exist,
+    create_template_vis_from_ms,
+    load_ms_as_dataset_with_time_chunks,
     read_antenna_response_data,
     read_ms_field_id,
     read_vis_shape_from_zarr,
@@ -171,6 +175,195 @@ def test_visibility_write_and_read_for_multiple_ms_input(
 
     # Check attributes is failing as frame attribute is not preserved
     # assert gen_vis.attrs == zarred_dataset.attrs
+
+
+@pytest.fixture
+def ms_with_distinct_weights(generate_ms):
+    """
+    Fill the WEIGHT and WEIGHT_SPECTRUM columns of the test MSv2 with
+    distinct values, to identify the column the weights are loaded from.
+    """
+    with table(generate_ms, readonly=False, ack=False) as tab:
+        weight_shape = tab.getcol("WEIGHT").shape
+        spectrum_shape = tab.getcol("WEIGHT_SPECTRUM").shape
+        weight = np.arange(np.prod(weight_shape), dtype=np.float32).reshape(
+            weight_shape
+        )
+        weight_spectrum = (
+            1000 + np.arange(np.prod(spectrum_shape), dtype=np.float32)
+        ).reshape(spectrum_shape)
+        tab.putcol("WEIGHT", weight)
+        tab.putcol("WEIGHT_SPECTRUM", weight_spectrum)
+
+    return generate_ms, weight, weight_spectrum
+
+
+def _expected_vis_weight(weight_column_data, vis_shape):
+    """
+    Rearrange MSv2 weight column data (rows, [frequency,] polarisation)
+    into the shape of visibility weights.
+    """
+    _, _, nchannels, npols = vis_shape
+    if weight_column_data.ndim == 2:
+        weight_column_data = np.broadcast_to(
+            weight_column_data[:, np.newaxis, :],
+            (weight_column_data.shape[0], nchannels, npols),
+        )
+    return weight_column_data.reshape(vis_shape)
+
+
+@pytest.mark.parametrize(
+    "weightcolumn, expected_column",
+    [
+        ("auto", "WEIGHT_SPECTRUM"),
+        ("WEIGHT_SPECTRUM", "WEIGHT_SPECTRUM"),
+        ("WEIGHT", "WEIGHT"),
+    ],
+)
+def test_should_load_weights_from_requested_column(
+    ms_with_distinct_weights, weightcolumn, expected_column
+):
+    ms_path, weight, weight_spectrum = ms_with_distinct_weights
+    expected_column_data = {
+        "WEIGHT": weight,
+        "WEIGHT_SPECTRUM": weight_spectrum,
+    }[expected_column]
+
+    vis = load_ms_as_dataset_with_time_chunks(
+        ms_path, 1, weightcolumn=weightcolumn
+    )
+
+    np.testing.assert_array_equal(
+        vis.weight.values,
+        _expected_vis_weight(expected_column_data, vis.weight.shape),
+    )
+
+
+def test_should_load_weights_from_weight_when_weight_spectrum_is_absent(
+    ms_with_distinct_weights,
+):
+    ms_path, weight, _ = ms_with_distinct_weights
+    with table(ms_path, readonly=False, ack=False) as tab:
+        tab.removecols("WEIGHT_SPECTRUM")
+
+    vis = load_ms_as_dataset_with_time_chunks(ms_path, 1)
+
+    np.testing.assert_array_equal(
+        vis.weight.values, _expected_vis_weight(weight, vis.weight.shape)
+    )
+
+
+def test_should_load_per_channel_weights_from_custom_column(
+    ms_with_distinct_weights,
+):
+    ms_path, _, weight_spectrum = ms_with_distinct_weights
+    with table(ms_path, readonly=False, ack=False) as tab:
+        tab.renamecol("WEIGHT_SPECTRUM", "CUSTOM_WEIGHT")
+
+    vis = load_ms_as_dataset_with_time_chunks(
+        ms_path, 1, weightcolumn="CUSTOM_WEIGHT"
+    )
+
+    np.testing.assert_array_equal(
+        vis.weight.values,
+        _expected_vis_weight(weight_spectrum, vis.weight.shape),
+    )
+
+
+def test_should_load_weights_when_only_weight_spectrum_is_present(
+    ms_with_distinct_weights,
+):
+    ms_path, _, weight_spectrum = ms_with_distinct_weights
+    with table(ms_path, readonly=False, ack=False) as tab:
+        tab.removecols("WEIGHT")
+
+    vis = load_ms_as_dataset_with_time_chunks(ms_path, 1)
+
+    np.testing.assert_array_equal(
+        vis.weight.values,
+        _expected_vis_weight(weight_spectrum, vis.weight.shape),
+    )
+
+
+def test_should_raise_if_weight_column_is_absent_from_template(generate_ms):
+    with pytest.raises(
+        ValueError, match="Weight column 'MISSING_WEIGHT' is absent"
+    ):
+        create_template_vis_from_ms(
+            generate_ms, datacolumn="DATA", weightcolumn="MISSING_WEIGHT"
+        )
+
+
+def test_should_raise_if_data_column_is_absent(generate_ms):
+    with pytest.raises(
+        ValueError, match="Data column 'CORRECTED_DATA' is absent"
+    ):
+        create_template_vis_from_ms(
+            generate_ms, datacolumn="CORRECTED_DATA", weightcolumn="auto"
+        )
+
+
+def create_mock_ms(defined_columns, undefined_columns=()):
+    ms = MagicMock(name="ms")
+    ms.colnames.return_value = [*defined_columns, *undefined_columns]
+    ms.iscelldefined.side_effect = lambda col, row: col in defined_columns
+    return ms
+
+
+@pytest.mark.parametrize(
+    "defined_columns, undefined_columns, expected_column",
+    [
+        (["WEIGHT", "WEIGHT_SPECTRUM"], [], "WEIGHT_SPECTRUM"),
+        (["WEIGHT"], [], "WEIGHT"),
+        (["WEIGHT"], ["WEIGHT_SPECTRUM"], "WEIGHT"),
+    ],
+)
+def test_should_resolve_auto_weight_column(
+    defined_columns, undefined_columns, expected_column
+):
+    ms = create_mock_ms(defined_columns, undefined_columns)
+
+    assert _resolve_weight_column(ms, "auto") == expected_column
+
+
+@pytest.mark.parametrize(
+    "defined_columns, undefined_columns",
+    [
+        ([], []),
+        ([], ["WEIGHT", "WEIGHT_SPECTRUM"]),
+    ],
+)
+def test_should_raise_if_auto_weight_columns_have_no_data(
+    defined_columns, undefined_columns
+):
+    ms = create_mock_ms(defined_columns, undefined_columns)
+
+    with pytest.raises(ValueError, match="Weight column 'WEIGHT' is absent"):
+        _resolve_weight_column(ms, "auto")
+
+
+def test_should_resolve_explicit_weight_column():
+    ms = create_mock_ms(["WEIGHT", "WEIGHT_SPECTRUM", "CUSTOM_WEIGHT"])
+
+    assert _resolve_weight_column(ms, "CUSTOM_WEIGHT") == "CUSTOM_WEIGHT"
+
+
+@pytest.mark.parametrize(
+    "defined_columns, undefined_columns",
+    [
+        (["WEIGHT"], []),
+        (["WEIGHT"], ["WEIGHT_SPECTRUM"]),
+    ],
+)
+def test_should_raise_if_explicit_weight_column_has_no_data(
+    defined_columns, undefined_columns
+):
+    ms = create_mock_ms(defined_columns, undefined_columns)
+
+    with pytest.raises(
+        ValueError, match="Weight column 'WEIGHT_SPECTRUM' is absent"
+    ):
+        _resolve_weight_column(ms, "WEIGHT_SPECTRUM")
 
 
 def test_should_read_field_id_from_field_table(mock_table):
