@@ -63,7 +63,7 @@ def test_should_initialize_gains_for_bandpass(
 
     parse_ref_ant_mock.assert_called_once_with(
         0,
-        initial_gaintable.configuration.names,
+        initial_gaintable.antenna_name,
     )
 
     solver_factory_mock.get_solver.assert_called_once_with(

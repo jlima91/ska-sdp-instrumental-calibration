@@ -8,7 +8,12 @@ from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.visibility.operations import expand_polarizations
 
 from ...data_managers.h5parm import read_h5parm_gains
-from .dp3_threading import default_dp3_n_threads, get_dp3_lock, require_dp3
+from .dp3_threading import (
+    default_dp3_n_threads,
+    get_dp3_lock,
+    require_dp3,
+    set_dp3_n_threads,
+)
 from .solver import Solver
 
 logger = logging.getLogger(__name__)
@@ -298,9 +303,10 @@ def dp3_gaincal_solve(
         given while ``model_vis`` is provided, placeholder metadata is
         used.
     n_threads
-        Number of threads for DP3's internal thread pool. If None, the
-        number of threads of the current dask worker is used, or all
-        available CPUs when not running on a worker.
+        Number of threads for DP3's internal thread pool. If None, it is
+        chosen by :py:func:`default_dp3_n_threads`: the number of threads
+        of the current dask worker, or else ``OMP_NUM_THREADS`` if set,
+        or else all available CPUs.
 
     Returns
     -------
@@ -364,8 +370,8 @@ def dp3_gaincal_solve(
 
         # Serialise all DP3 calls within this process, see get_dp3_lock
         with get_dp3_lock():
-            # DP3's thread pool is process-wide, so set it on every call
-            dp3.set_n_threads(
+            # DP3's thread pool is process-wide, so check it on every call
+            set_dp3_n_threads(
                 default_dp3_n_threads() if n_threads is None else n_threads
             )
             step = dp3.make_step(

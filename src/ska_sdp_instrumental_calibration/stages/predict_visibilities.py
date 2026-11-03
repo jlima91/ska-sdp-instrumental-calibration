@@ -64,7 +64,8 @@ def predict_visibilities(
         Optional[str],
         Field(
             description="""Specifies the location of CSV file containing the
-            sky model. The CSV file should be in OSKAR CSV format."""
+            sky model. The CSV file should be in SKA LSM CSV format, with a
+            CATALOGUE_METADATA_* header."""
         ),
     ] = None,
     export_sky_model: Annotated[
@@ -126,7 +127,8 @@ def predict_visibilities(
         Path to the GLEAM catalog file.
     lsm_csv_path: str
         Specifies the location of CSV file containing the
-        sky model. The CSV file should be in OSKAR CSV format.
+        sky model. The CSV file should be in SKA LSM CSV format, with a
+        CATALOGUE_METADATA_* header.
     export_sky_model: bool
         Specifies whether to export the sky model to a CSV file.
     fov: float

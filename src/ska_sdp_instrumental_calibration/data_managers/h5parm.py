@@ -15,9 +15,10 @@ from typing import Iterable, Literal
 import h5py
 import numpy as np
 from numpy.typing import NDArray
-from ska_sdp_datamodels.calibration.calibration_model import GainTable
 
 from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
+
+from .schema.calibration_set import GainCalibrationSetXds
 
 __all__ = [
     "SoltabData",
@@ -98,19 +99,30 @@ def create_soltab_group(
     return soltab
 
 
-def create_soltab_datasets(soltab: h5py.Group, gaintable: GainTable):
-    """Add a dataset for each of the GainTable dimensions.
+def create_soltab_datasets(
+    soltab: h5py.Group, gaintable: GainCalibrationSetXds
+):
+    """
+    Add a dataset for each of the GainCalibrationSetXds dimensions.
 
-    :param soltab: HDF5 table to update
-    :param gaintable: GainTable
+    Parameters
+    ----------
+    soltab
+        HDF5 table to update.
+    gaintable
+        Gaintable whose dimensions and shape define the datasets.
+
+    Returns
+    -------
+        The ``val`` and ``weight`` HDF5 datasets.
     """
     # create a dataset for each dimension
-    for dim in list(gaintable.gain.sizes):
+    for dim in list(gaintable.CALPARAM_GAIN.sizes):
         soltab.create_dataset(dim, data=gaintable[dim].data)
 
     # create datasets for the data and weights
-    shape = gaintable.gain.shape
-    axes = np.bytes_(",".join(list(gaintable.gain.sizes)))
+    shape = gaintable.CALPARAM_GAIN.shape
+    axes = np.bytes_(",".join(list(gaintable.CALPARAM_GAIN.sizes)))
 
     val = soltab.create_dataset("val", shape=shape, dtype=float)
     val.attrs["AXES"] = axes

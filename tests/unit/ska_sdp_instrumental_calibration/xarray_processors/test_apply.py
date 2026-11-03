@@ -13,17 +13,20 @@ from ska_sdp_instrumental_calibration.xarray_processors.apply import (
 )
 def test_should_apply_gaintable_to_dataset(apply_gaintable_mock):
     vis_mock = MagicMock(name="vis")
-    gain_mock = MagicMock(name="gains")
+    pol_gain_mock = MagicMock(name="pol_gains")
+    pol_gain_mock.shape = (2, 4)
+    gain_mock = pol_gain_mock.reshape.return_value
     updated_vis_mock = MagicMock(name="applied_vis")
     apply_gaintable_mock.return_value = updated_vis_mock
 
     gain_mock.__getitem__.return_value = gain_mock
-    gain_mock.shape = (1, 2, 3)
+    gain_mock.shape = (2, 2, 2)
 
     expected = _apply_gaintable_to_dataset_ufunc(
-        vis_mock, gain_mock, "antenna1", "antenna2", False
+        vis_mock, pol_gain_mock, "antenna1", "antenna2", False
     )
 
+    pol_gain_mock.reshape.assert_called_once_with(2, 2, 2)
     gain_mock.__getitem__.assert_has_calls(
         [call((np.newaxis, ...)), call((np.newaxis, ...))]
     )
@@ -52,12 +55,14 @@ def test_should_apply_gaintable_to_dataset_without_newaxis(
     apply_gaintable_mock,
 ):
     vis_mock = MagicMock(name="vis")
-    gain_mock = MagicMock(name="gains")
+    pol_gain_mock = MagicMock(name="pol_gains")
+    pol_gain_mock.shape = (1, 2, 4)
+    gain_mock = pol_gain_mock.reshape.return_value
     gain_mock.__getitem__.return_value = gain_mock
-    gain_mock.shape = (1, 2, 3, 4)
+    gain_mock.shape = (1, 2, 2, 2)
 
     _apply_gaintable_to_dataset_ufunc(
-        vis_mock, gain_mock, "antenna1", "antenna2", False
+        vis_mock, pol_gain_mock, "antenna1", "antenna2", False
     )
 
     gain_mock.__getitem__.assert_called_once_with((np.newaxis, ...))
@@ -75,7 +80,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
     gaintable = MagicMock(name="gaintable")
     gains = MagicMock(name="gains")
     gains.chunk.return_value = gains
-    gaintable.gain = gains
+    gaintable.CALPARAM_GAIN = gains
 
     gaintable.jones_type = "B"
     gaintable.soln_interval_slices = [1, 2]
@@ -99,7 +104,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
                 gains.isel.return_value,
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "polarization"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],
@@ -124,7 +129,7 @@ def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
                 gains.isel.return_value,
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "polarization"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],
@@ -177,7 +182,7 @@ def test_should_apply_gaintable_to_visibility_for_non_B_type(
     gaintable = MagicMock(name="gaintable")
     gains = MagicMock(name="gains")
     gains.chunk.return_value = gains
-    gaintable.gain = gains
+    gaintable.CALPARAM_GAIN = gains
 
     gaintable.jones_type = "G"
     gaintable.soln_interval_slices = [1]

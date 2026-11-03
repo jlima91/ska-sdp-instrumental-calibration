@@ -25,7 +25,7 @@ url = "https://artefact.skao.int/repository/pypi-internal/simple"
 priority = "supplemental"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.14"
+python = ">=3.11,<3.14"
 astropy = ">=6.1"
 dask = { version = ">=2024.11", extras = ["distributed", "array", "diagnostics"] }
 xarray = ">=2024.7"
@@ -33,7 +33,8 @@ zarr = ">=2.18"
 everybeam = ">=0.8.4"
 numpy = ">=1.26"
 jinja2 = ">=3.1"
-ska-sdp-exec-piper = ">=2.1.0"
+xradio = ">=1.1.3"
+ska-sdp-exec-piper = ">=2.3.0"
 # Some plots are not working with matplotlib >3.11
 # Error: MPL backend has no renderer
 matplotlib = ">=3.9.1, <3.11"
@@ -41,10 +42,8 @@ matplotlib = ">=3.9.1, <3.11"
 # with casacore 3.8+ C++ ABI.
 python-casacore = ">=3.7.1, <3.8"
 dp3 = { version = ">=6.6", optional = true }
-# datamodels and func-python removed LocalSkyComponent
-# and related functions. Thus limiting the versions.
-ska-sdp-datamodels = ">=1.4.0, <3"
-ska-sdp-func-python = ">=1.0.4, <2"
+ska-sdp-datamodels = ">=3.1"
+ska-sdp-func-python = ">=2"
 ska-sdp-func = { version = ">=1.2", optional = true }
 ska-sdp-dataproduct-metadata = { version = ">=1.0", optional = true }
 
@@ -87,7 +86,9 @@ ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.instrumenta
 ska-sdp-instrumental-target-calibration = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_calibration"
 ska-sdp-instrumental-target-ionospheric = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_ionospheric_calibration"
 clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
-oskar-csv-converter = {reference = "scripts/oskar_csv_converter.py", type = "file"}
+oskar-to-ska-lsm = {reference = "scripts/convert/oskar_to_ska_lsm.py", type = "file"}
+gleam-to-ska-lsm = {reference = "scripts/convert/gleam_to_ska_lsm.py", type = "file"}
+ska-lsm-to-sourcedb = {reference = "scripts/convert/ska_lsm_to_sourcedb.py", type = "file"}
 
 [tool.coverage.run]
 branch = true

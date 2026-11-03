@@ -91,9 +91,7 @@ def bandpass_calibration_stage(
     logger.info(f"Using {visibility_key} for calibration.")
 
     refant = run_solver_config.refant
-    run_solver_config.refant = parse_antenna(
-        refant, initialtable.configuration.names
-    )
+    run_solver_config.refant = parse_antenna(refant, initialtable.antenna_name)
 
     solver = Solver.get_solver(**run_solver_config.model_dump())
 

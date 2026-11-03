@@ -226,8 +226,7 @@ def _load_data(
         )
         logger.info("MSv2->Zarr Visibility cache conversion: starting")
         start_time = time.perf_counter()
-        with dask.annotate(resources={"process": 1}):
-            dask.compute(writer)
+        dask.compute(writer)
         logger.info(
             "MSv2->Zarr Visibility cache conversion: finished. "
             "duration_sec = %.3f",
@@ -235,6 +234,8 @@ def _load_data(
         )
 
     vis = read_visibility_from_zarr(vis_cache_directory, vis_chunks)
+
+    logger.info("Visibility dataset dimensions: %s", dict(vis.sizes))
 
     _upstream_output_["ms_prefix"] = os.path.splitext(ms_file)[0]
     _upstream_output_["vis"] = vis

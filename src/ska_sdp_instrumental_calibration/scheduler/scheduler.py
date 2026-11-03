@@ -2,9 +2,9 @@ import logging
 from functools import wraps
 from typing import Any, Callable, ParamSpec
 
-from ska_sdp_func_python.calibration import multiply_gaintables
 from ska_sdp_piper.piper.runners import DaskRunner
 
+from ..data_managers.gaintable import multiply_gaintables
 from ..tagger import Tags
 from .deferred_tasks import DeferredTask
 from .task_manager import task_manager
@@ -186,10 +186,7 @@ class UpstreamOutput:
         combined_gaintable = None
         for key in self.__calibration_tables:
             if combined_gaintable is None:
-                # NOTE: multiply_gaintables mutates the first argument
-                # Make a copy of the very first argument before
-                # proceeding
-                combined_gaintable = self.__stage_outputs[key].copy()
+                combined_gaintable = self.__stage_outputs[key]
             else:
                 combined_gaintable = multiply_gaintables(
                     combined_gaintable, self.__stage_outputs[key]

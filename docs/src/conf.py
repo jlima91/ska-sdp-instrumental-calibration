@@ -19,6 +19,18 @@
 #
 import os
 import sys
+import warnings
+
+import pydantic.fields
+import xarray.core.dataset
+import xarray.core.types
+
+# sphinx-autodoc-typehints 3.6.1 (last release supporting py3.11) calls the
+# deprecated Parser.set_application. Fixed upstream in >=3.6.2 (py>=3.12).
+warnings.filterwarnings(
+    "ignore",
+    message=r".*_RstSnippetParser\.set_application.*",
+)
 
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.append(os.path.abspath("../../src"))
@@ -133,6 +145,16 @@ smartquotes = False
 # Configurations for sphinx_autodoc_typehints
 typehints_defaults = "comma"
 always_use_bars_union = True
+
+# xarray guards optional type-only imports (e.g. iris) behind TYPE_CHECKING
+suppress_warnings = ["sphinx_autodoc_typehints.guarded_import"]
+# autodoc inspects the imported pydantic.Field in stage modules, whose
+# annotations hold a 'JsonValue' forward reference that pydantic.fields
+# cannot resolve on its own
+pydantic.fields.JsonValue = pydantic.JsonValue
+# xarray.Dataset annotations reference 'DataVars', which xarray only imports
+# under TYPE_CHECKING, so it cannot be resolved for Dataset subclasses
+xarray.core.dataset.DataVars = xarray.core.types.DataVars
 
 # Configurations for autodoc_pydantic
 autodoc_pydantic_model_show_json = False

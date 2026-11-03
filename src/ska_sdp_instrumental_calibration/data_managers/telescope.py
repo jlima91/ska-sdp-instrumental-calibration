@@ -1,4 +1,5 @@
 # pylint:disable=c-extension-no-member
+import threading
 from typing import Annotated, Optional
 
 import everybeam as eb
@@ -9,31 +10,87 @@ from .visibility import read_antenna_response_data
 
 
 class Telescope:
-    """Telescope model representation."""
+    """
+    Telescope model representation.
+
+    The everybeam telescope is created lazily, once per process, and
+    shared by all threads of that process (e.g. dask worker threads).
+    Its creation is guarded by a lock. It is excluded from pickling and
+    re-created on first use after unpickling.
+    """
 
     def __init__(
         self,
         ms_path: str,
-        element_response_model,
+        element_response_model: str,
     ):
         """
         Initialize the Telescope model.
 
         Parameters
         ----------
-        ms_path : str
+        ms_path
             Path to the measurement set.
-        element_response_model : str
+        element_response_model
             Name of the element response model.
         """
-        self._telescope = None
+        self._ms_path = ms_path
+        self._element_response_model_name = element_response_model
+        self._telescope: "eb.Telescope" = None
+        self._telescope_lock = threading.Lock()
         self._element_response_model = getattr(
             eb.ElementResponseModel, element_response_model
         )
 
         self.response_data = read_antenna_response_data(ms_path)
+        self._nstations = self.response_data["station_names"].size
 
-        self._nstations = 0
+    def __dask_tokenize__(self) -> tuple[str, str, str]:
+        """
+        Deterministic dask token for the telescope.
+
+        The measurement set path and the element response model fully
+        identify a telescope, so avoid pickling the response data (and
+        the everybeam telescope, if initialised) while tokenizing.
+
+        Returns
+        -------
+            Tuple identifying this telescope.
+        """
+        return (
+            type(self).__name__,
+            str(self._ms_path),
+            str(self._element_response_model_name),
+        )
+
+    def __getstate__(self) -> dict:
+        """
+        Pickle state without the everybeam telescope.
+
+        The everybeam telescope is not picklable. It is lazily
+        re-created from ``response_data`` after unpickling. This lets an
+        initialised telescope be transferred between dask workers.
+
+        Returns
+        -------
+            Instance state, with the everybeam telescope reset.
+        """
+        state = self.__dict__.copy()
+        state["_telescope"] = None
+        del state["_telescope_lock"]
+        return state
+
+    def __setstate__(self, state: dict):
+        """
+        Restore pickled state, with a new lock for lazy initialisation.
+
+        Parameters
+        ----------
+        state
+            Instance state returned by :py:meth:`__getstate__`.
+        """
+        self.__dict__.update(state)
+        self._telescope_lock = threading.Lock()
 
     def _create_station_node(
         self,
@@ -41,6 +98,7 @@ class Telescope:
         position: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         coordinate_axes: Annotated[npt.NDArray[np.float64], "shape (3, 3)"],
         element_offsets: Annotated[npt.NDArray[np.float64], "shape (N, 3)"],
+        element_flags: Annotated[npt.NDArray[np.bool_], "shape (N, 2)"],
     ):
         """
         Create a single station node with given elements and coordinate system.
@@ -55,6 +113,9 @@ class Telescope:
             The coordinate axes of the station.
         element_offsets : array_like, shape (N, 3)
             The (x, y, z) offsets of N elements within the station.
+        element_flags : array_like, shape (N, 2)
+            The flags of the X and Y dipoles of the N elements. A flagged
+            dipole does not contribute to the station response.
 
         Returns
         -------
@@ -68,8 +129,14 @@ class Telescope:
             name=f"{name}",
         )
         add_child_element = station_node.add_child_element
-        for offset in element_offsets:
-            add_child_element(offset)
+        for offset, (x_flag, y_flag) in zip(
+            element_offsets, element_flags, strict=True
+        ):
+            add_child_element(
+                offset,
+                is_x_enabled=not x_flag,
+                is_y_enabled=not y_flag,
+            )
 
         return station_node
 
@@ -82,15 +149,22 @@ class Telescope:
         positions = self.response_data["positions"]
         coordinate_axes = self.response_data["coordinate_axes"]
         element_offsets = self.response_data["element_offsets"]
+        element_flags = self.response_data["element_flags"]
         delay_directions = self.response_data["delay_directions"]
 
-        self._nstations = station_names.size
         root_node = eb.StationNode()
         add_child_node = root_node.add_child_node
-        for name, pos, axes, offsets in zip(
-            station_names, positions, coordinate_axes, element_offsets
+        for name, pos, axes, offsets, flags in zip(
+            station_names,
+            positions,
+            coordinate_axes,
+            element_offsets,
+            element_flags,
+            strict=True,
         ):
-            station_node = self._create_station_node(name, pos, axes, offsets)
+            station_node = self._create_station_node(
+                name, pos, axes, offsets, flags
+            )
             add_child_node(station_node, pos)
         options = eb.Options()
         options.element_response_model = self._element_response_model
@@ -105,9 +179,14 @@ class Telescope:
     def _ensure_telescope(self):
         """
         Ensure that the internal telescope model is instantiated.
+
+        Thread-safe: the telescope is created only once per process,
+        even when multiple threads request it concurrently.
         """
         if self._telescope is None:
-            self._initialize_everybeam_telescope()
+            with self._telescope_lock:
+                if self._telescope is None:
+                    self._initialize_everybeam_telescope()
 
     @property
     def type(self) -> type:
@@ -126,8 +205,8 @@ class Telescope:
         self,
         solution_time: npt.NDArray | np.float64 | float,
         frequencies: npt.NDArray | float | np.float64,
+        direction: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
-        tile0: Annotated[npt.NDArray, "shape (3,)"],
         scale: Optional[npt.NDArray] = None,
         station_idx: Optional[int] = None,
     ):
@@ -140,10 +219,13 @@ class Telescope:
             Timestamp[s] for the solution.
         frequencies : npt.NDArray or float or np.float64
             Frequency( Or array of frequencies) to compute station response.
+        direction : npt.NDArray[np.float64]
+            ITRF direction vector in which to evaluate the response, i.e.
+            the direction of arrival, shape (3,).
         station0 : npt.NDArray[np.float64]
-            Direction vector for station beam pointing, shape (3,).
-        tile0 : npt.NDArray[np.float64]
-            Direction vector for tile beam pointing, shape (3,).
+            ITRF direction vector of the station beam former reference
+            (pointing / delay) direction, shape (3,). It is also used as
+            the tile beam former reference direction.
         scale : npt.NDArray, optional
             Scaling array per frequency to apply to beams, default is None.
         station_idx: int, optional
@@ -163,15 +245,30 @@ class Telescope:
         solution_time = np.atleast_1d(solution_time)
 
         stations = (
-            range(self._nstations) if station_idx is None else [station_idx]
+            np.arange(self._nstations)
+            if station_idx is None
+            else np.array([station_idx])
         )
 
+        # Not locked: the shared everybeam telescope is safe for
+        # concurrent use on this path (OSKAR telescope with our own
+        # StationNodes). station_response creates a new per-time
+        # PhasedArrayPoint for all per-call state, everything below it
+        # (station, beamformer, element response) is const, and nothing
+        # is lazily filled. The only shared state (NCP cache, ITRF frame,
+        # casacore measures tables) is thread-local or mutex-guarded.
+        # EveryBeam runs single-threaded here (no OpenMP threads, BLAS or
+        # thread pool), so it cannot oversubscribe dask threads.
+        # Note: the pybind11 bindings currently hold the GIL, so python
+        # threads call this one at a time anyway. Analysed for
+        # everybeam v0.8.4 to v0.9.0.
         beams = self._telescope.station_response(
-            solution_time,
-            stations,
-            frequencies,
-            station0,
-            tile0,
+            times=solution_time,
+            station_indexes=stations,
+            freqs=frequencies,
+            direction=direction,
+            station0_direction=station0,
+            tile0_direction=station0,
         )
 
         if scale is not None:

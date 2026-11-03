@@ -1,4 +1,5 @@
 import dask.array as da
+import numpy as np
 import pytest
 from mock import ANY, MagicMock, call, patch
 
@@ -7,6 +8,12 @@ from ska_sdp_instrumental_calibration.xarray_processors.predict import (
     predict_vis,
     with_chunks,
 )
+
+
+def _object_scalar(obj):
+    wrapped = np.empty((), dtype=object)
+    wrapped[()] = obj
+    return wrapped
 
 
 def test_should_create_vis_for_provided_sky_model():
@@ -19,14 +26,14 @@ def test_should_create_vis_for_provided_sky_model():
 
     expected = _predict_vis_ufunc(
         uvw_mock,
+        _object_scalar(local_sky_model),
         "frequency",
+        _object_scalar("beams_factory"),
         "station_rm",
         "polarisation",
         "antenna1",
         "antenna2",
         "phasecentre",
-        local_sky_model,
-        "beams_factory",
         "output_dtype",
     )
 
@@ -68,6 +75,11 @@ def test_should_assert_on_solution_length():
         )
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".predict.as_dask_scalar",
+    side_effect=lambda obj, name=None: ("wrapped", obj),
+)
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
@@ -78,7 +90,7 @@ def test_should_assert_on_solution_length():
     ".predict.xr.DataArray"
 )
 def test_should_predict_visibilities(
-    data_array_mock, apply_ufunc_mock, concat_mock
+    data_array_mock, apply_ufunc_mock, concat_mock, as_dask_scalar_mock
 ):
     vis_mock = MagicMock(name="vis")
     vis_mock.chunksizes = {"frequency": 1, "time": 1}
@@ -144,10 +156,14 @@ def test_should_predict_visibilities(
             call(
                 _predict_vis_ufunc,
                 vis_mock.uvw.isel.return_value,
+                ("wrapped", gsm_mock.get_local_sky_model.return_value),
                 frequency_mock,
+                ("wrapped", beams_factory_mock),
                 station_rm_da_mock,
                 input_core_dims=[
                     ["baselineid", "spatial"],
+                    [],
+                    [],
                     [],
                     ["dims"],
                 ],
@@ -167,18 +183,20 @@ def test_should_predict_visibilities(
                     antenna1=vis_mock.antenna1,
                     antenna2=vis_mock.antenna2,
                     phasecentre=vis_mock.phasecentre,
-                    beams_factory=beams_factory_mock,
                     output_dtype=vis_mock.vis.dtype,
-                    local_sky_model=gsm_mock.get_local_sky_model.return_value,
                 ),
             ),
             call(
                 _predict_vis_ufunc,
                 vis_mock.uvw.isel.return_value,
+                ("wrapped", gsm_mock.get_local_sky_model.return_value),
                 frequency_mock,
+                ("wrapped", beams_factory_mock),
                 station_rm_da_mock,
                 input_core_dims=[
                     ["baselineid", "spatial"],
+                    [],
+                    [],
                     [],
                     ["dims"],
                 ],
@@ -198,9 +216,7 @@ def test_should_predict_visibilities(
                     antenna1=vis_mock.antenna1,
                     antenna2=vis_mock.antenna2,
                     phasecentre=vis_mock.phasecentre,
-                    beams_factory=beams_factory_mock,
                     output_dtype=vis_mock.vis.dtype,
-                    local_sky_model=gsm_mock.get_local_sky_model.return_value,
                 ),
             ),
         ]
@@ -218,6 +234,11 @@ def test_should_predict_visibilities(
     assert expected == vis_mock.assign.return_value
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".predict.as_dask_scalar",
+    side_effect=lambda obj, name=None: ("wrapped", obj),
+)
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
@@ -228,7 +249,7 @@ def test_should_predict_visibilities(
     ".predict.xr.DataArray"
 )
 def test_should_predict_visibilities_non_da_type_station_rm(
-    data_array_mock, apply_ufunc_mock, concat_mock
+    data_array_mock, apply_ufunc_mock, concat_mock, as_dask_scalar_mock
 ):
     vis_mock = MagicMock(name="vis")
     vis_mock.chunksizes = {"frequency": 1, "time": 1}
@@ -274,10 +295,14 @@ def test_should_predict_visibilities_non_da_type_station_rm(
     apply_ufunc_mock.assert_called_once_with(
         _predict_vis_ufunc,
         vis_mock.uvw.isel.return_value,
+        ("wrapped", gsm_mock.get_local_sky_model.return_value),
         frequency_mock,
+        ("wrapped", beams_factory_mock),
         station_rm_mock,
         input_core_dims=[
             ["baselineid", "spatial"],
+            [],
+            [],
             [],
             ["dims"],
         ],
@@ -297,13 +322,16 @@ def test_should_predict_visibilities_non_da_type_station_rm(
             antenna1=vis_mock.antenna1,
             antenna2=vis_mock.antenna2,
             phasecentre=vis_mock.phasecentre,
-            beams_factory=beams_factory_mock,
             output_dtype=vis_mock.vis.dtype,
-            local_sky_model=gsm_mock.get_local_sky_model.return_value,
         ),
     )
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors"
+    ".predict.as_dask_scalar",
+    side_effect=lambda obj, name=None: ("wrapped", obj),
+)
 @patch("ska_sdp_instrumental_calibration.xarray_processors.predict.xr.concat")
 @patch(
     "ska_sdp_instrumental_calibration.xarray_processors"
@@ -314,7 +342,7 @@ def test_should_predict_visibilities_non_da_type_station_rm(
     ".predict.xr.DataArray"
 )
 def test_should_predict_visibilities_none_station_rm(
-    data_array_mock, apply_ufunc_mock, concat_mock
+    data_array_mock, apply_ufunc_mock, concat_mock, as_dask_scalar_mock
 ):
     vis_mock = MagicMock(name="vis")
     vis_mock.chunksizes = {"frequency": 1, "time": 1}
@@ -354,9 +382,13 @@ def test_should_predict_visibilities_none_station_rm(
     apply_ufunc_mock.assert_called_once_with(
         _predict_vis_ufunc,
         vis_mock.uvw.isel.return_value,
+        ("wrapped", gsm_mock.get_local_sky_model.return_value),
         frequency_mock,
+        ("wrapped", beams_factory_mock),
         input_core_dims=[
             ["baselineid", "spatial"],
+            [],
+            [],
             [],
         ],
         output_core_dims=[
@@ -376,8 +408,6 @@ def test_should_predict_visibilities_none_station_rm(
             antenna1=vis_mock.antenna1,
             antenna2=vis_mock.antenna2,
             phasecentre=vis_mock.phasecentre,
-            beams_factory=beams_factory_mock,
             output_dtype=vis_mock.vis.dtype,
-            local_sky_model=gsm_mock.get_local_sky_model.return_value,
         ),
     )

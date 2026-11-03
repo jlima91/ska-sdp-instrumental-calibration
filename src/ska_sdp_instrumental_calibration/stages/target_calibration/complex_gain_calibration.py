@@ -90,7 +90,7 @@ def complex_gain_calibration_stage(
 
     refant = run_solver_config["refant"]
     run_solver_config["refant"] = parse_antenna(
-        refant, initial_gaintable.configuration.names
+        refant, initial_gaintable.antenna_name
     )
 
     solver = Solver.get_solver(

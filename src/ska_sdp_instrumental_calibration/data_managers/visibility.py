@@ -7,7 +7,6 @@ from typing import List, Optional
 
 import dask.array as da
 import numpy as np
-import numpy.typing as npt
 import pandas
 import xarray as xr
 from astropy import units as u
@@ -77,6 +76,13 @@ def create_template_vis_from_ms(
         yields no rows in the MS.
     KeyError
         If the polarization configuration in the MS is not recognized.
+
+    Notes
+    -----
+    The ``time_centroid`` data variable, added to Visibility in
+    ska-sdp-datamodels 3.1.0, is dropped from the templates as it is not
+    used by the INST pipeline. It is added back only when exporting
+    visibilities to MSv2.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -280,6 +286,11 @@ def create_template_vis_from_ms(
                         [ntimes, nbaselines, nchan, npol], dtype=weight_dtype
                     )
                     bv_uvw = da.empty([ntimes, nbaselines, 3], dtype=uvw_dtype)
+                    # Pass explicitly, else constructor materialises a
+                    # numpy broadcast of time to [ntimes, nbaselines, nchan]
+                    bv_time_centroid = da.empty(
+                        [ntimes, nbaselines, nchan], dtype=np.float64
+                    )
 
                     bv_times = np.zeros([ntimes])
                     bv_integration_time = np.zeros([ntimes])
@@ -293,6 +304,7 @@ def create_template_vis_from_ms(
                         uvw=bv_uvw,
                         baselines=baselines,
                         time=bv_times,
+                        time_centroid=bv_time_centroid,
                         frequency=cfrequency,
                         channel_bandwidth=cchannel_bandwidth,
                         vis=bv_vis,
@@ -307,11 +319,22 @@ def create_template_vis_from_ms(
                         low_precision="float64",
                     )
 
+                    # time_centroid (datamodels >= 3.1.0) is never read
+                    # from the MS nor used in calibration; keeping it would
+                    # only add a large per-baseline/channel array to the
+                    # template and every dataset derived from it. The
+                    # export_visibilities stage adds it back for MS export
+                    vis_template = vis_template.drop_vars("time_centroid")
+
                     # Need to reassign with correct dtype
                     vis_template = vis_template.assign(
                         {
-                            "weight": vis_template.weight.astype(weight_dtype),
-                            "flags": vis_template.flags.astype(flags_dtype),
+                            "weight": vis_template.weight.variable.astype(
+                                weight_dtype
+                            ),
+                            "flags": vis_template.flags.variable.astype(
+                                flags_dtype
+                            ),
                         }
                     )
 
@@ -329,7 +352,7 @@ def get_col_from_ms(
     ack=False,
     field_ids: List[int] = None,
     data_desc_ids: List[int] = None,
-) -> List[npt.NDArray]:
+) -> List[np.ndarray]:
     """
     Extract data from a specific column in a Measurement Set.
 
@@ -980,9 +1003,10 @@ def read_visibility_from_zarr(vis_cache_directory, vis_chunks) -> Visibility:
         _generate_file_paths_for_vis_zarr_file(vis_cache_directory)
     )
 
-    # open with zarr's default chunks, then rechunk in-memory
-    zarr_data = with_chunks(
-        xr.open_dataset(vis_zarr_file, chunks={}, engine="zarr"), vis_chunks
+    # Opening dataset by passing chunks directly helps improving
+    # performance by reducing dask tasks
+    zarr_data = xr.open_dataset(
+        vis_zarr_file, chunks=vis_chunks, engine="zarr"
     )
 
     with open(attributes_file, "rb") as file:
@@ -1077,32 +1101,53 @@ def read_ms_field_id(ms_path: str):
 
 
 @functools.cache
-def read_antenna_response_data(ms_path: str):
+def read_antenna_response_data(ms_path: str) -> dict[str, np.ndarray]:
     """
     Read antenna response data from a MeasurementSet.
 
     Parameters
     ----------
-    ms_path : str
+    ms_path
         Path to the MeasurementSet directory.
 
     Returns
     -------
-    dict
         Dictionary containing station names, positions, delay directions,
-        coordinate axes, and element offsets.
+        coordinate axes, element offsets and element flags. Element offsets
+        have shape (nstations, nelements, 3) and element flags have shape
+        (nstations, nelements, 2), with the flags of the X and Y dipoles.
 
     Raises
     ------
     RuntimeError
         If any station name is empty.
+    ValueError
+        If the shapes of ELEMENT_OFFSET and ELEMENT_FLAG do not match
+        either of the supported layouts.
     """
     with table(f"{ms_path}/FIELD", readonly=True) as tb:
         delay_dir = tb.getcol("DELAY_DIR").flatten()
 
     with table(f"{ms_path}/PHASED_ARRAY", readonly=True) as tb:
         coordinate_axes = tb.getcol("COORDINATE_AXES")
-        element_offset = tb.getcol("ELEMENT_OFFSET").transpose(2, 0, 1)
+        element_offset = tb.getcol("ELEMENT_OFFSET")
+        element_flag = tb.getcol("ELEMENT_FLAG")
+        # MSs exist with ELEMENT_OFFSET and ELEMENT_FLAG stored either as
+        # (3, nelements) and (2, nelements), or transposed, per station
+        # (see EveryBeam ReadAntennaFieldMSv3). Normalise to
+        # (nstations, nelements, 3) and (nstations, nelements, 2).
+        # Both shapes are checked together, as either one alone is
+        # ambiguous when there are 2 or 3 elements per station.
+        offset_shape = element_offset.shape[1:]
+        flag_shape = element_flag.shape[1:]
+        if offset_shape[0] == 3 and flag_shape[0] == 2:
+            element_offset = element_offset.transpose(0, 2, 1)
+            element_flag = element_flag.transpose(0, 2, 1)
+        elif not (offset_shape[1] == 3 and flag_shape[1] == 2):
+            raise ValueError(
+                "Unsupported PHASED_ARRAY layout: ELEMENT_OFFSET cell shape "
+                f"{offset_shape} and ELEMENT_FLAG cell shape {flag_shape}"
+            )
     with table(f"{ms_path}/ANTENNA", readonly=True) as anttab:
         names = np.array(anttab.getcol("NAME"))
 
@@ -1117,4 +1162,5 @@ def read_antenna_response_data(ms_path: str):
         delay_directions=delay_dir,
         coordinate_axes=coordinate_axes,
         element_offsets=element_offset,
+        element_flags=element_flag,
     )

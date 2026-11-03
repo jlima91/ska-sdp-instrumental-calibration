@@ -99,7 +99,7 @@ def delay_calibration_stage(
     if call_count := _upstream_output_.get_call_count("delay"):
         call_counter_suffix = f"_{call_count}"
 
-    refant = parse_antenna(refant, gaintable.configuration.names)
+    refant = parse_antenna(refant, gaintable.antenna_name)
 
     if extract_delays_from_vis:
         delaytable = create_delaytable_from_vis(
@@ -152,6 +152,7 @@ def delay_calibration_stage(
 
         plot_station_delays(
             delaytable,
+            vis.configuration.xyz.data,
             path_prefix,
         )
 

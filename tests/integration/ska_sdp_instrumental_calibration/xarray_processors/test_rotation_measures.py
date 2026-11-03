@@ -13,28 +13,39 @@ from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import
 def gaintable():
     coords = {
         "time": [0],
-        "antenna": ["antenna1", "antenna2"],
+        "antenna_name": ["antenna1", "antenna2"],
         "frequency": np.array(
             [1.001350e08, 1.001404e08, 1.001458e08, 1.001512e08],
             dtype=np.float32,
         ),
+        "polarization": ["XX", "XY", "YX", "YY"],
     }
     gain_data = (
         np.arange(32, dtype=np.float32)
         + 1
         + 1j * (np.arange(32, dtype=np.float32) + 1)
-    ).reshape(1, 2, 4, 2, 2)
-    gains = da.from_array(gain_data, chunks=(1, 2, 4, 2, 2))
+    ).reshape(1, 2, 4, 4)
+    gains = da.from_array(gain_data, chunks=(1, 2, 4, 4))
     weight_data = np.ones_like(gain_data, dtype=np.float32)
-    weight = da.from_array(weight_data, chunks=(1, 2, 4, 2, 2))
+    weight = da.from_array(weight_data, chunks=(1, 2, 4, 4))
     gaintable = xr.Dataset(
         {
-            "gain": (
-                ["time", "antenna", "frequency", "receptor1", "receptor2"],
+            "CALPARAM_GAIN": (
+                [
+                    "time",
+                    "antenna_name",
+                    "frequency",
+                    "polarization",
+                ],
                 gains,
             ),
-            "weight": (
-                ["time", "antenna", "frequency", "receptor1", "receptor2"],
+            "CALPARAM_WEIGHT": (
+                [
+                    "time",
+                    "antenna_name",
+                    "frequency",
+                    "polarization",
+                ],
                 weight,
             ),
         },
@@ -62,7 +73,7 @@ def test_should_return_plot_params_for_station(gaintable):
 
     rot_data = model_rotations(gaintable)
 
-    stn = len(gaintable.antenna) - 1
+    stn = len(gaintable.antenna_name) - 1
     plot_params = get_plot_params_for_station(rot_data, stn, 0)
 
     assert "J" in plot_params

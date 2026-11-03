@@ -1,7 +1,12 @@
+import numpy as np
+import xarray as xr
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import export_visibilities_stage
+from ska_sdp_instrumental_calibration.stages.export_visibilities import (
+    _export_visibility_to_ms,
+)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -25,7 +30,7 @@ def test_export_visibilities_stage_is_optional():
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.export_visibility_to_ms"
+    "export_visibilities._export_visibility_to_ms"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
@@ -71,7 +76,7 @@ def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.export_visibility_to_ms"
+    "export_visibilities._export_visibility_to_ms"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
@@ -113,7 +118,7 @@ def test_should_export_model_vis(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.export_visibility_to_ms"
+    "export_visibilities._export_visibility_to_ms"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
@@ -168,7 +173,7 @@ def test_should_export_both_vis_and_model_vis(
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.export_visibility_to_ms"
+    "export_visibilities._export_visibility_to_ms"
 )
 @patch(
     "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
@@ -230,3 +235,39 @@ def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
         ]
     )
     apply_gaintable_to_dataset_mock.assert_not_called()
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "export_visibilities.export_visibility_to_ms"
+)
+def test_should_add_time_centroid_before_exporting_to_ms(export_mock):
+    time = np.array([10.0, 20.0])
+    vis = xr.Dataset(
+        {
+            "vis": (
+                ["time", "baselines", "frequency", "polarisation"],
+                np.zeros((2, 3, 4, 2), dtype=complex),
+            )
+        },
+        coords={
+            "time": time,
+            "polarisation": ["XX", "YY"],
+        },
+    )
+
+    _export_visibility_to_ms("./visibilities/vis.ms", [vis])
+
+    export_mock.assert_called_once()
+    msname, (exported_vis,) = export_mock.call_args.args
+    assert msname == "./visibilities/vis.ms"
+    assert exported_vis.time_centroid.dims == (
+        "time",
+        "baselines",
+        "frequency",
+    )
+    np.testing.assert_array_equal(
+        exported_vis.time_centroid.values,
+        np.broadcast_to(time[:, None, None], (2, 3, 4)),
+    )
+    assert "time_centroid" not in vis

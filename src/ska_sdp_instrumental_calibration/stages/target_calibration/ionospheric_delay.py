@@ -50,7 +50,8 @@ def ionospheric_delay_stage(
         Optional[list[int]],
         Field(
             description="""list of Zernike index limits:
-            Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+            Generate all Zernikes with
+            ``n + |m| <= zernike_limit[cluster_id]``.
             If None, a default is used by the solver.""",
         ),
     ] = None,
@@ -90,7 +91,7 @@ def ionospheric_delay_stage(
         solver convergence (default: 1e-6).
     zernike_limit : list[int], optional
         list of Zernike index limits:
-        Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+        Generate all Zernikes with ``n + |m| <= zernike_limit[cluster_id]``.
         If None, a default is used by the solver.
     plot_table: bool, optional
         Plot all station Phase vs Frequency (default: False).

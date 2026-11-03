@@ -55,7 +55,8 @@ def test_should_load_data_from_existing_cached_zarr_file(
     check_cache_mock.return_value = True
 
     gaintable = xr.DataArray(
-        np.arange(12).reshape(1, 4, 3), dims=["time", "frequency", "antenna"]
+        np.arange(12).reshape(1, 4, 3),
+        dims=["time", "frequency", "antenna_name"],
     )
     create_bandpass_mock.return_value = gaintable
     read_ms_field_id_mock.return_value = "field-a"

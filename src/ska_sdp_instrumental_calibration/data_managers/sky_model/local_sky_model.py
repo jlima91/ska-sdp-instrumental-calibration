@@ -1,22 +1,26 @@
 import logging
+from pathlib import Path
 
 import numpy as np
 from astropy.coordinates.earth import EarthLocation
 from astropy.coordinates.sky_coordinate import SkyCoord
+from dask.tokenize import normalize_token
+from ska_sdp_datamodels.sky_model import (
+    SkyComponent,
+    SkyModel,
+    read_skymodel_from_lsm_csv,
+    write_skymodel_to_lsm_csv,
+)
 
 from ska_sdp_instrumental_calibration.exceptions import (
     RequiredArgumentMissingException,
 )
 
 from ...numpy_processors.rotation_matrix import generate_rotation_matrices
-from ..beams import BeamsFactory
-from .component import Component
+from ..beams import BeamsFactory, convert_time_to_solution_time
+from .gleam_reader import read_gleamegc
 from .local_sky_component import LocalSkyComponent
-from .sky_model_reader import (
-    export_lsm_to_csv,
-    generate_lsm_from_csv,
-    generate_lsm_from_gleamegc,
-)
+from .sky_model_operations import is_above_horizon
 
 logger = logging.getLogger()
 
@@ -31,23 +35,38 @@ class LocalSkyModel:
 
     Parameters
     ----------
-    components : list[Component]
-        A list of component objects representing the sources in the sky model.
+    components : list[SkyComponent]
+        A list of sky components representing the sources in the sky model.
     solution_time : float
         The solution time associated with this sky model. This typically
         represents the timestamp or interval for which the model is valid.
 
     Attributes
     ----------
-    components : list[Component]
+    components : list[SkyComponent]
         The list of sky components managed by this model.
     soln_time : float
         The specific time instance for which this model is valid.
     """
 
-    def __init__(self, components: list[Component], solution_time: float):
+    def __init__(self, components: list[SkyComponent], solution_time: float):
         self.components = components
         self.soln_time = solution_time
+
+    def __dask_tokenize__(self) -> tuple:
+        """
+        Deterministic dask token for the local sky model.
+
+        Tokenizes the solution time and the dataclass fields of the
+        components, which avoids pickling the whole model.
+
+        Returns
+        -------
+            Normalized token of this sky model.
+        """
+        return normalize_token(
+            (type(self).__name__, self.soln_time, self.components)
+        )
 
     def create_vis(
         self,
@@ -130,7 +149,7 @@ class LocalSkyModel:
         )
         for comp in self.components:
             skycomponent = LocalSkyComponent.create_from_component(
-                comp, frequency, polarisation
+                comp, frequency
             )
             predicted_vis = predicted_vis + skycomponent.create_vis(
                 uvw,
@@ -176,11 +195,14 @@ class GlobalSkyModel:
     ------
     RequiredArgumentMissingException
         If neither ``gleamfile`` nor ``lsm_csv_path`` is provided.
+    FileNotFoundError
+        If the ``gleamfile`` or ``lsm_csv_path`` file does not exist.
 
     Attributes
     ----------
-    components: list[Component]
-        The list of sky components loaded into the global model
+    sky_model: SkyModel
+        The sky model, with the components and catalogue metadata loaded
+        into the global model
     """
 
     def __init__(
@@ -207,20 +229,26 @@ class GlobalSkyModel:
 
         if gleamfile is not None:
             logger.info(f" - Catalogue file: {gleamfile}")
-            lsm = generate_lsm_from_gleamegc(
-                gleamfile=gleamfile,
-                phasecentre=phasecentre,
-                fov=fov,
+            if not Path(gleamfile).is_file():
+                raise FileNotFoundError(
+                    f"Cannot open gleam catalogue file {gleamfile}"
+                )
+            sky_model = read_gleamegc(
+                gleamfile,
+                phase_centre=phasecentre,
+                fov_deg=fov,
                 flux_limit=flux_limit,
                 alpha0=alpha0,
             )
         elif lsm_csv_path is not None:
             logger.info(f" - Catalogue file: {lsm_csv_path}")
-            lsm = generate_lsm_from_csv(
-                csvfile=lsm_csv_path,
-                phasecentre=phasecentre,
-                fov=fov,
-                flux_limit=flux_limit,
+            if not Path(lsm_csv_path).is_file():
+                raise FileNotFoundError(f"Cannot open csv file {lsm_csv_path}")
+            sky_model = read_skymodel_from_lsm_csv(
+                lsm_csv_path,
+                phase_centre=phasecentre,
+                fov_deg=fov,
+                min_flux_jy=flux_limit,
             )
         else:
             raise RequiredArgumentMissingException(
@@ -228,12 +256,16 @@ class GlobalSkyModel:
                 "Either provide GLEAMFILE or GSM CSV file"
             )
 
-        logger.info(f"GSM: found {len(lsm)} components")
+        logger.info(f"GSM: found {sky_model.num_components} components")
 
-        self.components = lsm
+        self.sky_model: SkyModel = sky_model
 
     def export_sky_model_csv(self, output_csv_path: str):
-        export_lsm_to_csv(self.components, output_csv_path)
+        """
+        Write the sky model, including its catalogue metadata, to an LSM CSV
+        file that can be read back with ``lsm_csv_path``.
+        """
+        write_skymodel_to_lsm_csv(self.sky_model, output_csv_path)
 
     def get_local_sky_model(
         self, solution_time: float, array_location: EarthLocation
@@ -257,9 +289,10 @@ class GlobalSkyModel:
             A new object containing only the visible components for the
             specified parameters.
         """
+        obstime = convert_time_to_solution_time(solution_time)
         components = [
             comp
-            for comp in self.components
-            if comp.is_above_horizon(solution_time, array_location)
+            for comp in self.sky_model.components.values()
+            if is_above_horizon(comp, obstime, array_location)
         ]
         return LocalSkyModel(components, solution_time)

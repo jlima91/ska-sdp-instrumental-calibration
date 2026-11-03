@@ -1,7 +1,7 @@
 import logging
 import os
 
-from ska_sdp_piper.piper.utils.log_util import LogUtil
+from ska_sdp_piper.piper.log import PiperLogging
 
 from ..data_managers.sdm import get_qa_metric_dir, get_qa_metric_source_name
 from .render import render_page
@@ -35,7 +35,7 @@ def generate_qa_metric(output_path: str, sdm_path: str | None = None):
         Path to the SDM directory. Takes precedence over ``output_path``
         if both are given
     """
-    LogUtil.configure()
+    PiperLogging.configure()
 
     qa_metric_dir = get_qa_metric_dir(output_path, sdm_path)
     page = render_page(PAGE_TITLE, SECTION_TITLES)

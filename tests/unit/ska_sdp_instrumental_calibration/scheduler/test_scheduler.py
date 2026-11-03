@@ -71,8 +71,6 @@ class TestUpstreamOutput:
     def test_build_calibration_table(self, multiply_mock):
         upstream_output = UpstreamOutput()
         delay_gaintable = MagicMock(name="delay")
-        delay_table_copy = MagicMock(name="delay_copy")
-        delay_gaintable.copy.return_value = delay_table_copy
         gaintable = MagicMock(name="gaintable")
         flux_gaintable = MagicMock(name="flux")
 
@@ -90,7 +88,7 @@ class TestUpstreamOutput:
         assert upstream_output.calibration_table == multiply_mock.return_value
         multiply_mock.assert_has_calls(
             [
-                call(delay_table_copy, flux_gaintable),
+                call(delay_gaintable, flux_gaintable),
                 call(multiply_mock.return_value, gaintable),
             ]
         )
