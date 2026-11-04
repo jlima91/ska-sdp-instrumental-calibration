@@ -9,7 +9,7 @@ from ..numpy_processors.solvers import Solver
 from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.solver import run_solver
-from ._utils import get_gaintables_path
+from ._utils import get_gaintables_path, get_initialisation_vis
 
 logger = logging.getLogger()
 
@@ -57,8 +57,7 @@ def bandpass_initialisation_stage(
             Updated upstream_output with gaintable
     """
 
-    vis = _upstream_output_.vis
-    modelvis = _upstream_output_.modelvis
+    vis, modelvis = get_initialisation_vis(_upstream_output_)
     initialtable = _upstream_output_.gaintable
     prefix = _upstream_output_.ms_prefix
 

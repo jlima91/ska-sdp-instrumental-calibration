@@ -225,7 +225,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     "ska_sdp_instrumental_calibration.stages."
     "channel_rotation_measures.Solver"
 )
-def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
+def test_should_update_beam_normalised_model_vis_when_beam_is_not_none(
     solver_factory_mock,
     reset_gaintable_mock,
     predict_vis_mock,
@@ -314,11 +314,13 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
     run_solver_mock.assert_called_once_with(
         vis=upstream_output["corrected_vis"],
-        modelvis=beam_model_vis,
+        modelvis=new_model_vis_mock,
         gaintable=reset_gaintable_mock.return_value,
         solver="jones_substitution",
     )
-    assert result["modelvis"] == beam_model_vis
+
+    assert result["modelvis"] == new_model_vis_mock
+    assert result["beam_normalised_modelvis"] == beam_model_vis
     assert result["gaintable"] == solved_gaintable_mock
 
 

@@ -22,7 +22,11 @@ from ..xarray_processors.rotation_measures import (
 )
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_DOCSTRING
-from ._utils import get_gaintables_path, get_plots_path
+from ._utils import (
+    BEAM_NORMALISED_MODELVIS_KEY,
+    get_gaintables_path,
+    get_plots_path,
+)
 from .configuration_models import PlotRMConfig, RunSolverConfig
 
 logger = logging.getLogger()
@@ -164,9 +168,13 @@ def generate_channel_rm_stage(
         station_rm=station_rm_est,
     )
 
+    # Calibration here uses the un-normalised vis. Keep the beam normalised
+    # model in sync for any later initial solve.
     if _upstream_output_["central_beams"] is not None:
-        modelvis = apply_gaintable_to_dataset(
-            modelvis, _upstream_output_["central_beams"], inverse=True
+        _upstream_output_[BEAM_NORMALISED_MODELVIS_KEY] = (
+            apply_gaintable_to_dataset(
+                modelvis, _upstream_output_["central_beams"], inverse=True
+            )
         )
 
     solver = Solver.get_solver(**run_solver_config.model_dump())

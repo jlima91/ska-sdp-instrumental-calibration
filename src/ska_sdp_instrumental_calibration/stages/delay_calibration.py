@@ -23,7 +23,12 @@ from ..xarray_processors.delay import (
     create_delaytable_from_vis,
 )
 from ..xarray_processors.solver import run_solver
-from ._utils import get_gaintables_path, get_plots_path
+from ._utils import (
+    BEAM_NORMALISED_VIS_KEY,
+    get_gaintables_path,
+    get_initialisation_vis,
+    get_plots_path,
+)
 from .configuration_models import PlotConfig
 
 logger = logging.getLogger()
@@ -92,7 +97,7 @@ def delay_calibration_stage(
 
     vis = _upstream_output_.vis
     prefix = _upstream_output_.ms_prefix
-    modelvis = _upstream_output_.modelvis
+    solve_vis, solve_modelvis = get_initialisation_vis(_upstream_output_)
     gaintable = _upstream_output_.gaintable
 
     call_counter_suffix = ""
@@ -103,7 +108,7 @@ def delay_calibration_stage(
 
     if extract_delays_from_vis:
         delaytable = create_delaytable_from_vis(
-            vis, gaintable, refant, oversample
+            solve_vis, gaintable, refant, oversample
         )
 
     else:
@@ -114,8 +119,8 @@ def delay_calibration_stage(
         )
 
         gaintable = run_solver(
-            vis=vis,
-            modelvis=modelvis,
+            vis=solve_vis,
+            modelvis=solve_modelvis,
             gaintable=gaintable,
             solver=delay_solver,
         )
@@ -132,6 +137,13 @@ def delay_calibration_stage(
 
     initialtable = reset_gaintable(gaintable)
     delay_corrections = apply_delay_to_gaintable(initialtable, delaytable)
+    # Keep the beam normalised visibilities, if used, delay corrected too
+    if solve_vis is not vis:
+        _upstream_output_[BEAM_NORMALISED_VIS_KEY] = (
+            apply_gaintable_to_dataset(
+                solve_vis, delay_corrections, inverse=True
+            )
+        )
     vis = apply_gaintable_to_dataset(vis, delay_corrections, inverse=True)
     if plot_config.plot_table:
 

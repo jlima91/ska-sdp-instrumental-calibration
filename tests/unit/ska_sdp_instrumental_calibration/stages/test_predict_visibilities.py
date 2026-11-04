@@ -88,6 +88,9 @@ def test_should_predict_visibilities(
     )
 
     assert result.modelvis == [1, 2, 3]
+    assert result.central_beams is None
+    assert result.beam_normalised_vis is None
+    assert result.beam_normalised_modelvis is None
 
 
 @patch(
@@ -215,8 +218,10 @@ def test_should_normalise_at_beam_centre(
 
     assert result.central_beams == mock_beams
     assert result.beams_factory == beams_factory_mock.return_value
-    assert result.vis == normalised_vis
-    assert result.modelvis == normalised_modelvis
+    assert result.vis == vis
+    assert result.modelvis == model_vis
+    assert result.beam_normalised_vis == normalised_vis
+    assert result.beam_normalised_modelvis == normalised_modelvis
 
 
 @patch(
