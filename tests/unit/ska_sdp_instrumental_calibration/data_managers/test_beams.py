@@ -5,7 +5,6 @@
 import numpy as np
 import pytest
 from astropy.time import Time
-from everybeam import OSKAR
 from mock import MagicMock, Mock, call, patch
 
 from ska_sdp_instrumental_calibration.data_managers.beams import (
@@ -17,14 +16,11 @@ from ska_sdp_instrumental_calibration.data_managers.beams import (
 
 
 @patch("ska_sdp_instrumental_calibration.data_managers.beams.AltAz")
-@patch("ska_sdp_instrumental_calibration.data_managers.beams.eb")
 @patch("ska_sdp_instrumental_calibration.data_managers.beams.radec_to_xyz")
 @patch(
     "ska_sdp_instrumental_calibration.data_managers.beams.convert_time_to_solution_time"
 )
-def test_initialise_beams(
-    convert_time_mock, radec_to_xyz_mock, everybeam_mock, altaz_mock
-):
+def test_initialise_beams(convert_time_mock, radec_to_xyz_mock, altaz_mock):
     mock_array_location = Mock(name="array_location")
     mock_telescope = Mock(name="telescope")
 
@@ -36,9 +32,6 @@ def test_initialise_beams(
     mock_time = Mock(name="time")
     mock_time.mjd = 60000.0
     convert_time_mock.return_value = mock_time
-
-    mock_telescope = Mock()
-    everybeam_mock.load_telescope.return_value = mock_telescope
 
     frequency = np.array([100e6, 110e6])
 
@@ -54,72 +47,6 @@ def test_initialise_beams(
     assert beams_low.frequency.size == 2
     convert_time_mock.assert_called_once_with(123)
     radec_to_xyz_mock.assert_called_once_with(mock_direction, mock_time)
-
-
-@patch("ska_sdp_instrumental_calibration.data_managers.beams.AltAz")
-@patch("ska_sdp_instrumental_calibration.data_managers.beams.SkyCoord")
-@patch("ska_sdp_instrumental_calibration.data_managers.beams.radec_to_xyz")
-@patch(
-    "ska_sdp_instrumental_calibration.data_managers.beams.convert_time_to_solution_time"
-)
-def test_oskar_scale_computation(
-    convert_time_mock,
-    radec_to_xyz_mock,
-    sky_coord_mock,
-    altaz_mock,
-):
-
-    mock_time = Mock(name="time")
-    mock_time.mjd = 60000.0
-    convert_time_mock.return_value = mock_time
-
-    mock_sky_coord = MagicMock(name="sky coord")
-    sky_coord_mock.return_value = mock_sky_coord
-
-    mock_array_location = Mock()
-    mock_direction = Mock()
-
-    altaz = Mock()
-    altaz.alt.degree = 45
-    mock_direction.transform_to.return_value = altaz
-
-    radec_to_xyz_mock.return_value = np.array([1.0, 0.0, 0.0])
-
-    mock_telescope = MagicMock(name="telescope")
-    mock_telescope.station_response.return_value = np.ones((1, 1, 3, 2, 2))
-    mock_telescope.type = OSKAR
-
-    freqs = np.array([100e6, 200e6, 300e6])
-
-    bl = BeamsLow(
-        array_location=mock_array_location,
-        direction=mock_direction,
-        frequency=freqs,
-        soln_time=1.0,
-        telescope=mock_telescope,
-    )
-
-    expected_scales = np.sqrt(2) / 2
-
-    np.testing.assert_allclose(bl.scale, expected_scales, atol=1e-7)
-    radec_to_xyz_mock.assert_has_calls(
-        [call(mock_direction, mock_time), call(mock_sky_coord, mock_time)]
-    )
-    sky_coord_mock.assert_called_once_with(
-        alt=90,
-        az=0,
-        unit="deg",
-        frame="altaz",
-        obstime=mock_time,
-        location=mock_array_location,
-    )
-    mock_telescope.station_response.assert_called_once_with(
-        solution_time=bl.solution_time_mjd_seconds,
-        station_idx=0,
-        frequencies=freqs,
-        direction=radec_to_xyz_mock.return_value,
-        station0=radec_to_xyz_mock.return_value,
-    )
 
 
 @patch("ska_sdp_instrumental_calibration.data_managers.beams.AltAz")
@@ -188,8 +115,6 @@ def test_array_response(
         telescope=mock_telescope,
     )
 
-    bl.scale = np.array([0.5, 0.25])
-
     beams = bl.array_response(Mock())
 
     mock_telescope.station_response.assert_called_once_with(
@@ -197,7 +122,6 @@ def test_array_response(
         frequencies=bl.frequency,
         direction=radec_to_xyz_mock.return_value,
         station0=bl.delay_dir_itrf,
-        scale=bl.scale,
     )
 
     assert beams == station_response.squeeze.return_value
