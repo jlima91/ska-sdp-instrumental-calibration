@@ -83,6 +83,46 @@ def test_should_initialize_gains_for_bandpass(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
+    ".parse_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
+    ".run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation.Solver"
+)
+def test_should_initialize_gains_using_beam_normalised_vis(
+    solver_factory_mock, run_solver_mock, parse_ref_ant_mock
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["beam_normalised_vis"] = Mock(name="normalised vis")
+    upstream_output["beam_normalised_modelvis"] = Mock(
+        name="normalised modelvis"
+    )
+    initial_gaintable = Mock(name="initial_gaintable")
+    upstream_output["gaintable"] = initial_gaintable
+    solver_factory_mock.get_solver.return_value = "SOLVER"
+
+    bandpass_initialisation_stage(
+        upstream_output,
+        _qa_dir_="/output/path",
+        export_gaintable=False,
+    )
+
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output.beam_normalised_vis,
+        modelvis=upstream_output.beam_normalised_modelvis,
+        gaintable=initial_gaintable,
+        solver="SOLVER",
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.bandpass_initialisation"
     ".run_solver"
 )
 def test_should_not_initialize_gains_if_delay_calibration_is_done(
