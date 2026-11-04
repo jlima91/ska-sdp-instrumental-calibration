@@ -45,7 +45,7 @@ dp3 = { version = ">=6.6", optional = true }
 ska-sdp-datamodels = ">=3.1"
 ska-sdp-func-python = ">=2"
 ska-sdp-func = { version = ">=1.2", optional = true }
-ska-sdp-dataproduct-metadata = { version = ">=1.0", optional = true }
+ska-sdp-dataproduct-metadata = { version = ">=1.4.0", optional = true }
 
 [tool.poetry.extras]
 dp3 = ["dp3"]
