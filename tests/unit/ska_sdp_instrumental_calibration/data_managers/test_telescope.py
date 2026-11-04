@@ -46,11 +46,7 @@ def test_should_forward_directions_to_everybeam_station_response(read_mock):
     direction = np.array([1.0, 0.0, 0.0])
     station0 = np.array([0.0, 1.0, 0.0])
     frequencies = np.array([1.0e8, 1.1e8, 1.2e8])
-    scale = np.array([1.0, 2.0, 3.0])
-
-    beams = telescope.station_response(
-        10.0, frequencies, direction, station0, scale=scale
-    )
+    beams = telescope.station_response(10.0, frequencies, direction, station0)
 
     eb_telescope.station_response.assert_called_once()
     kwargs = eb_telescope.station_response.call_args.kwargs
@@ -69,6 +65,4 @@ def test_should_forward_directions_to_everybeam_station_response(read_mock):
     np.testing.assert_array_equal(kwargs["direction"], direction)
     np.testing.assert_array_equal(kwargs["station0_direction"], station0)
     np.testing.assert_array_equal(kwargs["tile0_direction"], station0)
-    np.testing.assert_array_equal(
-        beams[0, 0, :, 0, 0], np.array([1.0, 2.0, 3.0])
-    )
+    assert beams is eb_telescope.station_response.return_value
