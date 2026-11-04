@@ -67,6 +67,38 @@ def test_should_create_local_sky_model(create_from_component_mock):
     np.testing.assert_allclose(vis, np.ones((1, 1, 1, 1)) * 3)
 
 
+@pytest.mark.parametrize("output_dtype", [np.complex64, np.complex128])
+@patch(
+    "ska_sdp_instrumental_calibration.data_managers"
+    ".sky_model.local_sky_model.LocalSkyComponent.create_from_component"
+)
+def test_should_return_local_sky_model_vis_in_output_dtype(
+    create_from_component_mock, output_dtype
+):
+    components = [MagicMock(name=name) for name in ["A", "B"]]
+    skycomponent = MagicMock(name="skycomponent")
+    skycomponent.create_vis.return_value = np.full(
+        (1, 1, 1, 1), 1 + 1j, dtype=np.complex128
+    )
+    create_from_component_mock.return_value = skycomponent
+    lsm = LocalSkyModel(components, 0.0)
+    frequency = MagicMock(name="freq", size=1)
+    polarisation = MagicMock(name="pol", size=1)
+
+    vis = lsm.create_vis(
+        np.zeros((1, 1, 1)),
+        frequency,
+        polarisation,
+        "phasecentre",
+        "antenna1",
+        "antenna2",
+        output_dtype=output_dtype,
+    )
+
+    assert vis.dtype == output_dtype
+    np.testing.assert_allclose(vis, np.full((1, 1, 1, 1), 2 + 2j))
+
+
 @patch(
     "ska_sdp_instrumental_calibration.data_managers"
     ".sky_model.local_sky_model.generate_rotation_matrices",

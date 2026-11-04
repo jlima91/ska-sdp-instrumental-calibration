@@ -143,15 +143,18 @@ class LocalSkyModel:
         if beams_factory is not None:
             beams = beams_factory.get_beams_low(frequency, self.soln_time)
 
+        # Accumulate in at least double precision, as the per-component
+        # visibilities are complex128, and only cast the sum to
+        # output_dtype.
         predicted_vis = np.zeros(
             (*uvw.shape[:2], frequency.size, polarisation.size),
-            dtype=output_dtype,
+            dtype=np.result_type(output_dtype, np.complex128),
         )
         for comp in self.components:
             skycomponent = LocalSkyComponent.create_from_component(
                 comp, frequency
             )
-            predicted_vis = predicted_vis + skycomponent.create_vis(
+            predicted_vis += skycomponent.create_vis(
                 uvw,
                 phasecentre,
                 antenna1,
@@ -160,7 +163,7 @@ class LocalSkyModel:
                 faraday_rot_matrix,
             )
 
-        return predicted_vis
+        return predicted_vis.astype(output_dtype, copy=False)
 
 
 class GlobalSkyModel:
