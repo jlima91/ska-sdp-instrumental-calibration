@@ -45,6 +45,7 @@ def test_initialise_beams(convert_time_mock, radec_to_xyz_mock, altaz_mock):
 
     assert beams_low.telescope == mock_telescope
     assert beams_low.frequency.size == 2
+    assert beams_low.solution_time_mjd_seconds == 123
     convert_time_mock.assert_called_once_with(123)
     radec_to_xyz_mock.assert_called_once_with(mock_direction, mock_time)
 
@@ -157,4 +158,13 @@ def test_convert_time_to_solution_time():
     result = convert_time_to_solution_time(time_seconds)
 
     assert isinstance(result, Time)
+    assert result.scale == "utc"
     np.testing.assert_equal(result.mjd, 60000.0)
+
+
+def test_convert_time_to_solution_time_preserves_seconds():
+    time_seconds = np.array([5.0e9, 5.0e9 + 0.9, 5.0e9 + 3600.5])
+
+    result = convert_time_to_solution_time(time_seconds)
+
+    np.testing.assert_allclose(result.mjd * 86400.0, time_seconds, rtol=0)

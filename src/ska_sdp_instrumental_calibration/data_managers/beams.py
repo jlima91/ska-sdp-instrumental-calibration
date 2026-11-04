@@ -24,12 +24,7 @@ def convert_time_to_solution_time(time: float | np.ndarray) -> Time:
     ------
       Time object containing an array of time values
     """
-    # This Time->Time conversion is what was originally done in INST
-    # Although Time can be treated as a "Value Object", there are subtle
-    # differences in the order in which floating point operations are performed
-    # thus the results may slightly vary if you try to simplify this
-    # By removeing the additional datetime64 to time conversion
-    return Time(Time(time / 86400.0, format="mjd", scale="utc").datetime64)
+    return Time(time / 86400.0, format="mjd", scale="utc")
 
 
 # from everybeam.readthedocs.io/en/latest/tree/demos/lofar-array-factor.html
@@ -82,7 +77,7 @@ class BeamsLow:
 
         self.solution_time = convert_time_to_solution_time(soln_time)
 
-        self.solution_time_mjd_seconds = self.solution_time.mjd * 86400
+        self.solution_time_mjd_seconds = soln_time
 
         # Check beam pointing direction for all solution times
         self.validate_direction_above_horizon(self.beam_direction)
