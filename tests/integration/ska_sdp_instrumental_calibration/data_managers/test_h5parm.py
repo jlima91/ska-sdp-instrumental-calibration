@@ -223,11 +223,31 @@ def test_should_use_unit_weights_when_weight_absent(h5file):
     assert np.all(data.weights == 1)
 
 
-def test_should_raise_exception_for_unsupported_soltab_axes(h5file):
+def test_should_squeeze_single_direction_axis(h5file):
+    val = _random(2, 3, 1)
     axes = {"time": TIME, "ant": ANT, "dir": np.array([b"POINTING"])}
+    soltab = _write_soltab(h5file, "phase000", val, axes)
+
+    data = read_soltab(soltab)
+
+    # Scalar solutions fill both diagonal terms
+    np.testing.assert_array_equal(data.values[:, :, 0, 0, 0], val[..., 0])
+    np.testing.assert_array_equal(data.values[:, :, 0, 1, 1], val[..., 0])
+
+
+def test_should_raise_exception_for_multiple_directions(h5file):
+    axes = {"time": TIME, "ant": ANT, "dir": np.array([b"D0", b"D1"])}
+    soltab = _write_soltab(h5file, "phase000", _random(2, 3, 2), axes)
+
+    with pytest.raises(ValueError, match="has 2 directions"):
+        read_soltab(soltab)
+
+
+def test_should_raise_exception_for_unsupported_soltab_axes(h5file):
+    axes = {"time": TIME, "ant": ANT, "beam": np.array([b"B0"])}
     soltab = _write_soltab(h5file, "phase000", _random(2, 3, 1), axes)
 
-    with pytest.raises(ValueError, match=r"unsupported axes \['dir'\]"):
+    with pytest.raises(ValueError, match=r"unsupported axes \['beam'\]"):
         read_soltab(soltab)
 
 

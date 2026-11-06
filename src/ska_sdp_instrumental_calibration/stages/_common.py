@@ -18,6 +18,12 @@ RUN_SOLVER_DOCSTRING = """
                     products over time and frequency for each solution
                     interval. This can be much faster for large datasets
                     and solution intervals.
+                    "dp3_ddecal" - DP3 DDECal step. DDECal predicts the
+                    model from skymodel_path instead of using the model
+                    visibilities. Requires the optional dp3 package.
+                skymodel_path: str
+                    DP3-readable sky model. Required when
+                    solver="dp3_ddecal", ignored otherwise.
                 refant: int
                     Reference antenna. Currently only activated for
                     the gain_substitution solver.

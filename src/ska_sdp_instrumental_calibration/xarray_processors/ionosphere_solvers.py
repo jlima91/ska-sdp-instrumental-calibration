@@ -275,9 +275,8 @@ class IonosphericSolver:
         # Cross-corelation mask
         self.mask0 = self.antenna1 != self.antenna2
 
-        self.wl_const = (
-            2.0 * np.pi * const.c.value / frequency  # pylint: disable=E1101
-        )
+        speed_of_light = const.c.value  # pylint: disable=E1101
+        self.wl_const = 2.0 * np.pi * speed_of_light / frequency
 
         n_antenna = configuration.sizes["id"]
         if self.cluster_indexes is None:
@@ -615,12 +614,9 @@ class IonosphericSolver:
 
         nu = 1.0 - 0.5 * (it % 2)
         for cid in range(n_cluster):
-            param_update[cid] = (
-                nu
-                * soln_vec[
-                    pidx0[cid] : pidx0[cid] + len(param[cid])  # noqa:E203
-                ]
-            )
+            # Slice of the solution vector belonging to this cluster
+            start, stop = pidx0[cid], pidx0[cid] + len(param[cid])
+            param_update[cid] = nu * soln_vec[start:stop]
 
         self._update_and_log_change(param_update, param + param_update, it)
         return param_update

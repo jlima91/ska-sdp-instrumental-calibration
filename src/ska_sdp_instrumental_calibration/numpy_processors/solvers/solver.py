@@ -46,6 +46,10 @@ class Solver:
 
     _solvers = {}
 
+    # Set to True by solvers whose solve() needs an ``observation`` keyword
+    # (DP3ObservationInfo of the chunk), e.g. to predict their own model
+    requires_observation = False
+
     def __init__(self, niter=50, tol=1e-6, **_):
         self.niter = niter
         self.tol = tol

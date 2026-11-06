@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 
 import numpy as np
@@ -7,6 +8,7 @@ from ska_sdp_datamodels.visibility import Visibility
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..data_managers.schema.polarization import jones_to_pol, pol_to_jones
 from ..numpy_processors.solvers import Solver
+from ..numpy_processors.solvers.dp3_solvers import DP3ObservationInfo
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +25,13 @@ def _run_solver_ufunc(
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     solver: Solver,
+    **solve_kwargs,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     A bridge function between xarray.apply_ufunc and solver.solve.
+
+    ``solve_kwargs`` (e.g. ``observation``) are passed on to
+    ``solver.solve``.
 
     Returns
     -------
@@ -42,6 +48,7 @@ def _run_solver_ufunc(
         pol_to_jones(gain_residual),
         antenna1,
         antenna2,
+        **solve_kwargs,
     )
     return jones_to_pol(gain), jones_to_pol(weight), jones_to_pol(residual)
 
@@ -58,6 +65,7 @@ def _run_solver_ufunc_with_broadcast_frequency(
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     solver: Solver,
+    **solve_kwargs,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Solver wrapper for bandpass terms where computation is parallelized
@@ -94,6 +102,7 @@ def _run_solver_ufunc_with_broadcast_frequency(
         antenna1=antenna1,
         antenna2=antenna2,
         solver=solver,
+        **solve_kwargs,
     )
 
     # Before returning, move frequency from 3rd to 1st dimension in order
@@ -101,6 +110,62 @@ def _run_solver_ufunc_with_broadcast_frequency(
         np.transpose(gain, (2, 0, 1, 3)),
         np.transpose(weight, (2, 0, 1, 3)),
         np.transpose(residual, (1, 0, 2)),
+    )
+
+
+def _run_solver_ufunc_with_observation(
+    vis_vis: np.ndarray,
+    vis_flags: np.ndarray,
+    vis_weight: np.ndarray,
+    model_vis: np.ndarray,
+    model_flags: np.ndarray,
+    gain_gain: np.ndarray,
+    gain_weight: np.ndarray,
+    gain_residual: np.ndarray,
+    uvw: np.ndarray,
+    frequency: np.ndarray,
+    channel_bandwidth: np.ndarray,
+    antenna1: np.ndarray,
+    antenna2: np.ndarray,
+    solver: Solver,
+    observation: DP3ObservationInfo,
+    solver_ufunc,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Bridge for solvers that need the observation metadata of the chunk
+    (``solver.requires_observation``).
+
+    ``observation`` holds the metadata shared by all chunks of a solution
+    interval. UVW, frequency and channel bandwidth are passed as chunked
+    inputs, as they differ per chunk; they are set on ``observation``
+    before calling ``solver_ufunc`` (one of the bridges above), which
+    passes it on to ``solver.solve``.
+
+    Returns
+    -------
+        Gain, weight and residual arrays returned by the solver.
+    """
+    # Xarray inserts length-1 axes for broadcast dims that UVW lacks
+    # (frequency, for Jones type B), so keep only (time, baseline, spatial)
+    chunk_observation = dataclasses.replace(
+        observation,
+        uvw=uvw.reshape(uvw.shape[-3:]),
+        frequency=np.ravel(frequency),
+        channel_bandwidth=np.ravel(channel_bandwidth),
+    )
+    return solver_ufunc(
+        vis_vis,
+        vis_flags,
+        vis_weight,
+        model_vis,
+        model_flags,
+        gain_gain,
+        gain_weight,
+        gain_residual,
+        antenna1=antenna1,
+        antenna2=antenna2,
+        solver=solver,
+        observation=chunk_observation,
     )
 
 
@@ -134,6 +199,12 @@ def run_solver(
     -------
         A new gaintable
     """
+
+    # Solvers that predict their own model (e.g. dp3_ddecal) need the
+    # observation metadata and UVW of each chunk
+    requires_observation = (
+        getattr(solver, "requires_observation", False) is True
+    )
 
     vis_chunks_per_solution = {"time": -1}
     gaintable = gaintable.rename(time="solution_time")
@@ -196,8 +267,8 @@ def run_solver(
         template_gaintable = gaintable.isel(
             solution_time=[idx]
         )  # Select index but keep dimension
-        gain, weight, residual = xr.apply_ufunc(
-            solver_ufunc,
+
+        inputs = [
             vis_per_solution.vis,
             vis_per_solution.flags,
             vis_per_solution.weight,
@@ -206,16 +277,57 @@ def run_solver(
             template_gaintable.CALPARAM_GAIN,
             template_gaintable.CALPARAM_WEIGHT,
             template_gaintable.CALPARAM_RESIDUAL,
-            input_core_dims=[
-                vis_core_dims,
-                vis_core_dims,
-                vis_core_dims,
-                vis_core_dims,
-                vis_core_dims,
-                gain_core_dims,
-                gain_core_dims,
-                residual_core_dims,
-            ],
+        ]
+        input_core_dims = [
+            vis_core_dims,
+            vis_core_dims,
+            vis_core_dims,
+            vis_core_dims,
+            vis_core_dims,
+            gain_core_dims,
+            gain_core_dims,
+            residual_core_dims,
+        ]
+        ufunc_kwargs = {
+            "antenna1": vis.antenna1.data,
+            "antenna2": vis.antenna2.data,
+            "solver": solver,
+        }
+        ufunc = solver_ufunc
+        if requires_observation:
+            # UVW, frequency and channel bandwidth differ per chunk, so they
+            # go in as inputs chunked like the visibilities. Frequency is a
+            # core dim for T/G and a broadcast dim for B.
+            freq_core_dims = (
+                ["frequency"] if "frequency" in vis_core_dims else []
+            )
+            freq_chunks = vis_per_solution.vis.chunksizes.get("frequency")
+            for name in ("frequency", "channel_bandwidth"):
+                coord = vis_per_solution[name].reset_coords(drop=True)
+                inputs.append(
+                    coord.chunk(frequency=freq_chunks)
+                    if freq_chunks
+                    else coord
+                )
+            inputs.insert(-2, vis_per_solution.uvw)
+            input_core_dims += [
+                ["time", "baselineid", "spatial"],
+                freq_core_dims,
+                freq_core_dims,
+            ]
+            ufunc_kwargs["observation"] = dataclasses.replace(
+                DP3ObservationInfo.from_visibility(vis_per_solution),
+                uvw=None,
+                frequency=None,
+                channel_bandwidth=None,
+            )
+            ufunc_kwargs["solver_ufunc"] = solver_ufunc
+            ufunc = _run_solver_ufunc_with_observation
+
+        gain, weight, residual = xr.apply_ufunc(
+            ufunc,
+            *inputs,
+            input_core_dims=input_core_dims,
             output_core_dims=[
                 gain_core_dims,
                 gain_core_dims,
@@ -223,11 +335,7 @@ def run_solver(
             ],
             dask="parallelized",
             output_dtypes=output_dtypes,
-            kwargs={
-                "antenna1": vis.antenna1.data,
-                "antenna2": vis.antenna2.data,
-                "solver": solver,
-            },
+            kwargs=ufunc_kwargs,
         )
         gaintable_per_solution = template_gaintable.assign(
             CALPARAM_GAIN=gain.transpose(

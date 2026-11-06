@@ -20,6 +20,7 @@ class RunSolverConfig(PiperBaseModel):
             "normal_equations",
             "normal_equations_presum",
             "dp3_gaincal",
+            "dp3_ddecal",
         ],
         Field(
             description="""Calibration algorithm to use. Options are:
@@ -36,9 +37,20 @@ class RunSolverConfig(PiperBaseModel):
                 interval. This can be much faster for large datasets
                 and solution intervals.
                 "dp3_gaincal" - DP3 gaincal step. Requires the optional
-                dp3 package."""
+                dp3 package.
+                "dp3_ddecal" - DP3 DDECal step. DDECal predicts the
+                model from ``skymodel_path`` instead of using the model
+                visibilities. Requires the optional dp3 package."""
         ),
     ] = "jones_substitution"
+    skymodel_path: Annotated[
+        str | None,
+        Field(
+            description="""DP3-readable sky model (path ending in
+                ".skymodel" or ".txt", or a sourcedb directory).
+                Required when solver is "dp3_ddecal", ignored otherwise."""
+        ),
+    ] = None
     refant: Annotated[
         int | str,
         Field(

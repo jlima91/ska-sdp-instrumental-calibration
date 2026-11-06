@@ -15,20 +15,183 @@ dp3_gaincal_solve.
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
 import numpy as np
 from ska_sdp_func_python.visibility.operations import expand_polarizations
 
-from .dp3_solvers import DP3ObservationInfo, _create_dp_info
+from ...data_managers.h5parm import read_h5parm_gains
+from .dp3_solvers import (
+    DP3ObservationInfo,
+    _create_dp_info,
+    _get_dp3_caltype,
+    _n_per_interval,
+)
 from .dp3_threading import (
     default_dp3_n_threads,
     get_dp3_lock,
     require_dp3,
     set_dp3_n_threads,
 )
+from .solver import Solver
 
-__all__ = ["dp3_ddecal_solve"]
+__all__ = ["dp3_ddecal_solve", "Dp3DdecalSolver"]
+
+
+class Dp3DdecalSolver(Solver):
+    """
+    Solver for antenna gains using the DP3 DDECal step.
+
+    This class wraps :py:func:`dp3_ddecal_solve`. The DP3 6.x Python
+    bindings cannot hand in-memory model visibilities to DDECal, so DDECal
+    predicts the model itself from ``skymodel_path``; the ``model_vis``
+    passed to :py:meth:`solve` is ignored (``model_flags`` are still
+    applied). Only single-direction sky models are supported, as the
+    solutions are returned as a single gain array.
+
+    Because DDECal predicts the model, :py:meth:`solve` needs the
+    observation metadata (time, UVW, frequency, antennas) of the chunk.
+    ``requires_observation`` tells :py:func:`run_solver` to provide it.
+
+    The DDECal mode is derived from ``crosspol`` and ``phase_only``, see
+    :py:func:`_get_dp3_caltype`.
+
+    Requires the optional ``dp3`` package.
+
+    Parameters
+    ----------
+    skymodel_path
+        DP3-readable sky model (path ending in ``.skymodel`` or ``.txt``,
+        or a sourcedb directory).
+    crosspol
+        Solve for the cross-polarisation terms as well, i.e. the full
+        Jones matrix. Default is False.
+    phase_only
+        Solve only for the phases of the diagonal terms. Can not be
+        combined with ``crosspol``. Default is False.
+    n_threads
+        DP3 thread count; None uses the project's default thread policy.
+    **kwargs
+        Additional keyword arguments passed to the base `Solver` class
+        (e.g., `niter`, `tol`). Unknown arguments are ignored.
+
+    Examples
+    --------
+    >>> solver = Solver.get_solver(
+    ...     "dp3_ddecal", skymodel_path="sky.skymodel", crosspol=True
+    ... )
+    >>> gaintable = run_solver(vis, modelvis, gaintable, solver)
+    """
+
+    _SOLVER_NAME_ = "dp3_ddecal"
+    requires_observation = True
+
+    def __init__(
+        self,
+        skymodel_path: str | None = None,
+        crosspol: bool = False,
+        phase_only: bool = False,
+        n_threads: int | None = None,
+        **kwargs,
+    ):
+        require_dp3("dp3_ddecal solver")
+        super().__init__(**kwargs)
+        if not skymodel_path:
+            raise ValueError("dp3_ddecal: skymodel_path must be provided")
+        self.skymodel_path = skymodel_path
+        self.crosspol = crosspol
+        self.phase_only = phase_only
+        self.n_threads = n_threads
+        # DDECal accepts the same mode names as the gaincal caltypes used here
+        self.mode = _get_dp3_caltype(crosspol, phase_only)
+
+    def solve(
+        self,
+        vis_vis: np.ndarray,
+        vis_flags: np.ndarray,
+        vis_weight: np.ndarray,
+        model_vis: np.ndarray | None,
+        model_flags: np.ndarray | None,
+        gain_gain: np.ndarray,
+        gain_weight: np.ndarray,
+        gain_residual: np.ndarray,
+        ant1: np.ndarray,
+        ant2: np.ndarray,
+        observation: DP3ObservationInfo | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Run the DP3 DDECal solver.
+
+        Parameters
+        ----------
+        vis_vis, vis_flags, vis_weight
+            Observed visibilities, flags and weights.
+            Shape: (ntime, nbl, nchan, npol).
+        model_vis
+            Ignored, DDECal predicts the model from ``skymodel_path``.
+        model_flags
+            Flags of the model visibilities, combined with ``vis_flags``.
+        gain_gain
+            Initial gains. Shape: (ntime_sol, nant, nchan_sol, nrec, nrec).
+            Solution intervals are derived from its shape, and its values
+            are kept where DDECal did not solve.
+        gain_weight
+            Gain weights. Shape matches ``gain_gain``.
+        gain_residual
+            Returned unchanged, as DP3 does not report residuals.
+        ant1, ant2
+            Antenna indices for each baseline.
+        observation
+            Metadata describing the same time, frequency, antenna and UVW
+            axes as ``vis_vis``. Provided by :py:func:`run_solver`.
+
+        Returns
+        -------
+        tuple of np.ndarray
+            (gain_gain, gain_weight, gain_residual) with the updated
+            solutions.
+        """
+        if observation is None:
+            raise ValueError(
+                "dp3_ddecal: observation metadata must be provided"
+            )
+
+        n_time, _, n_freq, _ = vis_vis.shape
+        n_soln_time, _, n_soln_freq, _, _ = gain_gain.shape
+        solint = _n_per_interval(n_time, n_soln_time, "time")
+        nchan = _n_per_interval(n_freq, n_soln_freq, "frequency")
+
+        flags = vis_flags if model_flags is None else vis_flags | model_flags
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            h5parm_path = dp3_ddecal_solve(
+                vis_vis,
+                flags,
+                vis_weight,
+                ant1,
+                ant2,
+                skymodel_path=self.skymodel_path,
+                observation=observation,
+                output_h5parm_path=os.path.join(tmpdir, "ddecal.h5"),
+                mode=self.mode,
+                solint=solint,
+                nchan=nchan,
+                niter=self.niter,
+                tol=self.tol,
+                n_threads=self.n_threads,
+            )
+            dp3_gain, weight, solved, _ = read_h5parm_gains(h5parm_path)
+
+        # Keep the initial values for terms DDECal did not solve
+        _gain_gain = np.where(solved, dp3_gain, gain_gain).astype(
+            gain_gain.dtype
+        )
+        _gain_weight = np.where(solved, weight, gain_weight).astype(
+            gain_weight.dtype
+        )
+
+        return _gain_gain, _gain_weight, gain_residual.copy()
 
 
 def dp3_ddecal_solve(

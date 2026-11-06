@@ -33,7 +33,7 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    
+
     with open(args.config) as stream:
         fields = yaml.safe_load(stream)["fields"]
 
@@ -147,9 +147,16 @@ def main():
         "--channel-width-hz",
         str(channel_width_hz),
         "--field",
-        fields.items().__iter__().__next__()[0],  # Get the first field name from the YAML
+        fields.items()
+        .__iter__()
+        .__next__()[0],  # Get the first field name from the YAML
         "--target",
-        fields.items().__iter__().__next__()[1].keys().__iter__().__next__(),  # Get the first target name for that field
+        fields.items()
+        .__iter__()
+        .__next__()[1]
+        .keys()
+        .__iter__()
+        .__next__(),  # Get the first target name for that field
         "--scan-index",
         "0",
         "--num-scans",
@@ -161,7 +168,7 @@ def main():
 
     if gleam_file:
         options += ["--add-gleam", "--field-radius-deg", str(field_radius_deg)]
-    
+
     if lotss_file:
         options += ["--add-lotss", "--field-radius-deg", str(field_radius_deg)]
 

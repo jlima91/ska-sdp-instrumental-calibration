@@ -644,15 +644,19 @@ def add_gain_outliers(gain, amp_range, n_stations_to_corrupt, n_channels_to_corr
 
     _, n_channels, n_stations = gain.shape
 
-    corrupt_stations = np.random.choice(n_stations, size=n_stations_to_corrupt, replace=False)
+    corrupt_stations = np.random.choice(
+        n_stations, size=n_stations_to_corrupt, replace=False
+    )
 
     for st in corrupt_stations:
-        corrupt_channels = np.random.choice(n_channels, size=n_channels_to_corrupt, replace=False)
-        
+        corrupt_channels = np.random.choice(
+            n_channels, size=n_channels_to_corrupt, replace=False
+        )
+
         for ch in corrupt_channels:
             amp_multiplier = np.random.uniform(*amp_range)
             phase_offset = np.random.uniform(-180.0, 180.0)
-            
+
             gain[:, ch, st] *= amp_multiplier * np.exp(1j * np.deg2rad(phase_offset))
 
     return gain
@@ -810,7 +814,7 @@ def calculate_gains(cfg):
     gain_ypol = np.swapaxes(gain_ypol, 0, 1)
 
     if outlier_enable:
-        amp_range = (outlier_config["amp_min"],outlier_config["amp_max"])
+        amp_range = (outlier_config["amp_min"], outlier_config["amp_max"])
         gain_xpol = add_gain_outliers(
             gain_xpol,
             amp_range,

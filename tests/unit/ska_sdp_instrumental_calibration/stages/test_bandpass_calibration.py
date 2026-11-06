@@ -40,6 +40,7 @@ def test_should_have_the_expected_default_configuration():
         "bandpass_calibration": {
             "run_solver_config": {
                 "solver": "jones_substitution",
+                "skymodel_path": None,
                 "refant": 0,
                 "niter": 50,
                 "phase_only": False,
@@ -105,6 +106,7 @@ def test_should_perform_bandpass_calibration(
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="jones_substitution",
+        skymodel_path=None,
         niter=1,
         refant=parse_ref_ant_mock.return_value,
         phase_only=False,
@@ -354,6 +356,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="jones_substitution",
+        skymodel_path=None,
         niter=1,
         refant=parse_ref_ant_mock.return_value,
         phase_only=False,

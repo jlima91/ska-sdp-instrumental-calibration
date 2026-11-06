@@ -40,6 +40,7 @@ def test_should_have_the_expected_default_configuration():
             "plot_table": True,
             "run_solver_config": {
                 "solver": "jones_substitution",
+                "skymodel_path": None,
                 "refant": 0,
                 "niter": 50,
                 "phase_only": False,
@@ -174,6 +175,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="jones_substitution",
+        skymodel_path=None,
         niter=1,
         refant=3,
         phase_only=False,
@@ -305,6 +307,7 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="jones_substitution",
+        skymodel_path=None,
         niter=1,
         refant=3,
         phase_only=False,

@@ -183,8 +183,7 @@ def convert_oskar_to_ska_lsm(
     df["epoch"] = 0.0
 
     components = {
-        row["component_id"]: SkyComponent(**row)
-        for row in df.to_dict("records")
+        row["component_id"]: SkyComponent(**row) for row in df.to_dict("records")
     }
     sky_model = SkyModel(
         metadata=SkyModelMetadata(
@@ -238,8 +237,7 @@ def main():
         "--catalogue-name",
         type=str,
         default=None,
-        help="Catalogue name for the metadata header. "
-        "Default: the input file stem",
+        help="Catalogue name for the metadata header. " "Default: the input file stem",
     )
     parser.add_argument(
         "--catalogue-version",

@@ -232,7 +232,7 @@ def read_soltab(soltab: h5py.Group) -> SoltabData:
     # Map normalised axis name -> dataset name inside the soltab
     h5_axes = dict(zip(axes, raw_axes))
 
-    unknown = set(axes) - {*_SOLTAB_AXES, "pol"}
+    unknown = set(axes) - {*_SOLTAB_AXES, "pol", "dir"}
     if unknown:
         raise ValueError(
             f"h5parm soltab {soltab.name} has unsupported axes "
@@ -241,6 +241,19 @@ def read_soltab(soltab: h5py.Group) -> SoltabData:
 
     val = soltab["val"][...]
     weight = soltab["weight"][...] if "weight" in soltab else np.ones_like(val)
+
+    # DDECal writes a direction axis. A single direction can be dropped;
+    # multiple directions cannot be represented in one gain table.
+    if "dir" in axes:
+        dir_idx = axes.index("dir")
+        if val.shape[dir_idx] != 1:
+            raise ValueError(
+                f"h5parm soltab {soltab.name} has {val.shape[dir_idx]} "
+                "directions; only single-direction solutions are supported"
+            )
+        val = np.squeeze(val, axis=dir_idx)
+        weight = np.squeeze(weight, axis=dir_idx)
+        axes.pop(dir_idx)
 
     # Restore absent axes with length one
     for ax in _SOLTAB_AXES:
