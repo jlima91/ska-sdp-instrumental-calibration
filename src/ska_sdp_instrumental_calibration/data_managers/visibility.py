@@ -89,6 +89,10 @@ def create_template_vis_from_ms(
     ska-sdp-datamodels 3.1.0, is dropped from the templates as it is not
     used by the INST pipeline. It is added back only when exporting
     visibilities to MSv2.
+
+    The MS selection and the resolved data and weight column names are
+    stored in ``attrs["meta"]["MSV2"]`` of each template, with keys
+    ``FIELD_ID``, ``DATA_DESC_ID``, ``DATA_COLUMN`` and ``WEIGHT_COLUMN``.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -108,8 +112,6 @@ def create_template_vis_from_ms(
                         spwid = ddtab.getcol("SPECTRAL_WINDOW_ID")[dd]
                         polid = ddtab.getcol("POLARIZATION_ID")[dd]
 
-                    meta = {"MSV2": {"FIELD_ID": field, "DATA_DESC_ID": dd}}
-
                     with ftab.query(f"DATA_DESC_ID=={dd}", style="") as ms:
                         if ms.nrows() <= 0:
                             raise ValueError(
@@ -123,6 +125,10 @@ def create_template_vis_from_ms(
                                 "has no data in the measurement set"
                             )
 
+                        resolved_weightcolumn = _resolve_weight_column(
+                            ms, weightcolumn
+                        )
+
                         time = ms.getcol("TIME")
                         antenna1 = ms.getcol("ANTENNA1")
                         antenna2 = ms.getcol("ANTENNA2")
@@ -131,7 +137,7 @@ def create_template_vis_from_ms(
                         vis_dtype = ms.getcol(datacolumn, nrow=1).dtype
                         flags_dtype = ms.getcol("FLAG", nrow=1).dtype
                         weight_dtype = ms.getcol(
-                            _resolve_weight_column(ms, weightcolumn), nrow=1
+                            resolved_weightcolumn, nrow=1
                         ).dtype
                         uvw_dtype = ms.getcol("UVW", nrow=1).dtype
 
@@ -313,6 +319,18 @@ def create_template_vis_from_ms(
                         time_index = time_index_row[row]
                         bv_times[time_index] = time[row]
                         bv_integration_time[time_index] = integration_time[row]
+
+                    # The MS selection and the resolved columns are
+                    # recorded here, so that the data loaded later into
+                    # this template comes from the same columns
+                    meta = {
+                        "MSV2": {
+                            "FIELD_ID": field,
+                            "DATA_DESC_ID": dd,
+                            "DATA_COLUMN": datacolumn,
+                            "WEIGHT_COLUMN": resolved_weightcolumn,
+                        }
+                    }
 
                     vis_template = Visibility.constructor(
                         uvw=bv_uvw,
@@ -681,20 +699,29 @@ def _resolve_weight_column(ms: table, weightcolumn: str) -> str:
     return weightcolumn
 
 
-def _load_data_vars(
-    vis: Visibility,
-    ms_name: str,
-    *,
-    datacolumn: str,
-    weightcolumn: str,
-    field_id: int,
-    data_desc_id: int,
-):
+def _load_data_vars(vis: Visibility, ms_name: str) -> Visibility:
     """
-    The keyword arguments must match the ones used to create the
-    template ``vis`` with :py:func:`create_template_vis_from_ms`,
-    hence they have no defaults.
+    Load the data variables of the template ``vis`` from the MSv2.
 
+    The MS selection (field and data description IDs) and the columns
+    to read are taken from the ``vis.attrs["meta"]["MSV2"]`` set by
+    :py:func:`create_template_vis_from_ms`, so the data is always read
+    from the same columns the template was created for.
+
+    Parameters
+    ----------
+    vis
+        Template visibility created by
+        :py:func:`create_template_vis_from_ms`.
+    ms_name
+        Path to the MSv2 the template was created from.
+
+    Returns
+    -------
+        Visibility with dask-backed data variables read from the MSv2.
+
+    Notes
+    -----
     Pre-requisites:
 
       * vis dimensions:
@@ -708,6 +735,17 @@ def _load_data_vars(
         are absent in MS, auto-correlations in the Visibility dataset
         are set to zero.
     """
+    msv2_meta = vis.attrs["meta"]["MSV2"]
+    field_id = msv2_meta["FIELD_ID"]
+    data_desc_id = msv2_meta["DATA_DESC_ID"]
+    datacolumn = msv2_meta["DATA_COLUMN"]
+    weightcolumn = msv2_meta["WEIGHT_COLUMN"]
+    logger.info(
+        "Loading visibilities from %s column and weights from %s column",
+        datacolumn,
+        weightcolumn,
+    )
+
     with table(ms_name, readonly=True, ack=False) as tab:
         with tab.query(
             f"FIELD_ID=={field_id} AND DATA_DESC_ID=={data_desc_id}", style=""
@@ -764,9 +802,6 @@ def _load_data_vars(
 
             ms_ant1_col = ms.getcol("ANTENNA1")
             ms_ant2_col = ms.getcol("ANTENNA2")
-
-            weightcolumn = _resolve_weight_column(ms, weightcolumn)
-            logger.info("Loading weights from %s column", weightcolumn)
 
     time_index_xdr = xr.DataArray(
         da.arange(vis.time.size), coords={"time": vis.time}
@@ -970,14 +1005,7 @@ def load_ms_as_dataset_with_time_chunks(
 
     vis_template = vis_template.pipe(with_chunks, chunks)
 
-    return _load_data_vars(
-        vis_template,
-        ms_name,
-        datacolumn=datacolumn,
-        weightcolumn=weightcolumn,
-        field_id=field_id,
-        data_desc_id=data_desc_id,
-    )
+    return _load_data_vars(vis_template, ms_name)
 
 
 def _generate_file_paths_for_vis_zarr_file(vis_cache_directory):
@@ -1026,6 +1054,12 @@ def write_ms_to_zarr(
         for input_ms in input_ms_paths
     ]
 
+    # NOTE: The dataset attributes (including the MSv2 "meta", which
+    # holds the resolved data and weight column names) are taken from
+    # the first visibility. If the input MSs resolved the "auto"
+    # weightcolumn differently, the metadata would only describe the
+    # first one; the data itself is still loaded correctly per MS.
+    # This is not expected, as all input MSs come from the same source.
     visibility = xr.concat(visibilities, dim="time", data_vars="minimal")
     writer = write_visibility_to_zarr(
         vis_cache_directory, zarr_chunks, visibility
