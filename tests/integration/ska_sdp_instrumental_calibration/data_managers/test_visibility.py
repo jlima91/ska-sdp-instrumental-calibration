@@ -237,6 +237,12 @@ def test_should_load_weights_from_requested_column(
         vis.weight.values,
         _expected_vis_weight(expected_column_data, vis.weight.shape),
     )
+    assert vis.attrs["meta"]["MSV2"] == {
+        "FIELD_ID": 0,
+        "DATA_DESC_ID": 0,
+        "DATA_COLUMN": "DATA",
+        "WEIGHT_COLUMN": expected_column,
+    }
 
 
 def test_should_load_weights_from_weight_when_weight_spectrum_is_absent(
