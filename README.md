@@ -23,7 +23,6 @@ The INST pipeline is primarily dependent on these external astronomy related lib
 Apart from above, the pipeline uses standard SKA processing functions in the
 
 1. [sdp-func-python](https://developer.skao.int/projects/ska-sdp-func-python/en/)
-2. [sdp-func](https://developer.skao.int/projects/ska-sdp-func/en/) (optional)
 
 and SKA standard data models in the
 [ska-sdp-datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
@@ -120,7 +119,7 @@ Run the following command to install the latest pipeline from the `main` branch 
 INST_BRANCH=main
 
 # if using uv, use `uv pip install ...`
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[ska-sdp-func]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
 ```
 
 The `dp3_gaincal` solver requires the optional `dp3` extra. To use it, add

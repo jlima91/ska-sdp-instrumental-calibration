@@ -87,7 +87,6 @@ autoclass_content = "class"
 autodoc_mock_imports = [
     'everybeam',
     'casacore',
-    'ska_sdp_func',
 ]
 
 # The master toctree document.

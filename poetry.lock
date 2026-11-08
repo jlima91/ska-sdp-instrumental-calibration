@@ -5087,29 +5087,6 @@ url = "https://artefact.skao.int/repository/pypi-internal/simple"
 reference = "skao"
 
 [[package]]
-name = "ska-sdp-func"
-version = "1.2.2"
-description = "SKA SDP Processing Function Library"
-optional = true
-python-versions = ">=3.9"
-groups = ["main"]
-markers = "extra == \"ska-sdp-func\""
-files = [
-    {file = "ska_sdp_func-1.2.2-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:68ea7c48f1151ad9d0de8d683794b6a18f62796dd9c3ee2ed5edcc0dfafbd735"},
-]
-
-[package.dependencies]
-numpy = ">=1.7.0"
-
-[package.extras]
-cuda = ["cupy-cuda12x (>=12.0.0)"]
-
-[package.source]
-type = "legacy"
-url = "https://artefact.skao.int/repository/pypi-internal/simple"
-reference = "skao"
-
-[[package]]
 name = "ska-sdp-func-python"
 version = "2.0.1"
 description = "SKA SDP Python-Based Processing Functions"
@@ -6086,9 +6063,8 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 [extras]
 dp3 = ["dp3"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
-ska-sdp-func = ["ska-sdp-func"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "71b2d2fa35438a8b4e5c437077c9078175ac74c46ef6dd9f148cb0b57592738c"
+content-hash = "ce02f041c3b916bc47f34162da5a0ded26318389fb8368a108bf1cd76e1cdf4a"
