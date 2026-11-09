@@ -15,19 +15,17 @@ If you wish to contribute to this repository, please refer [Developer Guide](htt
 
 ## Requirements for running the pipeline
 
-The INST pipeline is primarily dependent on these external astronomy related libraries:
+The INST pipeline depends on these astronomy libraries:
 
-1. [python-casacore](https://github.com/casacore/python-casacore)
-2. [everybeam](https://git.astron.nl/RD/EveryBeam)
+| Library | Used for |
+| --- | --- |
+| [python-casacore](https://github.com/casacore/python-casacore) | Reading Measurement Set tables and metadata. |
+| [EveryBeam](https://git.astron.nl/RD/EveryBeam) | Station beam responses, used to predict model visibilities and to normalise at the beam centre. |
+| [DP3](https://git.astron.nl/RD/DP3) (optional) | The `dp3_gaincal` solver, which runs the DP3 `gaincal` step. Installed with the `dp3` extra. |
+| [ska-sdp-func-python](https://developer.skao.int/projects/ska-sdp-func-python/en/) | SKA processing functions: gain and ionospheric solvers, and applying gains to visibilities. |
+| [ska-sdp-datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) | SKA standard data models for visibilities, gain tables and sky models. |
 
-Apart from above, the pipeline uses standard SKA processing functions in the
-
-1. [sdp-func-python](https://developer.skao.int/projects/ska-sdp-func-python/en/)
-
-and SKA standard data models in the
-[ska-sdp-datamodels](https://developer.skao.int/projects/ska-sdp-datamodels/en/) repository.
-
-All above dependencies are installed along with the pipeline using [standard installation steps](#installing-the-pipeline).
+All of these except DP3 are installed with the pipeline using the [standard installation steps](#installing-the-pipeline). DP3 needs the `dp3` extra, see below.
 
 For prediction of model visibilities, here are the pre-requisites:
 
@@ -48,41 +46,6 @@ For prediction of model visibilities, here are the pre-requisites:
    An appropriate measurement set for basic tests can be downloaded using the
    [everybeam package](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/)
    script `download_ms.sh`, but one will also be made available in this package.
- * The [everybeam coeffs](https://gitlab.com/ska-telescope/sdp/ska-sdp-func-everybeam/-/tree/master/coeffs)
-   directory is also needed to generate beam models. The directory path supplied to
-   `predict_from_components` is used to set environment variable `EVERYBEAM_DATADIR`.
-
-## Foreword: Dask distribution
-
-> This section is inspired from the [batch-preprocessing pipeline](https://developer.skao.int/projects/ska-sdp-batch-preprocess/en/latest/pipelines.html#foreword-dask-distribution)
-
-> This is only applicable with you run INST pipeline with a dask cluster (LocalCluster or SlurmCluster)
-
-The INST pipeline in the `load_data` stage, converts the MSv2 into a Zarr file, and stores it in the `cache_directory` path.
-
-During the testing, we have realised that its better to limit the number of parallel tasks that run during the conversion from MSv2 to Zarr,
-so that each task can get enought memory.
-
-The only reliable solution is to use [worker resources](https://distributed.dask.org/en/latest/resources.html#worker-resources).
-
-The instrumental calibration assumes that all workers define a resource called `process`; each worker may hold 1 or more `process` resources.
-Each task of the conversion is defined to use 1 `process` resource.
-Thus each worker will only run `process` number of tasks at any time (parallel/concurrent using its threadpool.)
-
-To define the reources when starting dask worker using the cli command:
-
-```bash
-dask worker <SCHEDULER_ADDRESS> <OPTIONS> --resources "process=1"
-```
-
-Or in a LocalCluster:
-
-```python
-cluster = LocalCluster(resources={'process': 1})
-```
-
-> ⚠️ Warning:
-> If the process resource is not defined on any worker, the pipeline (or rather, the Dask scheduler) will hang indefinitely.
 
 ## Installing the pipeline
 
@@ -102,13 +65,13 @@ source .venv/bin/activate
 
 #### Stable release from SKAO pip index (recommended)
 
-Run the following command to install the latest stable release (0.7.1) of the pipeline from SKAO python artifact repository:
+Run the following command to install the latest stable release (1.5.0) of the pipeline from SKAO python artifact repository:
 
 ```bash
-INST_VERSION=0.7.1
+INST_VERSION=1.5.0
 
 # if using uv, use `uv pip install ...`
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[python-casacore,ska-sdp-func]==$INST_VERSION"
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration==$INST_VERSION"
 ```
 
 #### Latest pipeline from git
@@ -122,15 +85,19 @@ INST_BRANCH=main
 pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
 ```
 
-The `dp3_gaincal` solver requires the optional `dp3` extra. To use it, add
-`dp3` to the list of extras in the commands above.
+The `dp3_gaincal` solver is not in the 1.5.0 release. To use it, install
+from git with the optional `dp3` extra:
+
+```bash
+pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[dp3]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
+```
 
 ### As spack package
 
 The INST pipeline is available as a [spack](https://spack.readthedocs.io/en/v0.23.1/) package, in the [ska-sdp-spack](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack) repository. Please follow the [README](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack/-/blob/main/README.md) to setup spack on your machine. Then install the e2e pipeline using this command:
 
 ```bash
-INST_VERSION=0.7.1
+INST_VERSION=1.5.0
 
 spack install "py-ska-sdp-instrumental-calibration@$INST_VERSION"
 ```
@@ -147,7 +114,7 @@ We also provide a OCI (docker) image which is hosted on the SKA Docker artifact 
 To pull the docker image for the latest stable release, please run:
 
 ```bash
-INST_VERSION=0.7.1
+INST_VERSION=1.5.0
 docker pull "artefact.skao.int/ska-sdp-instrumental-calibration:$INST_VERSION"
 ```
 
@@ -214,77 +181,7 @@ Please run `ska-sdp-instrumental-calibration run --help` to see  all supported o
 
 ### Reordering stages in pipeline
 
-Run the instrumental calibration pipeline using `experimental` subcommand, to provide alternate stage order than the default order.
-
-Example:
-
-```bash
-ska-sdp-instrumental-calibration experimental \
---config /path/to/config \
---output /path/to/output/dir \
-/path/to/ms
-```
-
-The configuration is used to control both the execution order and any additional settings for each stage. The `experimental` subcommand allows reuse of the same stage multiple times.
-
-#### Experimental Configuration
-
-```yaml
-global_parameters:
-  experimental:
-    pipeline:
-      - load_data: {}
-      - predict_vis:
-          use_everybeam: true
-          flux_limit: 2.0
-          fov: 5.0
-      - bandpass_calibration: {}
-      - delay_calibration: {}
-      - generate_channel_rm:
-          run_solver_config:
-            solver: normal_equations
-            refant: 0
-            niter: 30
-      - delay_calibration: {}
-      - export_gain_table: {}
-parameters:
-  bandpass_calibration:
-    plot_config:
-      plot_table: true
-      fixed_axis: false
-    run_solver_config:
-      solver: gain_substitution
-      refant: 0
-      niter: 10
-  delay_calibration:
-    oversample: 16
-    plot_config:
-      plot_table: false
-      fixed_axis: false
-  export_gain_table:
-    file_name: inst.gaintable
-    export_format: h5parm
-    export_metadata: false
-  load_data:
-    nchannels_per_chunk: 32
-pipeline: {}
-```
-
-The pipeline defined under `global_parameters.experimental.pipeline` will be used to construct the execution pipeline. It will consist of the following stages in the order: (1) `load_data` (2) `predict_vis` (3) `bandpass_calibration` (4) `delay_calibration` (5) `generate_channel_rm` (6) `delay_calibration_1` and (7) `export_gain_table`. There is no stage specific validations done while constructing the execution order, hence the user should pay special attention to stage order. The pipeline would not function if `load_data` stage is not set as the first stage.
-
-**Stage Names**: The `ska-sdp-instrumental-calibration experimental` feature will update the stage names for duplicated stages as follows: the first occurrence of a stage name will remain unchanged, without a suffix. Subsequent duplicates will be renamed using the format `<stage-name>_x`, where `x` is the duplicate index starting from 1. For example, the second occurrence of `delay_calibration` will be renamed to `delay_calibration_1`. This numbering is automatically incremented for each duplicate, preserving the order as defined in the `global_parameters.experimental.pipeline` section. This approach ensures that each stage has a unique and identifiable name.
-
-**The stage configurations** have the following precedence (from highest to lowest):
-
-1.  `--set` cli parameter
-2.  Configuration provided under the `global_parameters.experimental.pipeline.<stage>` section
-3.  Configuration provided under `parameters.<stage>` section
-4.  The default configurations used for the stage definitions.
-
-While using the `--set` cli-option, please be mindful of the _suffix appended to the stage name_. Example: `ska-sdp-instrumental-calibration experimental ... --set parameters.delay_calibration_1.plot_config.plot_table true`
-
-Please note that the `pipeline` section is intentionally left blank and would be ignored for the `ska-sdp-instrumental-calibration experimental` feature, as the stage execution order is decided from `global_parameters.experimental.pipeline` section.
-
+The `experimental` subcommand runs the stages in an order given in the config, and can run a stage more than once. See [Reordering Stages (Experimental)](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/experimental_pipeline.html) for the config format and how the stages are named and configured.
 
 ## Using the CLI for Target Calibration pipeline
 
@@ -320,8 +217,8 @@ options:
 
 > Generating YAML config of the pipeline and running the pipeline is same as instrumental calibration pipeline. Target calibration pipeline doesn't provide experimental configuration.
 
-## Calibation Strategy for Calibrator
+## Calibration flow
 
-Refer this page for [calibration strategy](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_strategy.html)
+Refer to the [calibration flow](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html) page for the stages of each pipeline, the data they solve on, and example configs.
 
 

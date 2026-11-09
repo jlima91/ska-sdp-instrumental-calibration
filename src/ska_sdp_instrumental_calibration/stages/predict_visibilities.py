@@ -30,11 +30,12 @@ def predict_visibilities(
         Union[bool, Literal["vis", "modelvis"]],
         Field(
             description="""Multiply by the inverse of the beam response
-            in the beam pointing direction for the initial gain solutions
-            (delay_calibration and bandpass_initialisation). If true,
-            normalise both vis and model vis. If "vis" or "modelvis",
-            normalise only that one. If false, normalise neither. Other
-            stages use the un-normalised vis and model vis.""",
+            in the beam pointing direction. If true, normalise both vis
+            and model vis. If "vis" or "modelvis", normalise only that
+            one. If false, normalise neither. Requires use_everybeam.
+            Which stages solve on the normalised data is described in
+            https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
+            """,
         ),
     ] = True,
     element_response_model: Annotated[
@@ -115,11 +116,11 @@ def predict_visibilities(
         Whether to use everybeam model. It uses everybeam by default.
     normalise_at_beam_centre: bool | str
         Multiply by the inverse of the beam response in the beam pointing
-        direction for the initial gain solutions (delay_calibration and
-        bandpass_initialisation). If true, normalise both vis and model
-        vis. If "vis" or "modelvis", normalise only that one. If false,
-        normalise neither. Other stages use the un-normalised vis and
-        model vis.
+        direction. If true, normalise both vis and model vis. If "vis" or
+        "modelvis", normalise only that one. If false, normalise neither.
+        Requires use_everybeam. Which stages solve on the normalised data
+        is described in the calibration flow documentation:
+        https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
     element_response_model: str
         type of element response model given to Everybeam.
         Defaulted oskar_dipole_cos.
