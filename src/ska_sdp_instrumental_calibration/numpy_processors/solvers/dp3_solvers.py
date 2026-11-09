@@ -253,6 +253,13 @@ def dp3_gaincal_solve(
     given, it is supplied as extra buffer data (``gaincal.reusemodel``).
     Otherwise DP3 predicts the model internally from ``skymodel_path``
     (``gaincal.sourcedb``), which requires the ``observation`` metadata.
+    This internal predict uses DP3's default predict settings: the
+    station beam is not applied (``gaincal.usebeammodel`` is false), and
+    no time or frequency smearing correction is done. The beam cannot be
+    enabled here, as DP3 loads the EveryBeam telescope from an MS, and no
+    MS is passed to DP3. To calibrate against a beam-corrupted model,
+    predict it beforehand (e.g. INST predict with EveryBeam) and pass it
+    as ``model_vis``.
     The solution intervals in time and frequency are derived from the
     shape of ``gain_gain``.
 
@@ -269,7 +276,8 @@ def dp3_gaincal_solve(
         Weights for observed visibilities. Shape matches `vis_vis`.
     model_vis
         Model visibility data. Shape matches `vis_vis`.
-        If None, DP3 predicts the model from ``skymodel_path``.
+        If None, DP3 predicts the model from ``skymodel_path``, without
+        beam corruption.
     model_flags
         Flags for model visibilities. Shape matches `vis_vis`.
         Flagged model samples are also flagged in the observed data.

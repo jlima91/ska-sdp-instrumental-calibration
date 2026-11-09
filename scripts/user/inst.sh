@@ -369,8 +369,7 @@ fi
 export DASK_CONFIG="${temp_dir}/dask_custom_config.yaml"
 
 cat <<EOF >"$DASK_CONFIG"
-dask:
-  temporary-directory: "${temp_dir}"
+temporary-directory: "${temp_dir}"
 distributed:
   comm:
     timeouts:
