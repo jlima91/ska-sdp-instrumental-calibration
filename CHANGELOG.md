@@ -12,6 +12,10 @@
 8. Remove `Component`, `generate_lsm_from_csv`, `generate_lsm_from_gleamegc`, `export_lsm_to_csv` and `ComponentConverters` from `data_managers.sky_model`. `GlobalSkyModel.components` is replaced by `GlobalSkyModel.sky_model`, and GLEAM files are read with `read_gleamegc`, which returns a `SkyModel`.
 9. **Breaking:** the sky model converter scripts moved to the new `inst_cli_tools` package, are installed as console scripts, and are named after what they convert: `oskar-csv-converter` is now `oskar-to-ska-lsm`, and `gleam-csv-converter` is now `gleam-to-ska-lsm`.
 10. Add the `ska-lsm-to-sourcedb` script, which converts an SKA LSM CSV to a sourcedb (makesourcedb) sky model, as read by DP3. The semi-axes are doubled to the FWHM that sourcedb expects.
+11. Require `everybeam >= 0.9.1` and remove the OSKAR zenith beam scaling, which is 1 to machine precision with this version. The `scale` parameter of `Telescope.station_response` is removed.
+12. Normalisation at the beam centre (`normalise_at_beam_centre` in `predict_vis`) now applies only to the initial gain solutions, `delay_calibration` and `bandpass_initialisation`, as in RCAL. The other bandpass calibration stages solve on the un-normalised vis and model vis, so the exported bandpass is the physical gain. The target calibration stages, `complex_gain_calibration` and `ionospheric_delay`, still solve on the normalised vis and model vis.
+13. `normalise_at_beam_centre` in `predict_vis` also accepts `"vis"` or `"modelvis"`, to normalise only the vis or only the model vis. `true` (the default) still normalises both and `false` neither.
+14. Remove the unused `ska-sdp-func` optional dependency and its `ska-sdp-func` extra.
 
 ## 1.5.0
 

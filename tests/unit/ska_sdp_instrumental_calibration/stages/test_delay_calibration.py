@@ -214,8 +214,87 @@ def test_should_perform_delay_calibration_using_beam_normalised_vis(
     )
 
     assert output.vis == corrected_vis_mock
-    assert output.beam_normalised_vis == corrected_normalised_vis_mock
-    assert output.beam_normalised_modelvis == normalised_modelvis_mock
+    assert output["beam_normalised_vis"] == corrected_normalised_vis_mock
+    assert output["beam_normalised_modelvis"] == normalised_modelvis_mock
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration"
+    ".apply_gaintable_to_dataset"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration"
+    ".reset_gaintable"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration"
+    ".calculate_delays_from_gain"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "delay_calibration.apply_delay_to_gaintable"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration"
+    ".parse_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration" ".run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.delay_calibration"
+    ".Solver.get_solver"
+)
+def test_should_perform_delay_calibration_using_only_normalised_modelvis(
+    get_solver_mock,
+    run_solver_mock,
+    parse_antenna_mock,
+    apply_delay_mock,
+    calculate_delay_mock,
+    reset_gaintable_mock,
+    apply_gaintable_to_dataset_mock,
+    plot_config,
+):
+    vis_mock = Mock(name="vis")
+    normalised_modelvis_mock = Mock(name="normalised modelvis")
+    gaintable_mock = Mock(name="gaintable")
+    delay_correction_mock = Mock(name="delay_correction")
+
+    run_solver_mock.return_value = gaintable_mock
+    apply_delay_mock.side_effect = [
+        Mock(name="gaintable_without_delay"),
+        delay_correction_mock,
+    ]
+
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = vis_mock
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["beam_normalised_vis"] = None
+    upstream_output["beam_normalised_modelvis"] = normalised_modelvis_mock
+    upstream_output["gaintable"] = gaintable_mock
+
+    output = delay_calibration_stage(
+        upstream_output,
+        _qa_dir_="/output/path",
+        plot_config=plot_config,
+        export_gaintable=False,
+    )
+
+    run_solver_mock.assert_called_once_with(
+        vis=vis_mock,
+        modelvis=normalised_modelvis_mock,
+        gaintable=gaintable_mock,
+        solver=get_solver_mock.return_value,
+    )
+    # Only the un-normalised vis is delay corrected
+    apply_gaintable_to_dataset_mock.assert_called_once_with(
+        vis_mock, delay_correction_mock, inverse=True
+    )
+
+    assert output.vis == apply_gaintable_to_dataset_mock.return_value
+    assert output["beam_normalised_vis"] is None
+    assert output["beam_normalised_modelvis"] == normalised_modelvis_mock
 
 
 @patch(

@@ -13,7 +13,7 @@ from ...plot import PlotGaintableTime
 from ...scheduler import delayed
 from ...xarray_processors import parse_antenna, with_chunks
 from ...xarray_processors.solver import run_solver
-from .._utils import get_gaintables_path, get_plots_path
+from .._utils import get_gaintables_path, get_plots_path, get_value_or_fallback
 from ..configuration_models import PlotConfig, TargetRunSolverConfig
 
 logger = logging.getLogger()
@@ -77,12 +77,20 @@ def complex_gain_calibration_stage(
             Updated upstream_output with gaintable
     """
 
-    modelvis = _upstream_output_.modelvis
+    modelvis = get_value_or_fallback(
+        _upstream_output_, "beam_normalised_modelvis", "modelvis"
+    )
     vis_chunks = _upstream_output_.chunks
     run_solver_config = run_solver_config.model_dump()
     run_solver_config["timeslice"] = _upstream_output_.timeslice
 
-    vis = _upstream_output_[visibility_key]
+    # Only "vis" has a beam centre normalised version from predict_vis
+    if visibility_key == "vis":
+        vis = get_value_or_fallback(
+            _upstream_output_, "beam_normalised_vis", "vis"
+        )
+    else:
+        vis = _upstream_output_[visibility_key]
     logger.info(f"Using {visibility_key} for complex gain calibration.")
 
     initial_gaintable = _upstream_output_.gaintable

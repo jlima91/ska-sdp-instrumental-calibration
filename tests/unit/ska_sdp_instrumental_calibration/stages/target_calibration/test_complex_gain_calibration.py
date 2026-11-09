@@ -106,6 +106,59 @@ def test_should_perform_complex_gain_calibration(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
+    ".complex_gain_calibration.parse_antenna",
+    return_value=3,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration"
+    ".complex_gain_calibration.run_solver",
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration"
+    ".complex_gain_calibration.Solver",
+)
+@pytest.mark.parametrize(
+    "visibility_key_attr, expected_vis_key",
+    [("vis", "beam_normalised_vis"), ("corrected_vis", "corrected_vis")],
+)
+def test_should_perform_complex_gain_calibration_using_beam_normalised_vis(
+    solver_factory_mock,
+    run_solver_mock,
+    parse_ref_ant_mock,
+    upstream_output,
+    run_solver_config,
+    plot_config,
+    visibility_key_attr,
+    expected_vis_key,
+):
+    upstream_output["beam_normalised_vis"] = Mock(name="normalised vis")
+    upstream_output["beam_normalised_modelvis"] = Mock(
+        name="normalised modelvis"
+    )
+    initial_gaintable = upstream_output.gaintable
+    initial_gaintable.pipe.return_value = initial_gaintable
+    solver_factory_mock.get_solver.return_value = "SOLVER"
+
+    complex_gain_calibration_stage(
+        upstream_output,
+        run_solver_config=run_solver_config,
+        plot_config=plot_config,
+        visibility_key=visibility_key_attr,
+        export_gaintable=False,
+        _qa_dir_="/out",
+    )
+
+    # Only "vis" has a normalised version; model vis is always normalised
+    run_solver_mock.assert_called_once_with(
+        vis=upstream_output[expected_vis_key],
+        modelvis=upstream_output["beam_normalised_modelvis"],
+        gaintable=initial_gaintable,
+        solver="SOLVER",
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration"
     ".complex_gain_calibration.delayed",
     side_effect=lambda x: x,
 )

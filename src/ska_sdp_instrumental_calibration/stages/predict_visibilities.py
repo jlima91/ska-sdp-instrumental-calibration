@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Field
 from ska_sdp_datamodels.science_data_model.science_data_model import (
@@ -13,7 +13,6 @@ from ..data_managers.telescope import Telescope
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ..xarray_processors.beams import prediction_central_beams
 from ..xarray_processors.predict import predict_vis
-from ._utils import BEAM_NORMALISED_MODELVIS_KEY, BEAM_NORMALISED_VIS_KEY
 
 logger = logging.getLogger()
 
@@ -28,13 +27,14 @@ def predict_visibilities(
         Field(description="Whether to use everybeam model."),
     ] = True,
     normalise_at_beam_centre: Annotated[
-        bool,
+        Union[bool, Literal["vis", "modelvis"]],
         Field(
-            description="""If true, multiply vis and model vis by the
-            inverse of the beam response in the beam pointing direction
-            for the initial gain solutions (delay_calibration and
-            bandpass_initialisation). Other stages use the
-            un-normalised vis and model vis.""",
+            description="""Multiply by the inverse of the beam response
+            in the beam pointing direction for the initial gain solutions
+            (delay_calibration and bandpass_initialisation). If true,
+            normalise both vis and model vis. If "vis" or "modelvis",
+            normalise only that one. If false, normalise neither. Other
+            stages use the un-normalised vis and model vis.""",
         ),
     ] = True,
     element_response_model: Annotated[
@@ -113,11 +113,13 @@ def predict_visibilities(
         Input measurementset.
     use_everybeam: bool
         Whether to use everybeam model. It uses everybeam by default.
-    normalise_at_beam_centre: bool
-        If true, multiply vis and model vis by the inverse of the beam
-        response in the beam pointing direction for the initial gain
-        solutions (delay_calibration and bandpass_initialisation). Other
-        stages use the un-normalised vis and model vis.
+    normalise_at_beam_centre: bool | str
+        Multiply by the inverse of the beam response in the beam pointing
+        direction for the initial gain solutions (delay_calibration and
+        bandpass_initialisation). If true, normalise both vis and model
+        vis. If "vis" or "modelvis", normalise only that one. If false,
+        normalise neither. Other stages use the un-normalised vis and
+        model vis.
     element_response_model: str
         type of element response model given to Everybeam.
         Defaulted oskar_dipole_cos.
@@ -205,16 +207,19 @@ def predict_visibilities(
             gaintable,
             beams_factory,
         )
-        normalised_vis = apply_gaintable_to_dataset(
-            vis, central_beams, inverse=True
-        )
-        normalised_modelvis = apply_gaintable_to_dataset(
-            modelvis, central_beams, inverse=True
-        )
+        # True normalises both; a string selects only one of them
+        if normalise_at_beam_centre in (True, "vis"):
+            normalised_vis = apply_gaintable_to_dataset(
+                vis, central_beams, inverse=True
+            )
+        if normalise_at_beam_centre in (True, "modelvis"):
+            normalised_modelvis = apply_gaintable_to_dataset(
+                modelvis, central_beams, inverse=True
+            )
 
     _upstream_output_["central_beams"] = central_beams
-    _upstream_output_[BEAM_NORMALISED_VIS_KEY] = normalised_vis
-    _upstream_output_[BEAM_NORMALISED_MODELVIS_KEY] = normalised_modelvis
+    _upstream_output_["beam_normalised_vis"] = normalised_vis
+    _upstream_output_["beam_normalised_modelvis"] = normalised_modelvis
 
     _upstream_output_["modelvis"] = modelvis
     _upstream_output_["beams_factory"] = beams_factory

@@ -1,4 +1,6 @@
+import pytest
 from mock import Mock, call, patch
+from pydantic import ValidationError
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import predict_vis_stage
@@ -21,6 +23,28 @@ def test_should_have_the_expected_default_configuration():
     }
 
     assert predict_vis_stage.__stage__.config == expected_config
+
+
+@pytest.mark.parametrize(
+    "normalise_at_beam_centre", [True, False, "vis", "modelvis"]
+)
+def test_should_accept_valid_normalise_at_beam_centre_values(
+    normalise_at_beam_centre,
+):
+    param_model = predict_vis_stage.__stage__.metadata.stage_param_model
+
+    params = param_model.model_validate(
+        {"normalise_at_beam_centre": normalise_at_beam_centre}
+    )
+
+    assert params.normalise_at_beam_centre == normalise_at_beam_centre
+
+
+def test_should_reject_invalid_normalise_at_beam_centre_value():
+    param_model = predict_vis_stage.__stage__.metadata.stage_param_model
+
+    with pytest.raises(ValidationError):
+        param_model.model_validate({"normalise_at_beam_centre": "both"})
 
 
 @patch(
@@ -89,8 +113,8 @@ def test_should_predict_visibilities(
 
     assert result.modelvis == [1, 2, 3]
     assert result.central_beams is None
-    assert result.beam_normalised_vis is None
-    assert result.beam_normalised_modelvis is None
+    assert result["beam_normalised_vis"] is None
+    assert result["beam_normalised_modelvis"] is None
 
 
 @patch(
@@ -220,8 +244,8 @@ def test_should_normalise_at_beam_centre(
     assert result.beams_factory == beams_factory_mock.return_value
     assert result.vis == vis
     assert result.modelvis == model_vis
-    assert result.beam_normalised_vis == normalised_vis
-    assert result.beam_normalised_modelvis == normalised_modelvis
+    assert result["beam_normalised_vis"] == normalised_vis
+    assert result["beam_normalised_modelvis"] == normalised_modelvis
 
 
 @patch(
@@ -405,6 +429,114 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
     )
 
     sdm_mock.get_sky_model_path.assert_called_once_with("field_a")
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.Telescope"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".BeamsFactory"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".GlobalSkyModel"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".prediction_central_beams"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".apply_gaintable_to_dataset"
+)
+@pytest.mark.parametrize("normalise_at_beam_centre", ["vis", "modelvis"])
+def test_should_normalise_only_selected_vis_at_beam_centre(
+    apply_gaintable_mock,
+    prediction_beams_mock,
+    predict_vis_mock,
+    global_sky_model_mock,
+    beams_factory_mock,
+    telescope_mock,
+    normalise_at_beam_centre,
+):
+    upstream_output = _get_prepopulated_upstream_output()
+    vis = upstream_output.vis
+    model_vis = Mock(name="Model Visibilities")
+    predict_vis_mock.return_value = model_vis
+    mock_beams = Mock(name="Beams")
+    prediction_beams_mock.return_value = mock_beams
+    normalised = Mock(name="Normalised")
+    apply_gaintable_mock.return_value = normalised
+
+    result = predict_vis_stage(
+        upstream_output,
+        input_ms=["path/to/input/ms"],
+        _qa_dir_="./output_dir",
+        use_everybeam=True,
+        normalise_at_beam_centre=normalise_at_beam_centre,
+        gleamfile="/path/to/gleam.dat",
+        export_sky_model=False,
+    )
+
+    prediction_beams_mock.assert_called_once_with(
+        upstream_output.gaintable, beams_factory_mock.return_value
+    )
+    assert result.central_beams == mock_beams
+    assert result.vis == vis
+    assert result.modelvis == model_vis
+
+    if normalise_at_beam_centre == "vis":
+        apply_gaintable_mock.assert_called_once_with(
+            vis, mock_beams, inverse=True
+        )
+        assert result["beam_normalised_vis"] == normalised
+        assert result["beam_normalised_modelvis"] is None
+    else:
+        apply_gaintable_mock.assert_called_once_with(
+            model_vis, mock_beams, inverse=True
+        )
+        assert result["beam_normalised_vis"] is None
+        assert result["beam_normalised_modelvis"] == normalised
+
+
+@pytest.mark.parametrize("normalise_at_beam_centre", ["vis", "modelvis"])
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".prediction_central_beams"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+    ".GlobalSkyModel"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.predict_visibilities.predict_vis"
+)
+def test_should_not_normalise_selected_vis_when_use_everybeam_is_false(
+    predict_vis_mock,
+    global_sky_model_mock,
+    prediction_beams_mock,
+    normalise_at_beam_centre,
+):
+    upstream_output = _get_prepopulated_upstream_output()
+
+    result = predict_vis_stage(
+        upstream_output,
+        input_ms=["path/to/input/ms"],
+        _qa_dir_="./output_dir",
+        use_everybeam=False,
+        normalise_at_beam_centre=normalise_at_beam_centre,
+        gleamfile="/path/to/gleam.dat",
+        export_sky_model=False,
+    )
+
+    prediction_beams_mock.assert_not_called()
+    assert result.central_beams is None
+    assert result["beam_normalised_vis"] is None
+    assert result["beam_normalised_modelvis"] is None
 
 
 def _get_prepopulated_upstream_output():

@@ -114,8 +114,8 @@ def test_should_initialize_gains_using_beam_normalised_vis(
     )
 
     run_solver_mock.assert_called_once_with(
-        vis=upstream_output.beam_normalised_vis,
-        modelvis=upstream_output.beam_normalised_modelvis,
+        vis=upstream_output["beam_normalised_vis"],
+        modelvis=upstream_output["beam_normalised_modelvis"],
         gaintable=initial_gaintable,
         solver="SOLVER",
     )

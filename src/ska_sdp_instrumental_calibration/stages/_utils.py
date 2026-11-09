@@ -5,9 +5,6 @@ import xarray as xr
 
 from ..scheduler import UpstreamOutput
 
-BEAM_NORMALISED_VIS_KEY = "beam_normalised_vis"
-BEAM_NORMALISED_MODELVIS_KEY = "beam_normalised_modelvis"
-
 
 def _create_path_tree(path: str):
     """
@@ -85,34 +82,43 @@ def get_plots_path(output_dir: str, file_prefix: str) -> str:
     return plots_path
 
 
-def get_initialisation_vis(
-    upstream_output: UpstreamOutput,
-) -> tuple[xr.Dataset, xr.Dataset, bool]:
+def has_value(upstream_output: UpstreamOutput, key: str) -> bool:
     """
-    Get the visibilities to use for initial gain solutions.
-
-    Initial solutions (delay calibration and bandpass initialisation) use
-    the visibilities and model visibilities normalised at the beam centre
-    when the predict stage provides them, as RCAL does for its initial
-    diagonal solve. Otherwise the un-normalised visibilities are used.
+    Check whether a key is present in the upstream output and not None.
 
     Parameters
     ----------
     upstream_output
         Output from the upstream stage.
+    key
+        Key to check.
 
     Returns
     -------
-        Visibilities, model visibilities, and whether they are the beam
-        centre normalised ones.
+        True if the key is present and its value is not None.
     """
-    if (
-        BEAM_NORMALISED_VIS_KEY in upstream_output
-        and upstream_output[BEAM_NORMALISED_VIS_KEY] is not None
-    ):
-        return (
-            upstream_output[BEAM_NORMALISED_VIS_KEY],
-            upstream_output[BEAM_NORMALISED_MODELVIS_KEY],
-            True,
-        )
-    return upstream_output.vis, upstream_output.modelvis, False
+    return key in upstream_output and upstream_output[key] is not None
+
+
+def get_value_or_fallback(
+    upstream_output: UpstreamOutput, key: str, fallback_key: str
+) -> xr.Dataset:
+    """
+    Get the value for a key, or for a fallback key if it has no value.
+
+    Parameters
+    ----------
+    upstream_output
+        Output from the upstream stage.
+    key
+        Preferred key, e.g. ``"beam_normalised_vis"``.
+    fallback_key
+        Key to use when ``key`` is absent or None, e.g. ``"vis"``.
+
+    Returns
+    -------
+        Value of ``key`` if it has a value, else value of ``fallback_key``.
+    """
+    if has_value(upstream_output, key):
+        return upstream_output[key]
+    return upstream_output[fallback_key]
