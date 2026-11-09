@@ -78,7 +78,6 @@ def complex_gain_calibration_stage(
     run_solver_config = run_solver_config.model_dump()
     run_solver_config["timeslice"] = _upstream_output_.timeslice
 
-
     initial_gaintable = _upstream_output_.gaintable
     initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
 
