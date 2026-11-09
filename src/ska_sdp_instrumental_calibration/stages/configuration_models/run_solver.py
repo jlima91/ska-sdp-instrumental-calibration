@@ -38,17 +38,21 @@ class RunSolverConfig(PiperBaseModel):
                 and solution intervals.
                 "dp3_gaincal" - DP3 gaincal step. Requires the optional
                 dp3 package.
-                "dp3_ddecal" - DP3 DDECal step. DDECal predicts the
-                model from ``skymodel_path`` instead of using the model
-                visibilities. Requires the optional dp3 package."""
+                "dp3_ddecal" - DP3 DDECal step, solving for a single
+                direction. Uses the model visibilities, or predicts the
+                model from ``skymodel_path`` if given. Requires the
+                optional dp3 package."""
         ),
     ] = "jones_substitution"
     skymodel_path: Annotated[
         str | None,
         Field(
-            description="""DP3-readable sky model (path ending in
-                ".skymodel" or ".txt", or a sourcedb directory).
-                Required when solver is "dp3_ddecal", ignored otherwise."""
+            description="""Optional DP3-readable sky model (path
+                ending in ".skymodel" or ".txt", or a sourcedb directory).
+                If given with solver "dp3_ddecal", DDECal predicts the
+                model of the patch nearest to the phase centre from it
+                instead of using the model visibilities. Ignored by the
+                other solvers."""
         ),
     ] = None
     refant: Annotated[
