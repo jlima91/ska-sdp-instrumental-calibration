@@ -27,7 +27,6 @@ parameters:
     plot_config:
       plot_table: false
       fixed_axis: false
-    visibility_key: vis
     export_gaintable: false
   export_gain_table:
     file_name: inst.gaintable

@@ -15,7 +15,6 @@ def upstream_output():
     uo = UpstreamOutput()
     uo["gaintable"] = Mock(name="gaintable")
     uo["vis"] = Mock(name="vis")
-    uo["corrected_vis"] = Mock(name="corrected_vis")
     uo["modelvis"] = Mock(name="modelvis")
     uo["chunks"] = Mock(name="chunks")
     uo["timeslice"] = 1
@@ -53,7 +52,6 @@ def plot_config():
     "ska_sdp_instrumental_calibration.stages.target_calibration"
     ".complex_gain_calibration.Solver",
 )
-@pytest.mark.parametrize("visibility_key_attr", ["vis", "corrected_vis"])
 def test_should_perform_complex_gain_calibration(
     solver_factory_mock,
     run_solver_mock,
@@ -61,7 +59,6 @@ def test_should_perform_complex_gain_calibration(
     upstream_output,
     run_solver_config,
     plot_config,
-    visibility_key_attr,
 ):
     initial_gaintable = upstream_output.gaintable
     initial_gaintable.pipe.return_value = initial_gaintable
@@ -73,7 +70,6 @@ def test_should_perform_complex_gain_calibration(
         upstream_output,
         run_solver_config=run_solver_config,
         plot_config=plot_config,
-        visibility_key=visibility_key_attr,
         export_gaintable=False,
         _qa_dir_="/out",
     )
@@ -95,7 +91,7 @@ def test_should_perform_complex_gain_calibration(
         timeslice=1,
     )
     run_solver_mock.assert_called_once_with(
-        vis=upstream_output[visibility_key_attr],
+        vis=upstream_output.vis,
         modelvis=upstream_output.modelvis,
         gaintable=initial_gaintable,
         solver="SOLVER",
@@ -117,10 +113,6 @@ def test_should_perform_complex_gain_calibration(
     "ska_sdp_instrumental_calibration.stages.target_calibration"
     ".complex_gain_calibration.Solver",
 )
-@pytest.mark.parametrize(
-    "visibility_key_attr, expected_vis_key",
-    [("vis", "beam_normalised_vis"), ("corrected_vis", "corrected_vis")],
-)
 def test_should_perform_complex_gain_calibration_using_beam_normalised_vis(
     solver_factory_mock,
     run_solver_mock,
@@ -128,8 +120,6 @@ def test_should_perform_complex_gain_calibration_using_beam_normalised_vis(
     upstream_output,
     run_solver_config,
     plot_config,
-    visibility_key_attr,
-    expected_vis_key,
 ):
     upstream_output["beam_normalised_vis"] = Mock(name="normalised vis")
     upstream_output["beam_normalised_modelvis"] = Mock(
@@ -143,14 +133,12 @@ def test_should_perform_complex_gain_calibration_using_beam_normalised_vis(
         upstream_output,
         run_solver_config=run_solver_config,
         plot_config=plot_config,
-        visibility_key=visibility_key_attr,
         export_gaintable=False,
         _qa_dir_="/out",
     )
 
-    # Only "vis" has a normalised version; model vis is always normalised
     run_solver_mock.assert_called_once_with(
-        vis=upstream_output[expected_vis_key],
+        vis=upstream_output["beam_normalised_vis"],
         modelvis=upstream_output["beam_normalised_modelvis"],
         gaintable=initial_gaintable,
         solver="SOLVER",
@@ -214,7 +202,6 @@ def test_should_export_gaintable_with_proper_suffix(
         upstream_output,
         _qa_dir_="/output/path",
         run_solver_config=run_solver_config,
-        visibility_key="corrected_vis",
         plot_config=plot_config,
         export_gaintable=True,
     )

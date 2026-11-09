@@ -16,6 +16,7 @@
 12. Normalisation at the beam centre (`normalise_at_beam_centre` in `predict_vis`) now applies only to the initial gain solutions, `delay_calibration` and `bandpass_initialisation`, as in RCAL. The other bandpass calibration stages solve on the un-normalised vis and model vis, so the exported bandpass is the physical gain. The target calibration stages, `complex_gain_calibration` and `ionospheric_delay`, still solve on the normalised vis and model vis.
 13. `normalise_at_beam_centre` in `predict_vis` also accepts `"vis"` or `"modelvis"`, to normalise only the vis or only the model vis. `true` (the default) still normalises both and `false` neither.
 14. Remove the unused `ska-sdp-func` optional dependency and its `ska-sdp-func` extra.
+15. **Breaking:** remove the `visibility_key` parameter of `complex_gain_calibration`. It always solves on `vis`, normalised at the beam centre when `predict_vis` provides it, so the vis and model vis stay on the same scale. Remove `visibility_key` from existing `complex_gain_calibration` configs.
 
 ## 1.5.0
 

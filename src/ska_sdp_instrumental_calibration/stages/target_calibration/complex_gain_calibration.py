@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
@@ -37,12 +37,6 @@ def complex_gain_calibration_stage(
             default_factory=PlotConfig,
         ),
     ],
-    visibility_key: Annotated[
-        Literal["vis", "corrected_vis"],
-        Field(
-            description="""Visibility data to be used for calibration.""",
-        ),
-    ] = "vis",
     export_gaintable: Annotated[
         bool,
         Field(
@@ -56,9 +50,9 @@ def complex_gain_calibration_stage(
     Parameters
     ----------
         _upstream_output_: dict
-            Output from the upstream stage. It should contain:
-                gaintable, modelvis and visibility data with key
-                same as visibility_key
+            Output from the upstream stage. It should contain gaintable,
+            vis and modelvis. The beam centre normalised vis and model
+            vis are used when present.
         _qa_dir_ : str
             Directory path where the diagnostic QA outputs will be written.
         run_solver_config: RunSolverConfig
@@ -66,8 +60,6 @@ def complex_gain_calibration_stage(
         plot_config: dict
             Configuration required for plotting.
             eg: {{plot_table: False, fixed_axis: False}}
-        visibility_key: str
-            Visibility data to be used for calibration.
         export_gaintable: bool
             Export intermediate gain solutions
 
@@ -76,7 +68,9 @@ def complex_gain_calibration_stage(
         dict
             Updated upstream_output with gaintable
     """
-
+    vis = get_value_or_fallback(
+        _upstream_output_, "beam_normalised_vis", "vis"
+    )
     modelvis = get_value_or_fallback(
         _upstream_output_, "beam_normalised_modelvis", "modelvis"
     )
@@ -84,14 +78,6 @@ def complex_gain_calibration_stage(
     run_solver_config = run_solver_config.model_dump()
     run_solver_config["timeslice"] = _upstream_output_.timeslice
 
-    # Only "vis" has a beam centre normalised version from predict_vis
-    if visibility_key == "vis":
-        vis = get_value_or_fallback(
-            _upstream_output_, "beam_normalised_vis", "vis"
-        )
-    else:
-        vis = _upstream_output_[visibility_key]
-    logger.info(f"Using {visibility_key} for complex gain calibration.")
 
     initial_gaintable = _upstream_output_.gaintable
     initial_gaintable = initial_gaintable.pipe(with_chunks, vis_chunks)
