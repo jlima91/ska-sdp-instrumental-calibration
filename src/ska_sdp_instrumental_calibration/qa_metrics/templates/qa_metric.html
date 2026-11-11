@@ -9,6 +9,7 @@
 </style>
 </head>
 <body>
+{% from "components.html" import data_table, error_message, station_pill, truncated_path %}
 <header>
 <h1>{{ title }}</h1>
 <div class="toolbar">
@@ -17,16 +18,59 @@
 </div>
 </header>
 <main>
-  {% for section_title in section_titles %}
+  {% if metadata %}
+  <p class="source">Source: <strong>{{ metadata.source_name }}</strong></p>
+  {% endif %}
+
+  <details open><summary>{{ section_titles[0] }}</summary><div>
+    {% if section_errors.metadata %}
+    {{ error_message(section_errors.metadata) }}
+    {% else %}
+    <section class="subsection">
+      <h3>File Information</h3>
+      <dl class="file-info">
+        <dt>Measurement set</dt>
+        <dd>{% for input_ms in metadata.input_ms %}{{ truncated_path(input_ms) }}{% endfor %}</dd>
+        <dt>INST output folder</dt>
+        <dd>{{ truncated_path(metadata.output_path) }}</dd>
+      </dl>
+    </section>
+
+    <section class="subsection">
+      <h3>Observation Parameters</h3>
+      {% set observation = metadata.observation_parameters %}
+      <dl class="observation">
+        <div><dt>Start time</dt><dd>{{ observation.start_time }}</dd></div>
+        <div><dt>Integration time</dt><dd>{{ "%g"|format(observation.integration_time) }} s</dd></div>
+        <div><dt>Channels</dt><dd>{{ observation.channels }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="subsection">
+      <h3>Array Configuration</h3>
+      <ul class="stations">
+        {% for station_id, station_name in metadata.station_configuration.items() %}
+        {{ station_pill(station_id, station_name) }}
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div></details>
+
+  <details open><summary>{{ section_titles[1] }}</summary><div>
+    {% if section_errors.flagging_statistics %}
+    {{ error_message(section_errors.flagging_statistics) }}
+    {% else %}
+    {{ data_table(flagging_statistics_columns, flagging_statistics, "stations") }}
+    {% endif %}
+  </div></details>
+
+  {% for section_title in section_titles[2:] %}
   <details open><summary>{{ section_title }}</summary><div></div></details>
   {% endfor %}
 </main>
 <script>
-function setAllSectionsOpen(open) {
-  document.querySelectorAll("details").forEach(function (section) {
-    section.open = open;
-  });
-}
+{% include "qa_metric.js" %}
 </script>
 </body>
 </html>

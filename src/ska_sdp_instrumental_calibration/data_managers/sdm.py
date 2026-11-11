@@ -1,6 +1,5 @@
 """SDM class to manage science data model"""
 
-import glob
 import os
 from pathlib import Path
 
@@ -9,6 +8,7 @@ from ska_sdp_datamodels.science_data_model.science_data_model import (
 )
 
 GAINTABLE_FILE_NAME = "gaintable.h5parm"
+GAINTABLE_PURPOSE = "bandpass"
 
 
 def get_gaintable_file_path(
@@ -130,36 +130,32 @@ def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
     return str(latest_run_path)
 
 
-def get_qa_metric_source_name(
-    qa_metric_dir: str, sdm_path: str | None = None
-) -> str | None:
+def get_final_gaintable_path(
+    qa_metric_dir: str, field_id: str, sdm_path: str | None = None
+) -> str:
     """
-    Get the source name to name the QA metric report.
-
+    Get the path of the final gaintable of a field
     Parameters
     ----------
     qa_metric_dir
-        Directory of the INST run
+        Directory of the INST run. Used if no SDM path is provided.
+    field_id
+        Field the gaintable belongs to.
     sdm_path
         Path to the SDM directory, if the INST run is in an SDM.
 
     Returns
     -------
-        The source name prefix of the final gaintable in qa_metric_dir,
-        or None if there is no final gaintable.
-        If an SDM path is provided, the index ``NN`` of the ``logs/NN-inst``
-        directory is returned instead, as SDM runs are not yet mapped
-        to a source.
+        The SDM calibration table path if an SDM path is provided, else
+        <qa_metric_dir>/<field_id>_gaintable.h5parm.
     """
     if sdm_path is not None:
-        return Path(qa_metric_dir).name.split("-")[0]
+        return str(
+            ScienceDataModel(sdm_path).get_calibration_table(
+                field_id=field_id,
+                purpose=GAINTABLE_PURPOSE,
+                file_name=GAINTABLE_FILE_NAME,
+            )
+        )
 
-    gaintable_paths = glob.glob(
-        os.path.join(qa_metric_dir, f"*_{GAINTABLE_FILE_NAME}")
-    )
-    if not gaintable_paths:
-        return None
-
-    return os.path.basename(gaintable_paths[0]).removesuffix(
-        f"_{GAINTABLE_FILE_NAME}"
-    )
+    return os.path.join(qa_metric_dir, f"{field_id}_{GAINTABLE_FILE_NAME}")

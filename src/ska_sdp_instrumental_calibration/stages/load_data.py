@@ -12,6 +12,10 @@ from ..data_managers.chunking import (
     estimate_channels_per_chunk,
     get_cluster_spec,
 )
+from ..data_managers.data_export.qa_metadata import (
+    get_ms_qa_data,
+    write_qa_metadata,
+)
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
@@ -21,8 +25,9 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..scheduler import UpstreamOutput
+from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
+from .data_exports import group_upstream_by_field_id
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +37,7 @@ logger = logging.getLogger(__name__)
 def load_data_stage(
     _upstream_output_,
     _output_dir_,
+    _qa_dir_,
     input_ms: Annotated[list[str], CLIArgument],
     nchannels_per_chunk: Annotated[
         Union[int, Literal["auto"]],
@@ -98,6 +104,8 @@ def load_data_stage(
         Output from the upstream stage
     _output_dir_: str
         Piper builtin. Stores the output directory path.
+    _qa_dir_: str
+        Directory path where the diagnostic QA outputs will be written.
     input_ms: CLIArgument
         Input measurementset.
     nchannels_per_chunk: int | "auto"
@@ -131,7 +139,7 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded visibility data
     """
-    return [
+    upstream_outputs = [
         _load_data(
             _output_dir_,
             os.path.realpath(ms),
@@ -145,6 +153,19 @@ def load_data_stage(
         )
         for ms in input_ms
     ]
+
+    for ms, upstream_output in zip(input_ms, upstream_outputs):
+        upstream_output["input_ms"] = os.path.realpath(ms)
+
+    grouped_upstream_output = group_upstream_by_field_id(upstream_outputs)
+    for field_id, field_upstream_outputs in grouped_upstream_output.items():
+        ms_qa_data = [
+            get_ms_qa_data(upstream_output.vis, upstream_output.input_ms)
+            for upstream_output in field_upstream_outputs
+        ]
+        delayed(write_qa_metadata)(field_id, ms_qa_data, _qa_dir_)
+
+    return upstream_outputs
 
 
 def _load_data(

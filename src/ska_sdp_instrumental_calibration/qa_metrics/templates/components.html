@@ -1,0 +1,63 @@
+{# Reusable building blocks of the QA metric page #}
+
+{# A value as shown in a table cell, empty where it is not available #}
+{% macro format_value(value, value_format) -%}
+  {%- if value is none -%}
+  {%- elif value_format == "percentage" -%}{{ "%.2f%%"|format(value) }}
+  {%- else -%}{{ value }}
+  {%- endif -%}
+{%- endmacro %}
+
+{# Error shown in place of the content of a section #}
+{% macro error_message(message) -%}
+<p class="error-message" role="alert">{{ message }}</p>
+{%- endmacro %}
+
+{# A path truncated from the start with an ellipsis when too long, with the
+   full path as tool tip #}
+{% macro truncated_path(path) -%}
+<span class="truncate-start" title="{{ path }}"><bdi>{{ path }}</bdi></span>
+{%- endmacro %}
+
+{# A station as a pill: station ID and station name #}
+{% macro station_pill(station_id, station_name) -%}
+<li class="station-pill"><span class="pill-id">{{ station_id }}</span><span class="pill-name">{{ station_name }}</span></li>
+{%- endmacro %}
+
+{# A sortable, paginated table. Columns are tables.Column, rows are dicts
+   keyed by Column.key. Header shows the unit and the description as tool
+   tip. Sorting and pagination are done by initTable in qa_metric.js #}
+{% macro data_table(columns, rows, item_name, page_size=5) -%}
+<div class="table-card" data-page-size="{{ page_size }}" data-item-name="{{ item_name }}">
+  <table>
+    <thead>
+      <tr>
+        {% for column in columns %}
+        <th class="{{ column.value_format }}"{% if column.description %} title="{{ column.description }}"{% endif %}>
+          {{- column.label }}{% if column.unit %} ({{ column.unit }}){% endif -%}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for column in columns %}
+        {% set value = row[column.key] %}
+        <td class="{{ column.value_format }}" data-sort-value="{{ '' if value is none else value }}">
+          {{- format_value(value, column.value_format) -}}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="pagination">
+    <span class="page-info"></span>
+    <span>
+      <button class="previous-page" aria-label="Previous page">&lt;</button>
+      <button class="next-page" aria-label="Next page">&gt;</button>
+    </span>
+  </div>
+</div>
+{%- endmacro %}
