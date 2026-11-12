@@ -2,6 +2,8 @@
 
 ## main
 
+## 2.0.0
+
 1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.
 2. Update `ska-sdp-exec-piper` to 2.3.1. The dask report is now written as `dask_performance_report.html` in the QA directory, and new dask cluster options (`--[no-]create-dask-cluster`, `--workers-per-node`, `--threads-per-worker`) are available.
 3. Require `ska-sdp-datamodels >= 3.1` and `ska-sdp-func-python >= 2`. The sky model is now held as a datamodels `SkyModel` of `SkyComponent`s.

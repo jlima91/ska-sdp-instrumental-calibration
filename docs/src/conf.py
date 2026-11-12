@@ -44,8 +44,8 @@ def setup(app):
 project = "SKA SDP Instrumental Calibration Pipeline"
 copyright = "2025, SKA Organization"
 author = "Team YABBY, Team DHRUVA"
-release = "1.5.0"
-version = "1.5.0"
+release = "2.0.0"
+version = "2.0.0"
 
 # -- General configuration ------------------------------------------------
 
