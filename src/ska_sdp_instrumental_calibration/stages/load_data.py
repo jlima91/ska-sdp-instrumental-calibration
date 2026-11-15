@@ -12,10 +12,6 @@ from ..data_managers.chunking import (
     estimate_channels_per_chunk,
     get_cluster_spec,
 )
-from ..data_managers.data_export.qa_metadata import (
-    get_ms_qa_data,
-    write_qa_metadata,
-)
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
@@ -25,9 +21,9 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..scheduler import UpstreamOutput, delayed
+from ..scheduler import UpstreamOutput
 from ..tagger import Tags
-from .data_exports import group_upstream_by_field_id
+from .data_exports import export_qa_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -154,16 +150,7 @@ def load_data_stage(
         for ms in input_ms
     ]
 
-    for ms, upstream_output in zip(input_ms, upstream_outputs):
-        upstream_output["input_ms"] = os.path.realpath(ms)
-
-    grouped_upstream_output = group_upstream_by_field_id(upstream_outputs)
-    for field_id, field_upstream_outputs in grouped_upstream_output.items():
-        ms_qa_data = [
-            get_ms_qa_data(upstream_output.vis, upstream_output.input_ms)
-            for upstream_output in field_upstream_outputs
-        ]
-        delayed(write_qa_metadata)(field_id, ms_qa_data, _qa_dir_)
+    export_qa_metadata(upstream_outputs, _qa_dir_)
 
     return upstream_outputs
 
@@ -267,6 +254,7 @@ def _load_data(
     _upstream_output_["beams_factory"] = None
     _upstream_output_["field_id"] = read_ms_field_id(input_ms)
     _upstream_output_["calibration_purpose"] = "bandpass"
+    _upstream_output_["input_ms"] = input_ms
 
     return _upstream_output_
 

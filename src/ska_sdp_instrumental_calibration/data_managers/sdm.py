@@ -8,7 +8,7 @@ from ska_sdp_datamodels.science_data_model.science_data_model import (
 )
 
 GAINTABLE_FILE_NAME = "gaintable.h5parm"
-GAINTABLE_PURPOSE = "bandpass"
+GAINTABLE_TYPE = "bandpass"
 
 
 def get_gaintable_file_path(
@@ -153,7 +153,7 @@ def get_final_gaintable_path(
         return str(
             ScienceDataModel(sdm_path).get_calibration_table(
                 field_id=field_id,
-                purpose=GAINTABLE_PURPOSE,
+                purpose=GAINTABLE_TYPE,
                 file_name=GAINTABLE_FILE_NAME,
             )
         )

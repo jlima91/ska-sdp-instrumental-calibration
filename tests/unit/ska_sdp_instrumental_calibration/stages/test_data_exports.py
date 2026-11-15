@@ -5,6 +5,7 @@ from ska_sdp_instrumental_calibration.stages.data_exports import (
     INST_METADATA_FILE,
     concat_gaintables,
     export_gaintable_stage,
+    export_qa_metadata,
 )
 from ska_sdp_instrumental_calibration.tagger import Tags
 
@@ -27,6 +28,37 @@ def test_export_gaintable_stage_is_required():
 
 def test_export_gaintable_stage_is_an_aggregator():
     assert export_gaintable_stage in Tags.AGGREGATOR
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda x: x,
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.write_qa_metadata"
+)
+@patch("ska_sdp_instrumental_calibration.stages.data_exports.get_ms_qa_data")
+def test_should_export_qa_metadata_per_field(
+    get_ms_qa_data_mock, write_qa_metadata_mock, delayed_mock
+):
+    get_ms_qa_data_mock.side_effect = ["qa_data_1", "qa_data_2"]
+    upstream_output_1 = UpstreamOutput()
+    upstream_output_1["field_id"] = "field_a"
+    upstream_output_1["input_ms"] = "ms_1"
+    upstream_output_1["vis"] = "vis_1"
+    upstream_output_2 = UpstreamOutput()
+    upstream_output_2["field_id"] = "field_a"
+    upstream_output_2["input_ms"] = "ms_2"
+    upstream_output_2["vis"] = "vis_2"
+
+    export_qa_metadata([upstream_output_1, upstream_output_2], "/qa/dir")
+
+    get_ms_qa_data_mock.assert_has_calls(
+        [call("vis_1", "ms_1"), call("vis_2", "ms_2")]
+    )
+    write_qa_metadata_mock.assert_called_once_with(
+        "field_a", ["qa_data_1", "qa_data_2"], "/qa/dir"
+    )
 
 
 @patch("ska_sdp_instrumental_calibration.stages.data_exports.xr")

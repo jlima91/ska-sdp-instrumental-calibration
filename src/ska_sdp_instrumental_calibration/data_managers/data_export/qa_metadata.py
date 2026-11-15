@@ -51,7 +51,7 @@ def _percentage_per_station(
 ) -> np.ndarray:
     """
     Sum the (flagged, total) counts over the measurement
-    sets, then give the percentage per station.
+    sets, then return the percentage per station.
     """
     flagged = 0
     total = 0
@@ -69,12 +69,11 @@ def _percentage_per_station(
     return flagged / total * 100
 
 
-# TODO: need to get the logic checked from domian exp
 def write_qa_metadata(field_id: str, ms_qa_data: list[dict], qa_dir: str):
     """
     Write the QA metadata of the measurement sets of one field to
     <qa_dir>/<field_id>_qa-metadata-data.json. The measurement sets
-    are joined along time, like the gaintable.
+    are joined along time.
 
     Parameters
     ----------
@@ -92,24 +91,19 @@ def write_qa_metadata(field_id: str, ms_qa_data: list[dict], qa_dir: str):
     station_names = [str(name) for name in first_ms["station_names"]]
     nstations = len(station_names)
 
-    # Integration time is the time resolution: the spacing of the MS TIME
-    # column, as it follows any time averaging of the data. The median
-    # ignores gaps from missing time steps. It is taken within the first
-    # measurement set, so the gap between measurement sets is not counted
     integration_time = np.median(np.diff(first_ms["timestamps"]))
 
-    # MS TIME is the centre of each integration, so the observation starts
-    # half an integration before the first time
     start_time = (
         min(ms["timestamps"].min() for ms in ms_qa_data) - integration_time / 2
     )
+    end_time = (
+        max(ms["timestamps"].max() for ms in ms_qa_data) + integration_time / 2
+    )
 
-    # Flagged visibility samples, as asked by the AC
     pre_flagged_data = _percentage_per_station(
         flagged_sample_counts, ms_qa_data, nstations
     )
-    # Gains that cannot be solved, in the same unit as the flagged gains
-    # of the final gaintable, for the flagging statistics table
+
     pre_flagged_gains = _percentage_per_station(
         unsolvable_gain_counts, ms_qa_data, nstations
     )
@@ -120,6 +114,7 @@ def write_qa_metadata(field_id: str, ms_qa_data: list[dict], qa_dir: str):
         "output_path": qa_dir,
         "observation_parameters": {
             "start_time": float(start_time),
+            "observation_length": float(end_time - start_time),
             "integration_time": float(integration_time),
             "channels": int(first_ms["channels"]),
         },

@@ -20,9 +20,7 @@ def gaintable_flagged_percentage(h5parm_path: str) -> dict[str, float]:
     """
     _, weight, _, soltab = read_h5parm_gains(h5parm_path)
 
-    # weight axes are (time, station, frequency, receptor, receptor)
     is_flagged = weight[..., [0, 1], [0, 1]] == 0
-    # per station: sum over time, frequency and receptor
     flagged = is_flagged.sum(axis=(0, 2, 3))
     total = is_flagged[:, 0, ...].size
 
@@ -75,3 +73,28 @@ def build_flagging_rows(
         )
 
     return rows
+
+
+def flagging_totals(rows: list[dict]) -> dict[str, float | None]:
+    """
+    Flagged percentage over all stations, before and after calibration.
+
+    Parameters
+    ----------
+    rows : list[dict]
+        Rows of the flagging statistics table, from build_flagging_rows.
+
+    Returns
+    -------
+    dict[str, float | None]
+        ``flagged_before`` and ``flagged_after`` average percentage, None
+        where no station has the percentage.
+    """
+    totals = {}
+    for key in ("flagged_before", "flagged_after"):
+        percentages = [row[key] for row in rows if row[key] is not None]
+        totals[key] = (
+            sum(percentages) / len(percentages) if percentages else None
+        )
+
+    return totals

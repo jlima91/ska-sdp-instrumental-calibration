@@ -4,9 +4,9 @@ import pytest
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.sdm import (
+    get_final_gaintable_path,
     get_gaintable_file_path,
     get_qa_metric_dir,
-    get_qa_metric_source_name,
     prepare_qa_path,
 )
 
@@ -94,21 +94,23 @@ def test_should_raise_error_when_sdm_path_for_qa_metric_does_not_exist():
         get_qa_metric_dir(None, sdm_path="non_existent_sdm_path")
 
 
-def test_should_get_qa_metric_source_name_from_logs_dir_with_sdm():
+def test_should_get_final_gaintable_path_without_sdm():
     assert (
-        get_qa_metric_source_name("sdm/logs/02-inst", sdm_path="sdm") == "02"
+        get_final_gaintable_path("output_dir", "field_id")
+        == "output_dir/field_id_gaintable.h5parm"
     )
 
 
-def test_should_get_qa_metric_source_name_from_gaintable_without_sdm(
-    tmp_path,
-):
-    (tmp_path / "source_name_gaintable.h5parm").touch()
+@patch("ska_sdp_instrumental_calibration.data_managers.sdm.ScienceDataModel")
+def test_should_get_final_gaintable_path_with_sdm(sdm_mock):
+    sdm_mock.return_value = sdm_mock
+    sdm_mock.get_calibration_table.return_value = "sdm/file"
 
-    assert get_qa_metric_source_name(str(tmp_path)) == "source_name"
+    assert (
+        get_final_gaintable_path("output_dir", "field_id", "sdm_path")
+        == "sdm/file"
+    )
 
-
-def test_should_return_none_when_no_gaintable_for_qa_metric_source_name(
-    tmp_path,
-):
-    assert get_qa_metric_source_name(str(tmp_path)) is None
+    sdm_mock.get_calibration_table.assert_called_once_with(
+        field_id="field_id", purpose="bandpass", file_name="gaintable.h5parm"
+    )

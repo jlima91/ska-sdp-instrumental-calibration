@@ -2,14 +2,12 @@ import numpy as np
 import xarray as xr
 
 
-# TODO: Get the logic checked by domain expert
 def flagged_time_count(vis: xr.Dataset) -> xr.DataArray:
     """
     Number of flagged time steps per baseline and channel.
 
-    A sample is flagged where its solver weight is 0, as in
-    AlternativeSolver.solve: weight * (1 - flags), and the whole sample is
-    flagged if any of its polarisations is.
+    A sample is flagged where the MS FLAG column is set, and the whole
+    sample is flagged if any of its polarisations is.
 
     Parameters
     ----------
@@ -22,9 +20,7 @@ def flagged_time_count(vis: xr.Dataset) -> xr.DataArray:
         Lazy flagged time step count, with dimensions
         (``baselineid``, ``frequency``).
     """
-    # Same as weight * (1 - flags) == 0, but as booleans, so the dask
-    # graph holds 1 byte per sample instead of a float copy of the weights
-    is_flagged = ((vis.weight == 0) | vis.flags).any(dim="polarisation")
+    is_flagged = vis.flags.any(dim="polarisation")
 
     return is_flagged.sum(dim="time")
 
@@ -35,9 +31,6 @@ def _cross_correlations(
     """
     Keep only the cross-correlation baselines.
 
-    Only cross-correlations are used by the calibration solvers
-    (gen_coherency_products). Autocorrelations are also padded with
-    weight 0 by load_data when missing from the MS.
     """
     is_cross = antenna1 != antenna2
     return flagged_count[is_cross], antenna1[is_cross], antenna2[is_cross]

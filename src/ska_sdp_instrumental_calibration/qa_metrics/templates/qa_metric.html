@@ -9,7 +9,7 @@
 </style>
 </head>
 <body>
-{% from "components.html" import data_table, error_message, station_pill, truncated_path %}
+{% from "components.html" import data_table, error_message, format_value, station_pill, truncated_path %}
 <header>
 <h1>{{ title }}</h1>
 <div class="toolbar">
@@ -41,6 +41,7 @@
       {% set observation = metadata.observation_parameters %}
       <dl class="observation">
         <div><dt>Start time</dt><dd>{{ observation.start_time }}</dd></div>
+        <div><dt>Observation length</dt><dd>{{ "%g"|format(observation.observation_length) }} s</dd></div>
         <div><dt>Integration time</dt><dd>{{ "%g"|format(observation.integration_time) }} s</dd></div>
         <div><dt>Channels</dt><dd>{{ observation.channels }}</dd></div>
       </dl>
@@ -48,11 +49,13 @@
 
     <section class="subsection">
       <h3>Array Configuration</h3>
-      <ul class="stations">
-        {% for station_id, station_name in metadata.station_configuration.items() %}
-        {{ station_pill(station_id, station_name) }}
-        {% endfor %}
-      </ul>
+      <div class="array-configuration">
+        <ul class="stations">
+          {% for station_id, station_name in metadata.station_configuration.items() %}
+          {{ station_pill(station_id, station_name) }}
+          {% endfor %}
+        </ul>
+      </div>
     </section>
     {% endif %}
   </div></details>
@@ -61,6 +64,10 @@
     {% if section_errors.flagging_statistics %}
     {{ error_message(section_errors.flagging_statistics) }}
     {% else %}
+    <dl class="flagging-totals" title="Average over all stations">
+      <div><dt>Total flagged before (%)</dt><dd>{{ format_value(flagging_totals.flagged_before, "percentage") }}</dd></div>
+      <div><dt>Total flagged after (%)</dt><dd>{{ format_value(flagging_totals.flagged_after, "percentage") }}</dd></div>
+    </dl>
     {{ data_table(flagging_statistics_columns, flagging_statistics, "stations") }}
     {% endif %}
   </div></details>

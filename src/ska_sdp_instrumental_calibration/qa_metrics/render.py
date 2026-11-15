@@ -14,6 +14,7 @@ def render_page(
     metadata: dict | None = None,
     flagging_statistics: list[dict] | None = None,
     section_errors: dict[str, str] | None = None,
+    flagging_totals: dict[str, float | None] | None = None,
 ) -> str:
     """
     Render the QA metric page.
@@ -31,6 +32,8 @@ def render_page(
     section_errors : dict of str, optional
         Error message keyed by section (``metadata``,
         ``flagging_statistics``), shown instead of the section content.
+    flagging_totals : dict, optional
+        Flagged percentage over all stations, before and after.
 
     Returns
     -------
@@ -45,4 +48,5 @@ def render_page(
         flagging_statistics=flagging_statistics,
         flagging_statistics_columns=FLAGGING_STATISTICS_COLUMNS,
         section_errors=section_errors or {},
+        flagging_totals=flagging_totals,
     )

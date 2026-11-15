@@ -29,6 +29,7 @@ def test_load_data_stage_is_a_broadcaster():
     assert load_data_stage in Tags.BROADCASTER
 
 
+@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -51,6 +52,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
+    export_qa_metadata_mock,
 ):
     check_cache_mock.return_value = True
 
@@ -69,6 +71,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     new_up_output = load_data_stage(
         upstream_output,
         "/path/to/output/dir",
+        "/path/to/qa/dir",
         ["/path/to/vis.ms/"],
         frequency_per_chunk,
         times_per_ms_chunk,
@@ -111,6 +114,11 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output[0]["beams_factory"] is None
     assert new_up_output[0]["field_id"] == "field-a"
     assert new_up_output[0]["calibration_purpose"] == "bandpass"
+    assert new_up_output[0]["input_ms"] == "/path/to/vis.ms"
+
+    export_qa_metadata_mock.assert_called_once_with(
+        new_up_output, "/path/to/qa/dir"
+    )
 
     assert new_up_output[0]["chunks"] == {
         "time": -1,
@@ -121,6 +129,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
     }
 
 
+@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -143,6 +152,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
+    export_qa_metadata_mock,
 ):
     check_cache_mock.return_value = False
 
@@ -157,6 +167,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     load_data_stage(
         upstream_output,
         "/path/to/output/dir",
+        "/path/to/qa/dir",
         ["/path/to/subdir/../vis.ms/"],
         frequency_per_chunk,
         times_per_ms_chunk,
@@ -205,6 +216,7 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
 
+@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -242,6 +254,7 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
     read_vis_shape_mock,
     check_cache_mock,
     os_makedirs_mock,
+    export_qa_metadata_mock,
 ):
     check_cache_mock.return_value = True
     read_vis_shape_mock.return_value = (10, 21, 64, 4)
@@ -252,6 +265,7 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
     new_up_output = load_data_stage(
         UpstreamOutput(),
         "/path/to/output/dir",
+        "/path/to/qa/dir",
         ["/path/to/vis.ms/"],
         "auto",
         5,
@@ -282,6 +296,7 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
     assert new_up_output[0]["chunks"]["frequency"] == 8
 
 
+@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -323,6 +338,7 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
     read_vis_shape_mock,
     check_cache_mock,
     os_makedirs_mock,
+    export_qa_metadata_mock,
 ):
     check_cache_mock.return_value = False
     template_vis = MagicMock(name="template_vis")
@@ -335,6 +351,7 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
     load_data_stage(
         UpstreamOutput(),
         "/path/to/output/dir",
+        "/path/to/qa/dir",
         ["/path/to/vis.ms/"],
         "auto",
         5,

@@ -11,6 +11,10 @@ from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
+from ..data_managers.data_export.qa_metadata import (
+    get_ms_qa_data,
+    write_qa_metadata,
+)
 from ..data_managers.sdm import get_gaintable_file_path
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
@@ -39,6 +43,27 @@ def group_upstream_by_field_id(upstream_outputs):
         return acc
 
     return reduce(accumulate_by_field_id, upstream_outputs, {})
+
+
+def export_qa_metadata(upstream_outputs: list[UpstreamOutput], qa_dir: str):
+    """
+    Export the QA metadata of the measurement sets, one file per field.
+
+    Parameters
+    ----------
+    upstream_outputs: list[UpstreamOutput]
+        Upstream output of each measurement set, with its visibility and
+        input_ms path.
+    qa_dir: str
+        Directory path where the QA metadata files will be written.
+    """
+    grouped_upstream_output = group_upstream_by_field_id(upstream_outputs)
+    for field_id, field_upstream_outputs in grouped_upstream_output.items():
+        ms_qa_data = [
+            get_ms_qa_data(upstream_output.vis, upstream_output.input_ms)
+            for upstream_output in field_upstream_outputs
+        ]
+        delayed(write_qa_metadata)(field_id, ms_qa_data, qa_dir)
 
 
 @ConfigurableStage(name="export_gain_table")

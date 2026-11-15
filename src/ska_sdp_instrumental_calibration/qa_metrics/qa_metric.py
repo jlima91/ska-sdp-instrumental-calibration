@@ -10,6 +10,7 @@ from ..data_managers.data_export.qa_metadata import (
 from ..data_managers.sdm import get_final_gaintable_path, get_qa_metric_dir
 from .flagging_statistics import (
     build_flagging_rows,
+    flagging_totals,
     gaintable_flagged_percentage,
 )
 from .formatting import format_flagging_statistics, format_metadata
@@ -77,6 +78,7 @@ def generate_qa_metric(output_path: str, sdm_path: str | None = None):
             format_metadata(metadata),
             flagging_statistics,
             {"flagging_statistics": flagging_error},
+            flagging_totals(flagging_statistics or []),
         )
         write_qa_metric(page, qa_metric_dir, metadata["source_name"])
 
