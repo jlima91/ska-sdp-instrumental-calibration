@@ -93,6 +93,9 @@ def create_template_vis_from_ms(
     The MS selection and the resolved data and weight column names are
     stored in ``attrs["meta"]["MSV2"]`` of each template, with keys
     ``FIELD_ID``, ``DATA_DESC_ID``, ``DATA_COLUMN`` and ``WEIGHT_COLUMN``.
+    If the MS ``OBSERVATION`` table has OSKAR's ``ARRAY_CENTER`` column, the
+    array reference position (ITRF, metres) is stored under
+    ``ARRAY_CENTER``.
     """
     field_ids = field_ids or [0]
     data_desc_ids = data_desc_ids or [0]
@@ -111,6 +114,23 @@ def create_template_vis_from_ms(
                     ) as ddtab:
                         spwid = ddtab.getcol("SPECTRAL_WINDOW_ID")[dd]
                         polid = ddtab.getcol("POLARIZATION_ID")[dd]
+
+                    # OSKAR stores its telescope reference position (ITRF,
+                    # metres) in this non-standard column. Keep it, because
+                    # configuration.location below is the first antenna,
+                    # not the array reference used for OSKAR TEC screens.
+                    array_center = None
+                    with table(
+                        f"{msname}/OBSERVATION", ack=ack, readonly=True
+                    ) as obstab:
+                        if (
+                            "ARRAY_CENTER" in obstab.colnames()
+                            and obstab.nrows() > 0
+                        ):
+                            array_center = [
+                                float(value)
+                                for value in obstab.getcell("ARRAY_CENTER", 0)
+                            ]
 
                     with ftab.query(f"DATA_DESC_ID=={dd}", style="") as ms:
                         if ms.nrows() <= 0:
@@ -331,6 +351,8 @@ def create_template_vis_from_ms(
                             "WEIGHT_COLUMN": resolved_weightcolumn,
                         }
                     }
+                    if array_center is not None:
+                        meta["MSV2"]["ARRAY_CENTER"] = array_center
 
                     vis_template = Visibility.constructor(
                         uvw=bv_uvw,
