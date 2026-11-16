@@ -181,44 +181,6 @@ def test_should_disable_flagged_elements(eb_ms, direction, tmp_path):
     assert not np.allclose(actual, unflagged)
 
 
-def test_should_scale_station_response_for_telescope(telescope, direction):
-    frequencies = np.array(
-        [
-            1.0005e5,
-            1.0010e5,
-            1.0015e5,
-            1.0020e5,
-        ]
-    )
-
-    scale = (
-        np.ones(
-            (frequencies.size,),
-            dtype=frequencies.dtype,
-        )
-        / 2.0
-    )
-
-    assert telescope.type is eb.OSKAR
-
-    beam_create_telescope = telescope.station_response(
-        TIME, frequencies, direction, direction
-    )
-
-    beam_create_telescope_scaled = telescope.station_response(
-        TIME,
-        frequencies,
-        direction,
-        direction,
-        scale,
-    )
-
-    np.testing.assert_allclose(
-        beam_create_telescope / 2.0,
-        beam_create_telescope_scaled,
-    )
-
-
 def test_should_validate_station_response_for_single_station(
     eb_ms, telescope, direction
 ):

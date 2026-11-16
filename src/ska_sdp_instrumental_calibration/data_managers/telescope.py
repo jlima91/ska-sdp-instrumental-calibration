@@ -207,7 +207,6 @@ class Telescope:
         frequencies: npt.NDArray | float | np.float64,
         direction: Annotated[npt.NDArray[np.float64], "shape (3,)"],
         station0: Annotated[npt.NDArray[np.float64], "shape (3,)"],
-        scale: Optional[npt.NDArray] = None,
         station_idx: Optional[int] = None,
     ):
         """
@@ -226,8 +225,6 @@ class Telescope:
             ITRF direction vector of the station beam former reference
             (pointing / delay) direction, shape (3,). It is also used as
             the tile beam former reference direction.
-        scale : npt.NDArray, optional
-            Scaling array per frequency to apply to beams, default is None.
         station_idx: int, optional
             Compute station response for the given station. If station idx
             is not provided, station response is computed for all of the
@@ -262,7 +259,7 @@ class Telescope:
         # Note: the pybind11 bindings currently hold the GIL, so python
         # threads call this one at a time anyway. Analysed for
         # everybeam v0.8.4 to v0.9.0.
-        beams = self._telescope.station_response(
+        return self._telescope.station_response(
             times=solution_time,
             station_indexes=stations,
             freqs=frequencies,
@@ -270,8 +267,3 @@ class Telescope:
             station0_direction=station0,
             tile0_direction=station0,
         )
-
-        if scale is not None:
-            beams *= scale[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
-
-        return beams

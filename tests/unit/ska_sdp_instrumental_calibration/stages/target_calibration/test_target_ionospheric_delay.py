@@ -99,6 +99,54 @@ def test_solver_runs_and_updates_gaintable(
 
 @patch(
     "ska_sdp_instrumental_calibration.stages.target_calibration."
+    "ionospheric_delay.create_gaintable_from_visibility"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration."
+    "ionospheric_delay.run_ionospheric_solver"
+)
+def test_solver_runs_using_beam_normalised_vis(
+    mock_run_ionospheric_solver,
+    mock_create_gaintable,
+    mock_upstream_output,
+):
+    normalised_vis = MagicMock(name="normalised vis")
+    normalised_modelvis = MagicMock(name="normalised modelvis")
+    mock_upstream_output["beam_normalised_vis"] = normalised_vis
+    mock_upstream_output["beam_normalised_modelvis"] = normalised_modelvis
+    mock_initialtable = MagicMock(name="initialtable")
+    chunked_mock_gaintable = MagicMock(name="chunked_gaintable")
+    mock_initialtable.pipe.return_value = chunked_mock_gaintable
+    mock_create_gaintable.return_value = mock_initialtable
+
+    ionospheric_delay_stage(
+        mock_upstream_output,
+        cluster_indexes=None,
+        block_diagonal=True,
+        niter=20,
+        tol=1e-6,
+        zernike_limit=None,
+        plot_table=False,
+        _qa_dir_="OUTPUT_DIR",
+    )
+
+    mock_run_ionospheric_solver.assert_called_once_with(
+        normalised_vis,
+        normalised_modelvis,
+        chunked_mock_gaintable,
+        None,
+        True,
+        20,
+        1e-6,
+        None,
+    )
+    mock_create_gaintable.assert_called_once_with(
+        normalised_vis, "timeslice", "B", skip_default_chunk=True
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.target_calibration."
     "ionospheric_delay.PlotGaintableTargetIonosphere"
 )
 @patch(

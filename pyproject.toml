@@ -1,7 +1,7 @@
 [tool.poetry]
 include = ["MANIFEST.skao.int"]
 name = "ska-sdp-instrumental-calibration"
-version = "1.5.0"
+version = "2.0.0"
 description = "SKA SDP Instrumental Calibration Pipeline"
 authors = [
     "Daniel Mitchell <daniel.mitchell@csiro.au>",
@@ -10,7 +10,8 @@ authors = [
     ]
 license = "BSD-3-Clause"
 packages = [
-    { include = "ska_sdp_instrumental_calibration", from = "src" }
+    { include = "ska_sdp_instrumental_calibration", from = "src" },
+    { include = "inst_cli_tools", from = "src" },
 ]
 documentation = "https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/"
 repository = "https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git"
@@ -30,7 +31,7 @@ astropy = ">=6.1"
 dask = { version = ">=2024.11", extras = ["distributed", "array", "diagnostics"] }
 xarray = ">=2024.7"
 zarr = ">=2.18"
-everybeam = ">=0.8.4"
+everybeam = ">=0.9.1"
 numpy = ">=1.26"
 jinja2 = ">=3.1"
 xradio = ">=1.1.3"
@@ -44,12 +45,10 @@ python-casacore = ">=3.7.1, <3.8"
 dp3 = { version = ">=6.6", optional = true }
 ska-sdp-datamodels = ">=3.1"
 ska-sdp-func-python = ">=2"
-ska-sdp-func = { version = ">=1.2", optional = true }
-ska-sdp-dataproduct-metadata = { version = ">=1.0", optional = true }
+ska-sdp-dataproduct-metadata = { version = ">=1.4.0", optional = true }
 
 [tool.poetry.extras]
 dp3 = ["dp3"]
-ska-sdp-func = ["ska-sdp-func"]
 ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 
 [tool.poetry.group.dev.dependencies]
@@ -76,6 +75,7 @@ sphinx-autodoc-typehints = ">=3"
 ska-ser-sphinx-theme = ">=0.2.0"
 autodoc-pydantic = ">=2.2.0"
 roman-numerals = ">=4.1.0"
+sphinxcontrib-mermaid = ">=1.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -85,15 +85,18 @@ build-backend = "poetry.core.masonry.api"
 ska-sdp-instrumental-calibration = "ska_sdp_instrumental_calibration.instrumental_calibration:ska_sdp_instrumental_calibration"
 ska-sdp-instrumental-target-calibration = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_calibration"
 ska-sdp-instrumental-target-ionospheric = "ska_sdp_instrumental_calibration.target_calibration:ska_sdp_instrumental_target_ionospheric_calibration"
-clean-with-gains = {reference = "scripts/clean-with-gains", type = "file"}
-oskar-to-ska-lsm = {reference = "scripts/convert/oskar_to_ska_lsm.py", type = "file"}
-gleam-to-ska-lsm = {reference = "scripts/convert/gleam_to_ska_lsm.py", type = "file"}
-ska-lsm-to-sourcedb = {reference = "scripts/convert/ska_lsm_to_sourcedb.py", type = "file"}
+oskar-to-ska-lsm = "inst_cli_tools.oskar_to_ska_lsm:main"
+gleam-to-ska-lsm = "inst_cli_tools.gleam_to_ska_lsm:main"
+ska-lsm-to-sourcedb = "inst_cli_tools.ska_lsm_to_sourcedb:main"
+clean-with-gains = {reference = "src/inst_cli_tools/clean-with-gains", type = "file"}
 
 [tool.coverage.run]
 branch = true
 source = [
     "src",
+]
+omit = [
+    "src/inst_cli_tools/*",
 ]
 
 [tool.coverage.report]

@@ -9,6 +9,7 @@ parameters:
     cache_directory: null
     ack: false
     datacolumn: DATA
+    weightcolumn: auto
     field_id: 0
     data_desc_id: 0
   predict_vis:

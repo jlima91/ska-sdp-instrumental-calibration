@@ -44,8 +44,8 @@ def setup(app):
 project = "SKA SDP Instrumental Calibration Pipeline"
 copyright = "2025, SKA Organization"
 author = "Team YABBY, Team DHRUVA"
-release = "1.5.0"
-version = "1.5.0"
+release = "2.0.0"
+version = "2.0.0"
 
 # -- General configuration ------------------------------------------------
 
@@ -71,7 +71,12 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib.autodoc_pydantic",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
+    "sphinxcontrib.mermaid",
 ]
+
+# Mermaid diagrams set their own light theme, since the RTD page
+# background stays white. Keep it in OS dark mode too.
+mermaid_dark_theme = "base"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -87,7 +92,6 @@ autoclass_content = "class"
 autodoc_mock_imports = [
     'everybeam',
     'casacore',
-    'ska_sdp_func',
 ]
 
 # The master toctree document.

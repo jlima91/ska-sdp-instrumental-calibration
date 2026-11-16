@@ -69,11 +69,19 @@ def load_data_stage(
         Field(description="Ask casacore to acknowledge each table operation."),
     ] = False,
     datacolumn: Annotated[
-        Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+        str,
         Field(
             description="Measurement set data column name to read data from."
         ),
     ] = "DATA",
+    weightcolumn: Annotated[
+        str,
+        Field(
+            description="""Measurement set column name to read weights from.
+            If "auto", WEIGHT_SPECTRUM is used when present and filled,
+            else WEIGHT."""
+        ),
+    ] = "auto",
     field_id: Annotated[
         int,
         Field(description="Field ID of the data in measurement set"),
@@ -125,6 +133,10 @@ def load_data_stage(
         Ask casacore to acknowledge each table operation
     datacolumn: str
         Measurement set data column name to read data from.
+    weightcolumn: str
+        Measurement set column name to read weights from.
+        If "auto", WEIGHT_SPECTRUM is used when present and filled,
+        else WEIGHT.
     field_id: int
         Field ID of the data in measurement set
     data_desc_id: int
@@ -144,6 +156,7 @@ def load_data_stage(
             cache_directory,
             ack,
             datacolumn,
+            weightcolumn,
             field_id,
             data_desc_id,
         )
@@ -162,7 +175,8 @@ def _load_data(
     ntimes_per_ms_chunk: int,
     cache_directory: Optional[str],
     ack: bool,
-    datacolumn: Literal["DATA", "CORRECTED_DATA", "MODEL_DATA"],
+    datacolumn: str,
+    weightcolumn: str,
     field_id: int,
     data_desc_id: int,
 ) -> UpstreamOutput:
@@ -189,6 +203,7 @@ def _load_data(
                 input_ms,
                 ack=ack,
                 datacolumn=datacolumn,
+                weightcolumn=weightcolumn,
                 field_ids=[field_id],
                 data_desc_ids=[data_desc_id],
             )[0].vis.shape
@@ -229,6 +244,7 @@ def _load_data(
             zarr_chunks,
             ack=ack,
             datacolumn=datacolumn,
+            weightcolumn=weightcolumn,
             field_id=field_id,
             data_desc_id=data_desc_id,
         )

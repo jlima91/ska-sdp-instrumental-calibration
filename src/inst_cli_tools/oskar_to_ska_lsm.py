@@ -50,13 +50,13 @@ For more details on the SKA LSM format, please visit:
 https://developer.skao.int/projects/ska-sdp-global-sky-model/en/latest/design/lsm-file-structure.html
 
 Usage:
-    python scripts/convert/oskar_to_ska_lsm.py input.csv
-    python scripts/convert/oskar_to_ska_lsm.py input.csv output.csv
-    python scripts/convert/oskar_to_ska_lsm.py input.csv output.csv \
+    oskar-to-ska-lsm input.csv
+    oskar-to-ska-lsm input.csv output.csv
+    oskar-to-ska-lsm input.csv output.csv \
         --comp-prefix GLEAM
-    python scripts/convert/oskar_to_ska_lsm.py input.csv \
+    oskar-to-ska-lsm input.csv \
         --default-ref-freq 150e6
-    python scripts/convert/oskar_to_ska_lsm.py input.csv \
+    oskar-to-ska-lsm input.csv \
         --catalogue-name MyCat --catalogue-version 2.0.0 --author "A. Person"
 """
 

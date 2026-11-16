@@ -90,6 +90,15 @@ def test_generate_channel_rm_stage_is_optional():
     "ska_sdp_instrumental_calibration.stages."
     "channel_rotation_measures.Solver"
 )
+@pytest.mark.parametrize(
+    "central_beams, normalised_modelvis",
+    [
+        (None, None),
+        (None, "absent"),
+        (Mock(name="beams"), None),
+        (Mock(name="beams"), "absent"),
+    ],
+)
 def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     solver_factory_mock,
     reset_gaintable_mock,
@@ -99,6 +108,8 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     run_solver_mock,
     parse_ref_ant_mock,
     delayed_mock,
+    central_beams,
+    normalised_modelvis,
     run_solver_config,
     plot_rm_config,
 ):
@@ -111,7 +122,9 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
 
     upstream_output["lsm"] = Mock(name="lsm")
 
-    upstream_output["central_beams"] = None
+    upstream_output["central_beams"] = central_beams
+    if normalised_modelvis != "absent":
+        upstream_output["beam_normalised_modelvis"] = normalised_modelvis
 
     new_model_vis_mock = Mock(name="new model vis")
     initial_table_mock = MagicMock(name="initial gaintable")
@@ -188,8 +201,13 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         solver="jones_substitution",
     )
 
+    apply_gaintable_mock.assert_not_called()
     assert result["modelvis"] == new_model_vis_mock
     assert result["gaintable"] == solved_gaintable_mock
+    if normalised_modelvis == "absent":
+        assert "beam_normalised_modelvis" not in result
+    else:
+        assert result["beam_normalised_modelvis"] is None
 
 
 @patch(
@@ -225,7 +243,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
     "ska_sdp_instrumental_calibration.stages."
     "channel_rotation_measures.Solver"
 )
-def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
+def test_should_update_beam_normalised_model_vis_when_beam_is_not_none(
     solver_factory_mock,
     reset_gaintable_mock,
     predict_vis_mock,
@@ -246,6 +264,9 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
     upstream_output["lsm"] = Mock(name="lsm")
 
     upstream_output["central_beams"] = Mock(name="beams")
+    upstream_output["beam_normalised_modelvis"] = Mock(
+        name="old beam normalised model vis"
+    )
 
     initial_table_mock = Mock(name="initial gaintable")
     initial_table_mock.gain.shape = (1, 1)
@@ -314,11 +335,13 @@ def test_should_apply_beam_to_model_vis_when_beam_is_not_none(
 
     run_solver_mock.assert_called_once_with(
         vis=upstream_output["corrected_vis"],
-        modelvis=beam_model_vis,
+        modelvis=new_model_vis_mock,
         gaintable=reset_gaintable_mock.return_value,
         solver="jones_substitution",
     )
-    assert result["modelvis"] == beam_model_vis
+
+    assert result["modelvis"] == new_model_vis_mock
+    assert result["beam_normalised_modelvis"] == beam_model_vis
     assert result["gaintable"] == solved_gaintable_mock
 
 
