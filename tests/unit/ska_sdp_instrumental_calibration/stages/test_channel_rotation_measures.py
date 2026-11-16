@@ -36,8 +36,8 @@ def test_should_have_the_expected_default_configuration():
             "peak_threshold": 0.5,
             "refine_fit": True,
             "visibility_key": "vis",
-            "plot_rm_config": {"plot_rm": True, "station": 0},
-            "plot_table": True,
+            "plot_rm_config": {"plot_rm": False, "station": 0},
+            "plot_table": False,
             "run_solver_config": {
                 "solver": "jones_substitution",
                 "refant": 0,

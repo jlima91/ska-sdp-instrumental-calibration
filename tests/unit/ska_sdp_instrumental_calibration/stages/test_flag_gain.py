@@ -10,7 +10,7 @@ from ska_sdp_instrumental_calibration.stages.flag_gain import (
 
 @pytest.fixture
 def plot_config():
-    return PlotFlagGainConfig()
+    return PlotFlagGainConfig(curve_fit_plot=True, gain_flag_plot=True)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -25,7 +25,7 @@ def test_should_have_the_expected_default_configuration():
             "n_sigma_rolling": 0.0,
             "window_size": 11,
             "normalize_gains": False,
-            "plot_config": {"curve_fit_plot": True, "gain_flag_plot": True},
+            "plot_config": {"curve_fit_plot": False, "gain_flag_plot": False},
         },
     }
 

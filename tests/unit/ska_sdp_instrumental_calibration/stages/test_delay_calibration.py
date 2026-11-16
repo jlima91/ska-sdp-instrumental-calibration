@@ -17,7 +17,7 @@ def test_should_have_the_expected_default_configuration():
     expected_config = {
         "delay_calibration": {
             "oversample": 1,
-            "plot_config": {"plot_table": True, "fixed_axis": False},
+            "plot_config": {"plot_table": False, "fixed_axis": False},
             "extract_delays_from_vis": False,
             "refant": 0,
             "niter": 200,

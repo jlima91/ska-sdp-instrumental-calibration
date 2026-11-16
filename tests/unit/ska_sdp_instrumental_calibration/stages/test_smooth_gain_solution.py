@@ -19,7 +19,7 @@ def test_should_have_the_expected_default_configuration():
             "window_size": 1,
             "mode": "median",
             "plot_config": {
-                "plot_table": True,
+                "plot_table": False,
                 "plot_path_prefix": "smoothed-gain",
                 "plot_title": "Smoothed Gain",
             },

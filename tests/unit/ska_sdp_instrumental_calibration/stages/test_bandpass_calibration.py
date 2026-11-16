@@ -47,7 +47,7 @@ def test_should_have_the_expected_default_configuration():
                 "crosspol": False,
             },
             "visibility_filters": {"uvdist": None, "exclude_baselines": None},
-            "plot_config": {"plot_table": True, "fixed_axis": False},
+            "plot_config": {"plot_table": False, "fixed_axis": False},
             "visibility_key": "vis",
         }
     }

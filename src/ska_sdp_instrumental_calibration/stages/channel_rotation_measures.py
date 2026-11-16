@@ -80,7 +80,7 @@ def generate_channel_rm_stage(
         Field(
             description="""Plot the generated gain table""",
         ),
-    ] = True,
+    ] = False,
 ):
     """
     Estimate a Rotation Measure value for each station, re-predict

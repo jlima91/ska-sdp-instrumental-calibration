@@ -4,6 +4,8 @@ parameters:
   bandpass_calibration:
     run_solver_config:
       niter: 1
+    plot_config:
+      plot_table: true
   bandpass_initialisation:
     niter: 1
   delay_calibration:
@@ -14,6 +16,9 @@ parameters:
       plot_table: true
   flag_gain:
     max_ncycles: 1
+    plot_config:
+      curve_fit_plot: true
+      gain_flag_plot: true
   export_gain_table:
     export_metadata: true
   generate_channel_rm:
