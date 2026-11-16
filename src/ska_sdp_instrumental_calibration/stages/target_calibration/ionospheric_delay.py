@@ -12,7 +12,7 @@ from ...xarray_processors.ionosphere_solvers import (
     run_ionospheric_solver,
     run_ionospheric_solver_ext,
 )
-from .._utils import get_plots_path
+from .._utils import get_plots_path, get_value_or_fallback
 
 logger = logging.getLogger()
 
@@ -53,7 +53,8 @@ def ionospheric_delay_stage(
         Optional[list[int]],
         Field(
             description="""list of Zernike index limits:
-            Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+            Generate all Zernikes with
+            ``n + |m| <= zernike_limit[cluster_id]``.
             If None, a default is used by the solver.""",
         ),
     ] = None,
@@ -102,7 +103,7 @@ def ionospheric_delay_stage(
         solver convergence (default: 1e-6).
     zernike_limit : list[int], optional
         list of Zernike index limits:
-        Generate all Zernikes with n + |m| <= zernike_limit[cluster_id].
+        Generate all Zernikes with ``n + |m| <= zernike_limit[cluster_id]``.
         If None, a default is used by the solver.
     plot_table: bool, optional
         Plot all station Phase vs Frequency (default: False).
@@ -116,8 +117,12 @@ def ionospheric_delay_stage(
     if cluster_indexes is not None:
         cluster_indexes = np.array(cluster_indexes)
 
-    vis = _upstream_output_.vis
-    modelvis = _upstream_output_.modelvis
+    vis = get_value_or_fallback(
+        _upstream_output_, "beam_normalised_vis", "vis"
+    )
+    modelvis = get_value_or_fallback(
+        _upstream_output_, "beam_normalised_modelvis", "modelvis"
+    )
     vis_chunks = _upstream_output_.chunks
     timeslice = _upstream_output_.timeslice
 

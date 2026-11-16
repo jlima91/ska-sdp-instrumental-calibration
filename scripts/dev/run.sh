@@ -151,6 +151,7 @@ clean_env_inner_script_cmd=(
   --output-dir "$output_dir"
   --reuse-dirs
   --enable-monitor
+  --disable-stdout-logs
   "${opt_cli_opt[@]}"
   -- "${INPUT_MSES[@]}"
 )

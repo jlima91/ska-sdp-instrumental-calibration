@@ -2,9 +2,11 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.calibration import GainTable
 from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
+
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
+from ..data_managers.schema.polarization import pol_to_jones
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ def _apply_gaintable_to_dataset_ufunc(
     Parameters
     ----------
     vis: (time, frequency, baselineid, polarisation)
-    gains: (antennas, nrec1, nrec2) or (frequency, antennas, nrec1, nrec2)
+    gains: (antennas, npol) or (frequency, antennas, npol)
     antenna1: (baselineid)
         Indices of the antenna1 in all baseline pairs
     antenna2: (baselineid)
@@ -35,6 +37,8 @@ def _apply_gaintable_to_dataset_ufunc(
     -------
     np.ndarray of shape (time, frequency, baselineid, polarisation)
     """
+    gains = pol_to_jones(gains)
+
     # Add frequency dimension at the start in case its dropped before
     if len(gains.shape) == 3:
         gains = gains[np.newaxis, ...]
@@ -53,11 +57,12 @@ def _apply_gaintable_to_dataset_ufunc(
 
 def apply_gaintable_to_dataset(
     vis: Visibility,
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     inverse=False,
 ) -> Visibility:
     """
-    Apply calibration gains from a GainTable to a Visibility dataset.
+    Apply calibration gains from a GainCalibrationSetXds to a Visibility
+    dataset.
 
     This function modifies visibility data by applying antenna-based Jones
     matrices. It supports both calibration (removing instrumental effects by
@@ -79,7 +84,7 @@ def apply_gaintable_to_dataset(
     ----------
     vis : Visibility
         The input visibility dataset containing observed data.
-    gaintable : GainTable
+    gaintable : GainCalibrationSetXds
         The calibration solutions (Jones matrices) to apply. Must contain
         valid `soln_interval_slices` mapping gain times to visibility times.
     inverse : bool, optional
@@ -99,7 +104,7 @@ def apply_gaintable_to_dataset(
         If Jones type is not 'B' and the gaintable has more than one
         frequency channel.
     """
-    gains = gaintable.gain
+    gains = gaintable.CALPARAM_GAIN
     if gaintable.jones_type == "B":
         # solution frequency same as vis frequency
         # chunking just to be sure that they match
@@ -120,7 +125,7 @@ def apply_gaintable_to_dataset(
                 gains.isel(time=idx, drop=True),
                 input_core_dims=[
                     ["baselineid", "polarisation"],
-                    ["antenna", "receptor1", "receptor2"],
+                    ["antenna_name", "polarization"],
                 ],
                 output_core_dims=[
                     ["baselineid", "polarisation"],

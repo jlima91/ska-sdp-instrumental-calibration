@@ -14,6 +14,9 @@ from ska_sdp_func_python.calibration.ionosphere_solvers import (
     set_coeffs_and_params,
 )
 
+from ..data_managers.schema.calibration_set import GainCalibrationSetXds
+from ..data_managers.schema.polarization import jones_to_pol, pol_to_jones
+
 __all__ = ["run_ionospheric_solver", "IonosphericSolver"]
 
 logger = logging.getLogger(__name__)
@@ -338,8 +341,9 @@ def run_ionospheric_solver_ext(
         memmap=True,
     ) as hdul:
         hdu = hdul[0]
-        header = hdu.header
-        tec_cube = hdu.data
+        # pylint cannot infer that hdul[0] is an HDU, not an HDUList.
+        header = hdu.header  # pylint: disable=no-member
+        tec_cube = hdu.data  # pylint: disable=no-member
 
         logger.info(f"Reading tec from {external_tec_fits}")
 
@@ -482,13 +486,13 @@ def run_ionospheric_solver_ext(
 def run_ionospheric_solver(
     vis: Visibility,
     modelvis: Visibility,
-    gaintable: GainTable,
+    gaintable: GainCalibrationSetXds,
     cluster_indexes: np.ndarray = None,
     block_diagonal: bool = False,
     niter: int = 15,
     tol: float = 1e-6,
     zernike_limit: list[int] = None,
-) -> GainTable:
+) -> GainCalibrationSetXds:
     """
     Solve ionospheric phase screens for every gain-table solution interval.
 
@@ -522,8 +526,8 @@ def run_ionospheric_solver(
 
     Returns
     -------
-        A copy of ``gaintable`` with ionospheric gains, retaining its original
-        chunking.
+        A copy of ``GainCalibrationSetXds`` with ionospheric gains, retaining
+        its original chunking.
     """
     results_across_solints = []
     gaintable_time_coord = gaintable.coords["time"]
@@ -543,7 +547,7 @@ def run_ionospheric_solver(
             .chunk(-1)
         )
         template_gaintable_gain = (
-            gaintable["gain"].isel(time=idx, drop=True).chunk(-1)
+            gaintable["CALPARAM_GAIN"].isel(time=idx, drop=True).chunk(-1)
         )
 
         res = xr.apply_ufunc(
@@ -554,14 +558,22 @@ def run_ionospheric_solver(
             diagonal_vis_for_given_time["flags"],
             diagonal_modelvis_for_given_time["vis"],
             input_core_dims=[
-                ["antenna", "frequency", "receptor1", "receptor2"],
+                [
+                    "antenna_name",
+                    "frequency",
+                    "polarization",
+                ],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
                 ["baselineid", "frequency", "polarisation"],
             ],
             output_core_dims=[
-                ["antenna", "frequency", "receptor1", "receptor2"]
+                [
+                    "antenna_name",
+                    "frequency",
+                    "polarization",
+                ]
             ],
             kwargs=dict(
                 antenna1=vis["antenna1"].values,
@@ -585,7 +597,9 @@ def run_ionospheric_solver(
         dim=gaintable_time_coord,
     )
 
-    return gaintable.assign(gain=concat_gaintable_gain).chunk(gaintable_chunks)
+    return gaintable.assign(CALPARAM_GAIN=concat_gaintable_gain).chunk(
+        gaintable_chunks
+    )
 
 
 def _run_ionospheric_solver_ufunc_(
@@ -619,9 +633,9 @@ def _run_ionospheric_solver_ufunc_(
         niter,
         tol,
         zernike_limit,
-    ).solve(gaintable_gain)
+    ).solve(pol_to_jones(gaintable_gain))
 
-    return gain
+    return jones_to_pol(gain)
 
 
 class IonosphericSolver:

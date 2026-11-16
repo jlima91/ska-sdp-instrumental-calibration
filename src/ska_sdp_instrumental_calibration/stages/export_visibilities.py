@@ -9,6 +9,33 @@ from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ._utils import get_visibilities_path
 
 
+def _export_visibility_to_ms(msname, vis_list):
+    """
+    Export visibilities to MSv2 file, after adding the ``time_centroid``
+    data variable required by ``export_visibility_to_ms``.
+
+    ``time_centroid`` is dropped from the visibility templates, so it is
+    set to the ``time`` broadcast to the vis dimensions, excluding
+    polarisation.
+
+    Parameters
+    -----------
+        msname: str
+            Path of the MSv2 file to write.
+        vis_list: list[Visibility]
+            Visibilities to export.
+    """
+    vis_with_time_centroid = []
+    for vis in vis_list:
+        vis_per_pol = vis.vis.isel(polarisation=0, drop=True)
+        time_centroid = vis.time.broadcast_like(vis_per_pol).transpose(
+            *vis_per_pol.dims
+        )
+        vis_with_time_centroid.append(vis.assign(time_centroid=time_centroid))
+
+    export_visibility_to_ms(msname, vis_with_time_centroid)
+
+
 @ConfigurableStage(name="export_visibilities", optional=True)
 def export_visibilities_stage(
     _upstream_output_,
@@ -72,7 +99,7 @@ def export_visibilities_stage(
         path_prefix = get_visibilities_path(
             _output_dir_, f"{prefix}/{vis_prefix}{call_counter_suffix}.ms"
         )
-        delayed(export_visibility_to_ms)(path_prefix, [vis])
+        delayed(_export_visibility_to_ms)(path_prefix, [vis])
 
     if data_to_export == "modelvis" or data_to_export == "all":
         modelvis = _upstream_output_["modelvis"]
@@ -80,7 +107,7 @@ def export_visibilities_stage(
             _output_dir_, f"{prefix}/modelvis{call_counter_suffix}.ms"
         )
 
-        delayed(export_visibility_to_ms)(path_prefix, [modelvis])
+        delayed(_export_visibility_to_ms)(path_prefix, [modelvis])
 
     _upstream_output_.increment_call_count("export_visibilities")
 

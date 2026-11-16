@@ -1,11 +1,14 @@
+import dask
 import numpy as np
 import pytest
 import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors._utils import (
+    as_dask_scalar,
     parse_antenna,
     simplify_baselines_dim,
+    unwrap_dask_scalar,
     with_chunks,
 )
 
@@ -16,7 +19,7 @@ def test_with_chunks_rechunks_dataarray_when_relevant_dim_exists():
         dims=("time", "frequency"),
     ).chunk({"time": 3, "frequency": 4})
 
-    result = with_chunks(data, {"frequency": 2, "antenna": 1})
+    result = with_chunks(data, {"frequency": 2, "antenna_name": 1})
 
     assert result is not data
     assert result.chunksizes["time"] == (3,)
@@ -29,7 +32,7 @@ def test_with_chunks_returns_same_dataarray_when_no_relevant_dim():
         dims=("time", "frequency"),
     ).chunk({"time": 3, "frequency": 4})
 
-    result = with_chunks(data, {"antenna": 1})
+    result = with_chunks(data, {"antenna_name": 1})
 
     assert result is data
 
@@ -37,11 +40,11 @@ def test_with_chunks_returns_same_dataarray_when_no_relevant_dim():
 def test_with_chunks_rechunks_dataset_when_relevant_dim_exists():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.complex128),
                 dims=("time", "frequency"),
             ),
-            "weight": xr.DataArray(
+            "CALPARAM_WEIGHT": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             ),
@@ -58,14 +61,14 @@ def test_with_chunks_rechunks_dataset_when_relevant_dim_exists():
 def test_with_chunks_returns_same_dataset_when_no_relevant_dim():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.complex128),
                 dims=("time", "frequency"),
             ),
         }
     ).chunk({"time": 2, "frequency": 6})
 
-    result = with_chunks(dataset, {"antenna": 1})
+    result = with_chunks(dataset, {"antenna_name": 1})
 
     assert result is dataset
 
@@ -77,7 +80,7 @@ def test_with_chunks_returns_same_dataset_when_no_relevant_dim():
 def test_with_chunks_returns_same_datatree_for_direct_dim_key():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             )
@@ -101,7 +104,7 @@ def test_with_chunks_returns_same_datatree_for_direct_dim_key():
 def test_with_chunks_returns_same_datatree_when_no_relevant_dim():
     dataset = xr.Dataset(
         {
-            "gain": xr.DataArray(
+            "CALPARAM_GAIN": xr.DataArray(
                 np.ones((2, 6), dtype=np.float64),
                 dims=("time", "frequency"),
             )
@@ -109,7 +112,7 @@ def test_with_chunks_returns_same_datatree_when_no_relevant_dim():
     ).chunk({"time": 2, "frequency": 6})
     tree = xr.DataTree.from_dict({"node": dataset})
 
-    result = with_chunks(tree, {"antenna": 1})
+    result = with_chunks(tree, {"antenna_name": 1})
 
     assert result is tree
 
@@ -226,3 +229,75 @@ def test_should_swap_baseline_multi_index_with_baseline_coords(logger_mock):
         ("baselines", "antenna1", "antenna2")
     )
     assert expected == vis_with_baseline_id
+
+
+class _Offset:
+    def __init__(self, value):
+        self.value = value
+
+    def __dask_tokenize__(self):
+        return ("_Offset", self.value)
+
+
+def _add_offset(data, offset):
+    return data + unwrap_dask_scalar(offset).value
+
+
+def test_as_dask_scalar_is_single_graph_key_shared_by_all_blocks():
+    offset = _Offset(10)
+    data = xr.DataArray(np.arange(6), dims="x").chunk(x=2)
+
+    result = xr.apply_ufunc(
+        _add_offset,
+        data,
+        as_dask_scalar(offset),
+        dask="parallelized",
+        output_dtypes=[data.dtype],
+    )
+
+    graph = dict(result.data.__dask_graph__())
+
+    offset_keys = [
+        key
+        for key, task in graph.items()
+        if getattr(task, "value", None) is offset
+    ]
+
+    assert len(offset_keys) == 1
+    np.testing.assert_array_equal(
+        result.compute(scheduler="sync"), np.arange(6) + 10
+    )
+
+
+def test_as_dask_scalar_uses_deterministic_token():
+    assert dask.base.tokenize(
+        as_dask_scalar(_Offset(1))
+    ) == dask.base.tokenize(as_dask_scalar(_Offset(1)))
+    assert dask.base.tokenize(
+        as_dask_scalar(_Offset(1))
+    ) != dask.base.tokenize(as_dask_scalar(_Offset(2)))
+
+
+def test_as_dask_scalar_name_is_key_prefix_unique_per_object():
+    first = as_dask_scalar(_Offset(1), name="offset")
+    same = as_dask_scalar(_Offset(1), name="offset")
+    other = as_dask_scalar(_Offset(2), name="offset")
+
+    assert first.data.name.startswith("offset-")
+    assert dask.utils.key_split(first.data.name) == "offset"
+    assert first.data.name == same.data.name
+    assert first.data.name != other.data.name
+    assert unwrap_dask_scalar(first.data.compute(scheduler="sync")).value == 1
+
+
+def test_as_dask_scalar_wraps_none():
+    wrapped = as_dask_scalar(None)
+
+    assert wrapped.ndim == 0
+    assert unwrap_dask_scalar(wrapped.data.compute(scheduler="sync")) is None
+
+
+def test_unwrap_dask_scalar_returns_non_ndarray_as_is():
+    obj = object()
+
+    assert unwrap_dask_scalar(obj) is obj

@@ -1,3 +1,4 @@
+import logging
 from collections import namedtuple
 
 import matplotlib.pyplot as plt
@@ -5,13 +6,11 @@ import numpy as np
 from astropy.time import Time
 from matplotlib.colors import ListedColormap
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
 from ..data_managers.gaintable import divide_bandpass_by_ref_ant_preserve_phase
 from ..scheduler import DeferredTask, delayed
 from ._util import safe
 
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class _BANDPASS_PLOTS__:
@@ -203,8 +202,8 @@ class PlotGaintable:
             figure_sub_title,
         )
         gaintable = self._prepare_gaintable(gaintable, jones_term.sols)
-        gain_phase = gaintable.gain.copy()
-        gain_phase.data = np.angle(gaintable.gain, deg=True)
+        gain_phase = gaintable.CALPARAM_GAIN.copy()
+        gain_phase.data = np.angle(gaintable.CALPARAM_GAIN, deg=True)
         ylim = (-180, 180) if fixed_axis else None
         gain_phase_fig = self._get_gain_facet(
             gain_phase, ylim, "Phase (degree)"
@@ -224,7 +223,7 @@ class PlotGaintable:
         )
 
         if not phase_only:
-            gain_amplitude = np.abs(gaintable.gain)
+            gain_amplitude = np.abs(gaintable.CALPARAM_GAIN)
             ylim = (0, 1) if fixed_axis else None
             gain_amp_fig = self._get_gain_facet(
                 gain_amplitude,
@@ -458,9 +457,9 @@ class PlotGaintable:
         """
         Prepare the gaintable xarray.Dataset for plotting.
 
-        This method stacks the receptor dimensions into a single
+        This method renames the polarization dimension to
         'Jones_Solutions' dimension, renames the coordinates to
-        strings (e.g., 'J_XX'), adds a 'Station' coordinate,
+        strings (e.g., 'J_XX'), renames the antenna dimension to 'Station',
         and optionally filters out cross-polarizations.
 
         Parameters
@@ -477,23 +476,15 @@ class PlotGaintable:
                 gaintable, self.refant
             )
 
-        gaintable = gaintable.stack(Jones_Solutions=("receptor1", "receptor2"))
+        gaintable = gaintable.rename(polarization="Jones_Solutions")
 
         polstrs = [
-            f"J_{p1}{p2}".upper()
-            for p1, p2 in gaintable["Jones_Solutions"].data
+            f"J_{pol}".upper() for pol in gaintable["Jones_Solutions"].data
         ]
-        gaintable = gaintable.drop_vars(
-            ["Jones_Solutions", "receptor1", "receptor2"]
-        ).assign_coords({"Jones_Solutions": polstrs})
+        gaintable = gaintable.assign_coords({"Jones_Solutions": polstrs})
 
-        gaintable.coords["Station"] = (
-            "antenna",
-            gaintable.configuration.names.data,
-        )
-
-        return gaintable.sel(Jones_Solutions=sols).swap_dims(
-            {"antenna": "Station"}
+        return gaintable.sel(Jones_Solutions=sols).rename(
+            antenna_name="Station"
         )
 
 
@@ -622,7 +613,9 @@ class PlotGaintableFrequency(PlotGaintable):
             The processed gaintable dataset (must have 'Channel' coord).
         """
         amplitude = np.abs(
-            gaintable.gain.sel(Jones_Solutions=["J_XX", "J_YY"]).isel(time=0)
+            gaintable.CALPARAM_GAIN.sel(Jones_Solutions=["J_XX", "J_YY"]).isel(
+                time=0
+            )
         ).swap_dims({"Channel": "frequency"})
         facet_plot = amplitude.plot.line(
             x="frequency",
@@ -841,7 +834,7 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
             {"time": gaintable.time - gaintable.time[0]}
         )
 
-        gain_phase = gaintable.gain.copy()
+        gain_phase = gaintable.CALPARAM_GAIN.copy()
         gain_phase.data = np.angle(gain_phase.data, deg=True)
 
         gaintable = gaintable.assign({"Phase(Degree)": gain_phase})
@@ -884,7 +877,11 @@ class PlotGaintableTargetIonosphere(PlotGaintableFrequency):
 
         gaintable = self._prepare_gaintable(gaintable, jones_term.sols)
 
-        facet_plot = gaintable["Phase(Degree)"].plot(**self._plot_args)
+        facet_plot = (
+            gaintable["Phase(Degree)"]
+            .squeeze("Jones_Solutions")
+            .plot.imshow(**self._plot_args)
+        )
         gain_phase_fig = facet_plot.fig
 
         self._update_facet(facet_plot, y_label)

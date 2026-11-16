@@ -163,7 +163,7 @@ def test_should_precompute_uvdist_kl(uvrange_mock):
         coords={"time": np.arange(2), "baseline": np.arange(4)},
     )
 
-    freq = xr.DataArray(np.arange(5), dims=["frequency"])
+    freq = xr.DataArray(np.arange(1, 6), dims=["frequency"])
 
     flags = xr.DataArray(
         np.zeros((2, 4, 5, 4), dtype=bool),
@@ -243,7 +243,7 @@ def test_should_update_flags(uvrange_mock):
         },
     )
 
-    vis.frequency = xr.DataArray(np.arange(5), dims=["frequency"])
+    vis.frequency = xr.DataArray(np.arange(1, 6), dims=["frequency"])
 
     vis.flags = xr.DataArray(
         np.zeros((2, 4, 5, 4), dtype=bool),

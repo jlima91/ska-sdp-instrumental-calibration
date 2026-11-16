@@ -1,11 +1,10 @@
+import logging
 from functools import wraps
 from traceback import print_exc
 
 import numpy as np
 
-from ska_sdp_instrumental_calibration.logger import setup_logger
-
-logger = setup_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def safe(func):

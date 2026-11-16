@@ -22,7 +22,7 @@ from ..xarray_processors.rotation_measures import (
 )
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_DOCSTRING
-from ._utils import get_gaintables_path, get_plots_path
+from ._utils import get_gaintables_path, get_plots_path, has_value
 from .configuration_models import PlotRMConfig, RunSolverConfig
 
 logger = logging.getLogger()
@@ -135,13 +135,9 @@ def generate_channel_rm_stage(
     beam_factory = _upstream_output_.beams_factory
 
     refant = run_solver_config.refant
-    run_solver_config.refant = parse_antenna(
-        refant, initialtable.configuration.names
-    )
+    run_solver_config.refant = parse_antenna(refant, initialtable.antenna_name)
     station = plot_rm_config.station
-    plot_rm_config.station = parse_antenna(
-        station, initialtable.configuration.names
-    )
+    plot_rm_config.station = parse_antenna(station, initialtable.antenna_name)
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("channel_rm"):
@@ -168,9 +164,17 @@ def generate_channel_rm_stage(
         station_rm=station_rm_est,
     )
 
-    if _upstream_output_["central_beams"] is not None:
-        modelvis = apply_gaintable_to_dataset(
-            modelvis, _upstream_output_["central_beams"], inverse=True
+    # Calibration here uses the un-normalised vis. Keep the beam normalised
+    # model in sync for any later initial solve. Only update it when the
+    # predict stage produced one, i.e. normalise_at_beam_centre is True
+    # or "modelvis".
+    if has_value(_upstream_output_, "central_beams") and has_value(
+        _upstream_output_, "beam_normalised_modelvis"
+    ):
+        _upstream_output_["beam_normalised_modelvis"] = (
+            apply_gaintable_to_dataset(
+                modelvis, _upstream_output_["central_beams"], inverse=True
+            )
         )
 
     solver = Solver.get_solver(**run_solver_config.model_dump())

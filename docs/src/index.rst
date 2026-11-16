@@ -21,7 +21,8 @@ SKA SDP Instrumental Calibration (INST) Pipeline
    :caption: Contents
 
    stage_config
-   calibration_strategy
+   calibration_flow
+   experimental_pipeline
    sdm_mode
 
 .. toctree::

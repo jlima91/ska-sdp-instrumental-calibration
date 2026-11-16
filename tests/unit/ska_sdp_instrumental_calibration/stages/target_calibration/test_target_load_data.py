@@ -57,6 +57,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         timeslice,
         True,
         "DATA",
+        "auto",
         2,
         4,
     )
@@ -142,7 +143,8 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
         None,
         0,
         False,
-        "DATA",
+        "CORRECTED_DATA",
+        "WEIGHT_SPECTRUM",
         10,
         5,
     )
@@ -168,7 +170,8 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
             "frequency": frequency_per_chunk,
         },
         ack=False,
-        datacolumn="DATA",
+        datacolumn="CORRECTED_DATA",
+        weightcolumn="WEIGHT_SPECTRUM",
         field_id=10,
         data_desc_id=5,
     )

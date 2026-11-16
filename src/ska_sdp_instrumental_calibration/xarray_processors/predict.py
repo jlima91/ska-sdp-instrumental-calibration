@@ -9,21 +9,21 @@ from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.beams import BeamsFactory
 from ..data_managers.sky_model import GlobalSkyModel, LocalSkyModel
-from ._utils import with_chunks
+from ._utils import as_dask_scalar, unwrap_dask_scalar, with_chunks
 
 logger = logging.getLogger(__name__)
 
 
 def _predict_vis_ufunc(
     uvw: np.ndarray,
+    local_sky_model: np.ndarray | LocalSkyModel,
     frequency: np.ndarray,
+    beams_factory: np.ndarray | BeamsFactory | None,
     station_rm: np.ndarray | None,
     polarisation: np.ndarray,
     antenna1: np.ndarray,
     antenna2: np.ndarray,
     phasecentre: SkyCoord,
-    local_sky_model: LocalSkyModel,
-    beams_factory: BeamsFactory = None,
     output_dtype: type = np.complex64,
 ) -> np.ndarray:
     """
@@ -31,14 +31,15 @@ def _predict_vis_ufunc(
     LocalSkyModel.create_vis and predict_vis_new functions
 
     :param uvw: (time, frequency, baselineid, spatial)
+    :param local_sky_model: LocalSkyModel, or 0-d object array wrapping it
     :param frequency: (frequency,)
+    :param beams_factory: BeamsFactory or None, or 0-d object array
+        wrapping it
     :param station_rm: (nant,) or None
     :param polarisation: (polarisation,)
     :param antenna1: (nant,)
     :param antenna2: (nant,)
     :param phasecentre
-    :param local_sky_model
-    :param beams_factory
     :param output_dtype
 
     returns: (time, frequency, baselineid, polarisation)
@@ -46,6 +47,9 @@ def _predict_vis_ufunc(
     # Need to remove extra frequency dimension from uvw
     uvw_shape = uvw.shape
     uvw = uvw.reshape(uvw_shape[0], *uvw_shape[2:])
+
+    local_sky_model = unwrap_dask_scalar(local_sky_model)
+    beams_factory = unwrap_dask_scalar(beams_factory)
 
     return local_sky_model.create_vis(
         uvw,
@@ -130,7 +134,6 @@ def predict_vis(
         antenna1=vis.antenna1,
         antenna2=vis.antenna2,
         phasecentre=vis.phasecentre,
-        beams_factory=beams_factory,
         output_dtype=vis.vis.dtype,
     )
 
@@ -140,6 +143,15 @@ def predict_vis(
         with_chunks, vis.chunksizes
     )
     common_input_args.append(frequency_xdr)
+    common_input_core_dims.append([])
+
+    # Process beams_factory
+    # Wrap it as a single graph key, so that it is tokenized and
+    # transferred once, instead of being embedded in every task.
+    # Always passed positionally (even if None) to keep argument order.
+    common_input_args.append(
+        as_dask_scalar(beams_factory, name="beams_factory")
+    )
     common_input_core_dims.append([])
 
     # Process station_rm
@@ -169,9 +181,11 @@ def predict_vis(
         predicted_per_soln_time: xr.DataArray = xr.apply_ufunc(
             _predict_vis_ufunc,
             vis.uvw.isel(time=slc),
+            as_dask_scalar(local_sky_model, name="local_sky_model"),
             *common_input_args,
             input_core_dims=[
                 ["baselineid", "spatial"],
+                [],
                 *common_input_core_dims,
             ],
             output_core_dims=[
@@ -185,10 +199,7 @@ def predict_vis(
                     "polarisation": vis.polarisation.size,
                 }
             ),
-            kwargs=dict(
-                **input_kwargs,
-                local_sky_model=local_sky_model,
-            ),
+            kwargs=input_kwargs,
         )
         predicted_per_soln_time = predicted_per_soln_time.transpose(
             "time", "baselineid", "frequency", "polarisation"

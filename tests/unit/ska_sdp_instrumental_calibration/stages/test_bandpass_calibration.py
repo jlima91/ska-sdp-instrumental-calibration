@@ -101,7 +101,7 @@ def test_should_perform_bandpass_calibration(
         _qa_dir_="/output/path",
     )
 
-    parse_ref_ant_mock.assert_called_once_with(2, initable.configuration.names)
+    parse_ref_ant_mock.assert_called_once_with(2, initable.antenna_name)
 
     solver_factory_mock.get_solver.assert_called_once_with(
         solver="jones_substitution",

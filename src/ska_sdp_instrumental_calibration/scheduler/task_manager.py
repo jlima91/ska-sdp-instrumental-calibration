@@ -43,7 +43,7 @@ class _TaskManager:
                 ]
             )
         finally:
-            self._tracked_arrays.clear()
+            self.clear()
 
         return results
 
@@ -59,6 +59,12 @@ class _TaskManager:
         """
 
         self._tracked_arrays[task] = task.dask_params
+
+    def clear(self):
+        """
+        Discard all registered tasks without computing them.
+        """
+        self._tracked_arrays.clear()
 
 
 task_manager = _TaskManager()

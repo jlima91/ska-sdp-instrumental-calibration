@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 
+import xarray as xr
+
+from ..scheduler import UpstreamOutput
+
 
 def _create_path_tree(path: str):
     """
@@ -76,3 +80,45 @@ def get_plots_path(output_dir: str, file_prefix: str) -> str:
     plots_path = os.path.join(output_dir, "plots", file_prefix)
     _create_path_tree(plots_path)
     return plots_path
+
+
+def has_value(upstream_output: UpstreamOutput, key: str) -> bool:
+    """
+    Check whether a key is present in the upstream output and not None.
+
+    Parameters
+    ----------
+    upstream_output
+        Output from the upstream stage.
+    key
+        Key to check.
+
+    Returns
+    -------
+        True if the key is present and its value is not None.
+    """
+    return key in upstream_output and upstream_output[key] is not None
+
+
+def get_value_or_fallback(
+    upstream_output: UpstreamOutput, key: str, fallback_key: str
+) -> xr.Dataset:
+    """
+    Get the value for a key, or for a fallback key if it has no value.
+
+    Parameters
+    ----------
+    upstream_output
+        Output from the upstream stage.
+    key
+        Preferred key, e.g. ``"beam_normalised_vis"``.
+    fallback_key
+        Key to use when ``key`` is absent or None, e.g. ``"vis"``.
+
+    Returns
+    -------
+        Value of ``key`` if it has a value, else value of ``fallback_key``.
+    """
+    if has_value(upstream_output, key):
+        return upstream_output[key]
+    return upstream_output[fallback_key]

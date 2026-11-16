@@ -19,6 +19,18 @@
 #
 import os
 import sys
+import warnings
+
+import pydantic.fields
+import xarray.core.dataset
+import xarray.core.types
+
+# sphinx-autodoc-typehints 3.6.1 (last release supporting py3.11) calls the
+# deprecated Parser.set_application. Fixed upstream in >=3.6.2 (py>=3.12).
+warnings.filterwarnings(
+    "ignore",
+    message=r".*_RstSnippetParser\.set_application.*",
+)
 
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.append(os.path.abspath("../../src"))
@@ -32,8 +44,8 @@ def setup(app):
 project = "SKA SDP Instrumental Calibration Pipeline"
 copyright = "2025, SKA Organization"
 author = "Team YABBY, Team DHRUVA"
-release = "1.5.0"
-version = "1.5.0"
+release = "2.0.0"
+version = "2.0.0"
 
 # -- General configuration ------------------------------------------------
 
@@ -59,7 +71,12 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib.autodoc_pydantic",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
+    "sphinxcontrib.mermaid",
 ]
+
+# Mermaid diagrams set their own light theme, since the RTD page
+# background stays white. Keep it in OS dark mode too.
+mermaid_dark_theme = "base"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -75,7 +92,6 @@ autoclass_content = "class"
 autodoc_mock_imports = [
     'everybeam',
     'casacore',
-    'ska_sdp_func',
 ]
 
 # The master toctree document.
@@ -133,6 +149,16 @@ smartquotes = False
 # Configurations for sphinx_autodoc_typehints
 typehints_defaults = "comma"
 always_use_bars_union = True
+
+# xarray guards optional type-only imports (e.g. iris) behind TYPE_CHECKING
+suppress_warnings = ["sphinx_autodoc_typehints.guarded_import"]
+# autodoc inspects the imported pydantic.Field in stage modules, whose
+# annotations hold a 'JsonValue' forward reference that pydantic.fields
+# cannot resolve on its own
+pydantic.fields.JsonValue = pydantic.JsonValue
+# xarray.Dataset annotations reference 'DataVars', which xarray only imports
+# under TYPE_CHECKING, so it cannot be resolved for Dataset subclasses
+xarray.core.dataset.DataVars = xarray.core.types.DataVars
 
 # Configurations for autodoc_pydantic
 autodoc_pydantic_model_show_json = False
