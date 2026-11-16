@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import Field
 from ska_sdp_datamodels.science_data_model.science_data_model import (
@@ -27,11 +27,15 @@ def predict_visibilities(
         Field(description="Whether to use everybeam model."),
     ] = True,
     normalise_at_beam_centre: Annotated[
-        bool,
+        Union[bool, Literal["vis", "modelvis"]],
         Field(
-            description="""If true, before running calibration, multiply vis
-            and model vis by the inverse of the beam response in the
-            beam pointing direction.""",
+            description="""Multiply by the inverse of the beam response
+            in the beam pointing direction. If true, normalise both vis
+            and model vis. If "vis" or "modelvis", normalise only that
+            one. If false, normalise neither. Requires use_everybeam.
+            Which stages solve on the normalised data is described in
+            https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
+            """,
         ),
     ] = True,
     element_response_model: Annotated[
@@ -110,9 +114,13 @@ def predict_visibilities(
         Input measurementset.
     use_everybeam: bool
         Whether to use everybeam model. It uses everybeam by default.
-    normalise_at_beam_centre: bool
-        If true, before running calibration, multiply vis and model vis by
-        the inverse of the beam response in the beam pointing direction.
+    normalise_at_beam_centre: bool | str
+        Multiply by the inverse of the beam response in the beam pointing
+        direction. If true, normalise both vis and model vis. If "vis" or
+        "modelvis", normalise only that one. If false, normalise neither.
+        Requires use_everybeam. Which stages solve on the normalised data
+        is described in the calibration flow documentation:
+        https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
     element_response_model: str
         type of element response model given to Everybeam.
         Defaulted oskar_dipole_cos.
@@ -192,17 +200,27 @@ def predict_visibilities(
         beams_factory,
     )
 
+    central_beams = None
+    normalised_vis = None
+    normalised_modelvis = None
     if normalise_at_beam_centre and use_everybeam:
         central_beams = prediction_central_beams(
             gaintable,
             beams_factory,
         )
-        vis = apply_gaintable_to_dataset(vis, central_beams, inverse=True)
-        modelvis = apply_gaintable_to_dataset(
-            modelvis, central_beams, inverse=True
-        )
-        _upstream_output_["central_beams"] = central_beams
-        _upstream_output_["vis"] = vis
+        # True normalises both; a string selects only one of them
+        if normalise_at_beam_centre in (True, "vis"):
+            normalised_vis = apply_gaintable_to_dataset(
+                vis, central_beams, inverse=True
+            )
+        if normalise_at_beam_centre in (True, "modelvis"):
+            normalised_modelvis = apply_gaintable_to_dataset(
+                modelvis, central_beams, inverse=True
+            )
+
+    _upstream_output_["central_beams"] = central_beams
+    _upstream_output_["beam_normalised_vis"] = normalised_vis
+    _upstream_output_["beam_normalised_modelvis"] = normalised_modelvis
 
     _upstream_output_["modelvis"] = modelvis
     _upstream_output_["beams_factory"] = beams_factory

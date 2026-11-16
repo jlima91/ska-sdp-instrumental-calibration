@@ -29,8 +29,8 @@ For more details on the sourcedb format, please visit:
 https://www.astron.nl/lofarwiki/doku.php?id=public:user_software:documentation:makesourcedb
 
 Usage:
-    python scripts/convert/ska_lsm_to_sourcedb.py sky_model.csv
-    python scripts/convert/ska_lsm_to_sourcedb.py sky.csv sky.skymodel
+    ska-lsm-to-sourcedb sky_model.csv
+    ska-lsm-to-sourcedb sky.csv sky.skymodel
 """
 
 import argparse
@@ -83,11 +83,17 @@ def component_to_sourcedb_row(component: SkyComponent) -> str:
         spec_idx.pop()
     spec_idx = [0.0 if coeff is None else coeff for coeff in spec_idx]
 
-    log_spec_idx = True if component.log_spec_idx is None else component.log_spec_idx
+    log_spec_idx = (
+        True if component.log_spec_idx is None else component.log_spec_idx
+    )
 
     a_arcsec = _value_or_none(component.a_arcsec)
     b_arcsec = _value_or_none(component.b_arcsec)
-    if a_arcsec is None or b_arcsec is None or (a_arcsec == 0 and b_arcsec == 0):
+    if (
+        a_arcsec is None
+        or b_arcsec is None
+        or (a_arcsec == 0 and b_arcsec == 0)
+    ):
         source_type = "POINT"
         shape = ["", "", ""]
     else:

@@ -1,6 +1,8 @@
 # Changelog
 
-# main
+## main
+
+## 2.0.0
 
 1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.
 2. Update `ska-sdp-exec-piper` to 2.3.1. The dask report is now written as `dask_performance_report.html` in the QA directory, and new dask cluster options (`--[no-]create-dask-cluster`, `--workers-per-node`, `--threads-per-worker`) are available.
@@ -10,8 +12,13 @@
 6. The exported sky model CSV now includes the catalogue metadata header, so it can be fed back to the pipeline as `lsm_csv_path`.
 7. Add the `gleam-to-ska-lsm` script, which converts the GLEAM-EGC catalogue to an SKA LSM CSV. `oskar-to-ska-lsm` now writes the metadata header, with new `--catalogue-name`, `--catalogue-version`, `--description` and `--author` options.
 8. Remove `Component`, `generate_lsm_from_csv`, `generate_lsm_from_gleamegc`, `export_lsm_to_csv` and `ComponentConverters` from `data_managers.sky_model`. `GlobalSkyModel.components` is replaced by `GlobalSkyModel.sky_model`, and GLEAM files are read with `read_gleamegc`, which returns a `SkyModel`.
-9. **Breaking:** the sky model converter scripts moved to `scripts/convert/` and are named after what they convert: `oskar-csv-converter` is now `oskar-to-ska-lsm`, and `gleam-csv-converter` is now `gleam-to-ska-lsm`.
+9. **Breaking:** the sky model converter scripts moved to the new `inst_cli_tools` package, are installed as console scripts, and are named after what they convert: `oskar-csv-converter` is now `oskar-to-ska-lsm`, and `gleam-csv-converter` is now `gleam-to-ska-lsm`.
 10. Add the `ska-lsm-to-sourcedb` script, which converts an SKA LSM CSV to a sourcedb (makesourcedb) sky model, as read by DP3. The semi-axes are doubled to the FWHM that sourcedb expects.
+11. Require `everybeam >= 0.9.1` and remove the OSKAR zenith beam scaling, which is 1 to machine precision with this version. The `scale` parameter of `Telescope.station_response` is removed.
+12. Normalisation at the beam centre (`normalise_at_beam_centre` in `predict_vis`) now applies only to the initial gain solutions, `delay_calibration` and `bandpass_initialisation`, as in RCAL. The other bandpass calibration stages solve on the un-normalised vis and model vis, so the exported bandpass is the physical gain. The target calibration stages, `complex_gain_calibration` and `ionospheric_delay`, still solve on the normalised vis and model vis.
+13. `normalise_at_beam_centre` in `predict_vis` also accepts `"vis"` or `"modelvis"`, to normalise only the vis or only the model vis. `true` (the default) still normalises both and `false` neither.
+14. Remove the unused `ska-sdp-func` optional dependency and its `ska-sdp-func` extra.
+15. **Breaking:** remove the `visibility_key` parameter of `complex_gain_calibration`. It always solves on `vis`, normalised at the beam centre when `predict_vis` provides it, so the vis and model vis stay on the same scale. Remove `visibility_key` from existing `complex_gain_calibration` configs.
 
 ## 1.5.0
 

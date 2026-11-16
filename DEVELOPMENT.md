@@ -44,7 +44,7 @@ poetry install --all-extras
 ```
 
 This will create a new virtual environment (either in current working directory or in poetry's user specific path) and install all the dependencies required for development.
-The `--all-extras` flag installs the optional `dp3`, `ska-sdp-func` and `ska-sdp-dataproduct-metadata` extras, which some solvers, export tasks and tests depend on.
+The `--all-extras` flag installs the optional `dp3` and `ska-sdp-dataproduct-metadata` extras, which some solvers, export tasks and tests depend on.
 For detailed package requirements, see `pyproject.toml` file.
 
 To activate the environment, please run:

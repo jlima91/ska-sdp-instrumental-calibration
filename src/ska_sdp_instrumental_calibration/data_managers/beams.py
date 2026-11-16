@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
 
-import everybeam as eb
 import numpy as np
 from astropy.coordinates import ITRS, AltAz, SkyCoord
 from astropy.coordinates.earth import EarthLocation
@@ -93,56 +92,6 @@ class BeamsLow:
             self.beam_direction, self.solution_time
         )
 
-        self.scale = np.ones(
-            (self.frequency.size,),
-            dtype=self.frequency.dtype,
-        )
-        if self.telescope.type is eb.OSKAR:  # pylint: disable=I1101
-            """
-            Set normalisation scaling to the Frobenius norm of the zenith
-            response divided by sqrt(2).
-            Should be the same for all stations so pick one. Should use the
-            station location rather than central array location, e.g. using
-            the following code, but some functions (e.g. ska-sdp-datamodels
-            function create_named_configuration -- at least for some
-            configurations) set xyz coordinates to ENU rather than the
-            geocentric coordinates. So use the array location and a central
-            station for now. Note that OSKAR datasets have correct geocentric
-            coordinates, but also have the array location set to the first
-            station xyz, so using array_location with stn=0 works.
-                xyz = vis.configuration.xyz.data[stn, :]
-                self.antenna_locations.append(
-                    EarthLocation.from_geocentric(
-                        xyz[0], xyz[1], xyz[2], unit="m",
-                    )
-                )
-            """
-            logger.info("Setting beam normalisation for OSKAR data")
-
-            stn = 0
-
-            dir_itrf_zen = radec_to_xyz(
-                SkyCoord(
-                    alt=90,
-                    az=0,
-                    unit="deg",
-                    frame="altaz",
-                    obstime=self.solution_time,
-                    location=self.array_location,
-                ),
-                self.solution_time,
-            )
-
-            jones = self.telescope.station_response(
-                solution_time=self.solution_time_mjd_seconds,
-                station_idx=stn,
-                frequencies=self.frequency,
-                direction=dir_itrf_zen,
-                station0=dir_itrf_zen,
-            ).squeeze(axis=(0, 1))
-
-            self.scale = np.sqrt(2) / np.linalg.norm(jones, axis=(1, 2))
-
     def validate_direction_above_horizon(self, direction: SkyCoord) -> AltAz:
         """
         Calculate Altitude-Azimuth for a direction, and ensure that the
@@ -192,7 +141,6 @@ class BeamsLow:
             frequencies=self.frequency,
             direction=dir_itrf,
             station0=self.delay_dir_itrf,
-            scale=self.scale,
         ).squeeze(axis=0)
 
 
