@@ -120,7 +120,7 @@ also export its intermediate gain table.
 
 .. mermaid::
 
-   %%{init: {"theme": "base", "themeVariables": {"fontSize": "18px", "lineColor": "#3b4a5a", "primaryColor": "#c9d3df", "primaryBorderColor": "#3b4a5a", "primaryTextColor": "#102030"}}}%%
+   %%{init: {"theme": "base", "darkMode": false, "themeVariables": {"darkMode": false, "background": "#ffffff", "fontSize": "18px", "lineColor": "#3b4a5a", "primaryColor": "#c9d3df", "primaryBorderColor": "#3b4a5a", "primaryTextColor": "#102030", "textColor": "#102030", "titleColor": "#102030", "clusterBkg": "#eef2f6", "clusterBorder": "#3b4a5a", "edgeLabelBackground": "#ffffff"}}}%%
    flowchart LR
        ms[/"Measurement Set"/] --> load["load_data"]
        sky[/"Sky model<br/>(GLEAM or SKA LSM CSV)"/] --> predict
@@ -244,7 +244,7 @@ above.
 
 .. mermaid::
 
-   %%{init: {"theme": "base", "themeVariables": {"fontSize": "18px", "lineColor": "#3b4a5a", "primaryColor": "#c9d3df", "primaryBorderColor": "#3b4a5a", "primaryTextColor": "#102030"}}}%%
+   %%{init: {"theme": "base", "darkMode": false, "themeVariables": {"darkMode": false, "background": "#ffffff", "fontSize": "18px", "lineColor": "#3b4a5a", "primaryColor": "#c9d3df", "primaryBorderColor": "#3b4a5a", "primaryTextColor": "#102030", "textColor": "#102030", "titleColor": "#102030", "clusterBkg": "#eef2f6", "clusterBorder": "#3b4a5a", "edgeLabelBackground": "#ffffff"}}}%%
    flowchart LR
        ms[/"Measurement Set"/] --> load["target_load_data"]
        sky[/"Sky model<br/>(GLEAM or SKA LSM CSV)"/] --> predict

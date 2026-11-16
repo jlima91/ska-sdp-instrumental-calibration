@@ -1,3 +1,17 @@
 .wy-nav-content {
     max-width: 1200px !important;
 }
+
+/*
+ * Mermaid diagrams use fixed light colours (see the init line of each
+ * diagram). In OS dark mode, sphinxcontrib-mermaid gives its fullscreen
+ * view a dark background, which hides the dark edges of the diagrams.
+ * Keep the fullscreen view light, like the RTD page.
+ */
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(255, 255, 255, 0.98) !important;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: white !important;
+}
