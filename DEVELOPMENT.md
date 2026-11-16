@@ -146,6 +146,15 @@ make docs-build html
 make oci-build-all
 ```
 
+## Links in shared markdown files
+
+`README.md`, `DEVELOPMENT.md` and `CHANGELOG.md` are symlinked into `docs/src/`, so they are rendered both on GitLab and on Read the Docs.
+
+- To link to another of these shared files, use a relative path with the file extension, e.g. `[Developer Guide](DEVELOPMENT.md)`.
+- To link to a docs-only page (one that exists only in `docs/src/`), use its absolute URL, e.g. `https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/running_pipeline.html`. This works on GitLab.
+
+During the docs build, `docs/src/conf.py` rewrites both kinds of links into links to the local pages, so they point to the docs version being built. Links with an anchor (`#section`) become plain HTML links, which Sphinx does not validate, so double-check those anchors.
+
 ## Making a release
 
 ### Pre-requisites

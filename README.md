@@ -11,7 +11,7 @@ processing functions to prepare, model and calibrate a visibility dataset, data
 handling functions for parallel processing, and high level workflow scripts and
 notebooks.
 
-If you wish to contribute to this repository, please refer [Developer Guide](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/DEVELOPMENT.html)
+If you wish to contribute to this repository, please refer [Developer Guide](DEVELOPMENT.md)
 
 ## Requirements for running the pipeline
 
