@@ -23,7 +23,6 @@ def test_should_have_the_expected_default_configuration():
                 "plot_path_prefix": "smoothed-gain",
                 "plot_title": "Smoothed Gain",
             },
-            "export_gaintable": True,
         },
     }
 
@@ -52,10 +51,10 @@ def test_should_smooth_the_gain_solution(
     smooth_gain_solution_stage(
         upstream_output,
         "./output/path",
-        plot_config,
-        3,
-        "median",
-        False,
+        plot_config=plot_config,
+        window_size=3,
+        mode="median",
+        export_qa_data=False,
     )
 
     sliding_window_smooth_mock.assert_called_once_with(
@@ -80,7 +79,12 @@ def test_should_smooth_the_gain_solution_using_sliding_window_mean(
     sliding_window_smooth_mock.return_value = gaintable_mock
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", False
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=False,
     )
 
     sliding_window_smooth_mock.assert_called_once_with(
@@ -122,7 +126,12 @@ def test_should_plot_the_smoothed_gain_solution(
     plot_config.plot_title = "plot title"
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", False
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=False,
     )
 
     get_plots_path_mock.assert_called_once_with(
@@ -175,11 +184,21 @@ def test_should_plot_smoothed_gain_solution_with_suffix(
     plot_config.plot_title = "plot title"
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", False
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=False,
     )
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", False
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=False,
     )
 
     get_plots_path_mock.assert_has_calls(
@@ -241,11 +260,21 @@ def test_should_export_smoothed_gain_solution_with_suffix(
     sliding_window_smooth_mock.return_value = gaintable_mock
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", True
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=True,
     )
 
     smooth_gain_solution_stage(
-        upstream_output, "./output/path", plot_config, 3, "mean", True
+        upstream_output,
+        "./output/path",
+        plot_config=plot_config,
+        window_size=3,
+        mode="mean",
+        export_qa_data=True,
     )
 
     get_gaintables_path_mock.assert_has_calls(

@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
@@ -18,6 +18,7 @@ logger = logging.getLogger()
 def bandpass_initialisation_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     refant: Annotated[int | str, Field(description="Reference antenna")] = 0,
     niter: Annotated[
         int, Field(description="Number of solver iterations.")
@@ -29,9 +30,6 @@ def bandpass_initialisation_stage(
                 in the gain solution is below this tolerance."""
         ),
     ] = 1e-06,
-    export_gaintable: Annotated[
-        bool, Field(description="Export intermediate gain solutions.")
-    ] = True,
 ):
     """
     Initialises the gains for bandpass calibration
@@ -48,7 +46,7 @@ def bandpass_initialisation_stage(
             Number of solver iterations
         tol: float
             Tolerance value for gain solution
-        export_gaintable: bool
+        export_qa_data: bool
             Export intermediate gain solutions
 
     Returns
@@ -89,7 +87,7 @@ def bandpass_initialisation_stage(
         _upstream_output_["gaintable"] = gaintable
         _upstream_output_["refant"] = refant
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_, f"{prefix}/bandpass_initialisation.gaintable.h5parm"
         )

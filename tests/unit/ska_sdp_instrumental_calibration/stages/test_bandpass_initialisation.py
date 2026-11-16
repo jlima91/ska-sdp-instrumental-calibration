@@ -12,7 +12,6 @@ def test_should_have_the_expected_default_configuration():
             "refant": 0,
             "niter": 200,
             "tol": 1.0e-06,
-            "export_gaintable": True,
         }
     }
 
@@ -58,7 +57,7 @@ def test_should_initialize_gains_for_bandpass(
         refant=refant,
         niter=niter,
         tol=tol,
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     parse_ref_ant_mock.assert_called_once_with(
@@ -110,7 +109,7 @@ def test_should_initialize_gains_using_beam_normalised_vis(
     bandpass_initialisation_stage(
         upstream_output,
         _qa_dir_="/output/path",
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     run_solver_mock.assert_called_once_with(
@@ -146,7 +145,7 @@ def test_should_not_initialize_gains_if_delay_calibration_is_done(
         refant=refant,
         niter=niter,
         tol=tol,
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     run_solver_mock.assert_not_called()
@@ -209,7 +208,7 @@ def test_should_export_gaintable(
         refant=refant,
         niter=niter,
         tol=tol,
-        export_gaintable=True,
+        export_qa_data=True,
     )
 
     get_gaintables_path_mock.assert_called_once_with(

@@ -14,7 +14,6 @@ parameters:
       plot_table: true
   flag_gain:
     max_ncycles: 1
-    export_gaintable: true
   export_gain_table:
     export_metadata: true
   generate_channel_rm:
@@ -25,7 +24,6 @@ parameters:
     plot_rm_config:
       plot_rm: true
     plot_table: true
-    export_gaintable: true
 pipeline:
   flag_gain: true
   ionospheric_delay: true

@@ -49,7 +49,6 @@ def test_should_have_the_expected_default_configuration():
             "visibility_filters": {"uvdist": None, "exclude_baselines": None},
             "plot_config": {"plot_table": True, "fixed_axis": False},
             "visibility_key": "vis",
-            "export_gaintable": True,
         }
     }
 
@@ -97,7 +96,7 @@ def test_should_perform_bandpass_calibration(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -174,7 +173,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -184,7 +183,7 @@ def test_should_plot_bp_gaintable_with_proper_suffix(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -273,7 +272,7 @@ def test_should_export_gaintable_with_proper_suffix(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
-        export_gaintable=True,
+        export_qa_data=True,
         _qa_dir_="/output/path",
     )
 
@@ -283,7 +282,7 @@ def test_should_export_gaintable_with_proper_suffix(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="corrected_vis",
-        export_gaintable=True,
+        export_qa_data=True,
         _qa_dir_="/output/path",
     )
 
@@ -348,7 +347,7 @@ def test_should_not_use_corrected_vis_when_config_is_false(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="vis",
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -417,7 +416,7 @@ def test_should_apply_uvrange_and_bandpass_filters_before_run_solver(
         visibility_filters=visibility_filters,
         plot_config=plot_config,
         visibility_key="vis",
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 

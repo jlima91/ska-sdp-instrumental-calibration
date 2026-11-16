@@ -46,7 +46,6 @@ def test_should_have_the_expected_default_configuration():
                 "tol": 0.001,
                 "crosspol": False,
             },
-            "export_gaintable": True,
         },
     }
 
@@ -150,7 +149,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         visibility_key="corrected_vis",
         plot_rm_config=plot_rm_config,
         plot_table=False,
-        export_gaintable=False,
+        export_qa_data=False,
         run_solver_config=run_solver_config,
         _qa_dir_="/output/path",
     )
@@ -298,7 +297,7 @@ def test_should_update_beam_normalised_model_vis_when_beam_is_not_none(
         visibility_key="corrected_vis",
         plot_rm_config=plot_rm_config,
         plot_table=False,
-        export_gaintable=False,
+        export_qa_data=False,
         run_solver_config=run_solver_config,
         _qa_dir_="/output/path",
     )
@@ -469,7 +468,7 @@ def test_should_plot_with_proper_suffix(
         plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -483,7 +482,7 @@ def test_should_plot_with_proper_suffix(
         plot_rm_config=plot_rm_config,
         plot_table=True,
         run_solver_config=run_solver_config,
-        export_gaintable=False,
+        export_qa_data=False,
         _qa_dir_="/output/path",
     )
 
@@ -665,7 +664,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_rm_config=plot_rm_config,
         plot_table=False,
         run_solver_config=run_solver_config,
-        export_gaintable=True,
+        export_qa_data=True,
         _qa_dir_="/output/path",
     )
 
@@ -679,7 +678,7 @@ def test_should_export_gaintable_with_proper_suffix(
         plot_rm_config=plot_rm_config,
         plot_table=False,
         run_solver_config=run_solver_config,
-        export_gaintable=True,
+        export_qa_data=True,
         _qa_dir_="/output/path",
     )
 
@@ -786,7 +785,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         visibility_key="vis",
         plot_rm_config=plot_rm_config,
         plot_table=False,
-        export_gaintable=False,
+        export_qa_data=False,
         run_solver_config=run_solver_config,
         _qa_dir_="/output/path",
     )

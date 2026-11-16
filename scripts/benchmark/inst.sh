@@ -65,6 +65,7 @@ cat <<EOF >$BATCHLET_CONFIG
     "--output",
     "$OUTPUT_PATH",
     "--no-unique-output-subdir",
+    "--no-export-intermediate-data",
     "--set",
     "parameters.predict_vis.lsm_csv_path",
     "$CALIBRATOR_SKY_MODEL",
