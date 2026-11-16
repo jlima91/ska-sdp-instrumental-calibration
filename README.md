@@ -177,7 +177,9 @@ ska-sdp-instrumental-calibration run \
 /path/to/ms
 ```
 
-Please run `ska-sdp-instrumental-calibration run --help` to see  all supported options of the `run` subcommand.\
+Please run `ska-sdp-instrumental-calibration run --help` to see  all supported options of the `run` subcommand.
+
+The pipeline can run with local threads, on a dask cluster it creates itself (locally or inside a SLURM allocation), or on an existing dask cluster. Please refer to the ["Running the Pipeline"](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/running_pipeline.html) section of the documentation.
 
 ### Reordering stages in pipeline
 

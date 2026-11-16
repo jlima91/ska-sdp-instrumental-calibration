@@ -20,8 +20,9 @@ SKA SDP Instrumental Calibration (INST) Pipeline
    :maxdepth: 1
    :caption: Contents
 
-   stage_config
    calibration_flow
+   running_pipeline
+   stage_config
    experimental_pipeline
    sdm_mode
 
