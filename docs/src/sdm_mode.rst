@@ -1,47 +1,14 @@
 SDM Mode
 ========
 
-Overview
---------
+The INST pipelines can read their inputs from, and write their outputs to, a **Science Data Model (SDM)**: a shared directory through which the SDP pipelines exchange data. For example, the SKA SDP batch end-to-end pipeline creates an SDM, copies the sky models into it, and runs the INST pipelines on it, so that other pipelines can find their gain tables.
 
-The INST pipeline supports **Science Data Model(SDM)**, which integrates
-with the SDP by exchanging data with other pipelines via a shared SDM
-directory.
+The SDM mode is turned on by passing ``--sdm-path``. Without it, the pipelines read the sky model given in the config, and write everything to the directory given with ``--output``.
 
-When ``--sdm-path`` is provided, the pipeline:
+Running with an SDM
+-------------------
 
-- Writes gaintables into the SDM directory under
-  ``<sdm-path>/calibration/<purpose>/<field_id>/`` instead of the user provided output
-  directory.
-- Writes logs and QA products under a uniquely-indexed subdirectory
-  ``<sdm-path>/logs/NN-inst/`` (where ``NN`` is the next available index).
-- Resolves the sky model from the SDM directory using the field ID extracted
-  from the input Measurement Set. The file
-  ``<sdm-path>/sky/<field_id>/sky_model.csv`` must exist. It must be an SKA
-  LSM CSV that starts with a ``CATALOGUE_METADATA_*`` header (see
-  :ref:`sky model format <sdm-sky-model-format>`).
-
-If you are running the pipeline as a standalone and do not pass
-``--sdm-path``, pipeline works as usual, writing outputs and QA products in 
-directory provided with ``--output``.
-
-Gaintables will be written at given location for each pipeline:
-
-- **Instrumental calibration**:  ``bandpass/<field_id>/gaintable.h5parm``
-- **Instrumental target calibration**: ``gains/<field_id>/gaintable.h5parm``
-- **Instrumental target ionospheric calibration**: ``ionosphere/<field_id>/gaintable.h5parm``
-
-
-.. note::
-  When ``--sdm-path`` and ``--output`` are used together, but ``--sdm-path`` takes
-  precedence for gaintable, sky model and log output locations. When omitted,
-  the pipeline falls back to writing outputs under ``--output``.
-
-
-CLI Invocation
---------------
-
-User can pass ``--sdm-path`` as follows while running any of the INST pipeline:
+Pass the SDM directory with ``--sdm-path``, to any of the INST pipelines:
 
 .. code-block:: bash
 
@@ -51,30 +18,78 @@ User can pass ``--sdm-path`` as follows while running any of the INST pipeline:
        --sdm-path /path/to/sdm_directory \
        input.ms
 
-It's similar for the target calibration and ionospheric calibration pipelines.
+The ``run`` subcommands of ``ska-sdp-instrumental-target-calibration`` and ``ska-sdp-instrumental-target-ionospheric`` take the same option.
 
+The SDM directory must already exist, with the sky model of the field in it (see `Expected layout`_). The pipeline fails at startup when the directory does not exist.
 
-Directory Conventions
----------------------
+What changes with an SDM
+------------------------
 
-When ``--sdm-path`` is provided, pipeline assumes following folder structure to
-be present in SDM directory
+.. list-table::
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Data
+     - Without ``--sdm-path``
+     - With ``--sdm-path``
+   * - Sky model, read by ``predict_vis``
+     - ``gleamfile`` or ``lsm_csv_path`` from the config.
+     - ``<sdm>/sky/<field>/sky_model.csv``. ``gleamfile`` and ``lsm_csv_path`` are ignored.
+   * - Final gain table, written by ``export_gain_table``
+     - ``<output>/<field>_gaintable.h5parm``
+     - ``<sdm>/calibration/<purpose>/<field>/gaintable.h5parm``
+   * - Logs, config, and QA products: intermediate gain tables, plots, the exported sky model, the dask performance report
+     - ``<output>/``
+     - ``<sdm>/logs/NN-inst/``, where ``NN`` is the next free index (``01``, ``02``, …), so every run gets its own directory.
+   * - Zarr cache of the visibilities, and exported visibilities
+     - ``<output>/``
+     - ``<output>/`` (unchanged)
+
+``<field>`` is the field ID, see `Field ID`_. The name of the gain table file is set with ``file_name`` in ``export_gain_table`` (by default ``gaintable``).
+
+The ``<purpose>`` of the gain table depends on the pipeline:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 60
+
+   * - Pipeline
+     - Gain table in the SDM
+   * - Calibrator (bandpass)
+     - ``calibration/bandpass/<field>/gaintable.h5parm``
+   * - Target complex gain
+     - ``calibration/gains/<field>/gaintable.h5parm``
+   * - Target ionospheric
+     - ``calibration/ionosphere/<field>/gaintable.h5parm``
+
+Field ID
+--------
+
+The field ID used in the SDM paths is the ``NAME`` of the field in the ``FIELD`` table of the input Measurement Set (its first row). When the name is empty, ``UNKNOWN_FIELD`` is used.
+
+This is not the same as the ``field_id`` parameter of ``load_data``, which is the index of the field to read from the Measurement Set.
+
+SDM layout
+----------
+
+Expected layout
+^^^^^^^^^^^^^^^
+
+Before a run, the SDM directory must hold the sky model of each field:
 
 .. code-block:: text
 
    <sdm>/
    ├── sky/
-   │   └── <field_id>/
+   │   └── <field>/
    │       └── sky_model.csv
    ├── calibration/
    ├── logs/
-   └─ ...
-
+   └── ...
 
 .. _sdm-sky-model-format:
 
-The ``sky_model.csv`` is read with ``ska-sdp-datamodels``, which requires the
-catalogue metadata header lines before the components, for example:
+The ``sky_model.csv`` is read with ``ska-sdp-datamodels``, and must be in the SKA LSM format, starting with the catalogue metadata header lines, for example:
 
 .. code-block:: text
 
@@ -85,21 +100,27 @@ catalogue metadata header lines before the components, for example:
    # CATALOGUE_METADATA_UPLOADED_AT=2026-01-01T00:00:00+00:00
    J000000-300000,,0.0,-30.0,1.5,200000000,0,0,0,0,"[-0.7]",true
 
-A CSV without this header fails to load. The ``oskar-to-ska-lsm`` and
-``gleam-to-ska-lsm`` scripts write it for you.
+A CSV without this header fails to load. The ``oskar-to-ska-lsm`` and ``gleam-to-ska-lsm`` scripts write it for you.
 
+After a run
+^^^^^^^^^^^
 
-Post-run, the pipeline updates the SDM directory like this:
+A run adds its gain table and a new logs directory to the SDM:
 
 .. code-block:: text
 
    <sdm>/
    ├── calibration/
    │   └── <purpose>/
-   │       └── <field_id>/
-   │           └── <filename>.h5parm     # exported gaintable
+   │       └── <field>/
+   │           └── gaintable.h5parm       # final gain table
    └── logs/
-       └── NN-inst/                      # NN = next available index (01, 02, …)
-           ├── pipeline.log
-           ├── config.yaml
-           └── qa/
+       └── NN-inst/                       # NN = next free index (01, 02, …)
+           ├── <pipeline>_<time>.log      # pipeline log
+           ├── <pipeline>_<time>.config.yaml
+           ├── <pipeline>_<time>.cli.yaml
+           ├── gaintables/                # intermediate gain tables
+           ├── plots/
+           └── sky/                       # exported sky model, if enabled
+
+The ``gaintables``, ``plots`` and ``sky`` directories are only created when the stages export or plot something.

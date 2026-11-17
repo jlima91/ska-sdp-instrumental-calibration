@@ -42,6 +42,7 @@ sys.path.append(os.path.abspath("../../src"))
 # written in the form GitLab understands:
 #   - docs-only pages: absolute RTD URL, e.g.
 #     https://developer.skao.int/projects/<project>/en/latest/page.html
+#     (or the docs home, .../en/latest/, for the index page)
 #   - other shared files: relative path, e.g. DEVELOPMENT.md
 # During the sphinx build, both are rewritten into links to the pages of
 # the docs version being built (instead of the "latest" published docs).
@@ -55,7 +56,8 @@ _MD_LINK = re.compile(
         (?:
             https://developer\.skao\.int/projects/ska-sdp-instrumental-calibration/en/
             [^/)\s]+ /
-            (?P<page> [^)\#\s]+ ) \.html
+            # page is optional: the docs home URL links to the index
+            (?: (?P<page> [^)\#\s]+ ) \.html )?
         |
             (?P<file> [\w-]+ ) \.md
         )
@@ -76,7 +78,7 @@ def _localise_shared_md_links(app, docname, source):
         return
 
     def _replace(match):
-        page = match["page"] or match["file"]
+        page = match["page"] or match["file"] or "index"
         page_in_docs = any(
             os.path.exists(os.path.join(app.srcdir, page + suffix))
             for suffix in (".rst", ".md")
@@ -133,12 +135,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib.autodoc_pydantic",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
-    "sphinxcontrib.mermaid",
 ]
-
-# Mermaid diagrams set their own light theme, since the RTD page
-# background stays white. Keep it in OS dark mode too.
-mermaid_dark_theme = "base"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:

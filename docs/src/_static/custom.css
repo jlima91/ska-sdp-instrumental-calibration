@@ -2,16 +2,13 @@
     max-width: 1200px !important;
 }
 
-/*
- * Mermaid diagrams use fixed light colours (see the init line of each
- * diagram). In OS dark mode, sphinxcontrib-mermaid gives its fullscreen
- * view a dark background, which hides the dark edges of the diagrams.
- * Keep the fullscreen view light, like the RTD page.
- */
-.mermaid-fullscreen-modal.dark-theme {
-    background: rgba(255, 255, 255, 0.98) !important;
+/* Collapsible blocks, such as the diagram legend of the pipeline flow page */
+details {
+    /* same spacing as a paragraph, so the next heading does not stick to it */
+    margin-bottom: 24px;
 }
 
-.mermaid-container-fullscreen.dark-theme {
-    background: white !important;
+details > summary {
+    cursor: pointer;
+    margin-bottom: 0.5em;
 }

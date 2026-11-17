@@ -7,7 +7,7 @@ SKA SDP Instrumental Calibration (INST) Pipeline
    :maxdepth: 1
    :caption: Readme
 
-   README
+   Getting Started <README>
    DEVELOPMENT
 
 .. toctree::
@@ -20,7 +20,7 @@ SKA SDP Instrumental Calibration (INST) Pipeline
    :maxdepth: 1
    :caption: Contents
 
-   calibration_flow
+   pipeline_flow
    running_pipeline
    stage_config
    experimental_pipeline
