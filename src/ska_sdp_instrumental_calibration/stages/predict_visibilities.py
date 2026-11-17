@@ -34,7 +34,7 @@ def predict_visibilities(
             and model vis. If "vis" or "modelvis", normalise only that
             one. If false, normalise neither. Requires use_everybeam.
             Which stages solve on the normalised data is described in
-            https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
+            https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/pipeline_flow.html
             """,
         ),
     ] = True,
@@ -119,8 +119,8 @@ def predict_visibilities(
         direction. If true, normalise both vis and model vis. If "vis" or
         "modelvis", normalise only that one. If false, normalise neither.
         Requires use_everybeam. Which stages solve on the normalised data
-        is described in the calibration flow documentation:
-        https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html
+        is described in the pipeline flow documentation:
+        https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/pipeline_flow.html
     element_response_model: str
         type of element response model given to Everybeam.
         Defaulted oskar_dipole_cos.
