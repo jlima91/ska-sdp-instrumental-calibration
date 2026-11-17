@@ -1,141 +1,96 @@
 import logging
-import os
 
-from ska_sdp_piper.piper.log import PiperLogging
-
-from ..data_managers.data_export.qa_metadata import (
-    get_qa_metadata_paths,
-    read_qa_metadata,
+from ..data_managers.data_export.qa_metadata import read_qa_metadata_from_dir
+from ..data_managers.schema.qa_metadata import QAMetadata
+from ..data_managers.schema.qa_metric import (
+    BandpassFitMetrics,
+    CableDelays,
+    FlaggingStatistics,
 )
-from ..data_managers.sdm import get_final_gaintable_path, get_qa_metric_dir
-from .flagging_statistics import (
-    build_flagging_rows,
-    flagging_totals,
-    gaintable_flagged_percentage,
-)
-from .formatting import format_flagging_statistics, format_metadata
-from .render import render_page
+from ..data_managers.sdm import get_final_gaintable_path
+from ..exceptions import QAMetadataError
+from .report import QAMetricReport
 
 logger = logging.getLogger(__name__)
 
-PAGE_TITLE = "Bandpass QA Metrics"
-
-SECTION_TITLES = [
-    "Metadata summary",
-    "Flagging Statistics",
-    "Bandpass fit metrics table",
-    "Bandpass Plots",
-    "Cable Delays table",
-]
-
-GAINTABLE_MISSING = "ERROR: Gaintable missing"
-PREREQUISITE_DATA_MISSING = "ERROR: Pre-requisite data missing"
+REPORT_TITLE = "Bandpass QA Metrics"
 
 
-def generate_qa_metric(output_path: str, sdm_path: str | None = None):
+def generate_qa_metric(qa_dir: str, sdm_path: str | None = None):
     """
-    Write the QA metric HTML page for bandpass stage of the INST run,
-    as ``inst-<source-name>-qa-metric.html``.
-
-    The report is stored in the logs directory of the latest INST run if an SDM
-    path is provided, else to ``output_path`` provided.
+    Write the QA metric HTML report for bandpass stage of the INST run, one
+    per source, as ``<qa_dir>/inst-<source-name>-qa-metric.html``.
 
     Parameters
     ----------
-    output_path : str
-        Output folder of the INST run. Used if no SDM path is provided.
-    sdm_path : str, optional
-        Path to the SDM directory. Takes precedence over ``output_path``
-        if both are given
-    """
-    PiperLogging.configure()
-
-    qa_metric_dir = get_qa_metric_dir(output_path, sdm_path)
-
-    qa_metadata_paths = get_qa_metadata_paths(qa_metric_dir)
-    if not qa_metadata_paths:
-        logger.warning("No QA metadata found in %s", qa_metric_dir)
-        page = render_page(
-            PAGE_TITLE,
-            SECTION_TITLES,
-            section_errors={
-                "metadata": PREREQUISITE_DATA_MISSING,
-                "flagging_statistics": PREREQUISITE_DATA_MISSING,
-            },
-        )
-        write_qa_metric(page, qa_metric_dir, "PLACEHOLDER_SOURCE_NAME")
-        return
-
-    for qa_metadata_path in qa_metadata_paths:
-        metadata = read_qa_metadata(qa_metadata_path)
-        flagging_statistics, flagging_error = _get_flagging_statistics(
-            metadata, qa_metric_dir, sdm_path
-        )
-
-        page = render_page(
-            PAGE_TITLE,
-            SECTION_TITLES,
-            format_metadata(metadata),
-            flagging_statistics,
-            {"flagging_statistics": flagging_error},
-            flagging_totals(flagging_statistics or []),
-        )
-        write_qa_metric(page, qa_metric_dir, metadata["source_name"])
-
-
-def _get_flagging_statistics(
-    metadata: dict, qa_metric_dir: str, sdm_path: str | None
-) -> tuple[list[dict] | None, str | None]:
-    """
-    Rows of the flagging statistics table of a field, or the error to show
-    if its final gaintable is missing.
-
-    Parameters
-    ----------
-    metadata : dict
-        QA metadata of the field.
-    qa_metric_dir : str
-        Directory of the INST run.
+    qa_dir : str
+        QA directory of the INST run: the logs directory of the latest INST
+        run in the SDM, or the output directory.
     sdm_path : str, optional
         Path to the SDM directory, if the INST run is in an SDM.
+    """
+    try:
+        qa_metadata = read_qa_metadata_from_dir(qa_dir)
+    except QAMetadataError as error:
+        logger.warning("%s", error)
+        _build_qa_metric_report().write_report_to_dir(qa_dir)
+        return
+
+    for metadata in qa_metadata:
+        final_gaintable_path = get_final_gaintable_path(
+            qa_dir, metadata.source_name, sdm_path
+        )
+        # Both sections need the final gaintable: read together, so a
+        # missing gaintable is logged once
+        try:
+            flagging_statistics = FlaggingStatistics.read_from_gaintable(
+                final_gaintable_path, metadata.pre_flagging
+            )
+            bandpass_fit_metrics = BandpassFitMetrics.read_from_gaintable(
+                final_gaintable_path
+            )
+        except FileNotFoundError as error:
+            logger.warning("%s", error)
+            flagging_statistics = bandpass_fit_metrics = None
+
+        _build_qa_metric_report(
+            metadata,
+            flagging_statistics,
+            bandpass_fit_metrics,
+            CableDelays.from_qa_metadata(metadata),
+        ).write_report_to_dir(qa_dir)
+
+
+def _build_qa_metric_report(
+    metadata: QAMetadata | None = None,
+    flagging_statistics: FlaggingStatistics | None = None,
+    bandpass_fit_metrics: BandpassFitMetrics | None = None,
+    cable_delays: CableDelays | None = None,
+) -> QAMetricReport:
+    """
+    Build the QA metric report of a field.
+
+    Parameters
+    ----------
+    metadata : QAMetadata, optional
+        QA metadata of the field. Without it, every section shows the
+        pre-requisite data missing error.
+    flagging_statistics : FlaggingStatistics, optional
+        Flagging statistics of the field.
+    bandpass_fit_metrics : BandpassFitMetrics, optional
+        Bandpass fit metrics of the field.
+    cable_delays : CableDelays, optional
+        Cable delays of the field.
 
     Returns
     -------
-    tuple
-        ``(rows, None)``, or ``(None, error message)``.
+    QAMetricReport
+        The report with all its sections.
     """
-    final_gaintable_path = get_final_gaintable_path(
-        qa_metric_dir, metadata["source_name"], sdm_path
+    return (
+        QAMetricReport(REPORT_TITLE, metadata)
+        .add_metadata_summary()
+        .add_flagging_statistics(flagging_statistics)
+        .add_bandpass_fit_metrics(bandpass_fit_metrics)
+        .add_cable_delays(cable_delays)
     )
-    if not os.path.exists(final_gaintable_path):
-        logger.warning("No final gaintable found at %s", final_gaintable_path)
-        return None, GAINTABLE_MISSING
-
-    rows = build_flagging_rows(
-        metadata["station_configuration"],
-        metadata["pre_flagged_gains"],
-        gaintable_flagged_percentage(final_gaintable_path),
-    )
-    return format_flagging_statistics(rows), None
-
-
-def write_qa_metric(page: str, qa_metric_dir: str, source_name: str):
-    """
-    Write a QA metric HTML page.
-
-    Parameters
-    ----------
-    page : str
-        HTML of the page.
-    qa_metric_dir : str
-        Directory to write the page to.
-    source_name : str
-        Source name the page belongs to.
-    """
-    qa_metric_path = os.path.join(
-        qa_metric_dir, f"inst-{source_name}-qa-metric.html"
-    )
-    with open(qa_metric_path, "w", encoding="utf-8") as qa_metric_file:
-        qa_metric_file.write(page)
-
-    logger.info("QA metric written to %s", qa_metric_path)

@@ -1,6 +1,9 @@
 {% macro format_value(value, value_format) -%}
   {%- if value is not none -%}
-    {{ "%.2f%%"|format(value) if value_format == "percentage" else value }}
+    {%- if value_format == "percentage" -%}{{ "%.2f%%"|format(value) }}
+    {%- elif value_format == "number" -%}{{ "%.3f"|format(value) }}
+    {%- else -%}{{ value }}
+    {%- endif -%}
   {%- endif -%}
 {%- endmacro %}
 
@@ -19,24 +22,53 @@
 </li>
 {%- endmacro %}
 
-{# Sorting and pagination are done by initTable in qa_metric.js #}
+{# Sortable column header. column_index is the column position in the rows #}
+{% macro column_header(column, column_index, rowspan=1) -%}
+<th class="{{ column.value_format }}" title="{{ column.description or '' }}"
+    data-column-index="{{ column_index }}" rowspan="{{ rowspan }}">
+  {{- column.label }}{% if column.unit %} ({{ column.unit }}){% endif -%}
+</th>
+{%- endmacro %}
+
+{# columns is a list of Column and ColumnGroup (see tables.py). A table with
+   groups has two header rows: group headers above the headers of their
+   columns. Sorting and pagination are done by initTable in qa_metric.js #}
 {% macro data_table(columns, rows, item_name, page_size=5) -%}
+{% set table = namespace(columns=[]) %}
+{% for item in columns %}
+  {% set table.columns = table.columns + (item.columns if item.columns is defined else [item]) %}
+{% endfor %}
+{% set has_groups = table.columns|length > columns|length %}
 <div class="table-card" data-page-size="{{ page_size }}" data-item-name="{{ item_name }}">
   <table>
     <thead>
       <tr>
-        {% for column in columns %}
-        <th class="{{ column.value_format }}" title="{{ column.description or '' }}">
-          {{- column.label }}{% if column.unit %} ({{ column.unit }}){% endif -%}
-        </th>
+        {% set header = namespace(column_index=0) %}
+        {% for item in columns %}
+        {% if item.columns is defined %}
+        <th class="column-group" colspan="{{ item.columns|length }}" data-tooltip="{{ item.description or '' }}">{{ item.label }}</th>
+        {% set header.column_index = header.column_index + item.columns|length %}
+        {% else %}
+        {{ column_header(item, header.column_index, 2 if has_groups else 1) }}
+        {% set header.column_index = header.column_index + 1 %}
+        {% endif %}
         {% endfor %}
       </tr>
+      {% if has_groups %}
+      <tr>
+        {% for column in table.columns %}
+        {% if column not in columns %}
+        {{ column_header(column, loop.index0) }}
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endif %}
     </thead>
     <tbody>
       {% for row in rows %}
       <tr>
-        {% for column in columns %}
-        {% set value = row[column.key] %}
+        {% for column in table.columns %}
+        {% set value = row.get(column.key) %}
         <td class="{{ column.value_format }}" data-sort-value="{{ value if value is not none }}">
           {{- format_value(value, column.value_format) -}}
         </td>

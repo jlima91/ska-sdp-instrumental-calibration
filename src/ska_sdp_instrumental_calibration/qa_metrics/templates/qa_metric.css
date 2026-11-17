@@ -111,16 +111,26 @@ th, td {
 }
 th {
   font-size: 14px; font-weight: 600; color: var(--label);
-  background: var(--soft);
-  cursor: pointer; user-select: none; white-space: nowrap;
+  background: var(--soft); white-space: nowrap;
 }
-th:hover { color: var(--ska-navy); }
-th::after { content: " \2195"; opacity: 0.35; }
+th[data-column-index] { cursor: pointer; user-select: none; }
+th[data-column-index]:hover { color: var(--ska-navy); }
+th[data-column-index]::after { content: " \2195"; opacity: 0.35; }
+th.column-group { position: relative; text-align: center; }
+/* Description of a column group, shown below its header on hover */
+th.column-group[data-tooltip]:not([data-tooltip=""]):hover::after {
+  content: attr(data-tooltip); position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%); z-index: 1; width: 360px; padding: 12px 16px;
+  font-size: 13px; font-weight: 400; line-height: 1.5; text-align: left;
+  white-space: pre-line; color: var(--ska-navy); background: var(--card);
+  border: 1px solid var(--line); border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(7, 0, 104, 0.08);
+}
 th.sorted-ascending::after { content: " \25B2"; opacity: 1; }
 th.sorted-descending::after { content: " \25BC"; opacity: 1; }
 .text { text-align: left; }
 td.text { font-weight: 600; }
-td.percentage { font-family: monospace; font-size: 15px; }
+td.percentage, td.number { font-family: monospace; font-size: 15px; }
 .pagination {
   display: flex; justify-content: space-between; align-items: center;
   padding: 16px 28px; font-size: 14px; color: var(--label);

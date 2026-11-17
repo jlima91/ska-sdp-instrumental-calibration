@@ -8,7 +8,7 @@ from ska_sdp_datamodels.science_data_model.science_data_model import (
 )
 
 GAINTABLE_FILE_NAME = "gaintable.h5parm"
-GAINTABLE_TYPE = "bandpass"
+GAINTABLE_PURPOSE = "bandpass"
 
 
 def get_gaintable_file_path(
@@ -51,6 +51,15 @@ def get_gaintable_file_path(
     return os.path.join(output_dir, f"{field_id}_{filename}")
 
 
+def _check_path_exists(path: str, path_name: str):
+    """Raise FileNotFoundError if a path provided by the user is missing"""
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"Provided {path_name} {path} does not exist. "
+            "Please provide a valid path."
+        )
+
+
 def prepare_qa_path(
     output_dir: str, sdm_path: str | None = None, **kwargs
 ) -> str:
@@ -77,11 +86,7 @@ def prepare_qa_path(
     if sdm_path is None:
         return str(output_dir)
 
-    if not os.path.exists(sdm_path):
-        raise FileNotFoundError(
-            f"Provided SDM path {sdm_path} does not exist. "
-            "Please provide a valid path."
-        )
+    _check_path_exists(sdm_path, "SDM path")
 
     sdm = ScienceDataModel(sdm_path)
     logs_path = sdm.get_next_logs_dir("inst")
@@ -90,7 +95,7 @@ def prepare_qa_path(
     return str(logs_path)
 
 
-def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
+def get_qa_dir(output_path: str, sdm_path: str | None = None) -> str:
     """
     Get the directory to write the QA metric of the latest INST run to.
 
@@ -108,18 +113,10 @@ def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
         provided, else ``output_path``.
     """
     if sdm_path is None:
-        if not os.path.exists(output_path):
-            raise FileNotFoundError(
-                f"Provided output path {output_path} does not exist. "
-                "Please provide a valid path."
-            )
+        _check_path_exists(output_path, "output path")
         return str(output_path)
 
-    if not os.path.exists(sdm_path):
-        raise FileNotFoundError(
-            f"Provided SDM path {sdm_path} does not exist. "
-            "Please provide a valid path."
-        )
+    _check_path_exists(sdm_path, "SDM path")
 
     latest_run_path = ScienceDataModel(sdm_path).get_latest_logs_dir("inst")
     if latest_run_path is None:
@@ -131,13 +128,13 @@ def get_qa_metric_dir(output_path: str, sdm_path: str | None = None) -> str:
 
 
 def get_final_gaintable_path(
-    qa_metric_dir: str, field_id: str, sdm_path: str | None = None
+    qa_dir: str, field_id: str, sdm_path: str | None = None
 ) -> str:
     """
     Get the path of the final gaintable of a field
     Parameters
     ----------
-    qa_metric_dir
+    qa_dir
         Directory of the INST run. Used if no SDM path is provided.
     field_id
         Field the gaintable belongs to.
@@ -147,15 +144,15 @@ def get_final_gaintable_path(
     Returns
     -------
         The SDM calibration table path if an SDM path is provided, else
-        <qa_metric_dir>/<field_id>_gaintable.h5parm.
+        <qa_dir>/<field_id>_gaintable.h5parm.
     """
     if sdm_path is not None:
         return str(
             ScienceDataModel(sdm_path).get_calibration_table(
                 field_id=field_id,
-                purpose=GAINTABLE_TYPE,
+                purpose=GAINTABLE_PURPOSE,
                 file_name=GAINTABLE_FILE_NAME,
             )
         )
 
-    return os.path.join(qa_metric_dir, f"{field_id}_{GAINTABLE_FILE_NAME}")
+    return os.path.join(qa_dir, f"{field_id}_{GAINTABLE_FILE_NAME}")

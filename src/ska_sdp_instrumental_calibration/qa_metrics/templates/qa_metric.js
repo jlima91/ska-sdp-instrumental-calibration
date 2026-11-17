@@ -22,7 +22,8 @@ function compareCells(cellA, cellB, ascending) {
 // sortable by clicking its column headers.
 function initTable(card) {
   var body = card.querySelector("tbody");
-  var headers = card.querySelectorAll("th");
+  // Column headers, without the group headers above them
+  var headers = card.querySelectorAll("th[data-column-index]");
   var pageSize = Number(card.dataset.pageSize);
   var itemName = card.dataset.itemName;
   var page = 0;
@@ -42,8 +43,8 @@ function initTable(card) {
       " of " + rows.length + " total " + itemName;
   }
 
-  function sortBy(columnIndex) {
-    var header = headers[columnIndex];
+  function sortBy(header) {
+    var columnIndex = Number(header.dataset.columnIndex);
     var ascending = !header.classList.contains("sorted-ascending");
     headers.forEach(function (other) {
       other.classList.remove("sorted-ascending", "sorted-descending");
@@ -62,11 +63,12 @@ function initTable(card) {
     showPage(0);
   }
 
-  headers.forEach(function (header, columnIndex) {
+  headers.forEach(function (header) {
     header.addEventListener("click", function () {
-      sortBy(columnIndex);
+      sortBy(header);
     });
   });
+
   card.querySelector(".previous-page").addEventListener("click", function () {
     showPage(page - 1);
   });

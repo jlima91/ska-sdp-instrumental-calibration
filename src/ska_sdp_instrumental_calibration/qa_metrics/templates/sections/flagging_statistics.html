@@ -1,0 +1,6 @@
+{% from "components.html" import data_table, format_value %}
+<dl class="flagging-totals" title="Average over all stations">
+  <div><dt>Total flagged before (%)</dt><dd>{{ format_value(section.totals.flagged_before, "percentage") }}</dd></div>
+  <div><dt>Total flagged after (%)</dt><dd>{{ format_value(section.totals.flagged_after, "percentage") }}</dd></div>
+</dl>
+{{ data_table(section.columns, section.rows, section.item_name) }}

@@ -1,16 +1,10 @@
 import glob
-import json
 import logging
 import os
-from typing import Callable
 
-import numpy as np
-
-from ...xarray_processors.vis_flagging import (
-    flagged_sample_counts,
-    flagged_time_count,
-    unsolvable_gain_counts,
-)
+from ...exceptions import QAMetadataError
+from ...xarray_processors.vis_flagging import flagged_time_count
+from ..schema.qa_metadata import QAMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -46,34 +40,12 @@ def get_ms_qa_data(vis, input_ms: str) -> dict:
     }
 
 
-def _percentage_per_station(
-    count_function: Callable, ms_qa_data: list[dict], nstations: int
-) -> np.ndarray:
-    """
-    Sum the (flagged, total) counts over the measurement
-    sets, then return the percentage per station.
-    """
-    flagged = 0
-    total = 0
-    for ms in ms_qa_data:
-        ms_flagged, ms_total = count_function(
-            ms["flagged_time_count"],
-            ms["antenna1"],
-            ms["antenna2"],
-            ms["ntimes"],
-            nstations,
-        )
-        flagged = flagged + ms_flagged
-        total = total + ms_total
-
-    return flagged / total * 100
-
-
-def write_qa_metadata(field_id: str, ms_qa_data: list[dict], qa_dir: str):
+def write_qa_metadata_to_dir(
+    field_id: str, ms_qa_data: list[dict], qa_dir: str
+):
     """
     Write the QA metadata of the measurement sets of one field to
-    <qa_dir>/<field_id>_qa-metadata-data.json. The measurement sets
-    are joined along time.
+    <qa_dir>/<field_id>_qa-metadata-data.json.
 
     Parameters
     ----------
@@ -85,95 +57,41 @@ def write_qa_metadata(field_id: str, ms_qa_data: list[dict], qa_dir: str):
         QA directory of the run: the SDM logs directory or the output
         directory. Saved as the output path.
     """
-    # Measurement sets of a field share stations and channels, so they
-    # are taken from the first one
-    first_ms = ms_qa_data[0]
-    station_names = [str(name) for name in first_ms["station_names"]]
-    nstations = len(station_names)
-
-    integration_time = np.median(np.diff(first_ms["timestamps"]))
-
-    start_time = (
-        min(ms["timestamps"].min() for ms in ms_qa_data) - integration_time / 2
-    )
-    end_time = (
-        max(ms["timestamps"].max() for ms in ms_qa_data) + integration_time / 2
-    )
-
-    pre_flagged_data = _percentage_per_station(
-        flagged_sample_counts, ms_qa_data, nstations
-    )
-
-    pre_flagged_gains = _percentage_per_station(
-        unsolvable_gain_counts, ms_qa_data, nstations
-    )
-
-    qa_metadata = {
-        "source_name": field_id,
-        "input_ms": [ms["input_ms"] for ms in ms_qa_data],
-        "output_path": qa_dir,
-        "observation_parameters": {
-            "start_time": float(start_time),
-            "observation_length": float(end_time - start_time),
-            "integration_time": float(integration_time),
-            "channels": int(first_ms["channels"]),
-        },
-        "pre_flagged_data": {
-            name: float(percentage)
-            for name, percentage in zip(station_names, pre_flagged_data)
-        },
-        "pre_flagged_gains": {
-            name: float(percentage)
-            for name, percentage in zip(station_names, pre_flagged_gains)
-        },
-        "station_configuration": {
-            str(station_id): name
-            for station_id, name in enumerate(station_names)
-        },
-    }
-
     qa_metadata_path = os.path.join(
         qa_dir, f"{field_id}_{QA_METADATA_FILE_NAME}"
     )
-    with open(qa_metadata_path, "w", encoding="utf-8") as metadata_file:
-        json.dump(qa_metadata, metadata_file, indent=4)
+    QAMetadata.from_ms_qa_data(field_id, ms_qa_data, qa_dir).write_to_json(
+        qa_metadata_path
+    )
 
     logger.info("QA metadata written to %s", qa_metadata_path)
 
 
-def get_qa_metadata_paths(qa_metric_dir: str) -> list[str]:
+def read_qa_metadata_from_dir(qa_dir: str) -> list[QAMetadata]:
     """
-    Get the QA metadata JSON files of an INST run, one per field.
+    Read the QA metadata of an INST run, one per field.
 
     Parameters
     ----------
-    qa_metric_dir: str
-        Directory of the INST run.
+    qa_dir: str
+        QA directory of the run: the SDM logs directory or the output
+        directory.
 
     Returns
     -------
-    list[str]
-        Paths of the <field>_qa-metadata-data.json file in
-        qa_metric_dir
+    list[QAMetadata]
+        QA metadata of each <field>_qa-metadata-data.json file in qa_dir.
+
+    Raises
+    ------
+    QAMetadataError
+        If no QA metadata file is found, or a file is malformed or
+        incomplete.
     """
-    return sorted(
-        glob.glob(os.path.join(qa_metric_dir, f"*_{QA_METADATA_FILE_NAME}"))
+    qa_metadata_paths = sorted(
+        glob.glob(os.path.join(qa_dir, f"*_{QA_METADATA_FILE_NAME}"))
     )
+    if not qa_metadata_paths:
+        raise QAMetadataError(f"No QA metadata found in {qa_dir}")
 
-
-def read_qa_metadata(qa_metadata_path: str) -> dict:
-    """
-    Read a QA metadata JSON file.
-
-    Parameters
-    ----------
-    qa_metadata_path: str
-        Path of a QA metadata JSON file.
-
-    Returns
-    -------
-    dict
-        The QA metadata.
-    """
-    with open(qa_metadata_path, encoding="utf-8") as metadata_file:
-        return json.load(metadata_file)
+    return [QAMetadata.read_from_json(path) for path in qa_metadata_paths]

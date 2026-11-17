@@ -5,11 +5,12 @@ import tempfile
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, Pipeline, PiperBaseModel
 from ska_sdp_piper.piper.constants import RUN_CLI_ARGS
+from ska_sdp_piper.piper.log import PiperLogging
 from ska_sdp_piper.piper.stage import Stages
 from ska_sdp_piper.piper.utils.io_utils import read_yml, write_yml
 
 from . import __version__
-from .data_managers.sdm import prepare_qa_path
+from .data_managers.sdm import get_qa_dir, prepare_qa_path
 from .qa_metrics import generate_qa_metric
 from .scheduler import InstrumentalDaskRunner
 from .stages import (
@@ -193,4 +194,12 @@ def qa_metric(sdm_path, output_path):
     output_path: str
         Output directory of the INST run. Ignored if sdm_path is also provided
     """
-    generate_qa_metric(output_path, sdm_path)
+    PiperLogging.configure()
+
+    try:
+        qa_dir = get_qa_dir(output_path, sdm_path)
+    except FileNotFoundError as error:
+        logger.error("%s", error)
+        return
+
+    generate_qa_metric(qa_dir, sdm_path)

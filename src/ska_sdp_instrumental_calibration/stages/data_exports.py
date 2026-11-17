@@ -13,7 +13,7 @@ from ..data_managers.data_export import (
 )
 from ..data_managers.data_export.qa_metadata import (
     get_ms_qa_data,
-    write_qa_metadata,
+    write_qa_metadata_to_dir,
 )
 from ..data_managers.sdm import get_gaintable_file_path
 from ..scheduler import UpstreamOutput, delayed
@@ -63,7 +63,7 @@ def export_qa_metadata(upstream_outputs: list[UpstreamOutput], qa_dir: str):
             get_ms_qa_data(upstream_output.vis, upstream_output.input_ms)
             for upstream_output in field_upstream_outputs
         ]
-        delayed(write_qa_metadata)(field_id, ms_qa_data, qa_dir)
+        delayed(write_qa_metadata_to_dir)(field_id, ms_qa_data, qa_dir)
 
 
 @ConfigurableStage(name="export_gain_table")
