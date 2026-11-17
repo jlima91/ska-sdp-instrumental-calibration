@@ -2,14 +2,12 @@
 
 [![Documentation Status](https://readthedocs.org/projects/ska-telescope-ska-sdp-instrumental-calibration/badge/?version=latest)](https://ska-telescope-ska-sdp-instrumental-calibration.readthedocs.io/en/latest/?badge=latest)
 
-The **Instrumental Calibration Pipeline (INST)** is a cli application which is used
-to perform calibration operations on the SKA visibility data. It mainly provides Instrumental calibration pipeline and Taget calibration pipeline.
+The **Instrumental Calibration Pipeline (INST)** is a CLI application which generates the initial calibration solutions during standard SKA batch processing. It predicts model visibilities from a sky model (the GLEAM catalogue or an SKA LSM CSV file), and solves for gains by comparing them with the observed visibilities. It provides three pipelines: the instrumental calibration pipeline, `ska-sdp-instrumental-calibration`, which solves for the station delays and the bandpass on a calibrator, and two target calibration pipelines, `ska-sdp-instrumental-target-calibration` and `ska-sdp-instrumental-target-ionospheric`, which solve for phase-only complex gains and for an ionospheric phase screen on the target. The solutions are exported as h5parm files. It is built on the [piper](https://gitlab.com/ska-telescope/sdp/ska-sdp-exec-piper) framework, runs with local threads or on a dask cluster, and is developed by Team DHRUVA for SKAO.
 
-This repository contains the functions to generate the
-initial calibration products during standard SKA batch processing. It includes
-processing functions to prepare, model and calibrate a visibility dataset, data
-handling functions for parallel processing, and high level workflow scripts and
-notebooks.
+Refer to the [Pipeline Flow](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/pipeline_flow.html) page for the stages of each pipeline, the data they solve on, and example configs.
+
+The repository is [hosted on gitlab](https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration).
+The documentation is available [at this page](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/).
 
 If you wish to contribute to this repository, please refer [Developer Guide](DEVELOPMENT.md)
 
@@ -51,80 +49,44 @@ For prediction of model visibilities, here are the pre-requisites:
 
 ### In python environments
 
-It is always recommended to create a seperate python environment for the pipeline.
-For that, you can use `conda` or [uv](https://docs.astral.sh/uv/getting-started/installation/)
+The latest release is available in SKA's pip repository. You can install this package using following command:
 
 ```bash
-# To create a virtual environment using uv
-# This will be created in the `.venv` directory
-uv venv --python 3.11 --seed
-
-#To activate the environment
-source .venv/bin/activate
+pip install --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple ska-sdp-instrumental-calibration
 ```
 
-#### Stable release from SKAO pip index (recommended)
-
-Run the following command to install the latest stable release (1.5.0) of the pipeline from SKAO python artifact repository:
+To also install the optional `dp3` extra:
 
 ```bash
-INST_VERSION=1.5.0
-
-# if using uv, use `uv pip install ...`
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration==$INST_VERSION"
-```
-
-#### Latest pipeline from git
-
-Run the following command to install the latest pipeline from the `main` branch of the git repository
-
-```bash
-INST_BRANCH=main
-
-# if using uv, use `uv pip install ...`
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
-```
-
-The `dp3_gaincal` solver is not in the 1.5.0 release. To use it, install
-from git with the optional `dp3` extra:
-
-```bash
-pip install --extra-index-url "https://artefact.skao.int/repository/pypi-internal/simple" "ska-sdp-instrumental-calibration[dp3]@git+https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration.git@$INST_BRANCH"
+pip install --extra-index-url https://artefact.skao.int/repository/pypi-internal/simple "ska-sdp-instrumental-calibration[dp3]"
 ```
 
 ### As spack package
 
-The INST pipeline is available as a [spack](https://spack.readthedocs.io/en/v0.23.1/) package, in the [ska-sdp-spack](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack) repository. Please follow the [README](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack/-/blob/main/README.md) to setup spack on your machine. Then install the e2e pipeline using this command:
+The instrumental calibration pipeline is available as the `py-ska-sdp-instrumental-calibration` [spack](https://spack.readthedocs.io/) package, in the [ska-sdp-spack](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack) repository. Follow its [README](https://gitlab.com/ska-telescope/sdp/ska-sdp-spack/-/blob/main/README.md) to set up spack, then install and load the pipeline:
 
 ```bash
-INST_VERSION=1.5.0
-
-spack install "py-ska-sdp-instrumental-calibration@$INST_VERSION"
-```
-
-Then load the spack package with this command
-
-```bash
-spack load "py-ska-sdp-instrumental-calibration"
+spack install py-ska-sdp-instrumental-calibration
+spack load py-ska-sdp-instrumental-calibration
 ```
 
 ### As OCI container
 
-We also provide a OCI (docker) image which is hosted on the SKA Docker artifact repository.
-To pull the docker image for the latest stable release, please run:
+The pipeline can also be deployed inside an OCI container.
 
-```bash
-INST_VERSION=1.5.0
-docker pull "artefact.skao.int/ska-sdp-instrumental-calibration:$INST_VERSION"
-```
+1. Run following command to pull the OCI image.
 
-The entrypoint of above image is set to the executable `ska-sdp-instrumental-calibration`.
+    ```bash
+    docker pull artefact.skao.int/ska-sdp-instrumental-calibration:2.0.0
+    ```
 
-Run image with volume mounts to enable read write to storage.
+    The entrypoint of above image is set to the executable `ska-sdp-instrumental-calibration`.
 
-```bash
-docker run [-v local:container] <image-name> ...<cli_options>...
-```
+1. Run image with volume mounts to enable read write to storage.
+
+    ```bash
+    docker run [-v local:container] <image-name> [run | install-config | experimental] ...
+    ```
 
 ## Using the CLI for Instrumental Calibration pipeline
 
@@ -160,8 +122,8 @@ Parameters of the default configurations can be overridden
 
 ```bash
 ska-sdp-instrumental-calibration install-config --config-install-path path/to/dir \
-                    --set parameters.bandpass_calibration.flagging true \
-                    --set parameters.load_data.fchunk 64
+                    --set parameters.bandpass_calibration.run_solver_config.solver normal_equations \
+                    --set parameters.load_data.nchannels_per_chunk 64
 ```
 
 ### Running the pipeline
@@ -219,8 +181,15 @@ options:
 
 > Generating YAML config of the pipeline and running the pipeline is same as instrumental calibration pipeline. Target calibration pipeline doesn't provide experimental configuration.
 
-## Calibration flow
+## Utility tools
 
-Refer to the [calibration flow](https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/calibration_flow.html) page for the stages of each pipeline, the data they solve on, and example configs.
+Installing the package also installs these command line tools:
 
+| Command | Source | Description |
+| --- | --- | --- |
+| `oskar-to-ska-lsm` | `src/inst_cli_tools/oskar_to_ska_lsm.py` | Convert an OSKAR sky model file to an SKA LSM CSV. |
+| `gleam-to-ska-lsm` | `src/inst_cli_tools/gleam_to_ska_lsm.py` | Convert the GLEAM-EGC catalogue to an SKA LSM CSV. |
+| `ska-lsm-to-sourcedb` | `src/inst_cli_tools/ska_lsm_to_sourcedb.py` | Convert an SKA LSM CSV to a sourcedb sky model, as read by DP3. |
+| `clean-with-gains` | `src/inst_cli_tools/clean-with-gains` | Apply a gain table (h5parm) to a measurement set with DP3, and image it with WSClean. Requires `DP3` and `wsclean`. |
 
+Run any of them with `--help` to see its options.
