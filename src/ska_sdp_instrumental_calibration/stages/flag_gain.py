@@ -3,7 +3,10 @@ from typing import Annotated, Literal
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
-from ..data_managers.data_export import export_gaintable_to_h5parm
+from ..data_managers.data_export import (
+    export_gain_fits_to_zarr,
+    export_gaintable_to_h5parm,
+)
 from ..plot import plot_curve_fit, plot_flag_gain
 from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
@@ -178,6 +181,24 @@ def flag_gain_stage(
         )
 
         delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
+
+        # gain_fits should be moved to the QA diagnostic folder,
+        # instead of gaintable path.
+        fits_file_path = get_gaintables_path(
+            _qa_dir_,
+            f"{prefix}/gain_fit_flag{call_counter_suffix}.zarr",
+        )
+
+        # Fit config is stored as attrs so the diagnostic process can
+        # interpret the fits; values must be JSON-serialisable for zarr.
+        delayed(export_gain_fits_to_zarr)(
+            fits,
+            fits_file_path,
+            attrs={
+                "soltype": soltype,
+                "normalize_gains": int(normalize_gains),
+            },
+        )
 
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("gain_flag")

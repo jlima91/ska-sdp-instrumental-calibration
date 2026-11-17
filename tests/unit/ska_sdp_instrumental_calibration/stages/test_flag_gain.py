@@ -129,12 +129,17 @@ def test_should_perform_flagging_on_gains(
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
 @patch(
     "ska_sdp_instrumental_calibration.stages.flag_gain"
+    ".export_gain_fits_to_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.flag_gain"
     ".export_gaintable_to_h5parm"
 )
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.flag_on_gains")
 def test_should_export_gaintable_with_proper_suffix(
     flag_on_gains_mock,
     export_gaintable_mock,
+    export_fits_mock,
     plot_curve_mock,
     plot_flag_mock,
     get_gaintables_path_mock,
@@ -144,7 +149,9 @@ def test_should_export_gaintable_with_proper_suffix(
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/gain_flag.gaintable.h5parm",
+        "/output/path/gaintables/gain_fit_flag.zarr",
         "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
+        "/output/path/gaintables/gain_fit_flag_1.zarr",
     ]
 
     upstream_output = UpstreamOutput()
@@ -216,7 +223,9 @@ def test_should_export_gaintable_with_proper_suffix(
     get_gaintables_path_mock.assert_has_calls(
         [
             call("/output/path", "ms_prefix/gain_flag.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/gain_fit_flag.zarr"),
             call("/output/path", "ms_prefix/gain_flag_1.gaintable.h5parm"),
+            call("/output/path", "ms_prefix/gain_fit_flag_1.zarr"),
         ]
     )
     export_gaintable_mock.assert_has_calls(
@@ -232,8 +241,29 @@ def test_should_export_gaintable_with_proper_suffix(
         ]
     )
 
+    expected_fits_attrs = {"soltype": soltype, "normalize_gains": 0}
+    export_fits_mock.assert_has_calls(
+        [
+            call(
+                fits,
+                "/output/path/gaintables/gain_fit_flag.zarr",
+                attrs=expected_fits_attrs,
+            ),
+            call(
+                fits,
+                "/output/path/gaintables/gain_fit_flag_1.zarr",
+                attrs=expected_fits_attrs,
+            ),
+        ]
+    )
+
     delayed_mock.assert_has_calls(
-        [call(export_gaintable_mock), call(export_gaintable_mock)]
+        [
+            call(export_gaintable_mock),
+            call(export_fits_mock),
+            call(export_gaintable_mock),
+            call(export_fits_mock),
+        ]
     )
 
 
