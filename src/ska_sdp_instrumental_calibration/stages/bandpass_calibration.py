@@ -2,7 +2,7 @@ import logging
 from typing import Annotated, Literal
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
@@ -26,6 +26,7 @@ logger = logging.getLogger()
 def bandpass_calibration_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     run_solver_config: Annotated[
         RunSolverConfig,
         Field(
@@ -50,10 +51,6 @@ def bandpass_calibration_stage(
         Literal["vis", "corrected_vis"],
         Field(description="Visibility data to be used for calibration."),
     ] = "vis",
-    export_gaintable: Annotated[
-        bool,
-        Field(description="Export intermediate gain solutions."),
-    ] = True,
 ):
     """
     Performs Bandpass Calibration
@@ -73,7 +70,7 @@ def bandpass_calibration_stage(
             eg: {{plot_table: False, fixed_axis: False}}
         visibility_key: str
             Visibility data to be used for calibration.
-        export_gaintable: bool
+        export_qa_data: bool
             Export intermediate gain solutions.
 
     Returns
@@ -129,7 +126,7 @@ def bandpass_calibration_stage(
             plot_all_stations=True,
         )
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",

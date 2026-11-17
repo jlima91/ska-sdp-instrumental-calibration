@@ -8,7 +8,7 @@ class PlotConfig(PiperBaseModel):
     plot_table: Annotated[
         bool,
         Field(description="Plot the generated gaintable"),
-    ] = True
+    ] = False
     fixed_axis: Annotated[
         bool,
         Field(description="Limit amplitude axis to [0-1]"),
@@ -27,7 +27,7 @@ class PlotRMConfig(PiperBaseModel):
             description="""Plot the estimated rotational measures
             per station"""
         ),
-    ] = True
+    ] = False
     station: Annotated[
         int | str,
         Field(description="Station number/name to be plotted"),
@@ -43,11 +43,11 @@ class PlotFlagGainConfig(PiperBaseModel):
     curve_fit_plot: Annotated[
         bool,
         Field(description="Plot the fitted curve of gain flagging"),
-    ] = True
+    ] = False
     gain_flag_plot: Annotated[
         bool,
         Field(description="Plot the flagged weights"),
-    ] = True
+    ] = False
 
 
 class PlotSmoothGainsConfig(PiperBaseModel):
@@ -61,7 +61,7 @@ class PlotSmoothGainsConfig(PiperBaseModel):
         Field(
             description="""Plot the smoothed gaintable""",
         ),
-    ] = True
+    ] = False
     plot_path_prefix: Annotated[
         str,
         Field(

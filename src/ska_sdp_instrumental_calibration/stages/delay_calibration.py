@@ -2,7 +2,7 @@ import logging
 from typing import Annotated
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ska_sdp_instrumental_calibration.xarray_processors.apply import (
     apply_gaintable_to_dataset,
@@ -38,6 +38,7 @@ logger = logging.getLogger()
 def delay_calibration_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     plot_config: Annotated[
         PlotConfig,
         Field(description="Plot parameters", default_factory=PlotConfig),
@@ -60,9 +61,6 @@ def delay_calibration_stage(
                 in the gain solution is below this tolerance."""
         ),
     ] = 1e-06,
-    export_gaintable: Annotated[
-        bool, Field(description="Export intermediate gain solutions.")
-    ] = True,
 ):
     """
     Extract delays from bandpass solutions for plotting
@@ -87,7 +85,7 @@ def delay_calibration_stage(
         tol: float
             Iteration stops when the fractional change in the gain solution is
             below this tolerance.
-        export_gaintable: bool
+        export_qa_data: bool
             Export intermediate gain solutions
     Returns
     -------
@@ -171,7 +169,7 @@ def delay_calibration_stage(
             path_prefix,
         )
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/delay{call_counter_suffix}.gaintable.h5parm",

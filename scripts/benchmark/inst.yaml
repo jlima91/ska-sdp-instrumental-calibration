@@ -4,18 +4,14 @@ global_parameters:
 parameters:
   load_data:
     nchannels_per_chunk: 16
-  bandpass_initialisation:
-    export_gaintable: false
   bandpass_calibration:
     plot_config:
       plot_table: false
       fixed_axis: false
-    export_gaintable: false
   delay_calibration:
     plot_config:
       plot_table: false
       fixed_axis: false
-    export_gaintable: false
   export_gain_table:
     file_name: gaintable
     export_format: h5parm

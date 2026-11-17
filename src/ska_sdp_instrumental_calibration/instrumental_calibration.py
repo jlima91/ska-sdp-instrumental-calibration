@@ -1,3 +1,4 @@
+import argparse
 import copy
 import logging
 import tempfile
@@ -55,6 +56,15 @@ sdm_cli_arg = CLIArgument(
     help="""Directory path to store the Science Data Models""",
 )
 
+export_qa_data_cli_arg = CLIArgument(
+    "--export-intermediate-data",
+    dest="export_qa_data",
+    action=argparse.BooleanOptionalAction,
+    default=True,
+    help="""Flag to export intermediate data products - required for
+pipeline diagnostics, from the active stages.""",
+)
+
 qa_output_cli_arg = CLIArgument(
     "--output",
     dest="output_path",
@@ -86,6 +96,7 @@ ska_sdp_instrumental_calibration = (
     .overide_run(
         input_cli_arg,
         sdm_cli_arg,
+        export_qa_data_cli_arg,
         runner=InstrumentalDaskRunner,
     )
 )
@@ -96,6 +107,7 @@ ska_sdp_instrumental_calibration = (
     *RUN_CLI_ARGS,
     input_cli_arg,
     sdm_cli_arg,
+    export_qa_data_cli_arg,
     *InstrumentalDaskRunner.cli_args,
     help="Allows reordering of stages via additional config section",
 )

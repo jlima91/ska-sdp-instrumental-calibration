@@ -10,7 +10,7 @@ from ska_sdp_instrumental_calibration.stages.flag_gain import (
 
 @pytest.fixture
 def plot_config():
-    return PlotFlagGainConfig()
+    return PlotFlagGainConfig(curve_fit_plot=True, gain_flag_plot=True)
 
 
 def test_should_have_the_expected_default_configuration():
@@ -25,8 +25,7 @@ def test_should_have_the_expected_default_configuration():
             "n_sigma_rolling": 0.0,
             "window_size": 11,
             "normalize_gains": False,
-            "export_gaintable": True,
-            "plot_config": {"curve_fit_plot": True, "gain_flag_plot": True},
+            "plot_config": {"curve_fit_plot": False, "gain_flag_plot": False},
         },
     }
 
@@ -65,7 +64,7 @@ def test_should_perform_flagging_on_gains(
     normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
-    export_gaintable = False
+    export_qa_data = False
     plot_config.curve_fit_plot = False
     plot_config.gain_flag_plot = False
 
@@ -93,7 +92,7 @@ def test_should_perform_flagging_on_gains(
         soltype=soltype,
         order=order,
         skip_cross_pol=skip_cross_pol,
-        export_gaintable=export_gaintable,
+        export_qa_data=export_qa_data,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
         n_sigma_rolling=n_sigma_rolling,
@@ -161,7 +160,7 @@ def test_should_export_gaintable_with_proper_suffix(
     normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
-    export_gaintable = True
+    export_qa_data = True
     plot_config.curve_fit_plot = False
     plot_config.gain_flag_plot = False
 
@@ -189,7 +188,7 @@ def test_should_export_gaintable_with_proper_suffix(
         soltype=soltype,
         order=order,
         skip_cross_pol=skip_cross_pol,
-        export_gaintable=export_gaintable,
+        export_qa_data=export_qa_data,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
         n_sigma_rolling=n_sigma_rolling,
@@ -205,7 +204,7 @@ def test_should_export_gaintable_with_proper_suffix(
         soltype=soltype,
         order=order,
         skip_cross_pol=skip_cross_pol,
-        export_gaintable=export_gaintable,
+        export_qa_data=export_qa_data,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
         n_sigma_rolling=n_sigma_rolling,
@@ -280,7 +279,7 @@ def test_should_plot_flag_on_gain(
     normalize_gains = False
     apply_flag = True
     skip_cross_pol = False
-    export_gaintable = False
+    export_qa_data = False
 
     gaintable_mock = Mock(name="gaintable")
     amp_fit_mock = Mock(name="Amp fit")
@@ -305,7 +304,7 @@ def test_should_plot_flag_on_gain(
         soltype=soltype,
         order=order,
         skip_cross_pol=skip_cross_pol,
-        export_gaintable=export_gaintable,
+        export_qa_data=export_qa_data,
         max_ncycles=max_ncycles,
         n_sigma=n_sigma,
         n_sigma_rolling=n_sigma_rolling,

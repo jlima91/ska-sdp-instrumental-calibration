@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import PlotGaintableFrequency
@@ -15,6 +15,7 @@ from .configuration_models import PlotSmoothGainsConfig
 def smooth_gain_solution_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     plot_config: Annotated[
         PlotSmoothGainsConfig,
         Field(
@@ -34,12 +35,6 @@ def smooth_gain_solution_stage(
             description="""Mode of smoothing""",
         ),
     ] = "median",
-    export_gaintable: Annotated[
-        bool,
-        Field(
-            description="""Export intermediate gain solutions.""",
-        ),
-    ] = True,
 ):
     """
     Smooth the gain solution.
@@ -56,7 +51,7 @@ def smooth_gain_solution_stage(
         Size of the window for running window smoothing
     mode: str
         Mode of smoothing. [mean or median]
-    export_gaintable: bool
+    export_qa_data: bool
         Export intermediate gain solutions
 
     Returns
@@ -88,7 +83,7 @@ def smooth_gain_solution_stage(
             figure_title=plot_config.plot_title,
         )
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/smooth_gain{call_counter_suffix}.gaintable.h5parm",

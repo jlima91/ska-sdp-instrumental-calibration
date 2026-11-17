@@ -2,7 +2,7 @@ import logging
 from typing import Annotated, Literal
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..data_managers.gaintable import reset_gaintable
@@ -32,6 +32,7 @@ logger = logging.getLogger()
 def generate_channel_rm_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     run_solver_config: Annotated[
         RunSolverConfig,
         Field(
@@ -79,13 +80,7 @@ def generate_channel_rm_stage(
         Field(
             description="""Plot the generated gain table""",
         ),
-    ] = True,
-    export_gaintable: Annotated[
-        bool,
-        Field(
-            description="""Export intermediate gain solutions.""",
-        ),
-    ] = True,
+    ] = False,
 ):
     """
     Estimate a Rotation Measure value for each station, re-predict
@@ -117,7 +112,7 @@ def generate_channel_rm_stage(
             Visibility data to be used for calibration.
         plot_table: bool
             Plot the gaintable.
-        export_gaintable: bool
+        export_qa_data: bool
             Export intermediate gain solutions
 
     Returns
@@ -225,7 +220,7 @@ def generate_channel_rm_stage(
             drop_cross_pols=True,
         )
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/channel_rm{call_counter_suffix}.gaintable.h5parm",

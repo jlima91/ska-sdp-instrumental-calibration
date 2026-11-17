@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
 from pydantic import Field
-from ska_sdp_piper.piper import ConfigurableStage
+from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
@@ -18,6 +18,7 @@ from .configuration_models import PlotFlagGainConfig
 def flag_gain_stage(
     _upstream_output_,
     _qa_dir_,
+    export_qa_data: Annotated[bool, CLIArgument],
     plot_config: Annotated[
         PlotFlagGainConfig,
         Field(description="Plot options", default_factory=PlotFlagGainConfig),
@@ -72,10 +73,6 @@ def flag_gain_stage(
             description="Normailize the amplitude and phase before flagging."
         ),
     ] = False,
-    export_gaintable: Annotated[
-        bool,
-        Field(description="Export intermediate gain solutions."),
-    ] = True,
 ):
     """
     Performs flagging on gains and updates the weight.
@@ -115,7 +112,7 @@ def flag_gain_stage(
             Window size for the running rms, by default 11.
         normalize_gains: bool
             Normailize the amplitude and phase before flagging.
-        export_gaintable: bool
+        export_qa_data: bool
             Export intermediate gain solution.
 
     Returns
@@ -174,7 +171,7 @@ def flag_gain_stage(
             figure_title="Curve fit of Gain Flagging",
         )
 
-    if export_gaintable:
+    if export_qa_data:
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/gain_flag{call_counter_suffix}.gaintable.h5parm",

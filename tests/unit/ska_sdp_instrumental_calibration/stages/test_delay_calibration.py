@@ -17,12 +17,11 @@ def test_should_have_the_expected_default_configuration():
     expected_config = {
         "delay_calibration": {
             "oversample": 1,
-            "plot_config": {"plot_table": True, "fixed_axis": False},
+            "plot_config": {"plot_table": False, "fixed_axis": False},
             "extract_delays_from_vis": False,
             "refant": 0,
             "niter": 200,
             "tol": 1e-06,
-            "export_gaintable": True,
         },
     }
 
@@ -99,7 +98,7 @@ def test_should_perform_delay_calibration_using_gaintable(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     calculate_delay_mock.assert_called_once_with(gaintable_mock, oversample)
@@ -197,7 +196,7 @@ def test_should_perform_delay_calibration_using_beam_normalised_vis(
         upstream_output,
         _qa_dir_="/output/path",
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     run_solver_mock.assert_called_once_with(
@@ -278,7 +277,7 @@ def test_should_perform_delay_calibration_using_only_normalised_modelvis(
         upstream_output,
         _qa_dir_="/output/path",
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
     )
 
     run_solver_mock.assert_called_once_with(
@@ -346,7 +345,7 @@ def test_should_perform_delay_calibration_using_visibilities(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
         extract_delays_from_vis=True,
     )
 
@@ -438,7 +437,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
         extract_delays_from_vis=True,
     )
 
@@ -447,7 +446,7 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=False,
+        export_qa_data=False,
         extract_delays_from_vis=True,
     )
 
@@ -571,7 +570,7 @@ def test_should_export_gaintable_with_proper_suffix(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=True,
+        export_qa_data=True,
         extract_delays_from_vis=True,
     )
 
@@ -580,7 +579,7 @@ def test_should_export_gaintable_with_proper_suffix(
         _qa_dir_="/output/path",
         oversample=oversample,
         plot_config=plot_config,
-        export_gaintable=True,
+        export_qa_data=True,
         extract_delays_from_vis=True,
     )
 
