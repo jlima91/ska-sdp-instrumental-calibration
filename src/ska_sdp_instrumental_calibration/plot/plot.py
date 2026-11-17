@@ -392,7 +392,7 @@ def plot_bandpass_stages(
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+            ax.plot(x, np.imag(J[:, p, q]), f"C{pol}--")
         ax.set_title(
             f"Bandpass for station {stn_name} \n(in rel to {ref_stn_name})",
             fontsize=10,
@@ -406,7 +406,7 @@ def plot_bandpass_stages(
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+            ax.plot(x, np.imag(J[:, p, q]), f"C{pol}--")
         ax.set_title(f"RM model, RM = {rm_est[stn]:.3f}")
         ax.grid()
         ax.legend()
@@ -419,7 +419,7 @@ def plot_bandpass_stages(
             p = pol // 2
             q = pol % 2
             ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-            ax.plot(x, np.imag(J[:, p, p]), f"C{pol}--")
+            ax.plot(x, np.imag(J[:, p, q]), f"C{pol}--")
         ax.set_title("De-rotated (re: -, im: --)")
         ax.grid()
         ax.legend()
@@ -436,6 +436,7 @@ def plot_bandpass_stages(
         ax.legend()
 
     fig.savefig(f"{plot_path_prefix}-bandpass_stages.png")
+    plt.close(fig)
 
 
 @delayed
@@ -504,7 +505,7 @@ def plot_rm_station(
         p = pol // 2
         q = pol % 2
         ax.plot(x, np.real(J[:, p, q]), f"C{pol}", label=f"J{p}{q}")
-        ax.plot(x, np.imag(J[:, p // 2, p % 2]), f"C{pol}--")
+        ax.plot(x, np.imag(J[:, p, q]), f"C{pol}--")
     ax.set_title(f"Bandpass Jones for station {stn_name} (re: -, im: --)")
     ax.grid()
     ax.legend()
@@ -540,3 +541,4 @@ def plot_rm_station(
     ax.grid()
 
     fig.savefig(f"{plot_path_prefix}-rm-station-{stn_name}.png")
+    plt.close(fig)

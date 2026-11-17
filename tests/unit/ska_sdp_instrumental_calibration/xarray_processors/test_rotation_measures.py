@@ -181,31 +181,173 @@ def test_get_station_masks_when_refant_weights_are_all_zeros():
     np.testing.assert_array_equal(out, [True, True])
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors"
-    ".rotation_measures.curve_fit"
-)
-def test_should_fit_curve(curve_fit_mock):
-    lambda_sq_mock = Mock(name="lambda sq")
-    exp_stack = [-1, 0]
-    rm_est_mock = [Mock(name="rm est 0"), Mock(name="rm est 1")]
+def _rotation_gains(rm, frequency, const_rot=0.0):
+    """Jones matrices of a Faraday rotation plus a constant rotation."""
+    lambda_sq = (299792458.0 / frequency) ** 2
+    phi = rm * lambda_sq + const_rot
+    return np.stack(
+        [
+            np.stack([np.cos(phi), -np.sin(phi)], axis=-1),
+            np.stack([np.sin(phi), np.cos(phi)], axis=-1),
+        ],
+        axis=-2,
+    ).astype(complex)
 
-    curve_fit_mock.side_effect = [
-        (np.array([2.0, 1.0]), None),  # pylint: disable=no-member
-        (np.array([3.0, 1.5]), None),  # pylint: disable=no-member
-    ]
 
-    out = fit_curve(  # pylint: disable=no-member
-        lambda_sq_mock, [np.pi], rm_est_mock
+def _identity_gains(nfreq):
+    return np.broadcast_to(np.eye(2, dtype=complex), (nfreq, 2, 2)).copy()
+
+
+def test_should_fit_curve():
+    lambda_sq = np.linspace(6.0, 36.0, 50)
+    true_rm, true_const = 0.3, 0.4
+    # Angles are only known modulo pi.
+    phi = 0.5 * np.angle(np.exp(2j * (true_rm * lambda_sq + true_const)))
+
+    rm_est, const_rot = fit_curve(lambda_sq, phi, 0.29, rm_step=0.05)
+
+    np.testing.assert_allclose(rm_est, true_rm, atol=1e-8)
+    np.testing.assert_allclose(const_rot, true_const, atol=1e-7)
+
+
+def test_should_fit_curve_using_only_unmasked_channels():
+    lambda_sq = np.linspace(6.0, 36.0, 50)
+    phi = 0.5 * np.angle(np.exp(2j * 0.3 * lambda_sq))
+    mask = np.ones(50, dtype=bool)
+    mask[::5] = False
+    phi[::5] = 1.0  # garbage in masked channels
+    phi[10] = np.nan
+
+    rm_est, const_rot = fit_curve(
+        lambda_sq, phi, 0.29, mask=mask, rm_step=0.05
     )
 
-    expected = np.array([2.0, 1.0])
+    np.testing.assert_allclose(rm_est, 0.3, atol=1e-8)
+    np.testing.assert_allclose(const_rot, 0.0, atol=1e-7)
 
-    curve_fit_mock.assert_called_once_with(ANY, lambda_sq_mock, ANY, p0=ANY)
-    assert all(curve_fit_mock.call_args.args[2].astype(int) == exp_stack)
-    assert curve_fit_mock.call_args.kwargs["p0"][0] == rm_est_mock
-    assert curve_fit_mock.call_args.kwargs["p0"][1] == 0
-    np.testing.assert_allclose(out, expected)
+
+def test_should_return_initial_estimate_when_all_channels_are_masked():
+    lambda_sq = np.linspace(6.0, 36.0, 5)
+
+    out = fit_curve(lambda_sq, np.zeros(5), 0.7, mask=np.zeros(5, dtype=bool))
+
+    assert out == (0.7, 0.0)
+
+
+@pytest.mark.parametrize("descending", [False, True])
+def test_should_estimate_rm_for_either_channel_order(descending):
+    frequency = np.linspace(50e6, 125e6, 128)
+    if descending:
+        frequency = frequency[::-1]
+    weight = np.ones((128, 2, 2))
+
+    _, _, rm_est, rm_peak, const_rot = model_rotations_ufunc(
+        gain=_rotation_gains(0.3, frequency, const_rot=0.2),
+        weight=weight,
+        gain_refant=_identity_gains(128),
+        weight_refant=weight,
+        frequency=frequency,
+    )
+
+    np.testing.assert_allclose(rm_est, 0.3, atol=1e-6)
+    np.testing.assert_allclose(const_rot, 0.2, atol=1e-5)
+    assert abs(rm_peak - 0.3) < 0.02
+
+
+def test_should_ignore_flagged_and_non_finite_channels():
+    frequency = np.linspace(50e6, 125e6, 128)
+    gain = _rotation_gains(0.3, frequency)
+    weight = np.ones((128, 2, 2))
+    gain[::7] = 0  # flagged channels holding zero gains
+    weight[::7] = 0
+    gain[40] = np.nan  # NaN in an unflagged channel
+
+    J, rm_spec, rm_est, _, const_rot = model_rotations_ufunc(
+        gain=gain,
+        weight=weight,
+        gain_refant=_identity_gains(128),
+        weight_refant=np.ones((128, 2, 2)),
+        frequency=frequency,
+    )
+
+    assert np.all(np.isfinite(J))
+    assert np.all(np.isfinite(rm_spec))
+    np.testing.assert_allclose(rm_est, 0.3, atol=1e-6)
+    np.testing.assert_allclose(const_rot, 0.0, atol=1e-5)
+
+
+def test_should_not_refine_when_no_rotation_is_detected():
+    rng = np.random.default_rng(0)
+    frequency = np.linspace(50e6, 125e6, 128)
+    noise = rng.normal(size=(128, 2, 2)) + 1j * rng.normal(size=(128, 2, 2))
+    weight = np.ones((128, 2, 2))
+
+    _, rm_spec, rm_est, rm_peak, const_rot = model_rotations_ufunc(
+        gain=noise,
+        weight=weight,
+        gain_refant=_identity_gains(128),
+        weight_refant=weight,
+        frequency=frequency,
+        peak_threshold=0.9,
+    )
+
+    assert np.max(np.abs(rm_spec)) < 0.9
+    assert (rm_est, rm_peak, const_rot) == (0.0, 0.0, 0.0)
+
+
+def test_should_return_zero_rotation_for_reference_and_flagged_station():
+    frequency = np.linspace(50e6, 125e6, 64)
+    gain = _rotation_gains(0.3, frequency)
+    weight = np.ones((64, 2, 2))
+
+    reference = model_rotations_ufunc(
+        gain=gain.copy(),
+        weight=weight,
+        gain_refant=gain.copy(),
+        weight_refant=weight,
+        frequency=frequency,
+    )
+    flagged = model_rotations_ufunc(
+        gain=gain.copy(),
+        weight=np.zeros((64, 2, 2)),
+        gain_refant=_identity_gains(64),
+        weight_refant=weight,
+        frequency=frequency,
+    )
+
+    assert reference[2:] == (0.0, 0.0, 0.0)
+    assert flagged[2:] == (0.0, 0.0, 0.0)
+    np.testing.assert_array_equal(flagged[1], 0)
+
+
+def test_should_limit_rm_grid_to_max_rm():
+    frequency = np.arange(100e6, 110e6, 10e3)
+
+    _, rm_vals_full = compute_rm_parameters(frequency, 5)
+    _, rm_vals = compute_rm_parameters(frequency, 5, max_rm=20.0)
+
+    assert rm_vals.size < rm_vals_full.size / 10
+    assert 20.0 <= np.max(np.abs(rm_vals)) < 20.0 + (rm_vals[1] - rm_vals[0])
+
+
+def test_should_compute_same_rm_grid_for_descending_frequencies():
+    frequency = np.linspace(100e6, 200e6, 20)
+
+    _, rm_vals = compute_rm_parameters(frequency, 2)
+    _, rm_vals_descending = compute_rm_parameters(frequency[::-1], 2)
+
+    np.testing.assert_allclose(rm_vals_descending, rm_vals)
+    assert rm_vals.size > 0
+
+
+def test_should_raise_for_fewer_than_two_channels():
+    with pytest.raises(ValueError, match="At least two frequency channels"):
+        compute_rm_parameters(np.array([1e8]), 5)
+
+
+def test_should_raise_for_duplicate_channels():
+    with pytest.raises(ValueError, match="must be distinct"):
+        compute_rm_parameters(np.array([1e8, 1e8]), 5)
 
 
 def test_should_compute_rm_parameters():
@@ -274,6 +416,64 @@ def test_should_get_plot_params_for_station_and_time():
     np.testing.assert_allclose(plot_params["rm_peak"], [1])
     np.testing.assert_allclose(plot_params["rm_est"], [1])
     np.testing.assert_allclose(plot_params["rm_est_refant"], [0])
+
+
+def _rotation_data_with_rm(rm_est):
+    """RotationMeasureData whose per-station values encode the station."""
+    rm_est = np.asarray(rm_est, dtype=float)
+    n_time, n_ant = rm_est.shape
+    station = np.arange(n_ant, dtype=float)[np.newaxis, :]
+    return RotationMeasureData.constructor(
+        time=np.arange(n_time),
+        antenna_name=np.array([f"s{i}" for i in range(n_ant)]),
+        frequency=np.array([1.0, 2.0]),
+        resolution=np.array([0.0, 1.0, 2.0]),
+        polarization=["XX", "XY", "YX", "YY"],
+        lambda_sq=np.array([1.0, 2.0]),
+        rm_spec=np.broadcast_to(
+            station[..., np.newaxis], (n_time, n_ant, 3)
+        ).astype(complex),
+        rm_est=rm_est,
+        rm_peak=10 + np.broadcast_to(station, (n_time, n_ant)),
+        const_rot=np.zeros((n_time, n_ant)),
+        J=np.broadcast_to(
+            station[..., np.newaxis, np.newaxis], (n_time, n_ant, 2, 4)
+        ).astype(complex),
+    )
+
+
+def test_should_pick_station_with_largest_rm_relative_to_refant():
+    # Relative to refant 1 (RM 0.5): |rm - 0.5| = [0.6, 0, 0.3, 0.2].
+    rm_data = _rotation_data_with_rm([[-0.1, 0.5, 0.8, 0.3]])
+
+    plot_params = get_plot_params_for_station(rm_data, None, 1)
+
+    assert int(plot_params["stn"].compute()) == 0
+    np.testing.assert_allclose(plot_params["rm_est"], -0.1)
+    np.testing.assert_allclose(plot_params["rm_peak"], 10.0)
+    np.testing.assert_allclose(plot_params["rm_spec"], [0, 0, 0])
+    np.testing.assert_allclose(plot_params["rm_est_refant"], 0.5)
+    assert plot_params["J"].shape == (2, 2, 2)
+
+
+def test_should_pick_largest_rm_station_over_all_times():
+    rm_data = _rotation_data_with_rm(
+        [[0.0, 0.2, 0.1, 0.0], [0.0, 0.1, -0.9, 0.3]]
+    )
+
+    plot_params = get_plot_params_for_station(rm_data, None, 0, time=None)
+
+    assert int(plot_params["stn"].compute()) == 2
+    np.testing.assert_allclose(plot_params["rm_est"], [0.1, -0.9])
+
+
+def test_should_keep_given_station_for_plot():
+    rm_data = _rotation_data_with_rm([[-0.1, 0.5, 0.8, 0.3]])
+
+    plot_params = get_plot_params_for_station(rm_data, 3, 1)
+
+    assert plot_params["stn"] == 3
+    np.testing.assert_allclose(plot_params["rm_est"], 0.3)
 
 
 def test_should_raise_value_error_for_freq_not_provided():

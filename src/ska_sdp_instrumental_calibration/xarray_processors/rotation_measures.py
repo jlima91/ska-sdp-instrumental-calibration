@@ -9,7 +9,7 @@ import xarray as xr
 from astropy import constants as const
 from astropy.coordinates import EarthLocation
 from astropy.time import Time
-from scipy.optimize import curve_fit
+from scipy.optimize import minimize_scalar
 from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
@@ -162,7 +162,10 @@ class RotationMeasureData(xr.Dataset):
 
 
 def get_plot_params_for_station(
-    dataset: RotationMeasureData, antenna: int, refant: int, time: int = 0
+    dataset: RotationMeasureData,
+    antenna: int | None,
+    refant: int,
+    time: int = 0,
 ) -> dict:
     """
     Extract plotting parameters natively retaining lazy Dask
@@ -173,7 +176,9 @@ def get_plot_params_for_station(
     dataset
         Dataset containing results of model rotation calculation
     antenna
-        Antenna (station) number to plot
+        Antenna (station) number to plot. If None, the station with the
+        largest absolute RM relative to ``refant`` is chosen, over all
+        selected solution intervals. The choice stays lazy.
     refant
         Reference antenna used during computation
     time
@@ -183,7 +188,7 @@ def get_plot_params_for_station(
     -------
         A dictionary with following keys and values data types:
 
-        - stn: int
+        - stn: int, or a lazy dask scalar if ``antenna`` is None
         - rm_vals: np.ndarray
         - lambda_sq: dask.array
         - rm_spec: dask.array
@@ -195,11 +200,28 @@ def get_plot_params_for_station(
     """
     ds = dataset.isel(time=time) if time is not None else dataset
 
-    rm_spec = ds["rm_spec"].isel(antenna_name=antenna).data
-    rm_peak = ds["rm_peak"].isel(antenna_name=antenna).data
-    rm_est = ds["rm_est"].isel(antenna_name=antenna).data
+    if antenna is None:
+        # Station with the largest |RM| relative to the reference antenna,
+        # picked lazily so nothing is computed before the plot runs.
+        rm_rel = ds["rm_est"] - ds["rm_est"].isel(antenna_name=refant)
+        rm_rel_abs = abs(rm_rel)
+        if "time" in rm_rel_abs.dims:
+            rm_rel_abs = rm_rel_abs.max("time")
+        antenna = da.argmax(da.asarray(rm_rel_abs.data))
+
+    def _station(name):
+        variable = ds[name]
+        return da.take(
+            da.asarray(variable.data),
+            antenna,
+            axis=variable.get_axis_num("antenna_name"),
+        )
+
+    rm_spec = _station("rm_spec")
+    rm_peak = _station("rm_peak")
+    rm_est = _station("rm_est")
     rm_est_refant = ds["rm_est"].isel(antenna_name=refant).data
-    J_val = pol_to_jones(ds["J"].isel(antenna_name=antenna).data)
+    J_val = pol_to_jones(_station("J"))
 
     # Access the underlying dask array via .data to chain graph tasks lazily
     xlim = 10 * da.max(da.abs(ds["rm_est"].data))
@@ -218,7 +240,7 @@ def get_plot_params_for_station(
 
 
 def compute_rm_parameters(
-    frequency: np.ndarray, oversample: int
+    frequency: np.ndarray, oversample: int, max_rm: float | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute wavelength squared and rotation measure arrays using NumPy.
@@ -226,9 +248,15 @@ def compute_rm_parameters(
     Parameters
     ----------
     frequency : np.ndarray
-        Frequency values in Hz. Shape: (freq,)
+        Frequency values in Hz, in ascending or descending order.
+        Shape: (freq,)
     oversample : int
         Oversampling factor.
+    max_rm : float, optional
+        Upper limit on the absolute RM of the search grid, in rad/m^2. If
+        None, the limit is set by the smallest channel spacing in
+        wavelength squared, which gives very large grids for narrow
+        channels.
 
     Returns
     -------
@@ -237,12 +265,29 @@ def compute_rm_parameters(
     rm_vals : np.ndarray
         Rotation measure search grid values. Shape: (resolution,)
     """
+    frequency = np.asarray(frequency)
+    if frequency.size < 2:
+        raise ValueError(
+            "At least two frequency channels are needed to fit a rotation "
+            f"measure, received {frequency.size}."
+        )
+
     lambda_sq = (
         (const.c.value / frequency) ** 2  # pylint: disable=E1101
     ).astype(np.float32)
 
+    # The smallest spacing sets the largest unambiguous RM. Taking the
+    # absolute value makes this independent of the channel order.
+    min_spacing = np.min(np.abs(np.diff(lambda_sq)))
+    if min_spacing <= 0:
+        raise ValueError(
+            "Frequency channels must be distinct to fit a rotation measure."
+        )
+
     rm_res = 1 / oversample / (np.max(lambda_sq) - np.min(lambda_sq))
-    rm_max = 1 / (lambda_sq[-2] - lambda_sq[-1])
+    rm_max = 1 / min_spacing
+    if max_rm is not None:
+        rm_max = min(rm_max, max_rm)
     rm_max = np.ceil(rm_max / rm_res) * rm_res
 
     rm_vals = np.arange(
@@ -260,17 +305,19 @@ def model_rotations(
     refine_fit: bool = True,
     refant: int = 0,
     oversample: int = 5,
+    max_rm: float | None = None,
 ) -> RotationMeasureData:
     """
     Fit a rotation measure for each station Jones matrix.
 
     For each station, the approach discussed in appendix B of de Gasperin et
     al. (2019) A&A 622, A5, is used to estimate the angle of rotation in each
-    Jones matrix as a function of frequency. The result is expressed as a
-    spectrum of complex numbers and Fourier transformed with respect to
-    wavelength squared. The peak of this RM spectrum is taken as the rotation
-    measure for the station, and optionally improved upon using a secondary
-    nonlinear fit to the original spectrum.
+    Jones matrix as a function of frequency. The angle is only defined
+    modulo pi, so it is expressed as the phasor ``exp(2i * angle)`` and
+    Fourier transformed with respect to wavelength squared. The peak of this
+    RM spectrum is taken as the rotation measure for the station, and
+    optionally refined by locating the peak between grid points, which is
+    the least-squares fit of ``RM * lambda^2 + const`` to the angles.
 
     In the current form, each matrix is first multiplied by the Hermitian
     transpose of the matrix of a reference station at the same frequency, and
@@ -294,6 +341,9 @@ def model_rotations(
         calculation. This determines the resolution of phasor.
         Note that setting this value to some higher
         integer may result in high memory usage.
+    max_rm
+        Upper limit on the absolute RM searched, in rad/m^2. If None, the
+        limit follows from the channel spacing.
 
     Returns
     -------
@@ -303,7 +353,7 @@ def model_rotations(
     gaintable_refant = gaintable.isel(antenna_name=refant, drop=True)
 
     lambda_sq, rm_vals_coords = compute_rm_parameters(
-        gaintable["frequency"].values, oversample
+        gaintable["frequency"].values, oversample, max_rm
     )
 
     n_time = gaintable.sizes["time"]
@@ -508,10 +558,15 @@ def model_rotations_ufunc(
         dtype=gain.dtype,
     )  # Shape: (freq,rec1,rec2)
 
+    # Channels with non-finite gains carry no information. Zero them so
+    # they cannot spread NaNs, and leave them out of the mask below.
+    finite = np.all(np.isfinite(J), axis=(1, 2))  # Shape: (freq,)
+    J[~finite] = 0
+
     norms = np.linalg.norm(
         J, axis=(1, 2), keepdims=True
     )  # Shape: (freq,rec1,rec2)
-    mask = get_stn_masks(weight, weight_refant)  # Shape: (freq,)
+    mask = get_stn_masks(weight, weight_refant) & finite  # Shape: (freq,)
     mask = mask & (norms[:, 0, 0] > 0)  # Shape: (freq,)
 
     J = update_jones_with_masks(J, mask, norms)  # Shape: (freq,rec1,rec2)
@@ -522,17 +577,26 @@ def model_rotations_ufunc(
     )  # Shape: (resolution,)
     abs_rm_spec = np.abs(rm_spec)
 
-    rm_est = (
-        rm_vals[np.argmax(abs_rm_spec)]
-        if np.max(abs_rm_spec) > peak_threshold
-        else 0.0
+    # The reference station has no rotation relative to itself.
+    is_refant = np.array_equal(gain, gain_refant)
+    detected = (
+        bool(np.any(mask))
+        and not is_refant
+        and np.max(abs_rm_spec) > peak_threshold
     )
+
+    rm_est = float(rm_vals[np.argmax(abs_rm_spec)]) if detected else 0.0
 
     rm_peak = rm_est
     const_rot = 0.0
 
-    if refine_fit:
-        rm_est, const_rot = fit_curve(lambda_sq, phi_raw, rm_peak)
+    # Without a detection there is no peak to refine: keep RM = 0 rather
+    # than fitting noise.
+    if refine_fit and detected:
+        rm_step = float(rm_vals[1] - rm_vals[0]) if rm_vals.size > 1 else 1.0
+        rm_est, const_rot = fit_curve(
+            lambda_sq, phi_raw, rm_peak, mask=mask, rm_step=rm_step
+        )
 
     return J, rm_spec, rm_est, rm_peak, const_rot
 
@@ -546,14 +610,22 @@ def calculate_phi_raw(jones: np.ndarray) -> np.ndarray[float]:
 
     Returns
     -------
-        Raw phase angle (freq). float
+        Rotation angle per channel in radians, wrapped to
+        ``(-pi/2, pi/2]``. Shape: (freq,). float
+
+    Notes
+    -----
+    In the circular basis a rotation by ``phi`` gives the two hands phases
+    of ``-phi`` and ``+phi``, so half their phase difference is ``phi``.
+    The difference is taken as the angle of one product per channel. This
+    cancels any phase common to both hands exactly, without unwrapping
+    along frequency, so noisy or flagged channels cannot affect their
+    neighbours. The angle is therefore only known modulo pi, which is all
+    a rotation of an unpolarised model can determine.
     """
     co_sum = jones[:, 0, 0] + jones[:, 1, 1]
     cross_diff = 1j * (jones[:, 0, 1] - jones[:, 1, 0])
-    return 0.5 * (
-        np.unwrap(np.angle(co_sum + cross_diff))
-        - np.unwrap(np.angle(co_sum - cross_diff))
-    )
+    return 0.5 * np.angle((co_sum + cross_diff) * np.conj(co_sum - cross_diff))
 
 
 def update_jones_with_masks(
@@ -622,7 +694,8 @@ def get_rm_spec(
     Parameters
     ----------
     phi_raw
-        Phi raw value. Shape: ``(freq,)``. float
+        Rotation angle per channel, defined modulo pi. Shape: ``(freq,)``.
+        float
     mask
         Mask. Shape: ``(freq,)``. bool.
     rm_vals
@@ -634,13 +707,22 @@ def get_rm_spec(
 
     Returns
     -------
-        Array of RM spec. Shape: ``(resolution)``. complex
+        Array of RM spec. Shape: ``(resolution)``. complex. All zeros if
+        every channel is masked.
+
+    Notes
+    -----
+    The angle is only defined modulo pi, so the transform uses the phasor
+    ``exp(2i * phi)`` against ``exp(-2i * lambda^2 * RM)``.
     """
     resolution = rm_vals.shape[0]
 
-    phi_exp = np.exp(1j * phi_raw)
+    phi_exp = np.exp(2j * phi_raw)
     masked_phi = np.where(mask, phi_exp, 0j)
     counts = mask.sum(dtype=np.float32)
+
+    if counts == 0:
+        return np.zeros((resolution,), dtype=np.complex128)
 
     result = np.empty((resolution,), dtype=np.complex128)
 
@@ -652,7 +734,7 @@ def get_rm_spec(
         # Intermediate array shape: (nchannels, chunk_size)
         # Instead of allocating (nchannels, resolution) all at once
         phasor_chunk = np.exp(
-            -1j * lambda_sq[:, np.newaxis] * rm_chunk[np.newaxis, :]
+            -2j * lambda_sq[:, np.newaxis] * rm_chunk[np.newaxis, :]
         )
         result[i:end] = masked_phi @ phasor_chunk
 
@@ -660,38 +742,70 @@ def get_rm_spec(
 
 
 def fit_curve(
-    lambda_sq: np.ndarray, phi_raw: np.ndarray, rm_est: float
+    lambda_sq: np.ndarray,
+    phi_raw: np.ndarray,
+    rm_est: float,
+    mask: np.ndarray | None = None,
+    rm_step: float = 1.0,
 ) -> tuple[float, float]:
     """
-    Fits the curve
+    Refine a rotation measure estimate between RM grid points.
+
+    Fits ``phi = rm * lambda^2 + const`` to the rotation angles in the
+    least-squares sense on the unit circle. Because the angles are only
+    known modulo pi, the fit is made to ``exp(2i * phi)``. For any ``rm``
+    the best constant has a closed form, and the remaining cost is
+    minimised where ``|sum(exp(2i * phi) * exp(-2i * lambda^2 * rm))|`` is
+    largest, i.e. at the peak of the continuous RM spectrum. That peak is
+    located with a bounded one-dimensional search, which cannot diverge.
 
     Parameters
     ----------
     lambda_sq
         Wavelength square. (freq,) float
     phi_raw
-        Raw phase angle (freq,) float
+        Rotation angle per channel, modulo pi. (freq,) float
     rm_est
-        Initial rm estimate for current station.
+        Initial rm estimate for current station, usually the RM grid peak.
         Shape: ()
+    mask
+        Channels to use in the fit. (freq,) bool. If None, all channels
+        with a finite angle are used.
+    rm_step
+        Half-width of the search interval around ``rm_est``, usually the
+        RM grid spacing.
 
     Returns
     -------
         (rm_est, const_rot)
-        New rotation measure estimate and constant rotation values
-        post curve fitting
+        New rotation measure estimate and the constant rotation angle,
+        which is defined modulo pi and returned in ``(-pi/2, pi/2]``.
     """
-    exp_stack = np.hstack([np.cos(phi_raw), np.sin(phi_raw)])
+    phi_raw = np.asarray(phi_raw, dtype=float)
+    lambda_sq = np.asarray(lambda_sq, dtype=float)
 
-    popt, _ = curve_fit(
-        lambda wl2, rm, phi0: np.hstack(
-            (np.cos(wl2 * rm + phi0), np.sin(wl2 * rm + phi0))
-        ),
-        lambda_sq,
-        exp_stack,
-        p0=[rm_est, 0],
+    use = np.isfinite(phi_raw)
+    if mask is not None:
+        use = use & np.asarray(mask, dtype=bool)
+
+    if not np.any(use):
+        return float(rm_est), 0.0
+
+    phasor = np.exp(2j * phi_raw[use])
+    lambda_sq = lambda_sq[use]
+
+    def spectrum(rm):
+        return np.sum(phasor * np.exp(-2j * lambda_sq * rm))
+
+    result = minimize_scalar(
+        lambda rm: -np.abs(spectrum(rm)),
+        bounds=(rm_est - rm_step, rm_est + rm_step),
+        method="bounded",
+        options={"xatol": 1e-10 * max(1.0, abs(rm_step))},
     )
-    return float(popt[0]), float(popt[1])
+    rm_fit = float(result.x)
+    const_rot = 0.5 * float(np.angle(spectrum(rm_fit)))
+    return rm_fit, const_rot
 
 
 # ITU-R P.531 eq. 2, as used by OSKAR's TEC-screen Faraday kernel:

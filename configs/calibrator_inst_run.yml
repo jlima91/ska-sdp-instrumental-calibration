@@ -78,7 +78,7 @@ parameters:
       crosspol: false
     plot_rm_config:
       plot_rm: true
-      station: 0
+      station: null
     oversample: 5
     peak_threshold: 0.5
     refine_fit: true

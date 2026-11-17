@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from pydantic import Field
 from ska_sdp_piper.piper import PiperBaseModel
@@ -29,9 +29,13 @@ class PlotRMConfig(PiperBaseModel):
         ),
     ] = True
     station: Annotated[
-        int | str,
-        Field(description="Station number/name to be plotted"),
-    ] = 0
+        Optional[int | str],
+        Field(
+            description="""Station number/name to be plotted. If None, the
+            station with the largest absolute rotation measure relative to
+            the reference antenna is plotted."""
+        ),
+    ] = None
 
 
 class PlotFlagGainConfig(PiperBaseModel):

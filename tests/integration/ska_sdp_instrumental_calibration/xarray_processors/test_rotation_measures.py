@@ -62,15 +62,12 @@ def test_model_rotations(gaintable):
     )
 
     actual_rm_est_computed = actual_rotations.rm_est.compute()
-    expected_rm_est = np.array([[0, -94.9161247]])
+    # The refinement moves the RM-synthesis grid peak (-94.06) to the
+    # least-squares optimum.
+    expected_rm_est = np.array([[0, -94.92286]])
 
-    # Four channels over a lambda^2 span of ~0.003 m^2 make the refined
-    # fit very flat: the cost changes by ~1e-8 over a few 0.01 rad/m^2,
-    # so where curve_fit stops depends on scipy/numpy rounding. Check the
-    # refinement moved from the RM-synthesis peak (-94.06) to the
-    # least-squares optimum (about -94.92), not the exact stopping point.
     np.testing.assert_allclose(
-        actual_rm_est_computed, expected_rm_est, atol=0.1
+        actual_rm_est_computed, expected_rm_est, atol=1e-3
     )
 
 

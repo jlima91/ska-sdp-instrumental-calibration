@@ -36,8 +36,9 @@ def test_should_have_the_expected_default_configuration():
             "oversample": 5,
             "peak_threshold": 0.5,
             "refine_fit": True,
+            "max_rm": 50.0,
             "visibility_key": "vis",
-            "plot_rm_config": {"plot_rm": True, "station": 0},
+            "plot_rm_config": {"plot_rm": True, "station": None},
             "plot_table": True,
             "run_solver_config": {
                 "solver": "jones_substitution",
@@ -176,6 +177,7 @@ def test_should_gen_channel_rm_using_predict_model_vis_when_beam_is_none(
         refine_fit=False,
         refant=run_solver_config.refant,
         oversample=9,
+        max_rm=50.0,
     )
 
     predict_vis_mock.assert_called_once_with(
@@ -311,6 +313,7 @@ def test_should_update_beam_normalised_model_vis_when_beam_is_not_none(
         refine_fit=False,
         refant=run_solver_config.refant,
         oversample=9,
+        max_rm=50.0,
     )
 
     apply_gaintable_mock.assert_called_once_with(
@@ -497,6 +500,7 @@ def test_should_plot_with_proper_suffix(
                 refine_fit=False,
                 refant=2,
                 oversample=9,
+                max_rm=50.0,
             ),
             call(
                 initial_table_mock,
@@ -504,6 +508,7 @@ def test_should_plot_with_proper_suffix(
                 refine_fit=False,
                 refant=2,
                 oversample=9,
+                max_rm=50.0,
             ),
         ]
     )
@@ -799,6 +804,7 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
         refine_fit=False,
         refant=run_solver_config.refant,
         oversample=9,
+        max_rm=50.0,
     )
 
     predict_vis_mock.assert_called_once_with(
@@ -920,3 +926,166 @@ def test_should_use_external_tec_rm_when_fits_is_given(
         plot_bandpass_stages_mock.call_args.args[2], [-0.3, 0.0, -0.1]
     )
     plot_rm_station_mock.assert_not_called()
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
+    ".parse_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plot_params_for_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_rm_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_bandpass_stages"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.model_rotations"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.predict_vis"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.reset_gaintable"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.Solver"
+)
+def test_should_plot_rm_station_with_parsed_refant_index(
+    solver_factory_mock,
+    reset_gaintable_mock,
+    predict_vis_mock,
+    model_rotations_mock,
+    run_solver_mock,
+    plot_bandpass_stages_mock,
+    plot_rm_station_mock,
+    get_plot_params_for_station_mock,
+    get_plots_path_mock,
+    parse_antenna_mock,
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["beams_factory"] = Mock(name="beams_factory")
+    upstream_output["lsm"] = Mock(name="lsm")
+    upstream_output["gaintable"] = MagicMock(name="initial gaintable")
+
+    rotations_mock = MagicMock(name="rotations")
+    model_rotations_mock.return_value = rotations_mock
+    get_plot_params_for_station_mock.return_value = {}
+    # The reference antenna and plot station are given by name.
+    parse_antenna_mock.side_effect = [5, 1]
+
+    generate_channel_rm_stage(
+        upstream_output,
+        plot_rm_config=PlotRMConfig(plot_rm=True, station="station_b"),
+        plot_table=False,
+        export_gaintable=False,
+        run_solver_config=RunSolverConfig(refant="station_a"),
+        _qa_dir_="/output/path",
+    )
+
+    # Indices, not names, must reach the plot parameter lookup.
+    get_plot_params_for_station_mock.assert_called_once_with(
+        rotations_mock, 1, 5
+    )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
+    ".parse_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plot_params_for_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_rm_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_bandpass_stages"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.model_rotations"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.predict_vis"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.reset_gaintable"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.Solver"
+)
+def test_should_plot_station_with_largest_rm_when_station_not_given(
+    solver_factory_mock,
+    reset_gaintable_mock,
+    predict_vis_mock,
+    model_rotations_mock,
+    run_solver_mock,
+    plot_bandpass_stages_mock,
+    plot_rm_station_mock,
+    get_plot_params_for_station_mock,
+    get_plots_path_mock,
+    parse_antenna_mock,
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["beams_factory"] = Mock(name="beams_factory")
+    upstream_output["lsm"] = Mock(name="lsm")
+    upstream_output["gaintable"] = MagicMock(name="initial gaintable")
+
+    rotations_mock = MagicMock(name="rotations")
+    model_rotations_mock.return_value = rotations_mock
+    get_plot_params_for_station_mock.return_value = {}
+    parse_antenna_mock.return_value = 3
+
+    generate_channel_rm_stage(
+        upstream_output,
+        plot_rm_config=PlotRMConfig(plot_rm=True),
+        plot_table=False,
+        export_gaintable=False,
+        run_solver_config=RunSolverConfig(refant=3),
+        _qa_dir_="/output/path",
+    )
+
+    # Only the reference antenna is parsed; the station stays None so the
+    # largest-RM station is chosen.
+    parse_antenna_mock.assert_called_once()
+    get_plot_params_for_station_mock.assert_called_once_with(
+        rotations_mock, None, 3
+    )

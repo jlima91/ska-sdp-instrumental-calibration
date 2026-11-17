@@ -72,6 +72,16 @@ def generate_channel_rm_stage(
             external_tec_fits is set.""",
         ),
     ] = True,
+    max_rm: Annotated[
+        Optional[float],
+        Field(
+            description="""Upper limit on the absolute rotation measure
+            searched, in rad/m^2. Ionospheric rotation measures are a few
+            rad/m^2 at most. If None, the limit follows from the channel
+            spacing, which gives very large search grids for narrow
+            channels. Ignored when external_tec_fits is set.""",
+        ),
+    ] = 50.0,
     visibility_key: Annotated[
         Literal["vis", "corrected_vis"],
         Field(
@@ -116,7 +126,8 @@ def generate_channel_rm_stage(
         run_solver_config: RunSolverConfig
             {run_solver_docstring}
         plot_rm_config: PlotRMConfig
-            Configs required for RM plots.
+            Configs required for RM plots. If no station is given, the
+            station with the largest absolute RM is plotted.
         oversample: int
             Oversampling value used in the rotation
             calculatiosn. Note that setting this value to some higher
@@ -128,6 +139,9 @@ def generate_channel_rm_stage(
             Whether or not to refine the RM spectrum peak
             locations with a nonlinear optimisation
             of the station RM values.
+        max_rm: float, optional
+            Upper limit on the absolute rotation measure searched, in
+            rad/m^2. If None, the limit follows from the channel spacing.
         visibility_key: str
             Visibility data to be used for calibration.
         plot_table: bool
@@ -159,7 +173,10 @@ def generate_channel_rm_stage(
     refant = run_solver_config.refant
     run_solver_config.refant = parse_antenna(refant, initialtable.antenna_name)
     station = plot_rm_config.station
-    plot_rm_config.station = parse_antenna(station, initialtable.antenna_name)
+    if station is not None:
+        plot_rm_config.station = parse_antenna(
+            station, initialtable.antenna_name
+        )
 
     call_counter_suffix = ""
     if call_count := _upstream_output_.get_call_count("channel_rm"):
@@ -187,6 +204,7 @@ def generate_channel_rm_stage(
             refine_fit=refine_fit,
             refant=run_solver_config.refant,
             oversample=oversample,
+            max_rm=max_rm,
         )
         # predict_vis and plot_bandpass_stages expect station_rm (rm_est) as
         # a dask array with only single dimension (antenna,)
@@ -249,7 +267,7 @@ def generate_channel_rm_stage(
                 **get_plot_params_for_station(
                     rotations,
                     plot_rm_config.station,
-                    refant,
+                    run_solver_config.refant,
                 ),
                 plot_path_prefix=path_prefix,
             )
