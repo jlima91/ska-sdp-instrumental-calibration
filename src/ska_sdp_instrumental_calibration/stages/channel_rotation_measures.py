@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Optional
 
 from pydantic import Field
 from ska_sdp_piper.piper import ConfigurableStage
@@ -19,6 +19,7 @@ from ..xarray_processors.predict import predict_vis
 from ..xarray_processors.rotation_measures import (
     get_plot_params_for_station,
     model_rotations,
+    rm_from_external_tec,
 )
 from ..xarray_processors.solver import run_solver
 from ._common import RUN_SOLVER_DOCSTRING
@@ -51,21 +52,24 @@ def generate_channel_rm_stage(
         Field(
             description="""Oversampling value used in the RM calculation.
             This determines the resolution of the phasor. Setting this value
-            too high may result in high memory usage.""",
+            too high may result in high memory usage. Ignored when
+            external_tec_fits is set.""",
         ),
     ] = 5,
     peak_threshold: Annotated[
         float,
         Field(
             description="""Height of peak in the RM spectrum required
-            for a rotation detection.""",
+            for a rotation detection. Ignored when external_tec_fits is
+            set.""",
         ),
     ] = 0.5,
     refine_fit: Annotated[
         bool,
         Field(
             description="""Whether to refine RM spectrum peak locations
-            with a nonlinear optimisation of station RM values.""",
+            with a nonlinear optimisation of station RM values. Ignored when
+            external_tec_fits is set.""",
         ),
     ] = True,
     visibility_key: Annotated[
@@ -86,6 +90,17 @@ def generate_channel_rm_stage(
             description="""Export intermediate gain solutions.""",
         ),
     ] = True,
+    external_tec_fits: Annotated[
+        Optional[str],
+        Field(
+            description="""Path to an external FITS file containing an
+            OSKAR TEC screen. If provided, station rotation measures are
+            computed from the screen and the IGRF geomagnetic field instead
+            of being estimated from the gains. The sign assumes a beam
+            model is used in prediction. If None, the rotation measures
+            are estimated from the gains.""",
+        ),
+    ] = None,
 ):
     """
     Estimate a Rotation Measure value for each station, re-predict
@@ -119,6 +134,13 @@ def generate_channel_rm_stage(
             Plot the gaintable.
         export_gaintable: bool
             Export intermediate gain solutions
+        external_tec_fits: str, optional
+            Path to an external OSKAR TEC-screen FITS file. If provided,
+            station rotation measures are computed from the screen and the
+            IGRF-14 geomagnetic field, as OSKAR simulates them, and
+            oversample, peak_threshold and refine_fit are ignored. The RM
+            plot is skipped in this mode. The RM sign assumes a beam model
+            is used in prediction (see rm_from_external_tec).
 
     Returns
     -------
@@ -143,17 +165,34 @@ def generate_channel_rm_stage(
     if call_count := _upstream_output_.get_call_count("channel_rm"):
         call_counter_suffix = f"_{call_count}"
 
-    rotations = model_rotations(
-        initialtable,
-        peak_threshold=peak_threshold,
-        refine_fit=refine_fit,
-        refant=run_solver_config.refant,
-        oversample=oversample,
-    )
-    # predict_vis and plot_bandpass_stages expect station_rm (rm_est) as a
-    # dask array with only single dimension (antenna,)
-    # So selecting only the first solution interval
-    station_rm_est = rotations["rm_est"].isel(time=0).data
+    rotations = None
+    if external_tec_fits:
+        logger.info(
+            f"Computing station RMs from external TEC screen "
+            f"{external_tec_fits}."
+        )
+        # One RM per station, from the first solution interval, as for the
+        # estimated RMs below. These are absolute, not refant-relative.
+        station_rm_est = rm_from_external_tec(
+            vis, external_tec_fits, initialtable.time.data[:1]
+        )[0]
+        # The gain-based plots compare against gains relative to refant.
+        plot_station_rm = (
+            station_rm_est - station_rm_est[run_solver_config.refant]
+        )
+    else:
+        rotations = model_rotations(
+            initialtable,
+            peak_threshold=peak_threshold,
+            refine_fit=refine_fit,
+            refant=run_solver_config.refant,
+            oversample=oversample,
+        )
+        # predict_vis and plot_bandpass_stages expect station_rm (rm_est) as
+        # a dask array with only single dimension (antenna,)
+        # So selecting only the first solution interval
+        station_rm_est = rotations["rm_est"].isel(time=0).data
+        plot_station_rm = station_rm_est
 
     modelvis = predict_vis(
         vis,
@@ -195,19 +234,25 @@ def generate_channel_rm_stage(
         plot_bandpass_stages(
             gaintable,
             initialtable,
-            station_rm_est,
+            plot_station_rm,
             run_solver_config.refant,
             plot_path_prefix=path_prefix,
         )
-        plot_rm_station(
-            initialtable,
-            **get_plot_params_for_station(
-                rotations,
-                plot_rm_config.station,
-                refant,
-            ),
-            plot_path_prefix=path_prefix,
-        )
+        if rotations is None:
+            logger.info(
+                "Skipping the RM spectrum plot: RMs came from the external "
+                "TEC screen."
+            )
+        else:
+            plot_rm_station(
+                initialtable,
+                **get_plot_params_for_station(
+                    rotations,
+                    plot_rm_config.station,
+                    refant,
+                ),
+                plot_path_prefix=path_prefix,
+            )
 
     if plot_table:
         path_prefix = get_plots_path(

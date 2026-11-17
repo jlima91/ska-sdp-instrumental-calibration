@@ -29,6 +29,7 @@ def test_should_have_the_expected_default_configuration():
             "tol": 1.0e-06,
             "zernike_limit": None,
             "plot_table": True,
+            "external_tec_fits": None,
         }
     }
 

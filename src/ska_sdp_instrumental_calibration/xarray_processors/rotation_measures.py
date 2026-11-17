@@ -4,17 +4,23 @@ import logging
 
 import dask.array as da
 import numpy as np
+import ppigrf
 import xarray as xr
 from astropy import constants as const
+from astropy.coordinates import EarthLocation
+from astropy.time import Time
 from scipy.optimize import curve_fit
+from ska_sdp_datamodels.visibility import Visibility
 
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..data_managers.schema.polarization import jones_to_pol, pol_to_jones
+from .ionosphere_solvers import sample_external_tec
 
 __all__ = [
     "RotationMeasureData",
     "get_plot_params_for_station",
     "model_rotations",
+    "rm_from_external_tec",
 ]
 
 logger = logging.getLogger(__name__)
@@ -686,3 +692,206 @@ def fit_curve(
         p0=[rm_est, 0],
     )
     return float(popt[0]), float(popt[1])
+
+
+# ITU-R P.531 eq. 2, as used by OSKAR's TEC-screen Faraday kernel:
+# angle [rad] = 236 * B_parallel [T] * TEC [TECU] / f [GHz]^2.
+# With angle = RM * lambda^2, RM [rad/m^2] = 236e18 / c^2 * B * TEC.
+FARADAY_RM_PER_TESLA_TECU = (
+    2.36e2 * 1e18 / const.c.value**2  # pylint: disable=E1101
+)
+
+
+def _station_geodetic(
+    xyz: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Convert station ITRF positions to WGS84 geodetic coordinates.
+
+    Parameters
+    ----------
+    xyz
+        Station ITRF/ECEF positions in metres, shape ``(antenna, 3)``.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        Longitude and latitude in radians, and height above the ellipsoid
+        in metres, each of shape ``(antenna,)``.
+    """
+    xyz = np.asarray(xyz, dtype=float)
+    location = EarthLocation.from_geocentric(
+        xyz[:, 0], xyz[:, 1], xyz[:, 2], unit="m"
+    )
+    lon, lat, height = location.to_geodetic("WGS84")
+    return (
+        np.asarray(lon.rad),
+        np.asarray(lat.rad),
+        np.asarray(height.to_value("m")),
+    )
+
+
+def _station_magnetic_field_enu(
+    lon_rad: np.ndarray,
+    lat_rad: np.ndarray,
+    height_m: np.ndarray,
+    time_mjd: float,
+) -> np.ndarray:
+    """
+    Evaluate the IGRF-14 geomagnetic field at each station.
+
+    This matches OSKAR, which evaluates IGRF once per station at its
+    geodetic ground position for the observation date.
+
+    Parameters
+    ----------
+    lon_rad, lat_rad
+        Geodetic longitude and latitude in radians, shape ``(antenna,)``.
+    height_m
+        Height above the WGS84 ellipsoid in metres, shape ``(antenna,)``.
+    time_mjd
+        UTC date of the observation as MJD (days).
+
+    Returns
+    -------
+    np.ndarray
+        Field (east, north, up) in nT, shape ``(antenna, 3)``.
+    """
+    date = Time(time_mjd, format="mjd", scale="utc").to_datetime()
+    # ppigrf returns arrays of shape (n_dates, antenna); there is one date.
+    b_east, b_north, b_up = ppigrf.igrf(
+        np.degrees(lon_rad),
+        np.degrees(lat_rad),
+        np.asarray(height_m) / 1000.0,
+        date,
+    )
+    return np.stack(
+        [np.ravel(b_east), np.ravel(b_north), np.ravel(b_up)], axis=-1
+    )
+
+
+def _phasecentre_enu(
+    phasecentre,
+    lon_rad: np.ndarray,
+    lat_rad: np.ndarray,
+    times_mjd: np.ndarray,
+) -> np.ndarray:
+    """
+    Unit vector towards the phase centre in each station's local ENU frame.
+
+    The hour angle uses Greenwich apparent sidereal time plus the station
+    longitude, consistent with the TEC-screen geometry.
+
+    Parameters
+    ----------
+    phasecentre
+        Phase centre as a ``SkyCoord``.
+    lon_rad, lat_rad
+        Station geodetic longitude and latitude in radians,
+        shape ``(antenna,)``.
+    times_mjd
+        UTC times in MJD (days), shape ``(time,)``.
+
+    Returns
+    -------
+    np.ndarray
+        Direction cosines (east, north, up), shape ``(time, antenna, 3)``.
+    """
+    gast = (
+        Time(times_mjd, format="mjd", scale="utc")
+        .sidereal_time("apparent", "greenwich")
+        .rad
+    )
+    ra = phasecentre.ra.rad
+    dec = phasecentre.dec.rad
+
+    # Local hour angle, shape (time, antenna).
+    ha = gast[:, np.newaxis] + lon_rad[np.newaxis, :] - ra
+    sin_lat = np.sin(lat_rad)[np.newaxis, :]
+    cos_lat = np.cos(lat_rad)[np.newaxis, :]
+
+    east = -np.cos(dec) * np.sin(ha)
+    north = cos_lat * np.sin(dec) - sin_lat * np.cos(dec) * np.cos(ha)
+    up = sin_lat * np.sin(dec) + cos_lat * np.cos(dec) * np.cos(ha)
+    return np.stack([east, north, up], axis=-1)
+
+
+def rm_from_external_tec(
+    vis: Visibility,
+    external_tec_fits: str,
+    solution_times: np.ndarray,
+) -> np.ndarray:
+    """
+    Compute station rotation measures from an external OSKAR TEC screen.
+
+    This reproduces the Faraday rotation OSKAR applies with a TEC screen
+    (``oskar_evaluate_tec_screen.h``, ITU-R P.531 eq. 2):
+
+    - TEC is sampled at each station's phase-centre pierce point, as in
+      :func:`sample_external_tec`.
+    - The IGRF-14 field at the station is projected on the line of sight.
+      OSKAR takes the propagation direction (source to observer), so
+      ``B_parallel = -(s . B)`` with ``s`` the direction to the source.
+    - OSKAR's rotation angle is ``236e18 / c^2 * B_parallel[T] *
+      TEC[TECU] * lambda^2``, applied in its station beam basis.
+
+    The returned RM is the negative of OSKAR's coefficient. OSKAR applies
+    the rotation in its station beam basis, while the pipeline applies
+    :func:`generate_rotation_matrices` in the sky frame of the beam model
+    (E = Beam @ R), which rotates in the opposite sense. With the sign
+    flipped, the re-solved bandpass on OSKAR data simulated with
+    aperture-array beams keeps the same residual rotation as with the
+    gain-based estimate (``model_rotations``).
+
+    This assumes a beam model is used in prediction. Without one, R acts
+    in the feed frame, where OSKAR's own sign applies; for isotropic-beam
+    simulations predicted without beams, negate the result.
+
+    The phase centre is used as the source direction for every station,
+    which is exact for a calibrator at the phase centre.
+
+    Parameters
+    ----------
+    vis
+        Visibility dataset with the configuration, phase centre, timing and
+        ``ARRAY_CENTER`` metadata required by :func:`sample_external_tec`.
+    external_tec_fits
+        Path to the external FITS TEC-screen cube used by OSKAR.
+    solution_times
+        UTC MJD times in seconds, shape ``(time,)``.
+
+    Returns
+    -------
+    np.ndarray
+        Absolute (not reference-relative) rotation measures in rad/m^2,
+        shape ``(time, antenna)``, antennas in configuration order.
+    """
+    solution_times = np.atleast_1d(np.asarray(solution_times, dtype=float))
+    times_mjd = solution_times / 86400.0
+
+    tec = sample_external_tec(vis, external_tec_fits, solution_times)
+
+    lon, lat, height = _station_geodetic(vis.configuration.xyz.data)
+
+    # OSKAR evaluates the field once, at the start of the observation.
+    field_enu_nt = _station_magnetic_field_enu(lon, lat, height, times_mjd[0])
+    source_enu = _phasecentre_enu(vis.phasecentre, lon, lat, times_mjd)
+
+    # Field along the propagation direction, nT -> T.
+    b_parallel_t = (
+        -np.sum(source_enu * field_enu_nt[np.newaxis, :, :], axis=-1) * 1e-9
+    )
+
+    # Negated: OSKAR's rotation is in the beam basis, the pipeline's R is
+    # in the beam model's sky frame, which has the opposite handedness.
+    rm = -FARADAY_RM_PER_TESLA_TECU * b_parallel_t * tec
+
+    logger.info(
+        "Rotation measures from external TEC: min %.4f, max %.4f rad/m^2 "
+        "over %d times and %d antennas.",
+        float(np.min(rm)),
+        float(np.max(rm)),
+        rm.shape[0],
+        rm.shape[1],
+    )
+    return rm

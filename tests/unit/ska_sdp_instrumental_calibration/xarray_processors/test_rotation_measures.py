@@ -1,10 +1,14 @@
 import numpy as np
 import pytest
 import xarray as xr
+from astropy.coordinates import EarthLocation, SkyCoord
+from astropy.time import Time
 from mock import ANY, Mock, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import (  # noqa: E501
+    FARADAY_RM_PER_TESLA_TECU,
     RotationMeasureData,
+    _phasecentre_enu,
     compute_rm_parameters,
     fit_curve,
     get_plot_params_for_station,
@@ -12,6 +16,7 @@ from ska_sdp_instrumental_calibration.xarray_processors.rotation_measures import
     get_stn_masks,
     model_rotations,
     model_rotations_ufunc,
+    rm_from_external_tec,
     update_jones_with_masks,
 )
 
@@ -285,3 +290,80 @@ def test_should_raise_value_error_for_freq_not_provided():
             lambda_sq=None,
             frequency=None,
         )
+
+
+def test_faraday_constant_matches_itu_r_p531():
+    # 236 * B * TEC / f_GHz^2 = RM * (c / f)^2
+    c = 299792458.0
+    np.testing.assert_allclose(FARADAY_RM_PER_TESLA_TECU, 236e18 / c**2)
+
+
+def test_phasecentre_enu_points_up_for_source_at_zenith():
+    location = EarthLocation.from_geodetic(116.76, -26.82, 377.0)
+    time_mjd = np.array([51546.9375])
+    gast = (
+        Time(time_mjd, format="mjd", scale="utc")
+        .sidereal_time("apparent", "greenwich")
+        .rad
+    )
+    # Hour angle zero and declination equal to latitude: zenith.
+    phasecentre = SkyCoord(
+        ra=(gast[0] + location.lon.rad) % (2 * np.pi),
+        dec=location.lat.rad,
+        unit="rad",
+    )
+
+    enu = _phasecentre_enu(
+        phasecentre,
+        np.array([location.lon.rad]),
+        np.array([location.lat.rad]),
+        time_mjd,
+    )
+
+    assert enu.shape == (1, 1, 3)
+    np.testing.assert_allclose(enu[0, 0], [0.0, 0.0, 1.0], atol=1e-12)
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures._phasecentre_enu"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.ppigrf"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.xarray_processors."
+    "rotation_measures.sample_external_tec"
+)
+def test_rm_from_external_tec_uses_field_along_propagation(
+    sample_external_tec_mock, ppigrf_mock, phasecentre_enu_mock
+):
+    location = EarthLocation.from_geodetic([116.7, 116.8], [-26.8, -26.9])
+    xyz = np.stack([c.to_value("m") for c in location.geocentric], axis=-1)
+    vis = Mock(name="vis")
+    vis.configuration.xyz.data = xyz
+    solution_times = np.array([4.4e9, 4.4e9 + 10.0])
+
+    tec = np.array([[0.01, 0.02], [0.03, -0.04]])
+    sample_external_tec_mock.return_value = tec
+    # Field (east, north, up) in nT, shape (n_dates, antenna).
+    b_east = np.array([[10.0, 20.0]])
+    b_north = np.array([[25000.0, 26000.0]])
+    b_up = np.array([[49000.0, 48000.0]])
+    ppigrf_mock.igrf.return_value = (b_east, b_north, b_up)
+    # Source at zenith for both stations and times.
+    phasecentre_enu_mock.return_value = np.broadcast_to(
+        [0.0, 0.0, 1.0], (2, 2, 3)
+    )
+
+    rm = rm_from_external_tec(vis, "screen.fits", solution_times)
+
+    sample_external_tec_mock.assert_called_once_with(vis, "screen.fits", ANY)
+    np.testing.assert_allclose(
+        sample_external_tec_mock.call_args.args[2], solution_times
+    )
+    # Propagation is downwards, so B_parallel = -B_up. The pipeline's sky
+    # frame rotates opposite to OSKAR's beam basis, hence the outer minus.
+    expected = -FARADAY_RM_PER_TESLA_TECU * (-b_up * 1e-9) * tec
+    np.testing.assert_allclose(rm, expected)

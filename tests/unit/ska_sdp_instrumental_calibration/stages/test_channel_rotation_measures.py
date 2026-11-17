@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from mock import MagicMock, Mock, call, patch
 
@@ -47,6 +48,7 @@ def test_should_have_the_expected_default_configuration():
                 "crosspol": False,
             },
             "export_gaintable": True,
+            "external_tec_fits": None,
         },
     }
 
@@ -817,3 +819,104 @@ def test_should_not_use_corrected_vis_in_run_solver_when_config_is_false(
 
     assert result["modelvis"] == new_model_vis_mock
     assert result["gaintable"] == solved_gaintable_mock
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.channel_rotation_measures"
+    ".parse_antenna"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.get_plots_path"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_rm_station"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.plot_bandpass_stages"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.run_solver"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.rm_from_external_tec"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.model_rotations"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.predict_vis"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.reset_gaintable"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages."
+    "channel_rotation_measures.Solver"
+)
+def test_should_use_external_tec_rm_when_fits_is_given(
+    solver_factory_mock,
+    reset_gaintable_mock,
+    predict_vis_mock,
+    model_rotations_mock,
+    rm_from_external_tec_mock,
+    run_solver_mock,
+    plot_bandpass_stages_mock,
+    plot_rm_station_mock,
+    get_plots_path_mock,
+    parse_ref_ant_mock,
+    run_solver_config,
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["beams_factory"] = Mock(name="beams_factory")
+    upstream_output["lsm"] = Mock(name="lsm")
+
+    initial_table_mock = MagicMock(name="initial gaintable")
+    initial_table_mock.time.data = np.array([10.0, 20.0])
+    upstream_output["gaintable"] = initial_table_mock
+
+    external_rm = np.array([[0.1, 0.4, 0.3]])
+    rm_from_external_tec_mock.return_value = external_rm
+    parse_ref_ant_mock.side_effect = [1, 0]
+    get_plots_path_mock.return_value = "/output/path/plots"
+
+    generate_channel_rm_stage(
+        upstream_output,
+        oversample=9,
+        peak_threshold=0.5,
+        refine_fit=False,
+        visibility_key="vis",
+        plot_rm_config=PlotRMConfig(plot_rm=True, station=0),
+        plot_table=False,
+        export_gaintable=False,
+        run_solver_config=run_solver_config,
+        external_tec_fits="screen.fits",
+        _qa_dir_="/output/path",
+    )
+
+    model_rotations_mock.assert_not_called()
+    rm_from_external_tec_mock.assert_called_once()
+    args = rm_from_external_tec_mock.call_args.args
+    assert args[0] is upstream_output["vis"]
+    assert args[1] == "screen.fits"
+    np.testing.assert_allclose(args[2], [10.0])
+
+    # The model gets the absolute RMs of the first solution interval.
+    np.testing.assert_allclose(
+        predict_vis_mock.call_args.kwargs["station_rm"], external_rm[0]
+    )
+    # Plots compare against refant-relative gains (refant 1 here).
+    np.testing.assert_allclose(
+        plot_bandpass_stages_mock.call_args.args[2], [-0.3, 0.0, -0.1]
+    )
+    plot_rm_station_mock.assert_not_called()

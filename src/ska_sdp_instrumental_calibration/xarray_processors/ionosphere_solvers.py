@@ -20,7 +20,12 @@ from ..data_managers.schema.polarization import (
     pol_to_jones,
 )
 
-__all__ = ["run_ionospheric_solver", "IonosphericSolver"]
+__all__ = [
+    "run_ionospheric_solver",
+    "run_ionospheric_solver_ext",
+    "sample_external_tec",
+    "IonosphericSolver",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -313,65 +318,43 @@ def _array_centre_itrf(vis: Visibility) -> np.ndarray:
     return array_centre
 
 
-def run_ionospheric_solver_ext(
+def sample_external_tec(
     vis: Visibility,
     external_tec_fits: str,
-    gaintable: GainCalibrationSetXds,
-) -> GainCalibrationSetXds:
+    solution_times: np.ndarray,
+) -> np.ndarray:
     """
-    Construct phase-centre ionospheric gains from an external OSKAR TEC screen.
+    Sample an external OSKAR TEC screen at the phase centre for each station.
 
-    This produces a direction-independent gain table for the observation phase
-    centre. For the phase centre, the source direction cosines are ``l=m=0``;
-    therefore each station samples the TEC screen using only its projected
-    U/V position.
-
-    The function uses the gain-table time and frequency grids. The returned
-    ``CALPARAM_GAIN`` has dimensions
-    ``(time, antenna_name, frequency, polarization)``, holding flattened
-    diagonal Jones matrices.
+    Stations are placed on the screen as OSKAR does: by their projected
+    (u, v) offsets from the array reference position, with ``l = m = 0``
+    (an isoplanatic screen towards the phase centre). Screen planes are
+    selected by elapsed time since the observation start.
 
     Parameters
     ----------
     vis
         Visibility dataset containing the observation phase centre,
-        configuration, and observation timing.
+        configuration, observation timing and the array reference position
+        in ``attrs["meta"]["MSV2"]["ARRAY_CENTER"]``.
     external_tec_fits
         Path to the external FITS TEC-screen cube used by OSKAR.
-    gaintable
-        Gain calibration set defining output solution times, frequencies,
-        antennas, polarizations, attributes, and chunking. Its antennas must
-        be in configuration order.
+    solution_times
+        UTC MJD times in seconds at which to sample, shape ``(time,)``.
 
     Returns
     -------
-    GainCalibrationSetXds
-        A copy of ``gaintable`` containing TEC-derived diagonal Jones gains,
-        with the original chunking restored.
+    np.ndarray
+        TEC in TECU with shape ``(time, antenna)``, antennas in
+        configuration order. Stations that fall off the screen get zero.
     """
     configuration = vis.configuration
 
     station_xyz_m = np.asarray(configuration.xyz.data)
 
-    if station_xyz_m.shape[0] != gaintable.sizes["antenna_name"]:
-        raise ValueError(
-            "Configuration and gain table antenna counts differ: "
-            f"{station_xyz_m.shape[0]} != "
-            f"{gaintable.sizes['antenna_name']}."
-        )
-
     array_centre_xyz_m = _array_centre_itrf(vis)
 
-    gain_times = np.asarray(
-        gaintable.coords["time"].data,
-        dtype=float,
-    )
-    gain_frequencies = np.asarray(
-        gaintable.coords["frequency"].data,
-        dtype=float,
-    )
-
-    original_chunks = gaintable.chunksizes
+    gain_times = np.asarray(solution_times, dtype=float)
 
     # Vis and gain times are UTC MJD seconds at dump/solution mid-points.
     vis_times = np.asarray(vis.coords["time"].data, dtype=float)
@@ -475,6 +458,74 @@ def run_ionospheric_solver_ext(
                 pixel_size_y_m=pixel_size_y_m,
             )
 
+    logger.info(
+        "Sampled the external TEC screen at %d screen planes for %d "
+        "times and %d antennas.",
+        len(np.unique(screen_indices)),
+        gain_times.size,
+        station_xyz_m.shape[0],
+    )
+
+    return tec_by_time_and_station
+
+
+def run_ionospheric_solver_ext(
+    vis: Visibility,
+    external_tec_fits: str,
+    gaintable: GainCalibrationSetXds,
+) -> GainCalibrationSetXds:
+    """
+    Construct phase-centre ionospheric gains from an external OSKAR TEC screen.
+
+    This produces a direction-independent gain table for the observation phase
+    centre. For the phase centre, the source direction cosines are ``l=m=0``;
+    therefore each station samples the TEC screen using only its projected
+    U/V position.
+
+    The function uses the gain-table time and frequency grids. The returned
+    ``CALPARAM_GAIN`` has dimensions
+    ``(time, antenna_name, frequency, polarization)``, holding flattened
+    diagonal Jones matrices.
+
+    Parameters
+    ----------
+    vis
+        Visibility dataset containing the observation phase centre,
+        configuration, and observation timing.
+    external_tec_fits
+        Path to the external FITS TEC-screen cube used by OSKAR.
+    gaintable
+        Gain calibration set defining output solution times, frequencies,
+        antennas, polarizations, attributes, and chunking. Its antennas must
+        be in configuration order.
+
+    Returns
+    -------
+    GainCalibrationSetXds
+        A copy of ``gaintable`` containing TEC-derived diagonal Jones gains,
+        with the original chunking restored.
+    """
+    n_antennas = vis.configuration.xyz.shape[0]
+
+    if n_antennas != gaintable.sizes["antenna_name"]:
+        raise ValueError(
+            "Configuration and gain table antenna counts differ: "
+            f"{n_antennas} != {gaintable.sizes['antenna_name']}."
+        )
+
+    gain_frequencies = np.asarray(
+        gaintable.coords["frequency"].data,
+        dtype=float,
+    )
+
+    original_chunks = gaintable.chunksizes
+
+    tec_by_time_and_station = sample_external_tec(
+        vis,
+        external_tec_fits,
+        np.asarray(gaintable.coords["time"].data, dtype=float),
+    )
+
     gain_template = gaintable["CALPARAM_GAIN"]
 
     # (time, antenna, frequency, nrec, nrec) -> (..., polarization)
@@ -505,11 +556,10 @@ def run_ionospheric_solver_ext(
     )
 
     logger.info(
-        "Created phase-centre TEC gains from %d screen planes for "
-        "%d solution times, %d antennas and %d frequencies.",
-        len(np.unique(screen_indices)),
-        gain_times.size,
-        station_xyz_m.shape[0],
+        "Created phase-centre TEC gains for %d solution times, "
+        "%d antennas and %d frequencies.",
+        tec_by_time_and_station.shape[0],
+        n_antennas,
         gain_frequencies.size,
     )
 

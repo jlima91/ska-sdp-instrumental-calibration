@@ -159,7 +159,8 @@ def predict_vis(
         # Ensure that it is not chunked across any dim
         # It can still be a dask array
 
-        if isinstance(station_rm, da.Array):
+        # Estimated RMs arrive as dask arrays, external-TEC RMs as numpy.
+        if isinstance(station_rm, (da.Array, np.ndarray)):
             # "id" is a coordinate from Configuration dataset
             station_rm = xr.DataArray(
                 station_rm, coords={"id": np.arange(len(station_rm))}
