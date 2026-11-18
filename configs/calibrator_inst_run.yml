@@ -82,9 +82,11 @@ parameters:
     oversample: 5
     peak_threshold: 0.5
     refine_fit: true
+    max_rm: 50.0
     visibility_key: vis
     plot_table: true
     export_gaintable: true
+    external_tec_fits: null
   smooth_gain_solution:
     plot_config:
       plot_table: true

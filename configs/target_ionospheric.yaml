@@ -29,6 +29,7 @@ parameters:
     tol: 1.0e-06
     zernike_limit: null
     plot_table: true
+    external_tec_fits: null
   export_gain_table:
     file_name: gaintable
     export_format: h5parm
