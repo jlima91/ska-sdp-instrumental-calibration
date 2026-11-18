@@ -5490,26 +5490,6 @@ standalone = ["Sphinx (>=5)"]
 test = ["pytest"]
 
 [[package]]
-name = "sphinxcontrib-mermaid"
-version = "2.1.1"
-description = "Mermaid diagrams in your Sphinx-powered docs"
-optional = false
-python-versions = ">=3.10"
-groups = ["docs"]
-files = [
-    {file = "sphinxcontrib_mermaid-2.1.1-py3-none-any.whl", hash = "sha256:3b9ac1a8e0b5154dec3c0acf9b5c54dd9ba58540e416f20858c300814c25648f"},
-    {file = "sphinxcontrib_mermaid-2.1.1.tar.gz", hash = "sha256:f8d7f1b2f0ad69b7ebdd5cbf532fb4ee107893b5373bc2d0e9634089c0b2cfee"},
-]
-
-[package.dependencies]
-jinja2 = "*"
-pyyaml = "*"
-sphinx = "*"
-
-[package.extras]
-test = ["defusedxml", "myst-parser", "pytest", "ruff", "sphinx"]
-
-[[package]]
 name = "sphinxcontrib-qthelp"
 version = "2.0.0"
 description = "sphinxcontrib-qthelp is a sphinx extension which outputs QtHelp documents"
@@ -6106,4 +6086,4 @@ ska-sdp-dataproduct-metadata = ["ska-sdp-dataproduct-metadata"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.14"
-content-hash = "bf2e32d523b448174aa72c01f6e2bb785967913c1ca6138d8b597ab9f3db32d7"
+content-hash = "c7c39c84464009d4c9805d3fdb7505c0ba0878de3c3b05c369e3c2ad0fd57ef4"
