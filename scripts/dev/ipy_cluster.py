@@ -19,6 +19,7 @@ Usage
 """
 
 import os
+import sys
 import time
 from contextlib import ExitStack
 
@@ -27,7 +28,12 @@ from distributed import LocalCluster, performance_report
 try:
     from IPython import embed
 
-    IPYTHON_EMBED = True
+    # Skip the interactive shell when there is no terminal (e.g. under
+    # sbatch) or when IPY_CLUSTER_NO_SHELL is set. Otherwise the shell
+    # reads EOF, exits at once and the cluster is closed with it.
+    IPYTHON_EMBED = sys.stdin.isatty() and not os.environ.get(
+        "IPY_CLUSTER_NO_SHELL"
+    )
 except ImportError:
     IPYTHON_EMBED = False
 
