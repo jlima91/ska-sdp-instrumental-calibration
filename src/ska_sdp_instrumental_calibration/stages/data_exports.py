@@ -71,7 +71,6 @@ def export_qa_metadata(upstream_outputs: list[UpstreamOutput], qa_dir: str):
 def export_gaintable_stage(
     _upstream_output_: list[UpstreamOutput],
     _output_dir_,
-    export_qa_data: Annotated[bool, CLIArgument],
     sdm_path: Annotated[Optional[str], CLIArgument] = None,
     file_name: Annotated[
         str,
@@ -153,8 +152,8 @@ def export_gaintable_stage(
         )
         inst_metadata.export()
 
-    if export_qa_data:
-        run_metadata = _upstream_output_[0].run_metadata
-        run_metadata.to_json()
+    # Only pipelines whose load_data records run metadata have it
+    if "run_metadata" in _upstream_output_[0]:
+        _upstream_output_[0].run_metadata.to_json()
 
     return final_upstream

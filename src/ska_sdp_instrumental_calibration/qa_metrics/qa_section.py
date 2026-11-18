@@ -43,3 +43,15 @@ class QASection:
         """Data labels of the ``flagging`` QA section."""
 
         GAIN_FITS = "gain_fits"
+        GAINTABLE = "gaintable"
+
+    class BANDPASS(QASectionLabel):
+        """Data labels of the ``bandpass`` QA section."""
+
+        GAINTABLE = "gaintable"
+
+    class DELAY(QASectionLabel):
+        """Data labels of the ``delay`` QA section."""
+
+        GAINTABLE = "gaintable"
+        DELAYTABLE = "delaytable"

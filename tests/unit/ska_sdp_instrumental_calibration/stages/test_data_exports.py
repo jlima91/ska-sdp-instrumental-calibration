@@ -257,6 +257,73 @@ def test_should_not_export_metadata_if_prerequisites_are_not_met(
     inst_metadata_mock.assert_not_called()
 
 
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports"
+    ".export_gaintable_to_h5parm"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
+def test_should_write_run_metadata_of_first_upstream_output(
+    delayed_mock, concat_mock, export_gaintable_h5parm_mock
+):
+    upstream_output1 = _get_prepopulated_upstream_output(field_id="field_a")
+    upstream_output2 = _get_prepopulated_upstream_output(field_id="field_b")
+    concat_mock.side_effect = [upstream_output1, upstream_output2]
+
+    export_gaintable_stage(
+        [upstream_output1, upstream_output2],
+        _output_dir_="dir/to/save",
+        file_name="test_gains",
+        export_format="h5parm",
+        export_metadata=False,
+    )
+
+    # All upstream outputs share one run metadata, written once
+    upstream_output1.run_metadata.to_json.assert_called_once_with()
+    upstream_output2.run_metadata.to_json.assert_not_called()
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports"
+    ".export_gaintable_to_h5parm"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.concat_gaintables"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.data_exports.delayed",
+    side_effect=lambda f: f,
+)
+def test_should_export_gaintable_without_run_metadata(
+    delayed_mock, concat_mock, export_gaintable_h5parm_mock
+):
+    upstream_output = UpstreamOutput()
+    upstream_output["gaintable"] = Mock(name="gaintable")
+    upstream_output["field_id"] = "field_a"
+    upstream_output["calibration_purpose"] = "gains"
+    concat_mock.return_value = upstream_output
+
+    export_gaintable_stage(
+        [upstream_output],
+        _output_dir_="dir/to/save",
+        file_name="test_gains",
+        export_format="h5parm",
+        export_metadata=False,
+    )
+
+    assert "run_metadata" not in upstream_output
+    export_gaintable_h5parm_mock.assert_called_once_with(
+        upstream_output["gaintable"],
+        "dir/to/save/field_a_test_gains.h5parm",
+        False,
+    )
+
+
 def _get_prepopulated_upstream_output(
     field_id="field_a", calibration_purpose="gains"
 ):
@@ -264,5 +331,6 @@ def _get_prepopulated_upstream_output(
     upstream_output["gaintable"] = Mock(name="gaintable")
     upstream_output["field_id"] = field_id
     upstream_output["calibration_purpose"] = calibration_purpose
+    upstream_output["run_metadata"] = Mock(name="run_metadata")
     upstream_output.calibration_tables = "gaintable"
     return upstream_output

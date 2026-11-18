@@ -3,6 +3,7 @@ from mock import Mock, patch
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages._utils import (
     _create_path_tree,
+    get_derived_path,
     get_gaintables_path,
     get_plots_path,
     get_value_or_fallback,
@@ -26,6 +27,14 @@ def test_should_get_gaintables_path(create_path_tree_mock):
     create_path_tree_mock.assert_called_once_with("/output/gaintables/prefix")
 
     assert result == "/output/gaintables/prefix"
+
+
+@patch("ska_sdp_instrumental_calibration.stages._utils._create_path_tree")
+def test_should_get_derived_path(create_path_tree_mock):
+    result = get_derived_path("/output", "prefix")
+    create_path_tree_mock.assert_called_once_with("/output/derived/prefix")
+
+    assert result == "/output/derived/prefix"
 
 
 @patch("ska_sdp_instrumental_calibration.stages._utils._create_path_tree")

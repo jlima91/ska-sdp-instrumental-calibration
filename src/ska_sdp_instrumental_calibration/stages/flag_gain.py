@@ -205,6 +205,12 @@ def flag_gain_stage(
             fits_file_path,
         )
 
+        _upstream_output_.run_metadata.append_for_field(
+            _upstream_output_.field_id,
+            QASection.FLAGGING.GAINTABLE,
+            gaintable_file_path,
+        )
+
     _upstream_output_["gaintable"] = gaintable
     _upstream_output_.increment_call_count("gain_flag")
 

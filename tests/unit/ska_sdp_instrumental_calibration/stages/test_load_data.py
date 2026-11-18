@@ -1,6 +1,6 @@
 import numpy as np
 import xarray as xr
-from mock import MagicMock, patch
+from mock import MagicMock, call, patch
 
 from ska_sdp_instrumental_calibration.qa_metrics import QASection
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
@@ -455,3 +455,84 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
         field_id=2,
         data_desc_id=3,
     )
+
+
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data.delayed",
+    side_effect=lambda x: x,
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_derived_path")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".export_visibility_metadata"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".check_if_cache_files_exist"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".read_visibility_from_zarr"
+)
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".create_gaintable_from_visibility"
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
+def test_should_record_run_metadata_of_each_ms_of_a_field(
+    read_ms_field_id_mock,
+    create_bandpass_mock,
+    read_data_mock,
+    check_cache_mock,
+    os_makedirs_mock,
+    export_visibility_metadata_mock,
+    get_derived_path_mock,
+    delayed_mock,
+):
+    check_cache_mock.return_value = True
+    read_ms_field_id_mock.return_value = "field-a"
+    get_derived_path_mock.side_effect = [
+        "/qa/derived/vis_a/load_data.visibility_metadata.json",
+        "/qa/derived/vis_b/load_data.visibility_metadata.json",
+    ]
+
+    new_up_output = load_data_stage(
+        UpstreamOutput(),
+        "/path/to/output/dir",
+        "/qa",
+        ["/path/to/vis_a.ms", "/path/to/vis_b.ms"],
+        2,
+        3,
+        "/cache/dir/path",
+        False,
+        "DATA",
+        "auto",
+        0,
+        0,
+    )
+
+    # Both MS share one run metadata, so the export stage writes all fields
+    run_metadata = new_up_output[0]["run_metadata"]
+    assert new_up_output[1]["run_metadata"] is run_metadata
+    assert list(run_metadata.field_metadata) == ["field-a"]
+
+    field_metadata = run_metadata.field_metadata["field-a"]
+    assert field_metadata.get_data_for(QASection.METADATA_SUMMARY.MS) == [
+        "/path/to/vis_a.ms",
+        "/path/to/vis_b.ms",
+    ]
+    assert field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.VISIBILITY_METADATA
+    ) == [
+        "/qa/derived/vis_a/load_data.visibility_metadata.json",
+        "/qa/derived/vis_b/load_data.visibility_metadata.json",
+    ]
+
+    get_derived_path_mock.assert_has_calls(
+        [
+            call("/qa", "vis_a/load_data.visibility_metadata.json"),
+            call("/qa", "vis_b/load_data.visibility_metadata.json"),
+        ]
+    )
+    assert export_visibility_metadata_mock.call_count == 2

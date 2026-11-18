@@ -7,6 +7,7 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
+from ..qa_metrics import QASection
 from ..scheduler import delayed
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver
@@ -130,6 +131,12 @@ def bandpass_calibration_stage(
         gaintable_file_path = get_gaintables_path(
             _qa_dir_,
             f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",
+        )
+
+        _upstream_output_.run_metadata.append_for_field(
+            _upstream_output_.field_id,
+            QASection.BANDPASS.GAINTABLE,
+            gaintable_file_path,
         )
 
         delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
