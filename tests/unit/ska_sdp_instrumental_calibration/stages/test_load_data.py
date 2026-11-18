@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 from mock import MagicMock, patch
 
+from ska_sdp_instrumental_calibration.qa_metrics import QASection
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.load_data import (
     Tags,
@@ -30,7 +31,15 @@ def test_load_data_stage_is_a_broadcaster():
     assert load_data_stage in Tags.BROADCASTER
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data.delayed",
+    side_effect=lambda x: x,
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_derived_path")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".export_visibility_metadata"
+)
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -53,7 +62,9 @@ def test_should_load_data_from_existing_cached_zarr_file(
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
-    export_qa_metadata_mock,
+    export_visibility_metadata_mock,
+    get_derived_path_mock,
+    delayed_mock,
 ):
     check_cache_mock.return_value = True
 
@@ -63,6 +74,10 @@ def test_should_load_data_from_existing_cached_zarr_file(
     )
     create_bandpass_mock.return_value = gaintable
     read_ms_field_id_mock.return_value = "field-a"
+    visibility_metadata_path = (
+        "/path/to/qa/dir/derived/vis/load_data.visibility_metadata.json"
+    )
+    get_derived_path_mock.return_value = visibility_metadata_path
 
     frequency_per_chunk = 2
     times_per_ms_chunk = 3
@@ -118,9 +133,23 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert new_up_output[0]["calibration_purpose"] == "bandpass"
     assert new_up_output[0]["input_ms"] == "/path/to/vis.ms"
 
-    export_qa_metadata_mock.assert_called_once_with(
-        new_up_output, "/path/to/qa/dir"
+    get_derived_path_mock.assert_called_once_with(
+        "/path/to/qa/dir", "vis/load_data.visibility_metadata.json"
     )
+    delayed_mock.assert_called_once_with(export_visibility_metadata_mock)
+    export_visibility_metadata_mock.assert_called_once_with(
+        visibility_metadata_path, new_up_output
+    )
+
+    run_metadata = new_up_output[0]["run_metadata"]
+    assert run_metadata.qa_dir == "/path/to/qa/dir"
+    field_metadata = run_metadata.field_metadata["field-a"]
+    assert field_metadata.get_data_for(QASection.METADATA_SUMMARY.MS) == [
+        "/path/to/vis.ms"
+    ]
+    assert field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.VISIBILITY_METADATA
+    ) == [visibility_metadata_path]
 
     assert new_up_output[0]["chunks"] == {
         "time": -1,
@@ -131,7 +160,15 @@ def test_should_load_data_from_existing_cached_zarr_file(
     }
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data.delayed",
+    side_effect=lambda x: x,
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_derived_path")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".export_visibility_metadata"
+)
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -154,7 +191,9 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     write_ms_mock,
     check_cache_mock,
     os_makedirs_mock,
-    export_qa_metadata_mock,
+    export_visibility_metadata_mock,
+    get_derived_path_mock,
+    delayed_mock,
 ):
     check_cache_mock.return_value = False
 
@@ -220,7 +259,15 @@ def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
     )
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data.delayed",
+    side_effect=lambda x: x,
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_derived_path")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".export_visibility_metadata"
+)
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -258,7 +305,9 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
     read_vis_shape_mock,
     check_cache_mock,
     os_makedirs_mock,
-    export_qa_metadata_mock,
+    export_visibility_metadata_mock,
+    get_derived_path_mock,
+    delayed_mock,
 ):
     check_cache_mock.return_value = True
     read_vis_shape_mock.return_value = (10, 21, 64, 4)
@@ -301,7 +350,15 @@ def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
     assert new_up_output[0]["chunks"]["frequency"] == 8
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.export_qa_metadata")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data.delayed",
+    side_effect=lambda x: x,
+)
+@patch("ska_sdp_instrumental_calibration.stages.load_data.get_derived_path")
+@patch(
+    "ska_sdp_instrumental_calibration.stages.load_data"
+    ".export_visibility_metadata"
+)
 @patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
 @patch(
     "ska_sdp_instrumental_calibration.stages.load_data"
@@ -343,7 +400,9 @@ def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
     read_vis_shape_mock,
     check_cache_mock,
     os_makedirs_mock,
-    export_qa_metadata_mock,
+    export_visibility_metadata_mock,
+    get_derived_path_mock,
+    delayed_mock,
 ):
     check_cache_mock.return_value = False
     template_vis = MagicMock(name="template_vis")

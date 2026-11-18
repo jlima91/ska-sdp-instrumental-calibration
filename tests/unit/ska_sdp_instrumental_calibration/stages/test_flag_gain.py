@@ -1,6 +1,7 @@
 import pytest
 from mock import Mock, call, patch
 
+from ska_sdp_instrumental_calibration.qa_metrics import QASection, RunMetadata
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.flag_gain import (
     PlotFlagGainConfig,
@@ -124,6 +125,7 @@ def test_should_perform_flagging_on_gains(
 @patch(
     "ska_sdp_instrumental_calibration.stages.flag_gain.log_flaging_statistics"
 )
+@patch("ska_sdp_instrumental_calibration.stages.flag_gain.get_derived_path")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.get_gaintables_path")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_flag_gain")
 @patch("ska_sdp_instrumental_calibration.stages.flag_gain.plot_curve_fit")
@@ -143,19 +145,24 @@ def test_should_export_gaintable_with_proper_suffix(
     plot_curve_mock,
     plot_flag_mock,
     get_gaintables_path_mock,
+    get_derived_path_mock,
     log_flagging_stat_mock,
     delayed_mock,
     plot_config,
 ):
     get_gaintables_path_mock.side_effect = [
         "/output/path/gaintables/gain_flag.gaintable.h5parm",
-        "/output/path/gaintables/gain_fit_flag.zarr",
         "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
-        "/output/path/gaintables/gain_fit_flag_1.zarr",
+    ]
+    get_derived_path_mock.side_effect = [
+        "/output/path/derived/gain_fit_flag.zarr",
+        "/output/path/derived/gain_fit_flag_1.zarr",
     ]
 
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
+    upstream_output["field_id"] = "field-a"
+    upstream_output["run_metadata"] = RunMetadata("/output/path")
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
@@ -223,8 +230,12 @@ def test_should_export_gaintable_with_proper_suffix(
     get_gaintables_path_mock.assert_has_calls(
         [
             call("/output/path", "ms_prefix/gain_flag.gaintable.h5parm"),
-            call("/output/path", "ms_prefix/gain_fit_flag.zarr"),
             call("/output/path", "ms_prefix/gain_flag_1.gaintable.h5parm"),
+        ]
+    )
+    get_derived_path_mock.assert_has_calls(
+        [
+            call("/output/path", "ms_prefix/gain_fit_flag.zarr"),
             call("/output/path", "ms_prefix/gain_fit_flag_1.zarr"),
         ]
     )
@@ -241,17 +252,23 @@ def test_should_export_gaintable_with_proper_suffix(
         ]
     )
 
+    field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
+    assert field_metadata.get_data_for(QASection.FLAGGING.GAIN_FITS) == [
+        "/output/path/derived/gain_fit_flag.zarr",
+        "/output/path/derived/gain_fit_flag_1.zarr",
+    ]
+
     expected_fits_attrs = {"soltype": soltype, "normalize_gains": 0}
     export_fits_mock.assert_has_calls(
         [
             call(
                 fits,
-                "/output/path/gaintables/gain_fit_flag.zarr",
+                "/output/path/derived/gain_fit_flag.zarr",
                 attrs=expected_fits_attrs,
             ),
             call(
                 fits,
-                "/output/path/gaintables/gain_fit_flag_1.zarr",
+                "/output/path/derived/gain_fit_flag_1.zarr",
                 attrs=expected_fits_attrs,
             ),
         ]

@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 QA_METADATA_FILE_NAME = "qa-metadata-data.json"
 
 
+def export_visibility_metadata(metadata_path, upstream_outputs):
+    raise NotImplementedError("Export QA metadata not implemented")
+
+
 def get_ms_qa_data(vis, input_ms: str) -> dict:
     """
     Get the visibility data of one measurement set needed for the QA

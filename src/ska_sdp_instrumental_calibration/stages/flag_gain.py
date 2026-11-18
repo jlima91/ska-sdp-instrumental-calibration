@@ -8,12 +8,13 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..plot import plot_curve_fit, plot_flag_gain
+from ..qa_metrics import QASection
 from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
     log_flaging_statistics,
 )
-from ._utils import get_gaintables_path, get_plots_path
+from ._utils import get_derived_path, get_gaintables_path, get_plots_path
 from .configuration_models import PlotFlagGainConfig
 
 
@@ -182,9 +183,7 @@ def flag_gain_stage(
 
         delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)
 
-        # gain_fits should be moved to the QA diagnostic folder,
-        # instead of gaintable path.
-        fits_file_path = get_gaintables_path(
+        fits_file_path = get_derived_path(
             _qa_dir_,
             f"{prefix}/gain_fit_flag{call_counter_suffix}.zarr",
         )
@@ -198,6 +197,12 @@ def flag_gain_stage(
                 "soltype": soltype,
                 "normalize_gains": int(normalize_gains),
             },
+        )
+
+        _upstream_output_.run_metadata.append_for_field(
+            _upstream_output_.field_id,
+            QASection.FLAGGING.GAIN_FITS,
+            fits_file_path,
         )
 
     _upstream_output_["gaintable"] = gaintable

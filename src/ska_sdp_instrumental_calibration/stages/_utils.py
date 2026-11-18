@@ -40,6 +40,28 @@ def get_gaintables_path(output_dir: str, file_prefix: str) -> str:
     return gaintables_path
 
 
+def get_derived_path(output_dir: str, file_prefix: str) -> str:
+    """
+    Obtain path to store derived data: data computed from the primary
+    products, kept for the QA report and plots.
+
+    Parameters
+    ----------
+    output_dir: str
+        Directory path where to create derived sub directory.
+    file_prefix: str
+        File path prefix inside the derived sub directory.
+
+    Returns
+    -------
+    str
+        Path to store derived data with file prefix.
+    """
+    derived_path = os.path.join(output_dir, "derived", file_prefix)
+    _create_path_tree(derived_path)
+    return derived_path
+
+
 def get_visibilities_path(output_dir: str, file_prefix: str) -> str:
     """
     Obtain path to store visibilities.

@@ -12,6 +12,7 @@ from ..data_managers.chunking import (
     estimate_channels_per_chunk,
     get_cluster_spec,
 )
+from ..data_managers.data_export import export_visibility_metadata
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
@@ -21,9 +22,10 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..scheduler import UpstreamOutput
+from ..qa_metrics import QASection, RunMetadata
+from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
-from .data_exports import export_qa_metadata
+from ._utils import get_derived_path
 
 logger = logging.getLogger(__name__)
 
@@ -147,10 +149,13 @@ def load_data_stage(
     dict
         Updated upstream_output with the loaded visibility data
     """
-    upstream_outputs = [
-        _load_data(
+    upstream_outputs = []
+    run_metadata = RunMetadata(_qa_dir_)
+    for ms in input_ms:
+        ms_path = os.path.realpath(ms)
+        upstream_output = _load_data(
             _output_dir_,
-            os.path.realpath(ms),
+            ms_path,
             nchannels_per_chunk,
             ntimes_per_ms_chunk,
             cache_directory,
@@ -160,10 +165,28 @@ def load_data_stage(
             field_id,
             data_desc_id,
         )
-        for ms in input_ms
-    ]
 
-    export_qa_metadata(upstream_outputs, _qa_dir_)
+        visibility_metadata_path = get_derived_path(
+            _qa_dir_,
+            f"{upstream_output.ms_prefix}/load_data.visibility_metadata.json",
+        )
+
+        run_metadata.append_for_field(
+            upstream_output.field_id, QASection.METADATA_SUMMARY.MS, ms_path
+        )
+
+        run_metadata.append_for_field(
+            upstream_output.field_id,
+            QASection.METADATA_SUMMARY.VISIBILITY_METADATA,
+            visibility_metadata_path,
+        )
+
+        upstream_output["run_metadata"] = run_metadata
+        upstream_outputs.append(upstream_output)
+
+        delayed(export_visibility_metadata)(
+            visibility_metadata_path, upstream_outputs
+        )
 
     return upstream_outputs
 
