@@ -214,4 +214,4 @@ def qa_metric(sdm_path, output_path):
         logger.error("%s", error)
         return
 
-    generate_qa_metric(qa_dir, sdm_path)
+    generate_qa_metric(qa_dir)

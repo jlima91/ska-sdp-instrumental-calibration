@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from ..data_managers.schema.qa_metadata import StationConfiguration
+from .domain.qa_metadata import StationConfiguration
 
 
 @dataclass(frozen=True)

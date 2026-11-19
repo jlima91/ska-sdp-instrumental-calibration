@@ -4,10 +4,8 @@ from dataclasses import dataclass
 from ska_sdp_instrumental_calibration.data_managers.h5parm import (
     read_h5parm_gains,
 )
-from ska_sdp_instrumental_calibration.data_managers.schema.qa_metadata import (
-    PreFlagging,
-    QAMetadata,
-)
+
+from .qa_metadata import PreFlagging, QAMetadata
 
 
 def _check_gaintable_exists(final_gaintable_path: str):

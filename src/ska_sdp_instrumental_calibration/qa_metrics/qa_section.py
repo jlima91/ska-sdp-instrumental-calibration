@@ -37,11 +37,14 @@ class QASection:
         """Data labels of the ``metadata_summary`` QA section."""
 
         MS = "MS"
-        VISIBILITY_METADATA = "visibility_metadata"
+        TIMESTAMPS = "timestamps"
+        FINAL_GAINTABLE = "final_gaintable"
+        CHANNELS = "channels"
 
     class FLAGGING(QASectionLabel):
         """Data labels of the ``flagging`` QA section."""
 
+        PRE_FLAGGING = "pre_flagging"
         GAIN_FITS = "gain_fits"
         GAINTABLE = "gaintable"
 

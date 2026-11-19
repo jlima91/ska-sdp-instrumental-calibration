@@ -3,8 +3,8 @@ import os
 
 import jinja2
 
-from ..data_managers.schema.qa_metadata import QAMetadata
-from ..data_managers.schema.qa_metric import (
+from .domain.qa_metadata import QAMetadata
+from .domain.qa_metric import (
     BandpassFitMetrics,
     CableDelays,
     FlaggingStatistics,
@@ -55,12 +55,14 @@ class QAMetricReport:
         pre-requisite data missing error.
     """
 
-    def __init__(self, title: str, metadata: QAMetadata | None = None):
+    def __init__(self, title: str, metadata):
         self.title = title
-        self.metadata = metadata
         self.sections: list[Section] = []
+        self.metadata = metadata
 
-    def add_metadata_summary(self) -> "QAMetricReport":
+    def add_metadata_summary(
+        self, metadata: QAMetadata | None = None
+    ) -> "QAMetricReport":
         """
         Add the metadata summary section.
 
@@ -74,9 +76,9 @@ class QAMetricReport:
                 "Metadata summary",
                 "sections/metadata.html",
                 error=self._section_error(
-                    self.metadata, PREREQUISITE_DATA_MISSING_ERROR
+                    metadata, PREREQUISITE_DATA_MISSING_ERROR
                 ),
-                metadata=self.metadata,
+                metadata=metadata,
             )
         )
         return self

@@ -15,7 +15,9 @@ The metadata is grouped per field, then per QA section, e.g.::
 
 import json
 import os
+from typing import Any
 
+from ..exceptions import QAMetadataError
 from .qa_section import QASectionLabel
 
 # Value type accepted for run metadata entries
@@ -66,7 +68,7 @@ class FieldMetadata:
             Data products of the label.
         """
         self.sections.setdefault(label.section, {})[label] = [
-            os.fspath(path) for path in data
+            path for path in data
         ]
 
     def append_data_for(self, label: QASectionLabel, data: DataProduct):
@@ -81,9 +83,9 @@ class FieldMetadata:
             Data product to add.
         """
         section = self.sections.setdefault(label.section, {})
-        section.setdefault(label, []).append(os.fspath(data))
+        section.setdefault(label, []).append(data)
 
-    def get_data_for(self, label: QASectionLabel) -> list[DataProduct] | None:
+    def get_data_for(self, label: QASectionLabel) -> list[Any] | None:
         """
         Get the data products of a label.
 
@@ -154,9 +156,10 @@ class RunMetadata:
         )
         field_metadata.add_data_for(label, data)
 
-    def append_for_field(
-        self, field_name, label: QASectionLabel, data: DataProduct
-    ):
+    def __iter__(self):
+        return iter(self.field_metadata.values())
+
+    def append_for_field(self, field_name, label: QASectionLabel, data: Any):
         """
         Add a data product to a label for a field, keeping the recorded
         ones.
@@ -189,7 +192,7 @@ class RunMetadata:
             json.dump(metadata_dict, f)
 
     @classmethod
-    def from_json(cls, qa_dir) -> "RunMetadata":
+    def initialize(cls, qa_dir) -> "RunMetadata":
         """
         Read the run metadata from ``<qa_dir>/run_metadata.json``.
 
@@ -204,6 +207,10 @@ class RunMetadata:
             The run metadata.
         """
         path = os.path.join(qa_dir, cls.RUN_METADATA_PATH)
+
+        if not os.path.exists(path):
+            raise QAMetadataError(f"No run metadata found in {qa_dir}")
+
         with open(path, "r", encoding="utf-8") as f:
             metadata_dict = json.load(f)
 

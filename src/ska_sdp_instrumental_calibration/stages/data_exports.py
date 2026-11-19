@@ -16,6 +16,7 @@ from ..data_managers.data_export.qa_metadata import (
     write_qa_metadata_to_dir,
 )
 from ..data_managers.sdm import get_gaintable_file_path
+from ..qa_metrics import QASection
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 
@@ -136,6 +137,19 @@ def export_gaintable_stage(
         delayed(export_functions[export_format])(
             upstream_output.gaintable, gaintable_file_path, exclude_cross_pols
         )
+
+        if "run_metadata" in upstream_output:
+            upstream_output.run_metadata.append_for_field(
+                upstream_output.field_id,
+                QASection.METADATA_SUMMARY.FINAL_GAINTABLE,
+                gaintable_file_path,
+            )
+
+            upstream_output.run_metadata.append_for_field(
+                upstream_output.field_id,
+                QASection.METADATA_SUMMARY.CHANNELS,
+                len(upstream_output.vis.frequency),
+            )
 
     if export_metadata and INSTMetaData.can_create_metadata():
         metadata_file_path = os.path.join(_output_dir_, INST_METADATA_FILE)

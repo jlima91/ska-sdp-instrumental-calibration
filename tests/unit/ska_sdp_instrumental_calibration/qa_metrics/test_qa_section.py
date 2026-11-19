@@ -3,8 +3,9 @@ from ska_sdp_instrumental_calibration.qa_metrics.qa_section import QASection
 
 def test_should_derive_section_key_from_class_name():
     assert QASection.METADATA_SUMMARY.MS.section == "metadata_summary"
+    assert QASection.METADATA_SUMMARY.TIMESTAMPS.section == "metadata_summary"
     assert (
-        QASection.METADATA_SUMMARY.VISIBILITY_METADATA.section
+        QASection.METADATA_SUMMARY.FINAL_GAINTABLE.section
         == "metadata_summary"
     )
     assert QASection.FLAGGING.GAIN_FITS.section == "flagging"
@@ -16,9 +17,8 @@ def test_should_derive_section_key_from_class_name():
 
 def test_should_use_label_value_as_plain_string():
     assert QASection.METADATA_SUMMARY.MS == "MS"
-    assert (
-        QASection.METADATA_SUMMARY.VISIBILITY_METADATA == "visibility_metadata"
-    )
+    assert QASection.METADATA_SUMMARY.TIMESTAMPS == "timestamps"
+    assert QASection.METADATA_SUMMARY.FINAL_GAINTABLE == "final_gaintable"
     assert QASection.FLAGGING.GAIN_FITS == "gain_fits"
     assert QASection.FLAGGING.GAINTABLE == "gaintable"
     assert QASection.BANDPASS.GAINTABLE == "gaintable"

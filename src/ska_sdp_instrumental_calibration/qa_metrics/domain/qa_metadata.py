@@ -4,7 +4,6 @@ from dataclasses import asdict, dataclass
 from functools import cached_property
 from typing import Callable
 
-import numpy as np
 from astropy.time import Time
 
 from ska_sdp_instrumental_calibration.exceptions import QAMetadataError
@@ -12,6 +11,8 @@ from ska_sdp_instrumental_calibration.xarray_processors.vis_flagging import (
     flagged_sample_counts,
     unsolvable_gain_counts,
 )
+
+QA_METADATA_FILE_NAME = "qa-metadata-data.json"
 
 
 @dataclass
@@ -75,46 +76,6 @@ class ObservationParameters:
     observation_length: float
     integration_time: float
     channels: int
-
-    @classmethod
-    def from_ms_qa_data(
-        cls, ms_qa_data: list[dict]
-    ) -> "ObservationParameters":
-        """
-        Get the observation parameters of a field from the QA data of its
-        measurement sets, joined along time.
-
-        Parameters
-        ----------
-        ms_qa_data : list[dict]
-            QA data of each measurement set of the field, from
-            get_ms_qa_data.
-
-        Returns
-        -------
-        ObservationParameters
-            Observation parameters of the field.
-        """
-        # Measurement sets of a field share channels and integration time,
-        # so they are taken from the first one
-        first_ms = ms_qa_data[0]
-        integration_time = np.median(np.diff(first_ms["timestamps"]))
-
-        start_time = (
-            min(ms["timestamps"].min() for ms in ms_qa_data)
-            - integration_time / 2
-        )
-        end_time = (
-            max(ms["timestamps"].max() for ms in ms_qa_data)
-            + integration_time / 2
-        )
-
-        return cls(
-            start_time=float(start_time),
-            observation_length=float(end_time - start_time),
-            integration_time=float(integration_time),
-            channels=int(first_ms["channels"]),
-        )
 
     def start_time_utc(self) -> str:
         """
@@ -292,99 +253,100 @@ class QAMetadata:
     file_information: FileInformation
     observation_parameters: ObservationParameters
     station_configuration: StationConfiguration
-    pre_flagging: PreFlagging
 
-    @classmethod
-    def from_ms_qa_data(
-        cls, source_name: str, ms_qa_data: list[dict], output_path: str
-    ) -> "QAMetadata":
-        """
-        Get the QA metadata of a field from the QA data of its measurement
-        sets.
+    # pre_flagging: PreFlagging
 
-        Parameters
-        ----------
-        source_name : str
-            Field name.
-        ms_qa_data : list[dict]
-            QA data of each measurement set of the field, from
-            get_ms_qa_data.
-        output_path : str
-            QA directory of the run.
+    # @classmethod
+    # def from_ms_qa_data(
+    #     cls, source_name: str, ms_qa_data: list[dict], output_path: str
+    # ) -> "QAMetadata":
+    #     """
+    #     Get the QA metadata of a field from the QA data of its measurement
+    #     sets.
 
-        Returns
-        -------
-        QAMetadata
-            QA metadata of the field.
-        """
-        station_configuration = StationConfiguration.from_ms_qa_data(
-            ms_qa_data
-        )
-        return cls(
-            source_name=source_name,
-            file_information=FileInformation.from_ms_qa_data(
-                ms_qa_data, output_path
-            ),
-            observation_parameters=ObservationParameters.from_ms_qa_data(
-                ms_qa_data
-            ),
-            station_configuration=station_configuration,
-            pre_flagging=PreFlagging.from_ms_qa_data(
-                ms_qa_data,
-                list(station_configuration.station_names.values()),
-            ),
-        )
+    #     Parameters
+    #     ----------
+    #     source_name : str
+    #         Field name.
+    #     ms_qa_data : list[dict]
+    #         QA data of each measurement set of the field, from
+    #         get_ms_qa_data.
+    #     output_path : str
+    #         QA directory of the run.
 
-    def write_to_json(self, path: str):
-        """
-        Write the QA metadata to a JSON file, one object per section.
+    #     Returns
+    #     -------
+    #     QAMetadata
+    #         QA metadata of the field.
+    #     """
+    #     station_configuration = StationConfiguration.from_ms_qa_data(
+    #         ms_qa_data
+    #     )
+    #     return cls(
+    #         source_name=source_name,
+    #         file_information=FileInformation.from_ms_qa_data(
+    #             ms_qa_data, output_path
+    #         ),
+    #         observation_parameters=ObservationParameters.from_ms_qa_data(
+    #             ms_qa_data
+    #         ),
+    #         station_configuration=station_configuration,
+    #         pre_flagging=PreFlagging.from_ms_qa_data(
+    #             ms_qa_data,
+    #             list(station_configuration.station_names.values()),
+    #         ),
+    #     )
 
-        Parameters
-        ----------
-        path : str
-            Path of the JSON file.
-        """
-        with open(path, "w", encoding="utf-8") as metadata_file:
-            json.dump(asdict(self), metadata_file, indent=4)
+    # def write_to_json(self, path: str):
+    #     """
+    #     Write the QA metadata to a JSON file, one object per section.
 
-    @classmethod
-    def read_from_json(cls, path: str) -> "QAMetadata":
-        """
-        Read the QA metadata from a JSON file.
+    #     Parameters
+    #     ----------
+    #     path : str
+    #         Path of the JSON file.
+    #     """
+    #     with open(path, "w", encoding="utf-8") as metadata_file:
+    #         json.dump(asdict(self), metadata_file, indent=4)
 
-        Parameters
-        ----------
-        path : str
-            Path of the JSON file.
+    # @classmethod
+    # def read_from_json(cls, path: str) -> "QAMetadata":
+    #     """
+    #     Read the QA metadata from a JSON file.
 
-        Returns
-        -------
-        QAMetadata
-            The QA metadata.
+    #     Parameters
+    #     ----------
+    #     path : str
+    #         Path of the JSON file.
 
-        Raises
-        ------
-        QAMetadataError
-            If the file is malformed or incomplete.
-        """
-        try:
-            with open(path, encoding="utf-8") as metadata_file:
-                qa_metadata = json.load(metadata_file)
+    #     Returns
+    #     -------
+    #     QAMetadata
+    #         The QA metadata.
 
-            return cls(
-                source_name=qa_metadata["source_name"],
-                file_information=FileInformation(
-                    **qa_metadata["file_information"]
-                ),
-                observation_parameters=ObservationParameters(
-                    **qa_metadata["observation_parameters"]
-                ),
-                station_configuration=StationConfiguration(
-                    **qa_metadata["station_configuration"]
-                ),
-                pre_flagging=PreFlagging(**qa_metadata["pre_flagging"]),
-            )
-        except (ValueError, KeyError, TypeError) as error:
-            raise QAMetadataError(
-                f"Invalid QA metadata {path}: {error}"
-            ) from error
+    #     Raises
+    #     ------
+    #     QAMetadataError
+    #         If the file is malformed or incomplete.
+    #     """
+    #     try:
+    #         with open(path, encoding="utf-8") as metadata_file:
+    #             qa_metadata = json.load(metadata_file)
+
+    #         return cls(
+    #             source_name=qa_metadata["source_name"],
+    #             file_information=FileInformation(
+    #                 **qa_metadata["file_information"]
+    #             ),
+    #             observation_parameters=ObservationParameters(
+    #                 **qa_metadata["observation_parameters"]
+    #             ),
+    #             station_configuration=StationConfiguration(
+    #                 **qa_metadata["station_configuration"]
+    #             ),
+    #             pre_flagging=PreFlagging(**qa_metadata["pre_flagging"]),
+    #         )
+    #     except (ValueError, KeyError, TypeError) as error:
+    #         raise QAMetadataError(
+    #             f"Invalid QA metadata {path}: {error}"
+    #         ) from error

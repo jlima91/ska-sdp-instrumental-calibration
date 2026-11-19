@@ -5,7 +5,7 @@ draw a section, built by QAMetricReport.
 
 from dataclasses import dataclass, field
 
-from ..data_managers.schema.qa_metadata import QAMetadata
+from .domain.qa_metadata import QAMetadata
 from .tables import Column, ColumnGroup
 
 

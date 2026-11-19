@@ -13,6 +13,10 @@ from ..data_managers.chunking import (
     get_cluster_spec,
 )
 from ..data_managers.data_export import export_visibility_metadata
+from ..data_managers.data_export.qa_metadata import (
+    get_ms_qa_data,
+    write_qa_metadata_to_dir,
+)
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
@@ -152,10 +156,9 @@ def load_data_stage(
     upstream_outputs = []
     run_metadata = RunMetadata(_qa_dir_)
     for ms in input_ms:
-        ms_path = os.path.realpath(ms)
         upstream_output = _load_data(
             _output_dir_,
-            ms_path,
+            ms,
             nchannels_per_chunk,
             ntimes_per_ms_chunk,
             cache_directory,
@@ -166,27 +169,35 @@ def load_data_stage(
             data_desc_id,
         )
 
-        visibility_metadata_path = get_derived_path(
+        pre_flagging_data_path = get_derived_path(
             _qa_dir_,
-            f"{upstream_output.ms_prefix}/load_data.visibility_metadata.json",
-        )
-
-        run_metadata.append_for_field(
-            upstream_output.field_id, QASection.METADATA_SUMMARY.MS, ms_path
+            f"{upstream_output.ms_prefix}/pre-flagging-data.json",
         )
 
         run_metadata.append_for_field(
             upstream_output.field_id,
-            QASection.METADATA_SUMMARY.VISIBILITY_METADATA,
-            visibility_metadata_path,
+            QASection.METADATA_SUMMARY.MS,
+            upstream_output.input_ms,
+        )
+
+        run_metadata.append_for_field(
+            upstream_output.field_id,
+            QASection.METADATA_SUMMARY.TIMESTAMPS,
+            upstream_output.vis.time.data.tolist(),
+        )
+
+        run_metadata.append_for_field(
+            upstream_output.field_id,
+            QASection.FLAGGING.PRE_FLAGGING,
+            pre_flagging_data_path,
         )
 
         upstream_output["run_metadata"] = run_metadata
         upstream_outputs.append(upstream_output)
 
-        delayed(export_visibility_metadata)(
-            visibility_metadata_path, upstream_outputs
-        )
+        # delayed(export_pre_flagging)(
+        #     pre_flagging_data_path, ms_qa_data
+        # )
 
     return upstream_outputs
 
