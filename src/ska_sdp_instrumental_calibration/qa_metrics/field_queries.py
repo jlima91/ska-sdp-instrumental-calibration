@@ -45,7 +45,8 @@ def get_qa_metadata(field_metadata: FieldMetadata) -> QAMetadata:
     Get the QA metadata of a field from its run metadata.
 
     The timestamps of the measurement sets are joined along time. The
-    channels and stations are read off the gaintable of the field.
+    channels are read from the run metadata and the stations off the final
+    gaintable of the field.
 
     Parameters
     ----------
@@ -69,20 +70,17 @@ def get_qa_metadata(field_metadata: FieldMetadata) -> QAMetadata:
     timestamps = field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     )
-    gaintables = field_metadata.get_data_for(
+    gaintable = field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.FINAL_GAINTABLE
     )
-
     channels = field_metadata.get_data_for(QASection.METADATA_SUMMARY.CHANNELS)
-    if channels is not None:
-        channels = channels[0]
 
-    if not input_ms or not timestamps or not gaintables:
+    if not input_ms or not timestamps or not gaintable:
         raise QAMetadataError(
             f"QA metadata missing for field {field_metadata.field_name}"
         )
 
-    station_names = _read_gaintable_axes(gaintables[0])
+    station_names = _read_gaintable_axes(gaintable)
 
     return QAMetadata(
         source_name=field_metadata.field_name,
@@ -125,7 +123,7 @@ def _read_gaintable_axes(
 
 
 def _get_observation_parameters(
-    timestamps: list[list[float]], channels: int
+    timestamps: list[list[float]], channels: int | None
 ) -> ObservationParameters:
     """
     Observation parameters of a field, from the timestamps of each of its

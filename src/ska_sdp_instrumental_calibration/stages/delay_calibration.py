@@ -186,16 +186,18 @@ def delay_calibration_stage(
 
         delayed(export_clock_to_h5parm)(delaytable, delaytable_file_path)
 
-        _upstream_output_.run_metadata.append_for_field(
+        _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
             QASection.DELAY.GAINTABLE,
             gaintable_file_path,
+            prefix=prefix,
         )
 
-        _upstream_output_.run_metadata.append_for_field(
+        _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
             QASection.DELAY.DELAYTABLE,
             delaytable_file_path,
+            prefix=prefix,
         )
 
     _upstream_output_["vis"] = vis

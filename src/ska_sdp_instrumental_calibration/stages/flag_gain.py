@@ -199,16 +199,18 @@ def flag_gain_stage(
             },
         )
 
-        _upstream_output_.run_metadata.append_for_field(
+        _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
             QASection.FLAGGING.GAIN_FITS,
             fits_file_path,
+            prefix=prefix,
         )
 
-        _upstream_output_.run_metadata.append_for_field(
+        _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
             QASection.FLAGGING.GAINTABLE,
             gaintable_file_path,
+            prefix=prefix,
         )
 
     _upstream_output_["gaintable"] = gaintable

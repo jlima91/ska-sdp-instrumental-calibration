@@ -11,10 +11,6 @@ from ..data_managers.data_export import (
     INSTMetaData,
     export_gaintable_to_h5parm,
 )
-from ..data_managers.data_export.qa_metadata import (
-    get_ms_qa_data,
-    write_qa_metadata_to_dir,
-)
 from ..data_managers.sdm import get_gaintable_file_path
 from ..qa_metrics import QASection
 from ..scheduler import UpstreamOutput, delayed
@@ -44,27 +40,6 @@ def group_upstream_by_field_id(upstream_outputs):
         return acc
 
     return reduce(accumulate_by_field_id, upstream_outputs, {})
-
-
-def export_qa_metadata(upstream_outputs: list[UpstreamOutput], qa_dir: str):
-    """
-    Export the QA metadata of the measurement sets, one file per field.
-
-    Parameters
-    ----------
-    upstream_outputs: list[UpstreamOutput]
-        Upstream output of each measurement set, with its visibility and
-        input_ms path.
-    qa_dir: str
-        Directory path where the QA metadata files will be written.
-    """
-    grouped_upstream_output = group_upstream_by_field_id(upstream_outputs)
-    for field_id, field_upstream_outputs in grouped_upstream_output.items():
-        ms_qa_data = [
-            get_ms_qa_data(upstream_output.vis, upstream_output.input_ms)
-            for upstream_output in field_upstream_outputs
-        ]
-        delayed(write_qa_metadata_to_dir)(field_id, ms_qa_data, qa_dir)
 
 
 @ConfigurableStage(name="export_gain_table")
@@ -139,13 +114,13 @@ def export_gaintable_stage(
         )
 
         if "run_metadata" in upstream_output:
-            upstream_output.run_metadata.append_for_field(
+            upstream_output.run_metadata.add_for_field(
                 upstream_output.field_id,
                 QASection.METADATA_SUMMARY.FINAL_GAINTABLE,
                 gaintable_file_path,
             )
 
-            upstream_output.run_metadata.append_for_field(
+            upstream_output.run_metadata.add_for_field(
                 upstream_output.field_id,
                 QASection.METADATA_SUMMARY.CHANNELS,
                 len(upstream_output.vis.frequency),

@@ -619,11 +619,15 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.DELAY.GAINTABLE) == [
-        "/output/path/gaintables/delay.gaintable.h5parm",
-        "/output/path/gaintables/delay_1.gaintable.h5parm",
-    ]
-    assert field_metadata.get_data_for(QASection.DELAY.DELAYTABLE) == [
-        "/output/path/gaintables/delay.clock.h5parm",
-        "/output/path/gaintables/delay_1.clock.h5parm",
-    ]
+    assert field_metadata.get_data_for(QASection.DELAY.GAINTABLE) == {
+        "ms_prefix": [
+            "/output/path/gaintables/delay.gaintable.h5parm",
+            "/output/path/gaintables/delay_1.gaintable.h5parm",
+        ]
+    }
+    assert field_metadata.get_data_for(QASection.DELAY.DELAYTABLE) == {
+        "ms_prefix": [
+            "/output/path/gaintables/delay.clock.h5parm",
+            "/output/path/gaintables/delay_1.clock.h5parm",
+        ]
+    }

@@ -133,10 +133,11 @@ def bandpass_calibration_stage(
             f"{prefix}/bandpass{call_counter_suffix}.gaintable.h5parm",
         )
 
-        _upstream_output_.run_metadata.append_for_field(
+        _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
             QASection.BANDPASS.GAINTABLE,
             gaintable_file_path,
+            prefix=prefix,
         )
 
         delayed(export_gaintable_to_h5parm)(gaintable, gaintable_file_path)

@@ -2,13 +2,23 @@
 Run metadata of an INST run: the data products recorded per field, used to
 generate the QA report.
 
-The metadata is grouped per field, then per QA section, e.g.::
+The metadata is grouped per field, then per QA section, then per label.
+How a label stores its data, and what data it accepts, is set by its
+``LabelSpec`` (see :mod:`.qa_section`), e.g.::
 
     {
         "<field>": {
             "qa_dir": "<qa_dir>",
             "field_name": "<field>",
-            "sections": {"metadata_summary": {"MS": ["a.ms", "b.ms"]}}
+            "sections": {
+                "metadata_summary": {
+                    "MS": ["a.ms", "b.ms"],
+                    "channels": 64
+                },
+                "bandpass": {
+                    "gaintable": {"a": ["a/bandpass.gaintable.h5parm"]}
+                }
+            }
         }
     }
 """
@@ -18,10 +28,7 @@ import os
 from typing import Any
 
 from ..exceptions import QAMetadataError
-from .qa_section import QASectionLabel
-
-# Value type accepted for run metadata entries
-DataProduct = str | os.PathLike[str]
+from .qa_section import JSONSerialisable, QASectionLabel
 
 
 class FieldMetadata:
@@ -31,16 +38,13 @@ class FieldMetadata:
     Each field gets its own QA report, and a ``FieldMetadata`` holds
     everything needed to generate it, including the QA directory.
 
-    Paths are stored as ``str`` (``os.fspath``) so that the metadata stays
-    JSON serialisable and reads back with the same type.
-
     Parameters
     ----------
     field_name : str
         Field name.
     qa_dir : str
         QA directory of the run.
-    sections : dict[str, dict[str, list[DataProduct]]], optional
+    sections : dict[str, dict[str, JSONSerialisable]], optional
         Data products keyed by QA section, then by label. Empty if not
         given.
     """
@@ -49,57 +53,53 @@ class FieldMetadata:
         self,
         field_name,
         qa_dir,
-        sections: dict[str, dict[str, list[DataProduct]]] | None = None,
+        sections: dict[str, dict[str, JSONSerialisable]] | None = None,
     ):
         self.field_name = field_name
         # str so the field metadata stays JSON serialisable
         self.qa_dir = os.fspath(qa_dir)
         self.sections = {} if sections is None else sections
 
-    def add_data_for(self, label: QASectionLabel, data: list[DataProduct]):
+    def add_data_for(
+        self,
+        label: QASectionLabel,
+        data: JSONSerialisable,
+        prefix: str | None = None,
+    ):
         """
-        Set the data products of a label, replacing any recorded ones.
+        Add data to a label. The label validates the data and decides
+        whether it overwrites or appends.
 
         Parameters
         ----------
         label : QASectionLabel
-            Label of the data products, e.g. ``QASection.METADATA_SUMMARY.MS``.
-        data : list[DataProduct]
-            Data products of the label.
+            Label of the data, e.g. ``QASection.METADATA_SUMMARY.MS``.
+        data : JSONSerialisable
+            Data of the schema of the label.
+        prefix : str, optional
+            MS prefix of the data, for labels stored per MS.
         """
-        self.sections.setdefault(label.section, {})[label] = [
-            path for path in data
-        ]
+        label.store(
+            self.sections.setdefault(label.section, {}), data, prefix=prefix
+        )
 
-    def append_data_for(self, label: QASectionLabel, data: DataProduct):
+    def get_data_for(self, label: QASectionLabel) -> Any:
         """
-        Add a data product to a label, keeping the recorded ones.
-
-        Parameters
-        ----------
-        label : QASectionLabel
-            Label of the data product, e.g. ``QASection.METADATA_SUMMARY.MS``.
-        data : DataProduct
-            Data product to add.
-        """
-        section = self.sections.setdefault(label.section, {})
-        section.setdefault(label, []).append(data)
-
-    def get_data_for(self, label: QASectionLabel) -> list[Any] | None:
-        """
-        Get the data products of a label.
+        Get the data of a label, in the shape its level stores it.
 
         Parameters
         ----------
         label : QASectionLabel
-            Label of the data products, e.g. ``QASection.METADATA_SUMMARY.MS``.
+            Label of the data, e.g. ``QASection.METADATA_SUMMARY.MS``.
 
         Returns
         -------
-        list[DataProduct] or None
-            Data products of the label, or None if none are recorded.
+        Any
+            Data of the label, in the shape of its level and with values
+            of its schema, as checked when written. None if none is
+            recorded.
         """
-        return self.sections.get(label.section, {}).get(label)
+        return label.load(self.sections.get(label.section, {}))
 
     def to_dict(self) -> dict:
         """
@@ -135,48 +135,35 @@ class RunMetadata:
         self.qa_dir = qa_dir
         self.field_metadata: dict[str, FieldMetadata] = {}
 
-    def add_for_field(
-        self, field_name, label: QASectionLabel, data: list[DataProduct]
-    ):
-        """
-        Set the data products of a label for a field, replacing any
-        recorded ones.
-
-        Parameters
-        ----------
-        field_name : str
-            Field name.
-        label : QASectionLabel
-            Label of the data products, e.g. ``QASection.METADATA_SUMMARY.MS``.
-        data : list[DataProduct]
-            Data products of the label.
-        """
-        field_metadata = self.field_metadata.setdefault(
-            field_name, FieldMetadata(field_name, self.qa_dir)
-        )
-        field_metadata.add_data_for(label, data)
-
     def __iter__(self):
         return iter(self.field_metadata.values())
 
-    def append_for_field(self, field_name, label: QASectionLabel, data: Any):
+    def add_for_field(
+        self,
+        field_name,
+        label: QASectionLabel,
+        data: JSONSerialisable,
+        prefix: str | None = None,
+    ):
         """
-        Add a data product to a label for a field, keeping the recorded
-        ones.
+        Add data to a label of a field. The label validates the data and
+        decides whether it overwrites or appends.
 
         Parameters
         ----------
         field_name : str
             Field name.
         label : QASectionLabel
-            Label of the data product, e.g. ``QASection.METADATA_SUMMARY.MS``.
-        data : DataProduct
-            Data product to add.
+            Label of the data, e.g. ``QASection.METADATA_SUMMARY.MS``.
+        data : JSONSerialisable
+            Data of the schema of the label.
+        prefix : str, optional
+            MS prefix of the data, for labels stored per MS.
         """
         field_metadata = self.field_metadata.setdefault(
             field_name, FieldMetadata(field_name, self.qa_dir)
         )
-        field_metadata.append_data_for(label, data)
+        field_metadata.add_data_for(label, data, prefix=prefix)
 
     def to_json(self):
         """

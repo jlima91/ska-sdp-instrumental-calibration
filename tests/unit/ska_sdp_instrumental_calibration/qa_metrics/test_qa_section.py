@@ -1,4 +1,14 @@
-from ska_sdp_instrumental_calibration.qa_metrics.qa_section import QASection
+from typing import TypedDict
+
+import pytest
+
+from ska_sdp_instrumental_calibration.exceptions import QAMetadataError
+from ska_sdp_instrumental_calibration.qa_metrics.qa_section import (
+    LabelSpec,
+    Level,
+    QASection,
+    QASectionLabel,
+)
 
 
 def test_should_derive_section_key_from_class_name():
@@ -39,3 +49,118 @@ def test_should_keep_same_label_of_different_sections_apart():
         "bandpass",
         "delay",
     }
+
+
+def test_should_attach_spec_to_label():
+    assert QASection.METADATA_SUMMARY.CHANNELS.spec == LabelSpec(
+        Level.FIELD_SINGLE, int
+    )
+    assert QASection.METADATA_SUMMARY.TIMESTAMPS.spec == LabelSpec(
+        Level.FIELD_MULTIPLE, list[float]
+    )
+    assert QASection.BANDPASS.GAINTABLE.spec == LabelSpec(
+        Level.PREFIX_MULTIPLE, str
+    )
+
+
+def test_should_look_up_label_by_its_string_value():
+    # Enum lookup by value does not call __new__, so spec is not needed;
+    # pylint cannot tell and reads it as a constructor call
+    # pylint: disable-next=no-value-for-parameter
+    label = QASection.METADATA_SUMMARY("channels")
+
+    assert label is QASection.METADATA_SUMMARY.CHANNELS
+
+
+def test_should_overwrite_field_single_label():
+    section = {}
+    label = QASection.METADATA_SUMMARY.CHANNELS
+
+    label.store(section, 10)
+    label.store(section, 20)
+
+    assert label.load(section) == 20
+
+
+def test_should_append_field_multiple_label_in_order():
+    section = {}
+    label = QASection.METADATA_SUMMARY.MS
+
+    label.store(section, "a.ms")
+    label.store(section, "b.ms")
+
+    assert label.load(section) == ["a.ms", "b.ms"]
+
+
+def test_should_append_prefix_multiple_label_per_prefix():
+    section = {}
+    label = QASection.BANDPASS.GAINTABLE
+
+    label.store(section, "a_bandpass.h5", prefix="a")
+    label.store(section, "a_bandpass_1.h5", prefix="a")
+    label.store(section, "b_bandpass.h5", prefix="b")
+
+    assert label.load(section) == {
+        "a": ["a_bandpass.h5", "a_bandpass_1.h5"],
+        "b": ["b_bandpass.h5"],
+    }
+
+
+def test_should_load_none_for_unset_label():
+    assert QASection.METADATA_SUMMARY.CHANNELS.load({}) is None
+    assert QASection.BANDPASS.GAINTABLE.load({}) is None
+
+
+def test_should_keep_labels_of_same_name_apart_within_a_section():
+    # Sections are stored separately, so labels sharing a value do not
+    # collide as long as each section has its own dict
+    flagging, bandpass = {}, {}
+
+    QASection.FLAGGING.GAINTABLE.store(flagging, "flag.h5", prefix="a")
+    QASection.BANDPASS.GAINTABLE.store(bandpass, "bp.h5", prefix="a")
+
+    assert flagging == {"gaintable": {"a": ["flag.h5"]}}
+    assert bandpass == {"gaintable": {"a": ["bp.h5"]}}
+
+
+def test_should_require_prefix_for_prefix_multiple_label():
+    with pytest.raises(QAMetadataError, match="needs a prefix"):
+        QASection.DELAY.DELAYTABLE.store({}, "delay.h5")
+
+
+@pytest.mark.parametrize(
+    "label",
+    [QASection.METADATA_SUMMARY.CHANNELS, QASection.METADATA_SUMMARY.MS],
+)
+def test_should_reject_prefix_for_field_level_label(label):
+    with pytest.raises(QAMetadataError, match="takes no prefix"):
+        label.store({}, "a.ms", prefix="a")
+
+
+@pytest.mark.parametrize(
+    "label, data",
+    [
+        (QASection.METADATA_SUMMARY.CHANNELS, "4096"),
+        (QASection.METADATA_SUMMARY.TIMESTAMPS, 1.0),
+        (QASection.METADATA_SUMMARY.MS, 1),
+    ],
+)
+def test_should_reject_entry_not_matching_schema(label, data):
+    with pytest.raises(QAMetadataError, match="expects"):
+        label.store({}, data)
+
+
+def test_should_check_typeddict_schema_as_dict():
+    class Entry(TypedDict):
+        path: str
+
+    # Label defined for this test only, with a TypedDict schema
+    class EXAMPLE(QASectionLabel):
+        ENTRY = "entry", LabelSpec(Level.FIELD_MULTIPLE, Entry)
+
+    section = {}
+    EXAMPLE.ENTRY.store(section, {"path": "a.ms"})
+
+    assert EXAMPLE.ENTRY.load(section) == [{"path": "a.ms"}]
+    with pytest.raises(QAMetadataError, match="expects dict"):
+        EXAMPLE.ENTRY.store(section, "a.ms")

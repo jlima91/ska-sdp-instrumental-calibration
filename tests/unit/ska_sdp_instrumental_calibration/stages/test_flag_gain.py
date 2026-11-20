@@ -253,14 +253,18 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.FLAGGING.GAIN_FITS) == [
-        "/output/path/derived/gain_fit_flag.zarr",
-        "/output/path/derived/gain_fit_flag_1.zarr",
-    ]
-    assert field_metadata.get_data_for(QASection.FLAGGING.GAINTABLE) == [
-        "/output/path/gaintables/gain_flag.gaintable.h5parm",
-        "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
-    ]
+    assert field_metadata.get_data_for(QASection.FLAGGING.GAIN_FITS) == {
+        "ms_prefix": [
+            "/output/path/derived/gain_fit_flag.zarr",
+            "/output/path/derived/gain_fit_flag_1.zarr",
+        ]
+    }
+    assert field_metadata.get_data_for(QASection.FLAGGING.GAINTABLE) == {
+        "ms_prefix": [
+            "/output/path/gaintables/gain_flag.gaintable.h5parm",
+            "/output/path/gaintables/gain_flag_1.gaintable.h5parm",
+        ]
+    }
 
     expected_fits_attrs = {"soltype": soltype, "normalize_gains": 0}
     export_fits_mock.assert_has_calls(

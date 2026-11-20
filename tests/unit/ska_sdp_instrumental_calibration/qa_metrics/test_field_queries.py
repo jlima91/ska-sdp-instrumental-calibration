@@ -45,7 +45,8 @@ def test_should_get_qa_metadata_of_a_field(read_h5parm_gains_mock):
         {
             "MS": ["/data/a.ms"],
             "timestamps": [[10.0, 20.0, 30.0]],
-            "final_gaintable": [GAINTABLE],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
         }
     )
 
@@ -79,7 +80,8 @@ def test_should_join_observation_parameters_of_all_ms_along_time(
         {
             "MS": ["/data/b.ms", "/data/a.ms"],
             "timestamps": [[40.0, 50.0], [10.0, 20.0, 30.0]],
-            "final_gaintable": [GAINTABLE],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
         }
     )
 
@@ -97,16 +99,42 @@ def test_should_join_observation_parameters_of_all_ms_along_time(
     ]
 
 
+@patch(READ_H5PARM_GAINS)
+def test_should_leave_channels_unset_if_not_recorded(read_h5parm_gains_mock):
+    # Missing channels must not stop the report; it shows them as unknown
+    read_h5parm_gains_mock.return_value = _gains_with_axes(
+        np.linspace(1e8, 2e8, 64), ["station_a"]
+    )
+    field_metadata = _field_metadata(
+        {
+            "MS": ["/data/a.ms"],
+            "timestamps": [[10.0, 20.0, 30.0]],
+            "final_gaintable": GAINTABLE,
+        }
+    )
+
+    qa_metadata = get_qa_metadata(field_metadata)
+
+    assert qa_metadata.observation_parameters.channels is None
+
+
 @pytest.mark.parametrize(
     "metadata_summary",
     [
-        {"timestamps": [[10.0, 20.0]], "final_gaintable": [GAINTABLE]},
-        {"MS": ["/data/a.ms"], "final_gaintable": [GAINTABLE]},
-        {"MS": ["/data/a.ms"], "timestamps": [[10.0, 20.0]]},
+        # Each case misses exactly one of the required labels; channels
+        # is optional, so it is recorded in every case
+        {
+            "timestamps": [[10.0, 20.0]],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
+        },
+        {"MS": ["/data/a.ms"], "final_gaintable": GAINTABLE, "channels": 64},
+        {"MS": ["/data/a.ms"], "timestamps": [[10.0, 20.0]], "channels": 64},
         {
             "MS": [],
             "timestamps": [[10.0, 20.0]],
-            "final_gaintable": [GAINTABLE],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
         },
         {},
     ],
@@ -136,7 +164,8 @@ def test_should_raise_if_gaintable_has_no_frequency_or_antenna_axis(
         {
             "MS": ["/data/a.ms"],
             "timestamps": [[10.0, 20.0]],
-            "final_gaintable": [GAINTABLE],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
         }
     )
 
@@ -153,7 +182,8 @@ def test_should_raise_if_final_gaintable_was_not_produced(
         {
             "MS": ["/data/a.ms"],
             "timestamps": [[10.0, 20.0]],
-            "final_gaintable": [GAINTABLE],
+            "final_gaintable": GAINTABLE,
+            "channels": 64,
         }
     )
 

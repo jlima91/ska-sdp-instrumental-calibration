@@ -314,10 +314,12 @@ def test_should_export_gaintable_with_proper_suffix(
     )
 
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) == [
-        "/output/path/gaintables/bandpass.gaintable.h5parm",
-        "/output/path/gaintables/bandpass_1.gaintable.h5parm",
-    ]
+    assert field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) == {
+        "ms_prefix": [
+            "/output/path/gaintables/bandpass.gaintable.h5parm",
+            "/output/path/gaintables/bandpass_1.gaintable.h5parm",
+        ]
+    }
 
 
 @patch(

@@ -1,22 +1,7 @@
-import glob
 import logging
-import os
 
-from ..data_managers.sdm import get_final_gaintable_path
 from ..exceptions import QAMetadataError
-from .domain.qa_metadata import QA_METADATA_FILE_NAME, QAMetadata
-from .domain.qa_metric import (
-    BandpassFitMetrics,
-    CableDelays,
-    FlaggingStatistics,
-)
-from .field_queries import (
-    get_bandpass_fit_metrics,
-    get_cable_delays,
-    get_flagging_statistics,
-    get_qa_metadata,
-)
-from .qa_section import QASection
+from .field_queries import get_qa_metadata
 from .report import QAMetricReport
 from .run_metadata import RunMetadata
 

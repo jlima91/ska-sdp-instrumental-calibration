@@ -12,11 +12,6 @@ from ..data_managers.chunking import (
     estimate_channels_per_chunk,
     get_cluster_spec,
 )
-from ..data_managers.data_export import export_visibility_metadata
-from ..data_managers.data_export.qa_metadata import (
-    get_ms_qa_data,
-    write_qa_metadata_to_dir,
-)
 from ..data_managers.gaintable import create_gaintable_from_visibility
 from ..data_managers.visibility import (
     check_if_cache_files_exist,
@@ -27,7 +22,7 @@ from ..data_managers.visibility import (
     write_ms_to_zarr,
 )
 from ..qa_metrics import QASection, RunMetadata
-from ..scheduler import UpstreamOutput, delayed
+from ..scheduler import UpstreamOutput
 from ..tagger import Tags
 from ._utils import get_derived_path
 
@@ -158,7 +153,8 @@ def load_data_stage(
     for ms in input_ms:
         upstream_output = _load_data(
             _output_dir_,
-            ms,
+            # Resolve trailing slashes and '..' so the basename is the MS name
+            os.path.realpath(ms),
             nchannels_per_chunk,
             ntimes_per_ms_chunk,
             cache_directory,
@@ -174,22 +170,23 @@ def load_data_stage(
             f"{upstream_output.ms_prefix}/pre-flagging-data.json",
         )
 
-        run_metadata.append_for_field(
+        run_metadata.add_for_field(
             upstream_output.field_id,
             QASection.METADATA_SUMMARY.MS,
             upstream_output.input_ms,
         )
 
-        run_metadata.append_for_field(
+        run_metadata.add_for_field(
             upstream_output.field_id,
             QASection.METADATA_SUMMARY.TIMESTAMPS,
             upstream_output.vis.time.data.tolist(),
         )
 
-        run_metadata.append_for_field(
+        run_metadata.add_for_field(
             upstream_output.field_id,
             QASection.FLAGGING.PRE_FLAGGING,
             pre_flagging_data_path,
+            prefix=upstream_output.ms_prefix,
         )
 
         upstream_output["run_metadata"] = run_metadata
