@@ -61,6 +61,11 @@ h3 {
   margin: 0; padding: 16px 24px; font-weight: 700; color: var(--error);
   background: var(--error-background); border-left: 4px solid var(--error);
 }
+.error-cause, .stack-trace {
+  margin: 0; padding: 8px 24px; color: var(--label);
+  background: var(--error-background); border-left: 4px solid var(--error);
+}
+.stack-trace { font-size: 13px; overflow-x: auto; }
 
 /* Labels and values */
 dt {

@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Any, TypeAlias
 
-from ..exceptions import QAMetadataError
+from .exceptions import RunMetadataError
 
 # Any value json.dump can write: what the run metadata stores. Static
 # documentation only; entries are checked at runtime against the schema of
@@ -43,13 +43,19 @@ class Level(Enum):
     ``FIELD_MULTIPLE``
         Several values for the field; a write appends. Stored as
         ``[value, ...]``.
+    ``PREFIX_SINGLE``
+        One value per MS prefix, for data written once per MS, e.g. by
+        load_data; a write overwrites the value of its prefix. Stored as
+        ``{prefix: value}``.
     ``PREFIX_MULTIPLE``
-        Several values per MS prefix; a write appends to the list of its
-        prefix. Stored as ``{prefix: [value, ...]}``.
+        Several values per MS prefix, for data of stages that can run more
+        than once, e.g. in the experimental pipeline; a write appends to
+        the list of its prefix. Stored as ``{prefix: [value, ...]}``.
     """
 
     FIELD_SINGLE = "field_single"
     FIELD_MULTIPLE = "field_multiple"
+    PREFIX_SINGLE = "prefix_single"
     PREFIX_MULTIPLE = "prefix_multiple"
 
 
@@ -107,29 +113,32 @@ class LabelSpec:
         data : JSONSerialisable
             Entry to write, checked against the schema.
         prefix : str, optional
-            MS prefix of the entry. Required for ``PREFIX_MULTIPLE``, not
+            MS prefix of the entry. Required for the prefix levels, not
             allowed for the field levels.
 
         Raises
         ------
-        QAMetadataError
+        RunMetadataError
             If the prefix is missing or not allowed, or the entry is not
             of the runtime type of the schema.
         """
-        needs_prefix = self.level is Level.PREFIX_MULTIPLE
+        needs_prefix = self.level in (
+            Level.PREFIX_SINGLE,
+            Level.PREFIX_MULTIPLE,
+        )
 
         if needs_prefix and prefix is None:
-            raise QAMetadataError(
+            raise RunMetadataError(
                 f"{label} is stored per MS and needs a prefix"
             )
         if not needs_prefix and prefix is not None:
-            raise QAMetadataError(
+            raise RunMetadataError(
                 f"{label} is stored per field and takes no prefix"
             )
 
         expected = self.runtime_type
         if not isinstance(data, expected):
-            raise QAMetadataError(
+            raise RunMetadataError(
                 f"{label} expects {expected.__name__}, "
                 f"got {type(data).__name__}"
             )
@@ -196,12 +205,12 @@ class QASectionLabel(StrEnum):
         data : JSONSerialisable
             Entry to store, of the schema of the label.
         prefix : str, optional
-            MS prefix of the entry. Required for ``PREFIX_MULTIPLE``
-            labels, not allowed for field level labels.
+            MS prefix of the entry. Required for prefix level labels, not
+            allowed for field level labels.
 
         Raises
         ------
-        QAMetadataError
+        RunMetadataError
             If the prefix is missing or not allowed, or the entry does
             not match the schema of the label.
         """
@@ -212,6 +221,8 @@ class QASectionLabel(StrEnum):
                 section[self] = data
             case Level.FIELD_MULTIPLE:
                 section.setdefault(self, []).append(data)
+            case Level.PREFIX_SINGLE:
+                section.setdefault(self, {})[prefix] = data
             case Level.PREFIX_MULTIPLE:
                 per_prefix = section.setdefault(self, {})
                 per_prefix.setdefault(prefix, []).append(data)
@@ -230,8 +241,9 @@ class QASectionLabel(StrEnum):
         -------
         Any
             ``value`` for ``FIELD_SINGLE``, ``[value, ...]`` for
-            ``FIELD_MULTIPLE`` and ``{prefix: [value, ...]}`` for
-            ``PREFIX_MULTIPLE``, with values of the schema of the label.
+            ``FIELD_MULTIPLE``, ``{prefix: value}`` for ``PREFIX_SINGLE``
+            and ``{prefix: [value, ...]}`` for ``PREFIX_MULTIPLE``, with
+            values of the schema of the label.
             None if nothing is stored.
         """
         # Any, not JSONSerialisable: the schema of the label was checked
@@ -258,7 +270,8 @@ class QASection:
     class FLAGGING(QASectionLabel):
         """Data labels of the ``flagging`` QA section."""
 
-        PRE_FLAGGING = "pre_flagging", LabelSpec(Level.PREFIX_MULTIPLE, str)
+        # Only load_data writes it, once per MS: it cannot be repeated
+        PRE_FLAGGING = "pre_flagging", LabelSpec(Level.PREFIX_SINGLE, str)
         GAIN_FITS = "gain_fits", LabelSpec(Level.PREFIX_MULTIPLE, str)
         GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_MULTIPLE, str)
 

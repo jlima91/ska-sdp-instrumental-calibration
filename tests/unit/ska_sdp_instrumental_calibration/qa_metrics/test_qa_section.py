@@ -2,7 +2,9 @@ from typing import TypedDict
 
 import pytest
 
-from ska_sdp_instrumental_calibration.exceptions import QAMetadataError
+from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
+    RunMetadataError,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.qa_section import (
     LabelSpec,
     Level,
@@ -58,6 +60,9 @@ def test_should_attach_spec_to_label():
     assert QASection.METADATA_SUMMARY.TIMESTAMPS.spec == LabelSpec(
         Level.FIELD_MULTIPLE, list[float]
     )
+    assert QASection.FLAGGING.PRE_FLAGGING.spec == LabelSpec(
+        Level.PREFIX_SINGLE, str
+    )
     assert QASection.BANDPASS.GAINTABLE.spec == LabelSpec(
         Level.PREFIX_MULTIPLE, str
     )
@@ -92,6 +97,17 @@ def test_should_append_field_multiple_label_in_order():
     assert label.load(section) == ["a.ms", "b.ms"]
 
 
+def test_should_overwrite_prefix_single_label_per_prefix():
+    section = {}
+    label = QASection.FLAGGING.PRE_FLAGGING
+
+    label.store(section, "a_old.json", prefix="a")
+    label.store(section, "a.json", prefix="a")
+    label.store(section, "b.json", prefix="b")
+
+    assert label.load(section) == {"a": "a.json", "b": "b.json"}
+
+
 def test_should_append_prefix_multiple_label_per_prefix():
     section = {}
     label = QASection.BANDPASS.GAINTABLE
@@ -123,9 +139,13 @@ def test_should_keep_labels_of_same_name_apart_within_a_section():
     assert bandpass == {"gaintable": {"a": ["bp.h5"]}}
 
 
-def test_should_require_prefix_for_prefix_multiple_label():
-    with pytest.raises(QAMetadataError, match="needs a prefix"):
-        QASection.DELAY.DELAYTABLE.store({}, "delay.h5")
+@pytest.mark.parametrize(
+    "label",
+    [QASection.FLAGGING.PRE_FLAGGING, QASection.DELAY.DELAYTABLE],
+)
+def test_should_require_prefix_for_prefix_level_label(label):
+    with pytest.raises(RunMetadataError, match="needs a prefix"):
+        label.store({}, "data.h5")
 
 
 @pytest.mark.parametrize(
@@ -133,7 +153,7 @@ def test_should_require_prefix_for_prefix_multiple_label():
     [QASection.METADATA_SUMMARY.CHANNELS, QASection.METADATA_SUMMARY.MS],
 )
 def test_should_reject_prefix_for_field_level_label(label):
-    with pytest.raises(QAMetadataError, match="takes no prefix"):
+    with pytest.raises(RunMetadataError, match="takes no prefix"):
         label.store({}, "a.ms", prefix="a")
 
 
@@ -146,7 +166,7 @@ def test_should_reject_prefix_for_field_level_label(label):
     ],
 )
 def test_should_reject_entry_not_matching_schema(label, data):
-    with pytest.raises(QAMetadataError, match="expects"):
+    with pytest.raises(RunMetadataError, match="expects"):
         label.store({}, data)
 
 
@@ -162,5 +182,5 @@ def test_should_check_typeddict_schema_as_dict():
     EXAMPLE.ENTRY.store(section, {"path": "a.ms"})
 
     assert EXAMPLE.ENTRY.load(section) == [{"path": "a.ms"}]
-    with pytest.raises(QAMetadataError, match="expects dict"):
+    with pytest.raises(RunMetadataError, match="expects dict"):
         EXAMPLE.ENTRY.store(section, "a.ms")

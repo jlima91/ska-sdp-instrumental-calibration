@@ -27,7 +27,7 @@ import json
 import os
 from typing import Any
 
-from ..exceptions import QAMetadataError
+from .exceptions import RunMetadataError
 from .qa_section import JSONSerialisable, QASectionLabel
 
 
@@ -196,7 +196,7 @@ class RunMetadata:
         path = os.path.join(qa_dir, cls.RUN_METADATA_PATH)
 
         if not os.path.exists(path):
-            raise QAMetadataError(f"No run metadata found in {qa_dir}")
+            raise RunMetadataError(f"No run metadata found in {qa_dir}")
 
         with open(path, "r", encoding="utf-8") as f:
             metadata_dict = json.load(f)

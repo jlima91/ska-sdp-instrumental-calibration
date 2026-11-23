@@ -1,11 +1,9 @@
 import os
 from dataclasses import dataclass
 
-from ska_sdp_instrumental_calibration.data_managers.h5parm import (
-    read_h5parm_gains,
-)
+import numpy as np
 
-from .qa_metadata import PreFlagging, QAMetadata
+from .qa_metadata import QAMetadata
 
 
 def _check_gaintable_exists(final_gaintable_path: str):
@@ -36,54 +34,49 @@ class FlaggingStatistics:
     flagged_after: dict[str, float]
 
     @classmethod
-    def read_from_gaintable(
-        cls, final_gaintable_path: str, pre_flagging: PreFlagging
+    def from_weights(
+        cls,
+        weight: np.ndarray,
+        station_names: list[str],
+        flagged_before: dict[str, float],
     ) -> "FlaggingStatistics":
         """
-        Get the flagging statistics of a field from its final gaintable.
+        Get the flagging statistics of a field from the weights of its
+        final gaintable.
+
+        A gain is flagged where its weight is 0. Only the parallel hand
+        gains (XX, YY) solved by bandpass are counted.
 
         Parameters
         ----------
-        final_gaintable_path : str
-            Path of the final gaintable (h5parm) of the field.
-        pre_flagging : PreFlagging
-            Flagging of the field before calibration, from the QA metadata.
+        weight : np.ndarray
+            Gain weights of dimensions (time, antenna, frequency, 2, 2).
+        station_names : list[str]
+            MS station names, in the antenna order of the weights.
+        flagged_before : dict[str, float]
+            Percentage of gains that cannot be solved before calibration,
+            keyed by MS station name.
 
         Returns
         -------
         FlaggingStatistics
             Flagging statistics of the field.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the final gaintable is missing.
         """
-        _check_gaintable_exists(final_gaintable_path)
-        return cls(
-            flagged_before=pre_flagging.unsolvable_gains,
-            flagged_after=cls._gaintable_flagged_percentage(
-                final_gaintable_path
-            ),
-        )
-
-    @staticmethod
-    def _gaintable_flagged_percentage(h5parm_path: str) -> dict[str, float]:
-        """
-        Percentage of flagged gain solutions per station in an h5parm.
-        A gain is flagged where its weight is 0. Only the parallel hand
-        gains (XX, YY) solved by bandpass are counted.
-        """
-        _, weight, _, soltab = read_h5parm_gains(h5parm_path)
-
+        # Keep the XX and YY receptor pairs
         is_flagged = weight[..., [0, 1], [0, 1]] == 0
         flagged = is_flagged.sum(axis=(0, 2, 3))
+        # Gains of one station: all times, channels and parallel hands
         total = is_flagged[:, 0, ...].size
 
-        return {
-            str(name): float(percentage)
-            for name, percentage in zip(soltab.antenna, flagged / total * 100)
-        }
+        return cls(
+            flagged_before=flagged_before,
+            flagged_after={
+                name: float(percentage)
+                for name, percentage in zip(
+                    station_names, flagged / total * 100
+                )
+            },
+        )
 
     def values_per_station(self) -> dict[str, dict[str, float | None]]:
         """

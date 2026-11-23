@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 from mock import patch
 
-from ska_sdp_instrumental_calibration.exceptions import QAMetadataError
+from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
+    RunMetadataError,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.qa_section import QASection
 from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
     FieldMetadata,
@@ -63,10 +65,10 @@ def test_should_store_data_in_the_shape_of_each_label_level():
 def test_should_raise_label_errors_through_add_data_for():
     field_metadata = FieldMetadata("field", "qa_dir")
 
-    with pytest.raises(QAMetadataError, match="needs a prefix"):
+    with pytest.raises(RunMetadataError, match="needs a prefix"):
         field_metadata.add_data_for(QASection.BANDPASS.GAINTABLE, "a.h5")
 
-    with pytest.raises(QAMetadataError, match="expects str"):
+    with pytest.raises(RunMetadataError, match="expects str"):
         # A Path is not JSON serialisable: passed on purpose to check the
         # label rejects it at runtime
         field_metadata.add_data_for(
@@ -179,5 +181,5 @@ def test_should_read_run_metadata_written_to_json(tmp_path):
 
 
 def test_should_raise_if_no_run_metadata_to_read(tmp_path):
-    with pytest.raises(QAMetadataError, match="No run metadata"):
+    with pytest.raises(RunMetadataError, match="No run metadata"):
         RunMetadata.initialize(tmp_path)

@@ -9,7 +9,6 @@
 </style>
 </head>
 <body>
-{% from "components.html" import error_message %}
 <header>
 <h1>{{ title }}</h1>
 <div class="toolbar">
@@ -18,17 +17,11 @@
 </div>
 </header>
 <main>
-  {% if metadata %}
-  <p class="source">Source: <strong>{{ metadata.source_name }}</strong></p>
-  {% endif %}
+  <p class="source">Source: <strong>{{ field_name }}</strong></p>
 
   {% for section in sections %}
   <details open><summary>{{ section.title }}</summary><div>
-    {% if section.error %}
-    {{ error_message(section.error) }}
-    {% else %}
     {% include section.template %}
-    {% endif %}
   </div></details>
   {% endfor %}
 </main>

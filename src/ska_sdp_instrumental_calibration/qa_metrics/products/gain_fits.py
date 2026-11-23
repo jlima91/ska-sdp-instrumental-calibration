@@ -1,3 +1,8 @@
+"""
+Gain fits: the curve fits produced by gain flagging, kept in the
+``derived/`` folder as a Zarr store for the QA plots.
+"""
+
 import logging
 from typing import Optional
 

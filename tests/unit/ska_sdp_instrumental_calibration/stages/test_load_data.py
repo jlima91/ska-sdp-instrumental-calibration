@@ -146,7 +146,7 @@ def test_should_load_data_from_existing_cached_zarr_file(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     ) == [[10.0, 20.0, 30.0]]
     assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
-        "vis": [pre_flagging_data_path]
+        "vis": pre_flagging_data_path
     }
 
     assert new_up_output[0]["chunks"] == {
@@ -498,8 +498,8 @@ def test_should_record_run_metadata_of_each_ms_of_a_field(
     ) == [[1.0, 2.0], [3.0, 4.0]]
     # Pre-flagging data is stored per MS prefix
     assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
-        "vis_a": ["/qa/derived/vis_a/pre-flagging-data.json"],
-        "vis_b": ["/qa/derived/vis_b/pre-flagging-data.json"],
+        "vis_a": "/qa/derived/vis_a/pre-flagging-data.json",
+        "vis_b": "/qa/derived/vis_b/pre-flagging-data.json",
     }
 
     get_derived_path_mock.assert_has_calls(

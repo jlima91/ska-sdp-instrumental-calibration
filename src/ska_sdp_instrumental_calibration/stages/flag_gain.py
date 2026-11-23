@@ -3,12 +3,9 @@ from typing import Annotated, Literal
 from pydantic import Field
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
-from ..data_managers.data_export import (
-    export_gain_fits_to_zarr,
-    export_gaintable_to_h5parm,
-)
+from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
-from ..qa_metrics import QASection
+from ..qa_metrics import QASection, export_gain_fits_to_zarr
 from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,

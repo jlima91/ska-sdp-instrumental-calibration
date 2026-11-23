@@ -1,0 +1,20 @@
+{#- Error of a section. section.error is a QAReportException: its message,
+    the exception it was raised from (if chained), and a minimal stack trace
+    with one "<package>/<file>:<line> in <function>" line per frame, from
+    where the error was caught to where it was raised -#}
+{% from "components.html" import error_message %}
+{% set error = section.error %}
+{{ error_message(error.__class__.__name__ ~ ": " ~ error) }}
+{% if error.__cause__ %}
+<p class="error-cause">Caused by {{ error.__cause__.__class__.__name__ }}: {{ error.__cause__ }}</p>
+{% endif %}
+{% if error.__traceback__ %}
+{#- Jinja has no while loop, so the linked list of traceback frames
+    (tb_next) is walked with a recursive for loop #}
+<pre class="stack-trace">
+{%- for frame in [error.__traceback__] recursive %}
+{{ frame.tb_frame.f_code.co_filename.split("/")[-2:]|join("/") }}:{{ frame.tb_lineno }} in {{ frame.tb_frame.f_code.co_name }}
+{%- if frame.tb_next %}{{ loop([frame.tb_next]) }}{% endif %}
+{%- endfor %}
+</pre>
+{% endif %}

@@ -1,14 +1,9 @@
 import re
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Callable
 
+import numpy as np
 from astropy.time import Time
-
-from ska_sdp_instrumental_calibration.xarray_processors.vis_flagging import (
-    flagged_sample_counts,
-    unsolvable_gain_counts,
-)
 
 QA_METADATA_FILE_NAME = "qa-metadata-data.json"
 
@@ -123,12 +118,29 @@ class StationConfiguration:
         """
         # Measurement sets of a field share stations, so they are taken
         # from the first one
+        return cls.from_station_names(ms_qa_data[0]["station_names"])
+
+    @classmethod
+    def from_station_names(cls, station_names) -> "StationConfiguration":
+        """
+        Get the stations of a field from their names, in configuration
+        order.
+
+        Parameters
+        ----------
+        station_names : Iterable
+            MS station names, e.g. the antenna axis of a gaintable. Their
+            position is their station ID.
+
+        Returns
+        -------
+        StationConfiguration
+            Stations of the field.
+        """
         return cls(
             {
                 str(station_id): str(name)
-                for station_id, name in enumerate(
-                    ms_qa_data[0]["station_names"]
-                )
+                for station_id, name in enumerate(station_names)
             }
         )
 
@@ -169,59 +181,58 @@ class PreFlagging:
     unsolvable_gains: dict[str, float]
 
     @classmethod
-    def from_ms_qa_data(
-        cls, ms_qa_data: list[dict], station_names: list[str]
+    def from_counts(
+        cls, counts: list[dict], station_names: list[str]
     ) -> "PreFlagging":
         """
-        Get the flagging of a field from the QA data of its measurement
-        sets.
+        Get the flagging of a field from the pre-flagging counts of its
+        measurement sets, as read by ``products.read_pre_flagging``.
+
+        The counts of the measurement sets are summed before dividing, so
+        each measurement set weighs by its number of samples.
 
         Parameters
         ----------
-        ms_qa_data : list[dict]
-            QA data of each measurement set of the field, from
-            get_ms_qa_data.
+        counts : list[dict]
+            Counts of each measurement set of the field: ``flagged``,
+            ``total`` and ``unsolvable`` with one count per station, and
+            ``nchannels``.
         station_names : list[str]
-            MS station names, in station ID order.
+            MS station names, in the configuration order of the counts.
 
         Returns
         -------
         PreFlagging
             Flagging of the field.
         """
+        flagged = np.sum(
+            [ms_counts["flagged"] for ms_counts in counts], axis=0
+        )
+        total = np.sum([ms_counts["total"] for ms_counts in counts], axis=0)
+        unsolvable = np.sum(
+            [ms_counts["unsolvable"] for ms_counts in counts], axis=0
+        )
+        nchannels = sum(ms_counts["nchannels"] for ms_counts in counts)
+
         return cls(
             flagged_data=cls._percentage_per_station(
-                flagged_sample_counts, ms_qa_data, station_names
+                flagged, total, station_names
             ),
             unsolvable_gains=cls._percentage_per_station(
-                unsolvable_gain_counts, ms_qa_data, station_names
+                unsolvable, nchannels, station_names
             ),
         )
 
     @staticmethod
     def _percentage_per_station(
-        count_function: Callable,
-        ms_qa_data: list[dict],
+        count: np.ndarray,
+        total: np.ndarray | int,
         station_names: list[str],
     ) -> dict[str, float]:
         """
-        Sum the (flagged, total) counts over the measurement sets, then
-        return the percentage keyed by station name.
+        Percentage of count over total, keyed by station name.
         """
-        flagged = 0
-        total = 0
-        for ms in ms_qa_data:
-            ms_flagged, ms_total = count_function(
-                ms["flagged_time_count"],
-                ms["antenna1"],
-                ms["antenna2"],
-                ms["ntimes"],
-                len(station_names),
-            )
-            flagged = flagged + ms_flagged
-            total = total + ms_total
-
-        percentages = flagged / total * 100
+        percentages = count / total * 100
         return {
             name: float(percentage)
             for name, percentage in zip(station_names, percentages)
@@ -236,8 +247,6 @@ class QAMetadata:
 
     Parameters
     ----------
-    source_name : str
-        Field name.
     file_information : FileInformation
         Files of the field.
     observation_parameters : ObservationParameters
@@ -248,7 +257,6 @@ class QAMetadata:
         Flagging before calibration.
     """
 
-    source_name: str
     file_information: FileInformation
     observation_parameters: ObservationParameters
     station_configuration: StationConfiguration

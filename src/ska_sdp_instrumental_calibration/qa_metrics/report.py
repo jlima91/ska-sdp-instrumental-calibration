@@ -3,24 +3,7 @@ import os
 
 import jinja2
 
-from .domain.qa_metadata import QAMetadata
-from .domain.qa_metric import (
-    BandpassFitMetrics,
-    CableDelays,
-    FlaggingStatistics,
-)
-from .sections import (
-    FlaggingStatisticsSection,
-    MetadataSection,
-    Section,
-    TableSection,
-)
-from .tables import (
-    BANDPASS_FIT_METRICS_COLUMNS,
-    CABLE_DELAYS_COLUMNS,
-    FLAGGING_STATISTICS_COLUMNS,
-    build_station_rows,
-)
+from .sections import Section
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +17,6 @@ template_env = jinja2.Environment(
     loader=jinja2.PackageLoader(__package__),
     autoescape=jinja2.select_autoescape(),
 )
-
-SectionData = FlaggingStatistics | BandpassFitMetrics | CableDelays
 
 
 class QAMetricReport:
@@ -55,118 +36,73 @@ class QAMetricReport:
         pre-requisite data missing error.
     """
 
-    def __init__(self, title: str, metadata):
+    def __init__(self, title: str):
         self.title = title
         self.sections: list[Section] = []
-        self.metadata = metadata
 
-    def add_metadata_summary(
-        self, metadata: QAMetadata | None = None
-    ) -> "QAMetricReport":
-        """
-        Add the metadata summary section.
+        self.field_name = PLACEHOLDER_SOURCE_NAME
 
-        Returns
-        -------
-        QAMetricReport
-            The report, to chain the next section.
-        """
-        self.sections.append(
-            MetadataSection(
-                "Metadata summary",
-                "sections/metadata.html",
-                error=self._section_error(
-                    metadata, PREREQUISITE_DATA_MISSING_ERROR
-                ),
-                metadata=metadata,
-            )
-        )
+    def add_field_name(self, field_name: str):
+        self.field_name = field_name
         return self
 
-    def add_flagging_statistics(
-        self, flagging_statistics: FlaggingStatistics | None = None
-    ) -> "QAMetricReport":
-        """
-        Add the flagging statistics section: flagged percentage per station
-        before and after calibration, and the totals over all stations.
+    def add_section(self, section_data: Section):
+        self.sections.append(section_data)
+        return self
 
-        Parameters
-        ----------
-        flagging_statistics : FlaggingStatistics, optional
-            Flagging statistics of the field. None if its final gaintable
-            is missing.
+    # def add_bandpass_fit_metrics(
+    #     self, bandpass_fit_metrics: BandpassFitMetrics | None = None
+    # ) -> "QAMetricReport":
+    #     """
+    #     Add the bandpass fit metrics section, one row per station.
 
-        Returns
-        -------
-        QAMetricReport
-            The report, to chain the next section.
-        """
-        section = FlaggingStatisticsSection(
-            "Flagging Statistics",
-            "sections/flagging_statistics.html",
-            columns=FLAGGING_STATISTICS_COLUMNS,
-        )
-        if flagging_statistics is not None:
-            section.totals = flagging_statistics.totals()
+    #     Parameters
+    #     ----------
+    #     bandpass_fit_metrics : BandpassFitMetrics, optional
+    #         Bandpass fit metrics of the field. None if its final gaintable
+    #         is missing.
 
-        return self._add_station_table(
-            section, flagging_statistics, GAINTABLE_MISSING_ERROR
-        )
+    #     Returns
+    #     -------
+    #     QAMetricReport
+    #         The report, to chain the next section.
+    #     """
+    #     return self._add_station_table(
+    #         TableSection(
+    #             "Bandpass Fit Metrics",
+    #             column_group=BANDPASS_FIT_METRICS_COLUMNS,
+    #             item_name="antennas",
+    #         ),
+    #         bandpass_fit_metrics,
+    #         GAINTABLE_MISSING_ERROR,
+    #     )
 
-    def add_bandpass_fit_metrics(
-        self, bandpass_fit_metrics: BandpassFitMetrics | None = None
-    ) -> "QAMetricReport":
-        """
-        Add the bandpass fit metrics section, one row per station.
+    # def add_cable_delays(
+    #     self, cable_delays: CableDelays | None = None
+    # ) -> "QAMetricReport":
+    #     """
+    #     Add the cable delays section, one row per station.
 
-        Parameters
-        ----------
-        bandpass_fit_metrics : BandpassFitMetrics, optional
-            Bandpass fit metrics of the field. None if its final gaintable
-            is missing.
+    #     Parameters
+    #     ----------
+    #     cable_delays : CableDelays, optional
+    #         Cable delays of the field. None if its delay table is missing.
 
-        Returns
-        -------
-        QAMetricReport
-            The report, to chain the next section.
-        """
-        return self._add_station_table(
-            TableSection(
-                "Bandpass Fit Metrics",
-                "sections/table.html",
-                columns=BANDPASS_FIT_METRICS_COLUMNS,
-                item_name="antennas",
-            ),
-            bandpass_fit_metrics,
-            GAINTABLE_MISSING_ERROR,
-        )
-
-    def add_cable_delays(
-        self, cable_delays: CableDelays | None = None
-    ) -> "QAMetricReport":
-        """
-        Add the cable delays section, one row per station.
-
-        Parameters
-        ----------
-        cable_delays : CableDelays, optional
-            Cable delays of the field. None if its delay table is missing.
-
-        Returns
-        -------
-        QAMetricReport
-            The report, to chain the next section.
-        """
-        return self._add_station_table(
-            TableSection(
-                "Cable Delays",
-                "sections/table.html",
-                columns=CABLE_DELAYS_COLUMNS,
-                item_name="antennas",
-            ),
-            cable_delays,
-            DELAY_TABLE_MISSING_ERROR,
-        )
+    #     Returns
+    #     -------
+    #     QAMetricReport
+    #         The report, to chain the next section.
+    #     """
+    #     return self._add_station_table(
+    #         TableSection(
+    #             "Cable Delays",
+    #             "sections/table.html",
+    #             columns=CABLE_DELAYS_COLUMNS,
+    #             item_name="antennas",
+    #         ),
+    #         cable_delays,
+    #         DELAY_TABLE_MISSING_ERROR,
+    #     )
 
     def render_html(self) -> str:
         """
@@ -180,7 +116,7 @@ class QAMetricReport:
         template = template_env.get_template("qa_metric.html")
         return template.render(
             title=self.title,
-            metadata=self.metadata,
+            field_name=self.field_name,
             sections=self.sections,
         )
 
@@ -193,47 +129,10 @@ class QAMetricReport:
         output_dir : str
             Directory to write the report to.
         """
-        source_name = (
-            self.metadata.source_name
-            if self.metadata
-            else PLACEHOLDER_SOURCE_NAME
-        )
         qa_metric_path = os.path.join(
-            output_dir, f"inst-{source_name}-qa-metric.html"
+            output_dir, f"inst-{self.field_name}-qa-metric.html"
         )
         with open(qa_metric_path, "w", encoding="utf-8") as qa_metric_file:
             qa_metric_file.write(self.render_html())
 
         logger.info("QA metric written to %s", qa_metric_path)
-
-    def _add_station_table(
-        self,
-        section: TableSection,
-        section_data: SectionData | None,
-        missing_error: str,
-    ) -> "QAMetricReport":
-        """
-        Add a table section with one row per station, or its error if its
-        data is missing.
-        """
-        section.error = self._section_error(section_data, missing_error)
-        if section.error is None:
-            section.rows = build_station_rows(
-                self.metadata.station_configuration,
-                section_data.values_per_station(),
-            )
-
-        self.sections.append(section)
-        return self
-
-    def _section_error(
-        self, section_data: object | None, missing_error: str
-    ) -> str | None:
-        """
-        Error of a section: pre-requisite data missing without the QA
-        metadata, missing_error without the section data, else None.
-        """
-        if self.metadata is None:
-            return PREREQUISITE_DATA_MISSING_ERROR
-
-        return missing_error if section_data is None else None

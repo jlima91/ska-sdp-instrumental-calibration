@@ -21,8 +21,8 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..qa_metrics import QASection, RunMetadata
-from ..scheduler import UpstreamOutput
+from ..qa_metrics import QASection, RunMetadata, export_pre_flagging
+from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 from ._utils import get_derived_path
 
@@ -192,9 +192,9 @@ def load_data_stage(
         upstream_output["run_metadata"] = run_metadata
         upstream_outputs.append(upstream_output)
 
-        # delayed(export_pre_flagging)(
-        #     pre_flagging_data_path, ms_qa_data
-        # )
+        delayed(export_pre_flagging)(
+            upstream_output.vis, pre_flagging_data_path
+        )
 
     return upstream_outputs
 
