@@ -1,11 +1,14 @@
+"""
+Metadata of a field for the QA report: its files, observation parameters
+and stations, and its flagging before calibration.
+"""
+
 import re
 from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
 from astropy.time import Time
-
-QA_METADATA_FILE_NAME = "qa-metadata-data.json"
 
 
 @dataclass
@@ -194,9 +197,9 @@ class PreFlagging:
         Parameters
         ----------
         counts : list[dict]
-            Counts of each measurement set of the field: ``flagged``,
-            ``total`` and ``unsolvable`` with one count per station, and
-            ``nchannels``.
+            Counts of each measurement set of the field, at least one:
+            ``flagged``, ``total`` and ``unsolvable`` with one count per
+            station, and ``nchannels``.
         station_names : list[str]
             MS station names, in the configuration order of the counts.
 
@@ -230,7 +233,22 @@ class PreFlagging:
         station_names: list[str],
     ) -> dict[str, float]:
         """
-        Percentage of count over total, keyed by station name.
+        Compute the percentage of a count over its total, per station.
+
+        Parameters
+        ----------
+        count : np.ndarray
+            Count per station, in the order of ``station_names``.
+        total : np.ndarray or int
+            Total per station, or one total shared by all stations.
+        station_names : list[str]
+            MS station names, in the order of the counts.
+
+        Returns
+        -------
+        dict[str, float]
+            Percentage keyed by MS station name. NaN for a station whose
+            total is 0.
         """
         percentages = count / total * 100
         return {
@@ -243,7 +261,7 @@ class PreFlagging:
 class QAMetadata:
     """
     QA metadata of the measurement sets of one field, composed of one
-    object per section.
+    object per part of the metadata summary.
 
     Parameters
     ----------
@@ -253,8 +271,6 @@ class QAMetadata:
         Observation parameters.
     station_configuration : StationConfiguration
         Stations of the field.
-    pre_flagging : PreFlagging
-        Flagging before calibration.
     """
 
     file_information: FileInformation

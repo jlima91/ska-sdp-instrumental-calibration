@@ -123,3 +123,21 @@ class FlaggingStatisticsSection(TableSection):
     title: str = field(default="Flagging Statistics", init=False)
     template: ClassVar[str] = "sections/flagging_statistics.html"
     totals: dict[str, float | None] | None = None
+
+
+@dataclass
+class CableDelaysSection(TableSection):
+    """
+    Cable delays table: the X and Y delay of each station.
+
+    Parameters
+    ----------
+    columns : list[Column | ColumnGroup]
+        Columns of the table.
+    rows : list[dict], optional
+        Rows of the table.
+    item_name : str
+        Name of the rows, shown in the pagination, e.g. ``stations``.
+    """
+
+    title: str = field(default="Cable Delays", init=False)

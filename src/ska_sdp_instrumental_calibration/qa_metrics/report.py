@@ -7,12 +7,6 @@ from .sections import Section
 
 logger = logging.getLogger(__name__)
 
-GAINTABLE_MISSING_ERROR = "ERROR: Gaintable missing"
-DELAY_TABLE_MISSING_ERROR = "ERROR: Delay table missing"
-PREREQUISITE_DATA_MISSING_ERROR = "ERROR: Pre-requisite data missing"
-
-PLACEHOLDER_SOURCE_NAME = "PLACEHOLDER_SOURCE_NAME"
-
 template_env = jinja2.Environment(
     loader=jinja2.PackageLoader(__package__),
     autoescape=jinja2.select_autoescape(),
@@ -27,20 +21,23 @@ class QAMetricReport:
     A section whose input is missing shows an error message instead of its
     content.
 
+    Without a field name, e.g. for the error report of a run whose fields
+    cannot be reported, the report is of the whole run: it shows no source
+    and is written without a field name in its file name.
+
     Parameters
     ----------
     title : str
         Page title.
-    metadata : QAMetadata, optional
-        QA metadata of the field. Without it, every section shows the
-        pre-requisite data missing error.
     """
 
     def __init__(self, title: str):
         self.title = title
         self.sections: list[Section] = []
 
-        self.field_name = PLACEHOLDER_SOURCE_NAME
+        # None rather than a placeholder name, which a real field could
+        # have: the report of the run then cannot overwrite a field report
+        self.field_name: str | None = None
 
     def add_field_name(self, field_name: str):
         self.field_name = field_name
@@ -77,33 +74,6 @@ class QAMetricReport:
     #         GAINTABLE_MISSING_ERROR,
     #     )
 
-    # def add_cable_delays(
-    #     self, cable_delays: CableDelays | None = None
-    # ) -> "QAMetricReport":
-    #     """
-    #     Add the cable delays section, one row per station.
-
-    #     Parameters
-    #     ----------
-    #     cable_delays : CableDelays, optional
-    #         Cable delays of the field. None if its delay table is missing.
-
-    #     Returns
-    #     -------
-    #     QAMetricReport
-    #         The report, to chain the next section.
-    #     """
-    #     return self._add_station_table(
-    #         TableSection(
-    #             "Cable Delays",
-    #             "sections/table.html",
-    #             columns=CABLE_DELAYS_COLUMNS,
-    #             item_name="antennas",
-    #         ),
-    #         cable_delays,
-    #         DELAY_TABLE_MISSING_ERROR,
-    #     )
-
     def render_html(self) -> str:
         """
         Render the report.
@@ -122,16 +92,20 @@ class QAMetricReport:
 
     def write_report_to_dir(self, output_dir: str):
         """
-        Write the report to ``<output_dir>/inst-<source-name>-qa-metric.html``.
+        Write the report to ``<output_dir>/inst-<field-name>-qa-metric.html``,
+        or ``<output_dir>/inst-qa-metric.html`` without a field name.
 
         Parameters
         ----------
         output_dir : str
             Directory to write the report to.
         """
-        qa_metric_path = os.path.join(
-            output_dir, f"inst-{self.field_name}-qa-metric.html"
+        file_name = (
+            "inst-qa-metric.html"
+            if self.field_name is None
+            else f"inst-{self.field_name}-qa-metric.html"
         )
+        qa_metric_path = os.path.join(output_dir, file_name)
         with open(qa_metric_path, "w", encoding="utf-8") as qa_metric_file:
             qa_metric_file.write(self.render_html())
 

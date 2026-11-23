@@ -313,12 +313,10 @@ def test_should_export_gaintable_with_proper_suffix(
         [call(export_gaintable_mock), call(export_gaintable_mock)]
     )
 
+    # The stage ran twice on one MS: only its last write is kept
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
     assert field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) == {
-        "ms_prefix": [
-            "/output/path/gaintables/bandpass.gaintable.h5parm",
-            "/output/path/gaintables/bandpass_1.gaintable.h5parm",
-        ]
+        "ms_prefix": "/output/path/gaintables/bandpass_1.gaintable.h5parm"
     }
 
 

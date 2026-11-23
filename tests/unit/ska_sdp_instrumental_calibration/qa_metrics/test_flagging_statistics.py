@@ -1,22 +1,45 @@
 import numpy as np
 
+from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
+    GainCalibrationSetXds,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.domain.qa_metric import (
     FlaggingStatistics,
 )
 
+POLARIZATIONS = ["XX", "XY", "YX", "YY"]
+
+
+def _gaintable(weight):
+    """
+    Gaintable of 2 stations with the given weights of shape (time,
+    antenna, frequency, polarization)
+    """
+    ntimes, _, nchannels, _ = weight.shape
+    return GainCalibrationSetXds.constructor(
+        gain=np.ones(weight.shape, dtype=complex),
+        weight=weight,
+        residual=np.zeros((ntimes, nchannels, len(POLARIZATIONS))),
+        time=np.arange(ntimes, dtype=float),
+        interval=np.full(ntimes, np.nan),
+        frequency=np.linspace(1e8, 2e8, nchannels),
+        antenna_name=np.array(["station_a", "station_b"]),
+        polarization=np.array(POLARIZATIONS),
+        jones_type="B",
+    )
+
 
 def test_should_get_flagged_percentage_after_from_parallel_hand_weights():
-    # (time, antenna, frequency, 2, 2): 2 times, 2 stations, 2 channels
-    weight = np.ones((2, 2, 2, 2, 2))
+    # 2 times, 2 stations, 2 channels: 8 parallel hand gains per station
+    weight = np.ones((2, 2, 2, 4))
     # station_a: 1 of its 8 parallel hand gains is flagged (XX, t0, c0)
-    weight[0, 0, 0, 0, 0] = 0
+    weight[0, 0, 0, 0] = 0
     # Cross hands (XY, YX) are not counted
-    weight[:, 1, :, 0, 1] = 0
-    weight[:, 1, :, 1, 0] = 0
+    weight[:, 1, :, 1:3] = 0
     flagged_before = {"station_a": 0.0, "station_b": 10.0}
 
-    statistics = FlaggingStatistics.from_weights(
-        weight, ["station_a", "station_b"], flagged_before
+    statistics = FlaggingStatistics.from_gaintable(
+        _gaintable(weight), flagged_before
     )
 
     assert statistics == FlaggingStatistics(

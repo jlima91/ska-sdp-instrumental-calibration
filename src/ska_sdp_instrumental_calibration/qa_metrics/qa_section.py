@@ -45,18 +45,15 @@ class Level(Enum):
         ``[value, ...]``.
     ``PREFIX_SINGLE``
         One value per MS prefix, for data written once per MS, e.g. by
-        load_data; a write overwrites the value of its prefix. Stored as
-        ``{prefix: value}``.
-    ``PREFIX_MULTIPLE``
-        Several values per MS prefix, for data of stages that can run more
-        than once, e.g. in the experimental pipeline; a write appends to
-        the list of its prefix. Stored as ``{prefix: [value, ...]}``.
+        load_data or a calibration stage; a write overwrites the value of
+        its prefix. Stored as ``{prefix: value}``. Stages that run more
+        than once per MS, as in the experimental pipeline, are not
+        supported: only their last write is kept.
     """
 
     FIELD_SINGLE = "field_single"
     FIELD_MULTIPLE = "field_multiple"
     PREFIX_SINGLE = "prefix_single"
-    PREFIX_MULTIPLE = "prefix_multiple"
 
 
 @dataclass(frozen=True)
@@ -122,10 +119,7 @@ class LabelSpec:
             If the prefix is missing or not allowed, or the entry is not
             of the runtime type of the schema.
         """
-        needs_prefix = self.level in (
-            Level.PREFIX_SINGLE,
-            Level.PREFIX_MULTIPLE,
-        )
+        needs_prefix = self.level == Level.PREFIX_SINGLE
 
         if needs_prefix and prefix is None:
             raise RunMetadataError(
@@ -223,9 +217,6 @@ class QASectionLabel(StrEnum):
                 section.setdefault(self, []).append(data)
             case Level.PREFIX_SINGLE:
                 section.setdefault(self, {})[prefix] = data
-            case Level.PREFIX_MULTIPLE:
-                per_prefix = section.setdefault(self, {})
-                per_prefix.setdefault(prefix, []).append(data)
 
     def load(self, section: dict) -> Any:
         """
@@ -241,9 +232,8 @@ class QASectionLabel(StrEnum):
         -------
         Any
             ``value`` for ``FIELD_SINGLE``, ``[value, ...]`` for
-            ``FIELD_MULTIPLE``, ``{prefix: value}`` for ``PREFIX_SINGLE``
-            and ``{prefix: [value, ...]}`` for ``PREFIX_MULTIPLE``, with
-            values of the schema of the label.
+            ``FIELD_MULTIPLE`` and ``{prefix: value}`` for
+            ``PREFIX_SINGLE``, with values of the schema of the label.
             None if nothing is stored.
         """
         # Any, not JSONSerialisable: the schema of the label was checked
@@ -272,16 +262,16 @@ class QASection:
 
         # Only load_data writes it, once per MS: it cannot be repeated
         PRE_FLAGGING = "pre_flagging", LabelSpec(Level.PREFIX_SINGLE, str)
-        GAIN_FITS = "gain_fits", LabelSpec(Level.PREFIX_MULTIPLE, str)
-        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_MULTIPLE, str)
+        GAIN_FITS = "gain_fits", LabelSpec(Level.PREFIX_SINGLE, str)
+        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_SINGLE, str)
 
     class BANDPASS(QASectionLabel):
         """Data labels of the ``bandpass`` QA section."""
 
-        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_MULTIPLE, str)
+        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_SINGLE, str)
 
     class DELAY(QASectionLabel):
         """Data labels of the ``delay`` QA section."""
 
-        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_MULTIPLE, str)
-        DELAYTABLE = "delaytable", LabelSpec(Level.PREFIX_MULTIPLE, str)
+        GAINTABLE = "gaintable", LabelSpec(Level.PREFIX_SINGLE, str)
+        DELAYTABLE = "delaytable", LabelSpec(Level.PREFIX_SINGLE, str)

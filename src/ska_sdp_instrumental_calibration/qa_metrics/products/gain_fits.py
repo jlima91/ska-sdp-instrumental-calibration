@@ -26,14 +26,14 @@ def export_gain_fits_to_zarr(
 
     Parameters
     ----------
-    fits
+    fits : dict[str, xr.DataArray]
         Mapping from fit name to DataArray holding the fitted values.
         All DataArrays must share the same dims and coords.
-    filename
+    filename : str
         Path of the Zarr store to write. Any existing store is overwritten.
-    attrs
-        Optional attributes to attach to the Dataset. Zarr stores attrs as
-        JSON, so values must be JSON-serialisable.
+    attrs : dict, optional
+        Attributes to attach to the Dataset. Zarr stores attrs as JSON, so
+        values must be JSON-serialisable.
     """
     fits_ds = xr.Dataset(fits)
     if attrs:

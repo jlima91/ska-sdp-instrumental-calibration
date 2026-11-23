@@ -115,6 +115,26 @@ def _read_counts(path: str, nstations: int) -> dict:
     """
     Read the counts of one pre-flagging file, checking there is one per
     station.
+
+    Parameters
+    ----------
+    path : str
+        Path of the pre-flagging JSON file, written by
+        :func:`export_pre_flagging`.
+    nstations : int
+        Number of stations the file must have counts for.
+
+    Returns
+    -------
+    dict
+        ``flagged``, ``total`` and ``unsolvable`` as arrays of one count
+        per station, and ``nchannels`` as an int.
+
+    Raises
+    ------
+    RunMetadataError
+        If the file was not produced or cannot be read, or its counts are
+        missing or not one per station.
     """
     try:
         with open(path, encoding="utf-8") as pre_flagging_file:

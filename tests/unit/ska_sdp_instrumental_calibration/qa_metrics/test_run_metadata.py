@@ -28,7 +28,7 @@ def test_should_delegate_storing_and_loading_to_the_label():
     with patch.object(
         type(label), "store", autospec=True
     ) as store_mock, patch.object(
-        type(label), "load", autospec=True, return_value={"a": ["a.h5"]}
+        type(label), "load", autospec=True, return_value={"a": "a.h5"}
     ) as load_mock:
         field_metadata.add_data_for(label, "a.h5", prefix="a")
         data = field_metadata.get_data_for(label)
@@ -39,7 +39,7 @@ def test_should_delegate_storing_and_loading_to_the_label():
     load_mock.assert_called_once_with(
         label, field_metadata.sections["bandpass"]
     )
-    assert data == {"a": ["a.h5"]}
+    assert data == {"a": "a.h5"}
 
 
 def test_should_store_data_in_the_shape_of_each_label_level():
@@ -58,7 +58,8 @@ def test_should_store_data_in_the_shape_of_each_label_level():
 
     assert field_metadata.sections == {
         "metadata_summary": {"channels": 64, "MS": ["a.ms", "b.ms"]},
-        "bandpass": {"gaintable": {"a": ["a.h5", "a_1.h5"]}},
+        # A stage run twice on one MS keeps only its last write
+        "bandpass": {"gaintable": {"a": "a_1.h5"}},
     }
 
 
@@ -122,9 +123,7 @@ def test_should_record_data_per_field():
     assert field_a.field_name == "field_a"
     assert field_a.qa_dir == "qa_dir"
     assert field_a.get_data_for(QASection.METADATA_SUMMARY.MS) == ["a.ms"]
-    assert field_a.get_data_for(QASection.BANDPASS.GAINTABLE) == {
-        "a": ["a.h5"]
-    }
+    assert field_a.get_data_for(QASection.BANDPASS.GAINTABLE) == {"a": "a.h5"}
     assert field_b.get_data_for(QASection.METADATA_SUMMARY.MS) == ["b.ms"]
     assert [metadata.field_name for metadata in run_metadata] == [
         "field_a",
@@ -175,9 +174,7 @@ def test_should_read_run_metadata_written_to_json(tmp_path):
     field_b = read_metadata.field_metadata["field_b"]
     assert field_a.get_data_for(QASection.METADATA_SUMMARY.CHANNELS) == 64
     assert field_a.get_data_for(QASection.METADATA_SUMMARY.MS) == ["a.ms"]
-    assert field_b.get_data_for(QASection.BANDPASS.GAINTABLE) == {
-        "b": ["b.h5"]
-    }
+    assert field_b.get_data_for(QASection.BANDPASS.GAINTABLE) == {"b": "b.h5"}
 
 
 def test_should_raise_if_no_run_metadata_to_read(tmp_path):

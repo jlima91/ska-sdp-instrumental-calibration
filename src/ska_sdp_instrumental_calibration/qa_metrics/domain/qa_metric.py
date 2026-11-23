@@ -1,17 +1,56 @@
+"""
+Metrics of a field for the QA report, computed from its read products:
+flagging statistics from its final gaintable, bandpass fit metrics, and
+cable delays from its delay tables.
+"""
+
 import os
 from dataclasses import dataclass
 
-import numpy as np
+import xarray as xr
 
-from .qa_metadata import QAMetadata
+from ...data_managers.schema.calibration_set import GainCalibrationSetXds
 
 
 def _check_gaintable_exists(final_gaintable_path: str):
-    """Raise FileNotFoundError if the final gaintable is missing"""
+    """
+    Check that the final gaintable exists.
+
+    Only used by BandpassFitMetrics, which still reads its gaintable by
+    path; to be removed once it is built from a read gaintable.
+
+    Parameters
+    ----------
+    final_gaintable_path : str
+        Path of the final gaintable.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the final gaintable is missing.
+    """
     if not os.path.exists(final_gaintable_path):
         raise FileNotFoundError(
             f"No final gaintable found at {final_gaintable_path}"
         )
+
+
+def _average(percentages) -> float | None:
+    """
+    Compute the average of percentages.
+
+    Parameters
+    ----------
+    percentages : Iterable[float]
+        Percentages to average.
+
+    Returns
+    -------
+    float or None
+        Average percentage, or None if there are no percentages.
+    """
+    percentages = list(percentages)
+    return sum(percentages) / len(percentages) if percentages else None
 
 
 @dataclass
@@ -34,25 +73,20 @@ class FlaggingStatistics:
     flagged_after: dict[str, float]
 
     @classmethod
-    def from_weights(
-        cls,
-        weight: np.ndarray,
-        station_names: list[str],
-        flagged_before: dict[str, float],
+    def from_gaintable(
+        cls, gaintable: GainCalibrationSetXds, flagged_before: dict[str, float]
     ) -> "FlaggingStatistics":
         """
-        Get the flagging statistics of a field from the weights of its
-        final gaintable.
+        Get the flagging statistics of a field from its final gaintable.
 
         A gain is flagged where its weight is 0. Only the parallel hand
         gains (XX, YY) solved by bandpass are counted.
 
         Parameters
         ----------
-        weight : np.ndarray
-            Gain weights of dimensions (time, antenna, frequency, 2, 2).
-        station_names : list[str]
-            MS station names, in the antenna order of the weights.
+        gaintable : GainCalibrationSetXds
+            Final gaintable of the field, with ``CALPARAM_WEIGHT`` of
+            dimensions (time, antenna_name, frequency, polarization).
         flagged_before : dict[str, float]
             Percentage of gains that cannot be solved before calibration,
             keyed by MS station name.
@@ -62,22 +96,26 @@ class FlaggingStatistics:
         FlaggingStatistics
             Flagging statistics of the field.
         """
-        # Keep the XX and YY receptor pairs
-        is_flagged = weight[..., [0, 1], [0, 1]] == 0
-        flagged = is_flagged.sum(axis=(0, 2, 3))
-        # Gains of one station: all times, channels and parallel hands
-        total = is_flagged[:, 0, ...].size
+        is_flagged = (
+            gaintable.CALPARAM_WEIGHT.sel(polarization=["XX", "YY"]) == 0
+        )
+        # Percentage of the gains of each station: all its times,
+        # channels and parallel hands
+        flagged_percentage = (
+            is_flagged.mean(dim=("time", "frequency", "polarization")) * 100
+        )
 
         return cls(
             flagged_before=flagged_before,
             flagged_after={
-                name: float(percentage)
+                str(name): float(percentage)
                 for name, percentage in zip(
-                    station_names, flagged / total * 100
+                    gaintable.antenna_name.values, flagged_percentage.values
                 )
             },
         )
 
+    @property
     def values_per_station(self) -> dict[str, dict[str, float | None]]:
         """
         Flagged percentage before, after and additional (after - before)
@@ -106,6 +144,7 @@ class FlaggingStatistics:
 
         return values
 
+    @property
     def totals(self) -> dict[str, float | None]:
         """
         Flagged percentage over all stations, before and after calibration.
@@ -120,12 +159,6 @@ class FlaggingStatistics:
             "flagged_before": _average(self.flagged_before.values()),
             "flagged_after": _average(self.flagged_after.values()),
         }
-
-
-def _average(percentages) -> float | None:
-    """Average of the percentages, None if there are none"""
-    percentages = list(percentages)
-    return sum(percentages) / len(percentages) if percentages else None
 
 
 @dataclass
@@ -183,7 +216,20 @@ class BandpassFitMetrics:
     def _calculate_metrics(
         final_gaintable_path: str,
     ) -> dict[str, dict[str, float]] | None:
-        """Metric values per station. Not implemented yet."""
+        """
+        Compute the metric values per station. Not implemented yet.
+
+        Parameters
+        ----------
+        final_gaintable_path : str
+            Path of the final gaintable of the field.
+
+        Returns
+        -------
+        dict[str, dict[str, float]] or None
+            Metric values keyed by column key, per MS station name. None
+            until implemented.
+        """
         pass  # pylint: disable=unnecessary-pass
 
 
@@ -194,44 +240,58 @@ class CableDelays:
 
     Parameters
     ----------
-    delays_per_station : dict[str, dict[str, float]], optional
-        Delays keyed by column key (see CABLE_DELAYS_COLUMNS), per MS
-        station name. None while not calculated.
+    delays_per_station : dict[str, dict[str, float]]
+        ``x_delay`` and ``y_delay`` in nanoseconds (see
+        CABLE_DELAYS_COLUMNS), per MS station name.
     """
 
-    delays_per_station: dict[str, dict[str, float]] | None
+    delays_per_station: dict[str, dict[str, float]]
 
     @classmethod
-    def from_qa_metadata(cls, metadata: QAMetadata) -> "CableDelays":
+    def from_delaytable(cls, delaytable: xr.Dataset) -> "CableDelays":
         """
-        Get the cable delays of a field.
+        Get the cable delays of a field from its delay table.
+
+        A cable delay does not change over an observation, so each
+        station gets the median of its delays over time: unlike the mean,
+        it is barely moved by the delays of one badly solved scan. Delays
+        that were not solved (NaN) are left out.
 
         Parameters
         ----------
-        metadata : QAMetadata
-            QA metadata of the field.
+        delaytable : DelayTable
+            Delay table of the field, with ``delay`` in seconds of
+            dimensions (time, antenna_name, pol) and ``XX`` and ``YY``
+            polarisations.
 
         Returns
         -------
         CableDelays
             Cable delays of the field.
         """
-        return cls(cls._calculate_delays(metadata))
+        # Nanoseconds, as in CABLE_DELAYS_COLUMNS
+        median_delays = delaytable.delay.median(dim="time", skipna=True) * 1e9
+        x_delays = median_delays.sel(pol="XX").values
+        y_delays = median_delays.sel(pol="YY").values
 
-    def values_per_station(self) -> dict[str, dict[str, float]] | None:
+        return cls(
+            {
+                str(name): {"x_delay": float(x), "y_delay": float(y)}
+                for name, x, y in zip(
+                    delaytable.antenna_name.values, x_delays, y_delays
+                )
+            }
+        )
+
+    @property
+    def values_per_station(self) -> dict[str, dict[str, float]]:
         """
         Delays per station.
 
         Returns
         -------
-        dict[str, dict[str, float]] or None
-            Delays keyed by column key, per MS station name.
+        dict[str, dict[str, float]]
+            ``x_delay`` and ``y_delay`` in nanoseconds, per MS station
+            name.
         """
         return self.delays_per_station
-
-    @staticmethod
-    def _calculate_delays(
-        metadata: QAMetadata,
-    ) -> dict[str, dict[str, float]] | None:
-        """Delays per station. Not implemented yet."""
-        pass  # pylint: disable=unnecessary-pass

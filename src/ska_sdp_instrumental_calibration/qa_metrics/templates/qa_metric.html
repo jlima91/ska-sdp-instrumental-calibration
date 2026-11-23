@@ -17,7 +17,10 @@
 </div>
 </header>
 <main>
+  {#- No field name for the report of the whole run, e.g. its error report #}
+  {% if field_name is not none %}
   <p class="source">Source: <strong>{{ field_name }}</strong></p>
+  {% endif %}
 
   {% for section in sections %}
   <details open><summary>{{ section.title }}</summary><div>

@@ -64,7 +64,7 @@ def test_should_attach_spec_to_label():
         Level.PREFIX_SINGLE, str
     )
     assert QASection.BANDPASS.GAINTABLE.spec == LabelSpec(
-        Level.PREFIX_MULTIPLE, str
+        Level.PREFIX_SINGLE, str
     )
 
 
@@ -108,20 +108,6 @@ def test_should_overwrite_prefix_single_label_per_prefix():
     assert label.load(section) == {"a": "a.json", "b": "b.json"}
 
 
-def test_should_append_prefix_multiple_label_per_prefix():
-    section = {}
-    label = QASection.BANDPASS.GAINTABLE
-
-    label.store(section, "a_bandpass.h5", prefix="a")
-    label.store(section, "a_bandpass_1.h5", prefix="a")
-    label.store(section, "b_bandpass.h5", prefix="b")
-
-    assert label.load(section) == {
-        "a": ["a_bandpass.h5", "a_bandpass_1.h5"],
-        "b": ["b_bandpass.h5"],
-    }
-
-
 def test_should_load_none_for_unset_label():
     assert QASection.METADATA_SUMMARY.CHANNELS.load({}) is None
     assert QASection.BANDPASS.GAINTABLE.load({}) is None
@@ -135,8 +121,8 @@ def test_should_keep_labels_of_same_name_apart_within_a_section():
     QASection.FLAGGING.GAINTABLE.store(flagging, "flag.h5", prefix="a")
     QASection.BANDPASS.GAINTABLE.store(bandpass, "bp.h5", prefix="a")
 
-    assert flagging == {"gaintable": {"a": ["flag.h5"]}}
-    assert bandpass == {"gaintable": {"a": ["bp.h5"]}}
+    assert flagging == {"gaintable": {"a": "flag.h5"}}
+    assert bandpass == {"gaintable": {"a": "bp.h5"}}
 
 
 @pytest.mark.parametrize(
