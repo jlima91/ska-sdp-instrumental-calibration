@@ -11,12 +11,12 @@ import logging
 import numpy as np
 import xarray as xr
 
-from ...xarray_processors.vis_flagging import (
+from ..exceptions import RunMetadataError
+from .vis_flagging import (
     flagged_sample_counts,
     flagged_time_count,
     unsolvable_gain_counts,
 )
-from ..exceptions import RunMetadataError
 
 logger = logging.getLogger(__name__)
 
