@@ -175,6 +175,16 @@ def load_data_stage(
             QASection.METADATA_SUMMARY.MS,
             upstream_output.input_ms,
         )
+        run_metadata.add_for_field(
+            upstream_output.field_id,
+            QASection.METADATA_SUMMARY.STATION_CONFIGURATION,
+            dict(
+                zip(
+                    upstream_output.vis.configuration.names.data.tolist(),
+                    upstream_output.vis.configuration.stations.data.tolist(),
+                )
+            ),
+        )
 
         run_metadata.add_for_field(
             upstream_output.field_id,

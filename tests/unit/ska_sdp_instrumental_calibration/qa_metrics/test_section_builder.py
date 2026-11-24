@@ -14,6 +14,7 @@ from ska_sdp_instrumental_calibration.qa_metrics.section_builder import (
     SectionBuilder,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+    BandpassFitSection,
     CableDelaysSection,
     ErrorSection,
     FlaggingStatisticsSection,
@@ -40,6 +41,7 @@ def test_should_register_the_builders_of_the_report():
     assert set(section_builder._builders) == {
         MetadataSection,
         FlaggingStatisticsSection,
+        BandpassFitSection,
         CableDelaysSection,
     }
 

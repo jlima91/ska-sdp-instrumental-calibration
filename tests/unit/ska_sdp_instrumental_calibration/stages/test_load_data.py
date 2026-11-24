@@ -9,12 +9,20 @@ from ska_sdp_instrumental_calibration.stages.load_data import (
     load_data_stage,
 )
 
+# Stations of the MS: configuration names (as the gaintable antenna names)
+# and their station IDs
+STATION_NAMES = ["S8-1", "S8-2"]
+STATION_IDS = ["0", "1"]
+
 
 def _mock_vis(timestamps=(1.0, 2.0)):
-    # The stage records vis.time.data.tolist() in the run metadata, which
-    # validates it as list[float], so a bare MagicMock is not enough
+    # The stage records vis.time.data.tolist() and the station
+    # configuration in the run metadata, which validates them as
+    # list[float] and dict[str, str], so a bare MagicMock is not enough
     vis = MagicMock(name="vis")
     vis.time.data = np.array(timestamps)
+    vis.configuration.names.data = np.array(STATION_NAMES)
+    vis.configuration.stations.data = np.array(STATION_IDS)
     return vis
 
 
@@ -145,6 +153,10 @@ def test_should_load_data_from_existing_cached_zarr_file(
     assert field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     ) == [[10.0, 20.0, 30.0]]
+    # MS station ID keyed by station name, in configuration order
+    assert field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+    ) == {"S8-1": "0", "S8-2": "1"}
     assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
         "vis": pre_flagging_data_path
     }
@@ -496,6 +508,10 @@ def test_should_record_run_metadata_of_each_ms_of_a_field(
     assert field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     ) == [[1.0, 2.0], [3.0, 4.0]]
+    # MSs of a field share stations: recorded once for the field
+    assert field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+    ) == {"S8-1": "0", "S8-2": "1"}
     # Pre-flagging data is stored per MS prefix
     assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
         "vis_a": "/qa/derived/vis_a/pre-flagging-data.json",

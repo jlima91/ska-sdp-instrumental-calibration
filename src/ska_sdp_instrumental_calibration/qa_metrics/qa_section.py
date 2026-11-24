@@ -256,6 +256,9 @@ class QASection:
         FINAL_GAINTABLE = "final_gaintable", LabelSpec(Level.FIELD_SINGLE, str)
         # Can be overwritten, as its source of truth does not change
         CHANNELS = "channels", LabelSpec(Level.FIELD_SINGLE, int)
+        STATION_CONFIGURATION = "stations", LabelSpec(
+            Level.FIELD_SINGLE, dict[str, str]
+        )
 
     class FLAGGING(QASectionLabel):
         """Data labels of the ``flagging`` QA section."""

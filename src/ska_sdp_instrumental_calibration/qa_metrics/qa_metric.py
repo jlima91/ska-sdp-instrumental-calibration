@@ -5,6 +5,7 @@ from .field_sections import section_builder
 from .report import QAMetricReport
 from .run_metadata import RunMetadata
 from .sections import (
+    BandpassFitSection,
     CableDelaysSection,
     ErrorSection,
     FlaggingStatisticsSection,
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 REPORT_SECTIONS = (
     MetadataSection,
     FlaggingStatisticsSection,
+    BandpassFitSection,
     CableDelaysSection,
 )
 

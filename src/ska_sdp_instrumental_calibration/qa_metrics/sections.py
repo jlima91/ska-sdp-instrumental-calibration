@@ -97,8 +97,7 @@ class TableSection(Section):
 
     template: ClassVar[str] = "sections/table.html"
     title: str = field(init=True)
-    columns: list[Column] = field(default_factory=list)
-    column_group: list[ColumnGroup] = field(default_factory=list)
+    columns: list[Column] | list[ColumnGroup] = field(default_factory=list)
     rows: list[dict] | None = None
     item_name: str = "stations"
 
@@ -141,3 +140,21 @@ class CableDelaysSection(TableSection):
     """
 
     title: str = field(default="Cable Delays", init=False)
+
+
+@dataclass
+class BandpassFitSection(TableSection):
+    """
+    Cable delays table: the X and Y delay of each station.
+
+    Parameters
+    ----------
+    columns : list[Column | ColumnGroup]
+        Columns of the table.
+    rows : list[dict], optional
+        Rows of the table.
+    item_name : str
+        Name of the rows, shown in the pagination, e.g. ``stations``.
+    """
+
+    title: str = field(default="Bandpass Fit Metric", init=False)

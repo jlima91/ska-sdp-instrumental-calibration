@@ -26,12 +26,14 @@ from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
     FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+    BandpassFitSection,
     CableDelaysSection,
     ErrorSection,
     FlaggingStatisticsSection,
     MetadataSection,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.tables import (
+    BANDPASS_FIT_METRICS_COLUMNS,
     CABLE_DELAYS_COLUMNS,
     FLAGGING_STATISTICS_COLUMNS,
 )
@@ -41,8 +43,15 @@ READ_GAINTABLE = (
     "ska_sdp_instrumental_calibration.qa_metrics.field_sections"
     ".read_gaintable"
 )
+BANDPASS_FIT_QUALITY = (
+    "ska_sdp_instrumental_calibration.qa_metrics.field_sections"
+    ".bandpass_fit_quality"
+)
 GAINTABLE = "/qa/dir/field_a.h5parm"
 POLARIZATIONS = ["XX", "XY", "YX", "YY"]
+# MS station ID keyed by station name, in configuration order, as
+# load_data records them
+STATIONS = {"station_a": "0", "station_b": "1"}
 
 
 @pytest.fixture(autouse=True)
@@ -86,12 +95,11 @@ def _field_metadata(metadata_summary):
 
 @patch(READ_GAINTABLE)
 def test_should_get_metadata_section_of_a_field(read_gaintable_mock):
-    read_gaintable_mock.return_value = _gaintable(["station_a", "station_b"])
     field_metadata = _field_metadata(
         {
             "MS": ["/data/a.ms"],
             "timestamps": [[10.0, 20.0, 30.0]],
-            "final_gaintable": GAINTABLE,
+            "stations": STATIONS,
             "channels": 64,
         }
     )
@@ -108,24 +116,22 @@ def test_should_get_metadata_section_of_a_field(read_gaintable_mock):
             integration_time=10.0,
             channels=64,
         ),
+        # Station names keyed by their position in the configuration
         station_configuration=StationConfiguration(
             {"0": "station_a", "1": "station_b"}
         ),
     )
-    read_gaintable_mock.assert_called_once_with([GAINTABLE])
+    # Stations are recorded by load_data: no gaintable is read
+    read_gaintable_mock.assert_not_called()
 
 
-@patch(READ_GAINTABLE)
-def test_should_join_observation_parameters_of_all_ms_along_time(
-    read_gaintable_mock,
-):
-    read_gaintable_mock.return_value = _gaintable(["station_a"])
+def test_should_join_observation_parameters_of_all_ms_along_time():
     # MSs are not recorded in time order
     field_metadata = _field_metadata(
         {
             "MS": ["/data/b.ms", "/data/a.ms"],
             "timestamps": [[40.0, 50.0], [10.0, 20.0, 30.0]],
-            "final_gaintable": GAINTABLE,
+            "stations": STATIONS,
             "channels": 64,
         }
     )
@@ -144,15 +150,13 @@ def test_should_join_observation_parameters_of_all_ms_along_time(
     ]
 
 
-@patch(READ_GAINTABLE)
-def test_should_leave_channels_unset_if_not_recorded(read_gaintable_mock):
+def test_should_leave_channels_unset_if_not_recorded():
     # Missing channels must not stop the report; it shows them as unknown
-    read_gaintable_mock.return_value = _gaintable(["station_a"])
     field_metadata = _field_metadata(
         {
             "MS": ["/data/a.ms"],
             "timestamps": [[10.0, 20.0, 30.0]],
-            "final_gaintable": GAINTABLE,
+            "stations": STATIONS,
         }
     )
 
@@ -180,15 +184,15 @@ def _assert_metadata_error_section(section, cause_match):
         # is optional, so it is recorded in every case
         {
             "timestamps": [[10.0, 20.0]],
-            "final_gaintable": GAINTABLE,
+            "stations": STATIONS,
             "channels": 64,
         },
-        {"MS": ["/data/a.ms"], "final_gaintable": GAINTABLE, "channels": 64},
+        {"MS": ["/data/a.ms"], "stations": STATIONS, "channels": 64},
         {"MS": ["/data/a.ms"], "timestamps": [[10.0, 20.0]], "channels": 64},
         {
             "MS": [],
             "timestamps": [[10.0, 20.0]],
-            "final_gaintable": GAINTABLE,
+            "stations": STATIONS,
             "channels": 64,
         },
         {},
@@ -204,29 +208,6 @@ def test_should_get_error_section_if_qa_metadata_is_missing(
 
     _assert_metadata_error_section(section, cause_match="field_a")
     read_gaintable_mock.assert_not_called()
-
-
-@patch(READ_GAINTABLE)
-def test_should_get_error_section_if_final_gaintable_cannot_be_read(
-    read_gaintable_mock,
-):
-    # Reader errors (not produced, corrupt, no axes) are covered by the
-    # reader tests: the section only has to show them
-    read_gaintable_mock.side_effect = RunMetadataError(
-        f"Gaintable {GAINTABLE} was not produced"
-    )
-    field_metadata = _field_metadata(
-        {
-            "MS": ["/data/a.ms"],
-            "timestamps": [[10.0, 20.0]],
-            "final_gaintable": GAINTABLE,
-            "channels": 64,
-        }
-    )
-
-    section = section_builder.build(MetadataSection, field_metadata)
-
-    _assert_metadata_error_section(section, cause_match="was not produced")
 
 
 def _flagging_field_metadata(pre_flagging):
@@ -331,12 +312,7 @@ def test_should_get_error_section_if_final_gaintable_is_not_recorded(
     read_gaintable_mock.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "section_type", [MetadataSection, FlaggingStatisticsSection]
-)
-def test_should_get_error_section_if_final_gaintable_is_corrupt(
-    section_type, tmp_path
-):
+def test_should_get_error_section_if_final_gaintable_is_corrupt(tmp_path):
     # End to end through the reader: a corrupt gaintable is a bad
     # product, shown in the section rather than failing the report
     corrupt = tmp_path / "corrupt.h5parm"
@@ -360,10 +336,10 @@ def test_should_get_error_section_if_final_gaintable_is_corrupt(
         },
     )
 
-    section = section_builder.build(section_type, field_metadata)
+    section = section_builder.build(FlaggingStatisticsSection, field_metadata)
 
     assert isinstance(section, ErrorSection)
-    assert section.title == section_type.title
+    assert section.title == FlaggingStatisticsSection.title
     assert "cannot be read" in str(section.error.__cause__)
 
 
@@ -393,6 +369,7 @@ def test_should_get_cable_delays_section_of_a_field(tmp_path):
         "field_a",
         "/qa/dir",
         sections={
+            "metadata_summary": {"stations": STATIONS},
             "delay": {
                 "delaytable": {
                     "ms_b": _write_delaytable(
@@ -405,7 +382,7 @@ def test_should_get_cable_delays_section_of_a_field(tmp_path):
                         tmp_path / "c.h5parm", 300.0, 100e-9, 300e-9
                     ),
                 }
-            }
+            },
         },
     )
 
@@ -439,3 +416,87 @@ def test_should_get_error_section_if_no_delaytable_is_recorded():
     assert section.title == CableDelaysSection.title
     assert "field_a" in str(section.error)
     assert "No delay table recorded" in str(section.error.__cause__)
+
+
+def _bandpass_field_metadata(bandpass_gaintables):
+    return FieldMetadata(
+        "field_a",
+        "/qa/dir",
+        sections={
+            "metadata_summary": {"stations": STATIONS},
+            "bandpass": {"gaintable": bandpass_gaintables},
+        },
+    )
+
+
+@patch(BANDPASS_FIT_QUALITY)
+@patch(READ_GAINTABLE)
+def test_should_get_bandpass_fit_section_of_a_field(
+    read_gaintable_mock, bandpass_fit_quality_mock
+):
+    # The fit metrics are covered by their own tests: the section only has
+    # to read the bandpass gaintables and lay the metrics out per station
+    read_gaintable_mock.return_value = _gaintable(["station_a"])
+    bandpass_fit_quality_mock.return_value = {
+        "station_a": {
+            "x_phase_fit_quality": 1.0,
+            "y_phase_fit_quality": 0.9,
+            "x_gains_fit_quality": 0.8,
+            "y_gains_fit_quality": None,
+        }
+    }
+    field_metadata = _bandpass_field_metadata(
+        {"ms_a": "/qa/dir/a.h5parm", "ms_b": "/qa/dir/b.h5parm"}
+    )
+
+    section = section_builder.build(BandpassFitSection, field_metadata)
+
+    assert section == BandpassFitSection(
+        columns=BANDPASS_FIT_METRICS_COLUMNS,
+        rows=[
+            {
+                "station_id": "0",
+                "station_name": "station_a",
+                "x_phase_fit_quality": 1.0,
+                "y_phase_fit_quality": 0.9,
+                "x_gains_fit_quality": 0.8,
+                "y_gains_fit_quality": None,
+            },
+            # Not in the gaintable: a row with only its ID and name
+            {"station_id": "1", "station_name": "station_b"},
+        ],
+    )
+    # The bandpass gaintables of all MSs are read as one
+    read_gaintable_mock.assert_called_once_with(
+        ["/qa/dir/a.h5parm", "/qa/dir/b.h5parm"]
+    )
+    bandpass_fit_quality_mock.assert_called_once_with(
+        read_gaintable_mock.return_value
+    )
+
+
+def test_should_get_error_section_if_no_bandpass_gaintable_is_recorded():
+    field_metadata = FieldMetadata(
+        "field_a",
+        "/qa/dir",
+        sections={"metadata_summary": {"stations": STATIONS}},
+    )
+
+    section = section_builder.build(BandpassFitSection, field_metadata)
+
+    assert isinstance(section, ErrorSection)
+    assert section.title == BandpassFitSection.title
+    assert "field_a" in str(section.error)
+    assert isinstance(section.error.__cause__, RunMetadataError)
+
+
+def test_should_get_error_section_if_bandpass_gaintable_is_corrupt(tmp_path):
+    corrupt = tmp_path / "corrupt.h5parm"
+    corrupt.write_text("not an HDF5 file")
+    field_metadata = _bandpass_field_metadata({"ms_a": str(corrupt)})
+
+    section = section_builder.build(BandpassFitSection, field_metadata)
+
+    assert isinstance(section, ErrorSection)
+    assert section.title == BandpassFitSection.title
+    assert "cannot be read" in str(section.error.__cause__)

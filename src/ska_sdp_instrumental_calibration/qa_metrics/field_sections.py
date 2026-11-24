@@ -22,28 +22,27 @@ sections.
 
 import numpy as np
 
+from .bandpass_fit_metric import bandpass_fit_quality
 from .domain.qa_metadata import (
     FileInformation,
     ObservationParameters,
     PreFlagging,
     StationConfiguration,
 )
-from .domain.qa_metric import (
-    BandpassFitMetrics,
-    CableDelays,
-    FlaggingStatistics,
-)
+from .domain.qa_metric import CableDelays, FlaggingStatistics
 from .exceptions import RunMetadataError
 from .products import read_delaytable, read_gaintable, read_pre_flagging
 from .qa_section import QASection
 from .run_metadata import FieldMetadata
 from .section_builder import SectionBuilder
 from .sections import (
+    BandpassFitSection,
     CableDelaysSection,
     FlaggingStatisticsSection,
     MetadataSection,
 )
 from .tables import (
+    BANDPASS_FIT_METRICS_COLUMNS,
     CABLE_DELAYS_COLUMNS,
     FLAGGING_STATISTICS_COLUMNS,
     build_station_rows,
@@ -139,17 +138,16 @@ def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
     timestamps = field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     )
-    gaintable_path = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.FINAL_GAINTABLE
+    station_configurations = field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
     )
+
     channels = field_metadata.get_data_for(QASection.METADATA_SUMMARY.CHANNELS)
 
-    if not input_ms or not timestamps or not gaintable_path:
+    if not input_ms or not timestamps or not station_configurations:
         raise RunMetadataError(
             f"QA metadata missing for field {field_metadata.field_name}"
         )
-
-    gaintable = read_gaintable([gaintable_path])
 
     return MetadataSection(
         file_information=FileInformation(
@@ -159,7 +157,7 @@ def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
             timestamps, channels=channels
         ),
         station_configuration=StationConfiguration.from_station_names(
-            gaintable.antenna_name.values
+            station_configurations
         ),
     )
 
@@ -194,13 +192,14 @@ def cable_delays_section(
     """
     delaytable = read_delaytable(_get_delaytable_paths(field_metadata))
     cable_delays = CableDelays.from_delaytable(delaytable)
+    station_configurations = field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+    )
 
     return CableDelaysSection(
         columns=CABLE_DELAYS_COLUMNS,
         rows=build_station_rows(
-            StationConfiguration.from_station_names(
-                delaytable.antenna_name.values
-            ),
+            StationConfiguration.from_station_names(station_configurations),
             cable_delays.values_per_station,
         ),
     )
@@ -326,28 +325,49 @@ def _get_observation_parameters(
     )
 
 
-def get_bandpass_fit_metrics(
+@section_builder(BandpassFitSection)
+def bandpass_fit_section(
     field_metadata: FieldMetadata,
-) -> BandpassFitMetrics:
+) -> BandpassFitSection:
     """
-    Get the bandpass fit metrics of a field. Not implemented yet.
+    Build the bandpass fit section of a field.
 
-    To be replaced by a ``bandpass_fit_metrics_section`` builder,
-    decorated with ``@section_builder(BandpassFitMetricsSection)``.
+    One row per station with the phase and gain amplitude fit quality in
+    X and Y polarisation, over the bandpass gaintables of its measurement
+    sets, concatenated along time. See
+    :func:`.bandpass_fit_metric.bandpass_fit_quality`.
 
     Parameters
     ----------
     field_metadata : FieldMetadata
-        Run metadata of the field.
+        Run metadata of the field, with the bandpass gaintable of each of
+        its measurement sets.
 
     Returns
     -------
-    BandpassFitMetrics
+    BandpassFitSection
         Bandpass fit metrics of the field.
 
     Raises
     ------
-    NotImplementedError
-        Always, until the metrics are implemented.
+    RunMetadataError
+        If no bandpass gaintable is recorded, one was not produced or
+        cannot be read, or the gaintables do not have the same stations
+        and channels.
     """
-    raise NotImplementedError("Not Implemented")
+    station_configurations = field_metadata.get_data_for(
+        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+    )
+
+    gaintables = (
+        field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) or {}
+    )
+    gaintable = read_gaintable(list(gaintables.values()))
+
+    return BandpassFitSection(
+        columns=BANDPASS_FIT_METRICS_COLUMNS,
+        rows=build_station_rows(
+            StationConfiguration.from_station_names(station_configurations),
+            bandpass_fit_quality(gaintable),
+        ),
+    )

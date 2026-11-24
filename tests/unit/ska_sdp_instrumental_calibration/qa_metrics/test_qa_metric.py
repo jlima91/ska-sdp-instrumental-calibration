@@ -13,6 +13,7 @@ from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
     RunMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+    BandpassFitSection,
     CableDelaysSection,
     FlaggingStatisticsSection,
     MetadataSection,
@@ -45,6 +46,7 @@ def test_should_show_sections_in_report_order():
     assert REPORT_SECTIONS == (
         MetadataSection,
         FlaggingStatisticsSection,
+        BandpassFitSection,
         CableDelaysSection,
     )
 

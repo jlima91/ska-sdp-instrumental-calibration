@@ -128,23 +128,18 @@ FLAGGING_STATISTICS_COLUMNS = [
     ),
 ]
 
-ANTENNA_COLUMN = Column("station_name", "Antenna ID")
+ANTENNA_COLUMN = Column("station_name", "Station ID")
 
 BANDPASS_FIT_METRICS_COLUMNS = [
     ANTENNA_COLUMN,
-    ColumnGroup(
-        "Phase χ²",
-        _polarisation_columns("phase_sigma_resid"),
-        description="Standard deviation of residuals of joint linear delay "
-        "+ 1/ν TEC model fit of phase across observing band for X/Y "
-        "polarisation.",
-    ),
     ColumnGroup(
         "Phase Fit Quality",
         _polarisation_columns("phase_fit_quality"),
         description="Value between 0-1 representing quality of phase fit in "
         "X/Y polarisation; ratio of number of channels with distance to fit "
-        "smaller than 5 standard deviations to total number of channels.\n"
+        "smaller than 5 standard deviations to number of fitted channels.\n"
+        "The phase is fitted with a joint linear delay + 1/ν TEC model "
+        "across the observing band.\n"
         "A robust estimator of the standard deviation should be used to "
         "ensure that the metric is sensitive to outliers. The standard "
         "deviation could be estimated from the interquartile range (IQR), "
@@ -153,20 +148,15 @@ BANDPASS_FIT_METRICS_COLUMNS = [
         "SKA-Low data.",
     ),
     ColumnGroup(
-        "Gain χ²",
-        _polarisation_columns("gains_sigma_resid"),
-        description="Standard deviation of residuals of 1st order polynomial "
-        "fits of gain amplitude across all SKA-Low coarse channels "
-        "(0.78 MHz) for X/Y polarisation. Wider band fitting may be "
-        "appropriate for coarse channels affected by RFI.",
-    ),
-    ColumnGroup(
         "Gain Fit Quality",
         _polarisation_columns("gains_fit_quality"),
         description="Value between 0-1 representing quality of gain "
         "amplitude fit in X/Y polarisation; ratio of number of channels with "
-        "distance to fit smaller than 5 standard deviations to total number "
-        "of channels.\n"
+        "distance to fit smaller than 5 standard deviations to number of "
+        "fitted channels.\n"
+        "The gain amplitude is fitted with a 1st order polynomial per SKA-Low "
+        "coarse channel (0.78 MHz). Wider band fitting may be appropriate for "
+        "coarse channels affected by RFI.\n"
         "A robust estimator of the standard deviation should be used to "
         "ensure that the metric is sensitive to outliers. The standard "
         "deviation could be estimated from the IQR, i.e. σ = IQR/1.349. The "
