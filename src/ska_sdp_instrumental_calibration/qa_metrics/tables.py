@@ -73,17 +73,13 @@ def build_station_rows(
         ``station_id``, ``station_name`` and the station values per station.
     """
     values_per_station = values_per_station or {}
-    short_station_names = station_configuration.short_station_names
     return [
         {
-            "station_id": station_id,
-            "station_name": short_station_names[station_name],
+            "station": value,
             # Values are keyed by the MS station name
-            **values_per_station.get(station_name, {}),
+            **values_per_station.get(key, {}),
         }
-        for station_id, station_name in (
-            station_configuration.station_names.items()
-        )
+        for key, value in (station_configuration.station_names.items())
     ]
 
 
@@ -95,13 +91,9 @@ def _polarisation_columns(key: str, unit: str | None = None) -> list[Column]:
     ]
 
 
+STATION_COLUMN = Column("station", "Station ID")
 FLAGGING_STATISTICS_COLUMNS = [
-    Column(
-        "station_id",
-        "Station ID",
-        description="Index of the station in the measurement set",
-    ),
-    Column("station_name", "Station name"),
+    STATION_COLUMN,
     Column(
         "flagged_before",
         "Flagged Before",
@@ -128,10 +120,9 @@ FLAGGING_STATISTICS_COLUMNS = [
     ),
 ]
 
-ANTENNA_COLUMN = Column("station_name", "Station ID")
 
 BANDPASS_FIT_METRICS_COLUMNS = [
-    ANTENNA_COLUMN,
+    STATION_COLUMN,
     ColumnGroup(
         "Phase Fit Quality",
         _polarisation_columns("phase_fit_quality"),
@@ -166,7 +157,7 @@ BANDPASS_FIT_METRICS_COLUMNS = [
 ]
 
 CABLE_DELAYS_COLUMNS = [
-    ANTENNA_COLUMN,
+    STATION_COLUMN,
     Column("x_delay", "X Delay", unit="ns", value_format="number"),
     Column("y_delay", "Y Delay", unit="ns", value_format="number"),
 ]

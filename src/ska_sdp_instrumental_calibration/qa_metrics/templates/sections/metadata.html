@@ -25,9 +25,8 @@
   <h3>Array Configuration</h3>
   <div class="array-configuration">
     <ul class="stations">
-      {% set short_station_names = metadata.station_configuration.short_station_names %}
       {% for station_id, station_name in metadata.station_configuration.station_names.items() %}
-      {{ station_pill(station_id, short_station_names[station_name]) }}
+      {{ station_pill(station_id, station_name) }}
       {% endfor %}
     </ul>
   </div>

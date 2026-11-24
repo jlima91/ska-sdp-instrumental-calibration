@@ -4,13 +4,17 @@ import pytest
 from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
     GainCalibrationSetXds,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.bandpass_fit_metric import (
+from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+    FieldMetadata,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.service.bandpass_fit_metric import (  # noqa: E501
     SKA_LOW_COARSE_CHANNEL_WIDTH,
     bandpass_fit_quality,
     coarse_channel_amplitude_residuals,
     count_good_phase_channels,
     count_within_n_sigma,
     gain_fit_quality_for_pol,
+    get_bandpass_gaintable_paths,
     phase_fit_quality_for_pol,
 )
 
@@ -295,3 +299,30 @@ def test_should_get_same_fit_quality_in_any_frequency_order():
     assert bandpass_fit_quality(
         gaintable.isel(frequency=slice(None, None, -1))
     ) == bandpass_fit_quality(gaintable)
+
+
+def test_should_get_bandpass_gaintable_of_each_ms():
+    field_metadata = FieldMetadata(
+        "field_a",
+        "/qa/dir",
+        sections={
+            "bandpass": {
+                "gaintable": {
+                    "ms_a": "/qa/dir/ms_a-bandpass.h5parm",
+                    "ms_b": "/qa/dir/ms_b-bandpass.h5parm",
+                }
+            }
+        },
+    )
+
+    assert get_bandpass_gaintable_paths(field_metadata) == [
+        "/qa/dir/ms_a-bandpass.h5parm",
+        "/qa/dir/ms_b-bandpass.h5parm",
+    ]
+
+
+def test_should_get_no_bandpass_gaintable_if_none_is_recorded():
+    # Not an error here: the reader raises for an empty list
+    field_metadata = FieldMetadata("field_a", "/qa/dir", sections={})
+
+    assert get_bandpass_gaintable_paths(field_metadata) == []

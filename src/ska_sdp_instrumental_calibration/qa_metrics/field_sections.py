@@ -8,10 +8,13 @@ missing or unreadable product leaves an error in its section instead of
 failing the report.
 
 Each builder looks up the paths of the products it needs in the run
-metadata, reads them through :mod:`.products`, computes the metrics with
-:mod:`.domain` and returns its section. To add a section, write a
-``<name>_section`` builder and decorate it with
-``@section_builder(<SectionType>)``.
+metadata with its ``<name>_metric`` module of :mod:`.service` (e.g.
+:mod:`.service.bandpass_fit_metric`), reads them through
+:mod:`.products`, computes the metrics with its service or
+:mod:`.domain`, and returns its section. To add a section, put its
+lookups and metrics in a ``<name>_metric`` module of :mod:`.service`,
+export them from the package, then write a ``<name>_section`` builder
+here and decorate it with ``@section_builder(<SectionType>)``.
 
 The builders are public, though only called through
 ``section_builder.build``: the decorator registers them, so nothing calls
@@ -20,15 +23,7 @@ them by name, and private ones would look unused. Call them through
 sections.
 """
 
-import numpy as np
-
-from .bandpass_fit_metric import bandpass_fit_quality
-from .domain.qa_metadata import (
-    FileInformation,
-    ObservationParameters,
-    PreFlagging,
-    StationConfiguration,
-)
+from .domain.qa_metadata import FileInformation, PreFlagging
 from .domain.qa_metric import CableDelays, FlaggingStatistics
 from .exceptions import RunMetadataError
 from .products import read_delaytable, read_gaintable, read_pre_flagging
@@ -40,6 +35,15 @@ from .sections import (
     CableDelaysSection,
     FlaggingStatisticsSection,
     MetadataSection,
+)
+from .service import (
+    bandpass_fit_quality,
+    get_bandpass_gaintable_paths,
+    get_delaytable_paths,
+    get_final_gaintable,
+    get_observation_parameters,
+    get_pre_flagging_paths,
+    get_station_configuration,
 )
 from .tables import (
     BANDPASS_FIT_METRICS_COLUMNS,
@@ -82,14 +86,15 @@ def flagging_statistics_section(
         be read, or the pre-flagging data is not recorded, was not
         produced or cannot be read.
     """
-    gaintable = read_gaintable([_get_final_gaintable(field_metadata)])
-    station_names = [str(name) for name in gaintable.antenna_name.values]
+    gaintable = read_gaintable([get_final_gaintable(field_metadata)])
+    station_configuration = get_station_configuration(field_metadata)
+    station_names = list(station_configuration.station_names)
 
     pre_flagging = PreFlagging.from_counts(
         read_pre_flagging(
-            _get_pre_flagging_paths(field_metadata), len(station_names)
+            get_pre_flagging_paths(field_metadata), len(station_names)
         ),
-        # Pre-flagging counts are in station order, as the gaintable
+        # Pre-flagging counts are in configuration order, as the stations
         station_names,
     )
     flagging_statistics = FlaggingStatistics.from_gaintable(
@@ -99,7 +104,7 @@ def flagging_statistics_section(
     return FlaggingStatisticsSection(
         columns=FLAGGING_STATISTICS_COLUMNS,
         rows=build_station_rows(
-            StationConfiguration.from_station_names(station_names),
+            station_configuration,
             flagging_statistics.values_per_station,
         ),
         totals=flagging_statistics.totals,
@@ -138,13 +143,9 @@ def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
     timestamps = field_metadata.get_data_for(
         QASection.METADATA_SUMMARY.TIMESTAMPS
     )
-    station_configurations = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
-    )
-
     channels = field_metadata.get_data_for(QASection.METADATA_SUMMARY.CHANNELS)
 
-    if not input_ms or not timestamps or not station_configurations:
+    if not input_ms or not timestamps:
         raise RunMetadataError(
             f"QA metadata missing for field {field_metadata.field_name}"
         )
@@ -153,12 +154,10 @@ def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
         file_information=FileInformation(
             input_ms=list(input_ms), output_path=field_metadata.qa_dir
         ),
-        observation_parameters=_get_observation_parameters(
+        observation_parameters=get_observation_parameters(
             timestamps, channels=channels
         ),
-        station_configuration=StationConfiguration.from_station_names(
-            station_configurations
-        ),
+        station_configuration=get_station_configuration(field_metadata),
     )
 
 
@@ -190,138 +189,15 @@ def cable_delays_section(
         If no delay table is recorded, one was not produced or cannot be
         read, or the delay tables do not have the same stations.
     """
-    delaytable = read_delaytable(_get_delaytable_paths(field_metadata))
+    delaytable = read_delaytable(get_delaytable_paths(field_metadata))
     cable_delays = CableDelays.from_delaytable(delaytable)
-    station_configurations = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
-    )
 
     return CableDelaysSection(
         columns=CABLE_DELAYS_COLUMNS,
         rows=build_station_rows(
-            StationConfiguration.from_station_names(station_configurations),
+            get_station_configuration(field_metadata),
             cable_delays.values_per_station,
         ),
-    )
-
-
-def _get_final_gaintable(field_metadata: FieldMetadata) -> str:
-    """
-    Get the final gaintable path of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field.
-
-    Returns
-    -------
-    str
-        Path of the final gaintable of the field.
-
-    Raises
-    ------
-    RunMetadataError
-        If no final gaintable is recorded for the field.
-    """
-    gaintable = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.FINAL_GAINTABLE
-    )
-    if not gaintable:
-        raise RunMetadataError(
-            f"No final gaintable recorded for field "
-            f"{field_metadata.field_name}"
-        )
-    return gaintable
-
-
-def _get_pre_flagging_paths(field_metadata: FieldMetadata) -> list[str]:
-    """
-    Get the pre-flagging data files of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field, with one pre-flagging data file
-        recorded per MS prefix.
-
-    Returns
-    -------
-    list[str]
-        Pre-flagging data file of each measurement set of the field. Empty
-        if none is recorded: the reader raises for it.
-    """
-    pre_flagging = (
-        field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) or {}
-    )
-    return list(pre_flagging.values())
-
-
-def _get_delaytable_paths(field_metadata: FieldMetadata) -> list[str]:
-    """
-    Get the delay tables of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field, with one delay table recorded per MS
-        prefix.
-
-    Returns
-    -------
-    list[str]
-        Delay table of each measurement set of the field. Empty if none is
-        recorded: the reader raises for it.
-    """
-    delaytables = field_metadata.get_data_for(QASection.DELAY.DELAYTABLE) or {}
-    return list(delaytables.values())
-
-
-def _get_observation_parameters(
-    timestamps: list[list[float]], channels: int | None
-) -> ObservationParameters:
-    """
-    Get the observation parameters of a field from the timestamps of its
-    measurement sets.
-
-    The integration time is the median spacing of the timestamps of the
-    first measurement set. The observation spans the timestamps of all
-    measurement sets, which mark the centre of each integration.
-
-    Parameters
-    ----------
-    timestamps : list[list[float]]
-        Timestamps of each measurement set of the field, in MJD seconds,
-        in any order.
-    channels : int or None
-        Number of frequency channels, or None if not recorded.
-
-    Returns
-    -------
-    ObservationParameters
-        Start time, observation length, integration time and channels of
-        the field.
-    """
-    # Measurement sets of a field share the integration time, so it is
-    # taken from the first one
-    integration_time = float(np.median(np.diff(timestamps[0])))
-
-    # Timestamps mark the centre of each integration, so the observation
-    # spans half an integration beyond the first and last ones
-    start_time = (
-        min(min(ms_timestamps) for ms_timestamps in timestamps)
-        - integration_time / 2
-    )
-    end_time = (
-        max(max(ms_timestamps) for ms_timestamps in timestamps)
-        + integration_time / 2
-    )
-
-    return ObservationParameters(
-        start_time=float(start_time),
-        observation_length=float(end_time - start_time),
-        integration_time=integration_time,
-        channels=channels,
     )
 
 
@@ -355,19 +231,12 @@ def bandpass_fit_section(
         cannot be read, or the gaintables do not have the same stations
         and channels.
     """
-    station_configurations = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
-    )
-
-    gaintables = (
-        field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) or {}
-    )
-    gaintable = read_gaintable(list(gaintables.values()))
+    gaintable = read_gaintable(get_bandpass_gaintable_paths(field_metadata))
 
     return BandpassFitSection(
         columns=BANDPASS_FIT_METRICS_COLUMNS,
         rows=build_station_rows(
-            StationConfiguration.from_station_names(station_configurations),
+            get_station_configuration(field_metadata),
             bandpass_fit_quality(gaintable),
         ),
     )

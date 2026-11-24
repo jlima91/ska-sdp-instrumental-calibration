@@ -3,9 +3,7 @@ Metadata of a field for the QA report: its files, observation parameters
 and stations, and its flagging before calibration.
 """
 
-import re
 from dataclasses import dataclass
-from functools import cached_property
 
 import numpy as np
 from astropy.time import Time
@@ -101,69 +99,6 @@ class StationConfiguration:
     """
 
     station_names: dict[str, str]
-
-    @classmethod
-    def from_ms_qa_data(cls, ms_qa_data: list[dict]) -> "StationConfiguration":
-        """
-        Get the stations of a field from the QA data of its measurement
-        sets.
-
-        Parameters
-        ----------
-        ms_qa_data : list[dict]
-            QA data of each measurement set of the field, from
-            get_ms_qa_data.
-
-        Returns
-        -------
-        StationConfiguration
-            Stations of the field.
-        """
-        # Measurement sets of a field share stations, so they are taken
-        # from the first one
-        return cls.from_station_names(ms_qa_data[0]["station_names"])
-
-    @classmethod
-    def from_station_names(cls, station_names) -> "StationConfiguration":
-        """
-        Get the stations of a field from their names, in configuration
-        order.
-
-        Parameters
-        ----------
-        station_names : Iterable
-            MS station names, e.g. the antenna axis of a gaintable. Their
-            position is their station ID.
-
-        Returns
-        -------
-        StationConfiguration
-            Stations of the field.
-        """
-        return cls(
-            {
-                str(station_id): str(name)
-                for station_id, name in enumerate(station_names)
-            }
-        )
-
-    @cached_property
-    def short_station_names(self) -> dict[str, str]:
-        """
-        Smaller station names, e.g. S8-1, for display. Computed once.
-
-        Returns
-        -------
-        dict[str, str]
-            Smaller station name keyed by MS station name. The MS name is
-            kept if it has no smaller name.
-        """
-        short_station_names = {}
-        for name in self.station_names.values():
-            match = re.search(r"_([^_()]+)\)$", name)
-            short_station_names[name] = match.group(1) if match else name
-
-        return short_station_names
 
 
 @dataclass
