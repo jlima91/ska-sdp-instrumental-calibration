@@ -47,49 +47,6 @@ class QAMetricReport:
         self.sections.append(section_data)
         return self
 
-    # def add_bandpass_fit_metrics(
-    #     self, bandpass_fit_metrics: BandpassFitMetrics | None = None
-    # ) -> "QAMetricReport":
-    #     """
-    #     Add the bandpass fit metrics section, one row per station.
-
-    #     Parameters
-    #     ----------
-    #     bandpass_fit_metrics : BandpassFitMetrics, optional
-    #         Bandpass fit metrics of the field. None if its final gaintable
-    #         is missing.
-
-    #     Returns
-    #     -------
-    #     QAMetricReport
-    #         The report, to chain the next section.
-    #     """
-    #     return self._add_station_table(
-    #         TableSection(
-    #             "Bandpass Fit Metrics",
-    #             column_group=BANDPASS_FIT_METRICS_COLUMNS,
-    #             item_name="antennas",
-    #         ),
-    #         bandpass_fit_metrics,
-    #         GAINTABLE_MISSING_ERROR,
-    #     )
-
-    def render_html(self) -> str:
-        """
-        Render the report.
-
-        Returns
-        -------
-        str
-            HTML of the page.
-        """
-        template = template_env.get_template("qa_metric.html")
-        return template.render(
-            title=self.title,
-            field_name=self.field_name,
-            sections=self.sections,
-        )
-
     def write_report_to_dir(self, output_dir: str):
         """
         Write the report to ``<output_dir>/inst-<field-name>-qa-metric.html``,
@@ -106,7 +63,13 @@ class QAMetricReport:
             else f"inst-{self.field_name}-qa-metric.html"
         )
         qa_metric_path = os.path.join(output_dir, file_name)
+        template = template_env.get_template("qa_metric.html")
+        html_report = template.render(
+            title=self.title,
+            field_name=self.field_name,
+            sections=self.sections,
+        )
         with open(qa_metric_path, "w", encoding="utf-8") as qa_metric_file:
-            qa_metric_file.write(self.render_html())
+            qa_metric_file.write(html_report)
 
         logger.info("QA metric written to %s", qa_metric_path)
