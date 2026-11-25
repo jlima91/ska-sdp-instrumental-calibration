@@ -27,7 +27,7 @@ import json
 import os
 from typing import Any
 
-from .exceptions import RunMetadataError
+from ..exceptions import RunMetadataError
 from .qa_section import JSONSerialisable, QASectionLabel
 
 

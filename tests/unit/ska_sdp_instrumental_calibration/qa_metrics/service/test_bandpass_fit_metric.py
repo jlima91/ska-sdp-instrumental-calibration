@@ -4,7 +4,7 @@ import pytest
 from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
     GainCalibrationSetXds,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.service.bandpass_fit_metric import (  # noqa: E501

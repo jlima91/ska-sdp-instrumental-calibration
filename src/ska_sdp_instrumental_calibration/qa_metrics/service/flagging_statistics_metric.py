@@ -4,8 +4,8 @@ section, looked up in the run metadata of the field.
 """
 
 from ..exceptions import RunMetadataError
-from ..qa_section import QASection
-from ..run_metadata import FieldMetadata
+from ..repository.qa_section import QASection
+from ..repository.run_metadata import FieldMetadata
 
 
 def get_final_gaintable(field_metadata: FieldMetadata) -> str:

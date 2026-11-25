@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum, StrEnum
 from typing import Any, TypeAlias
 
-from .exceptions import RunMetadataError
+from ..exceptions import RunMetadataError
 
 # Any value json.dump can write: what the run metadata stores. Static
 # documentation only; entries are checked at runtime against the schema of

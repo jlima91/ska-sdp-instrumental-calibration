@@ -10,12 +10,12 @@ never passed in. Sections with a fixed title set it as a default left out of
 from dataclasses import dataclass, field
 from typing import ClassVar
 
-from .domain.qa_metadata import (
+from ..domain.qa_metadata import (
     FileInformation,
     ObservationParameters,
     StationConfiguration,
 )
-from .exceptions import QAReportException
+from ..exceptions import QAReportException
 from .tables import Column, ColumnGroup
 
 

@@ -27,14 +27,19 @@ from .bandpass_fit_metric import (
     get_bandpass_gaintable_paths,
 )
 from .cable_delays_metric import get_delaytable_paths
+from .delaytable import read_delaytable
 from .flagging_statistics_metric import (
     get_final_gaintable,
     get_pre_flagging_paths,
 )
+from .gain_fits import export_gain_fits_to_zarr
+from .gaintable import read_gaintable
 from .metadata_summary_metric import (
     get_observation_parameters,
     get_station_configuration,
 )
+from .pre_flagging import export_pre_flagging, read_pre_flagging
+from .section_builder import SectionBuilder
 
 __all__ = [
     "bandpass_fit_quality",
@@ -44,4 +49,10 @@ __all__ = [
     "get_observation_parameters",
     "get_pre_flagging_paths",
     "get_station_configuration",
+    "SectionBuilder",
+    "export_gain_fits_to_zarr",
+    "export_pre_flagging",
+    "read_delaytable",
+    "read_gaintable",
+    "read_pre_flagging",
 ]

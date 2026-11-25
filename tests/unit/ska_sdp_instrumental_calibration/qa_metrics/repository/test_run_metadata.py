@@ -7,8 +7,10 @@ from mock import patch
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.qa_section import QASection
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.qa_section import (
+    QASection,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
     RunMetadata,
 )

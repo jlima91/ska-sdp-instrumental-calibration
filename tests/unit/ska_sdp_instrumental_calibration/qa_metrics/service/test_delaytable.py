@@ -8,9 +8,7 @@ from ska_sdp_instrumental_calibration.data_managers.data_export import (
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.products import (
-    read_delaytable,
-)
+from ska_sdp_instrumental_calibration.qa_metrics.service import read_delaytable
 from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
 
 STATION_NAMES = ["station_a", "station_b"]

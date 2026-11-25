@@ -2,7 +2,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.qa_metrics.products import (
+from ska_sdp_instrumental_calibration.qa_metrics.service import (
     export_gain_fits_to_zarr,
 )
 

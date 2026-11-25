@@ -1,75 +1,90 @@
 import logging
-import os
 
-import jinja2
-
-from .sections import Section
+from .exceptions import QAReportException, RunMetadataError
+from .repository import RunMetadata
+from .view import QAMetricReport, section_builder
+from .view.sections import (
+    BandpassFitSection,
+    CableDelaysSection,
+    ErrorSection,
+    FlaggingStatisticsSection,
+    MetadataSection,
+)
 
 logger = logging.getLogger(__name__)
 
-template_env = jinja2.Environment(
-    loader=jinja2.PackageLoader(__package__),
-    autoescape=jinja2.select_autoescape(),
+# Sections of the report of each field, in the order they are shown
+REPORT_SECTIONS = (
+    MetadataSection,
+    FlaggingStatisticsSection,
+    BandpassFitSection,
+    CableDelaysSection,
 )
 
 
-class QAMetricReport:
+def generate_qa_metric(
+    qa_dir: str, title: str = "Bandpass QA Metrics", **kwargs
+):
     """
-    Builder of the QA metric HTML report of one field. Sections are shown
-    in the order they are added.
+    Write the QA metric HTML reports of an INST run, one per field, from
+    its run metadata.
 
-    A section whose input is missing shows an error message instead of its
+    Each field report, ``<qa_dir>/inst-<field-name>-qa-metric.html``, has
+    the sections of ``REPORT_SECTIONS``, in that order. A section whose
+    products are missing or unreadable shows its error instead of its
     content.
 
-    Without a field name, e.g. for the error report of a run whose fields
-    cannot be reported, the report is of the whole run: it shows no source
-    and is written without a field name in its file name.
+    If the run metadata cannot be loaded or records no field, a single
+    error report of the run, ``<qa_dir>/inst-qa-metric.html``, is written
+    instead. If a field report fails with an unexpected error, i.e. a bug,
+    the error is logged with its traceback, no report is written for that
+    field, and the other fields are still reported.
 
     Parameters
     ----------
-    title : str
-        Page title.
+    qa_dir : str
+        QA directory of the INST run, with its ``run_metadata.json``: the
+        logs directory of the latest INST run in the SDM, or the output
+        directory. The reports are written to it.
+    title : str, optional
+        Page title of the reports.
     """
+    try:
+        run_metadata = RunMetadata.initialize(qa_dir)
+        if not run_metadata.field_metadata:
+            raise RunMetadataError(
+                f"No field recorded in the run metadata of {qa_dir}"
+            )
 
-    def __init__(self, title: str):
-        self.title = title
-        self.sections: list[Section] = []
-
-        # None rather than a placeholder name, which a real field could
-        # have: the report of the run then cannot overwrite a field report
-        self.field_name: str | None = None
-
-    def add_field_name(self, field_name: str):
-        self.field_name = field_name
-        return self
-
-    def add_section(self, section_data: Section):
-        self.sections.append(section_data)
-        return self
-
-    def write_report_to_dir(self, output_dir: str):
-        """
-        Write the report to ``<output_dir>/inst-<field-name>-qa-metric.html``,
-        or ``<output_dir>/inst-qa-metric.html`` without a field name.
-
-        Parameters
-        ----------
-        output_dir : str
-            Directory to write the report to.
-        """
-        file_name = (
-            "inst-qa-metric.html"
-            if self.field_name is None
-            else f"inst-{self.field_name}-qa-metric.html"
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "%s", error, exc_info=not isinstance(error, RunMetadataError)
         )
-        qa_metric_path = os.path.join(output_dir, file_name)
-        template = template_env.get_template("qa_metric.html")
-        html_report = template.render(
-            title=self.title,
-            field_name=self.field_name,
-            sections=self.sections,
-        )
-        with open(qa_metric_path, "w", encoding="utf-8") as qa_metric_file:
-            qa_metric_file.write(html_report)
 
-        logger.info("QA metric written to %s", qa_metric_path)
+        report_error = QAReportException(
+            f"QA metric report of the INST run in {qa_dir} cannot be built",
+            cause=error,
+        )
+
+        QAMetricReport(title).add_section(
+            ErrorSection("Run metadata", report_error)
+        ).write_report_to_dir(qa_dir)
+
+        return
+
+    for field_metadata in run_metadata:
+        try:
+            report = QAMetricReport(title).add_field_name(
+                field_metadata.field_name
+            )
+            for section in REPORT_SECTIONS:
+                report.add_section(
+                    section_builder.build(section, field_metadata, **kwargs)
+                )
+
+            report.write_report_to_dir(qa_dir)
+        except Exception:  # pylint: disable=broad-exception-caught
+            logger.exception(
+                "QA metric report of field %s cannot be written",
+                field_metadata.field_name,
+            )

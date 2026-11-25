@@ -11,8 +11,8 @@ left out of both counts: they are reported by the flagging statistics.
 import numpy as np
 
 from ...data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..qa_section import QASection
-from ..run_metadata import FieldMetadata
+from ..repository.qa_section import QASection
+from ..repository.run_metadata import FieldMetadata
 
 SKA_LOW_COARSE_CHANNEL_WIDTH = 781250.0  # Hz
 

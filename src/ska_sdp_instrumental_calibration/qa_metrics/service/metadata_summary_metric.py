@@ -8,8 +8,8 @@ import numpy as np
 
 from ..domain.qa_metadata import ObservationParameters, StationConfiguration
 from ..exceptions import RunMetadataError
-from ..qa_section import QASection
-from ..run_metadata import FieldMetadata
+from ..repository.qa_section import QASection
+from ..repository.run_metadata import FieldMetadata
 
 
 def get_station_configuration(

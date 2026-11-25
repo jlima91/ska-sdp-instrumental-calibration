@@ -5,7 +5,7 @@ import pytest
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.qa_section import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.qa_section import (
     LabelSpec,
     Level,
     QASection,

@@ -1,7 +1,9 @@
 import numpy as np
 
-from ska_sdp_instrumental_calibration.qa_metrics.report import template_env
-from ska_sdp_instrumental_calibration.qa_metrics.tables import (
+from ska_sdp_instrumental_calibration.qa_metrics.view.qa_metric_report import (
+    template_env,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.view.tables import (
     CABLE_DELAYS_COLUMNS,
     get_bandpass_fit_metrics_columns,
 )

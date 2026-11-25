@@ -1,4 +1,4 @@
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.service.cable_delays_metric import (  # noqa: E501

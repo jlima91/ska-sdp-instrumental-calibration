@@ -8,7 +8,7 @@ from ska_sdp_instrumental_calibration.qa_metrics.domain.qa_metadata import (
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.service.metadata_summary_metric import (  # noqa: E501

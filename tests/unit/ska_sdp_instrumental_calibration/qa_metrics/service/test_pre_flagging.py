@@ -8,7 +8,7 @@ import xarray as xr
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.products import (
+from ska_sdp_instrumental_calibration.qa_metrics.service import (
     export_pre_flagging,
     read_pre_flagging,
 )

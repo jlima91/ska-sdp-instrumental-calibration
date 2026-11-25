@@ -5,14 +5,14 @@ A builder is registered for a section type with ``@builder(SectionType)``
 on a SectionBuilder, and run with ``builder.build(SectionType,
 field_metadata)``, which shows a run metadata error as an error section.
 The builders of the report and its one SectionBuilder,
-``section_builder``, are in :mod:`.field_sections`.
+``section_builder``, are in :mod:`..view.section_builder`.
 """
 
 from typing import Callable
 
-from .exceptions import QAReportException, RunMetadataError
-from .run_metadata import FieldMetadata
-from .sections import ErrorSection, Section
+from ..exceptions import QAReportException, RunMetadataError
+from ..repository.run_metadata import FieldMetadata
+from ..view.sections import ErrorSection, Section
 
 Builder = Callable[[FieldMetadata], Section]
 
@@ -24,7 +24,7 @@ class SectionBuilder:
     Builders are registered with :meth:`builds`, also run by calling the
     instance as a decorator, and run with :meth:`build`. The one instance
     used by the report, ``section_builder``, is in
-    :mod:`.field_sections`, with the builders it registers:
+    :mod:`..view.section_builder`, with the builders it registers:
     ``@section_builder(SectionType)`` registers the builder of a section
     and ``section_builder.build(SectionType, field_metadata)`` builds it.
     Each instance has its own registry, so tests can use a fresh one.

@@ -4,16 +4,16 @@ from mock import Mock
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.field_sections import (
-    section_builder,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.section_builder import (
+from ska_sdp_instrumental_calibration.qa_metrics.service.section_builder import (  # noqa: E501
     SectionBuilder,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+from ska_sdp_instrumental_calibration.qa_metrics.view.section_builder import (
+    section_builder,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
     CableDelaysSection,
     ErrorSection,

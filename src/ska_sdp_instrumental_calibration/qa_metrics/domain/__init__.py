@@ -3,7 +3,7 @@ Domain objects of the QA report: the metadata and metrics of a field,
 computed from its products.
 
 They are plain data, built from arrays, counts and xarray tables already
-read by :mod:`..products`, so they read no files and raise no run metadata
+read by :mod:`..service`, so they read no files and raise no run metadata
 errors. The sections of the report are built from them.
 
 ``qa_metadata``

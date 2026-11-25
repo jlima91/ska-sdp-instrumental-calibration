@@ -12,7 +12,7 @@ from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set impor
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.products import (
+from ska_sdp_instrumental_calibration.qa_metrics.service import (
     gaintable,
     read_gaintable,
 )
@@ -20,7 +20,7 @@ from ska_sdp_instrumental_calibration.qa_metrics.products import (
 STATION_NAMES = ["station_a", "station_b"]
 POLARIZATIONS = ["XX", "XY", "YX", "YY"]
 CREATE_GAINTABLE_FROM_H5PARM = (
-    "ska_sdp_instrumental_calibration.qa_metrics.products.gaintable"
+    "ska_sdp_instrumental_calibration.qa_metrics.service.gaintable"
     ".create_gaintable_from_h5parm"
 )
 

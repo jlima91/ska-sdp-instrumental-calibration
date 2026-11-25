@@ -1,4 +1,5 @@
 import json
+import sys
 
 import numpy as np
 import pytest
@@ -18,21 +19,21 @@ from ska_sdp_instrumental_calibration.qa_metrics.domain.qa_metadata import (
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.field_sections import (
-    section_builder,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.products import gaintable
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+from ska_sdp_instrumental_calibration.qa_metrics.service import gaintable
+from ska_sdp_instrumental_calibration.qa_metrics.view.section_builder import (
+    section_builder,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
     CableDelaysSection,
     ErrorSection,
     FlaggingStatisticsSection,
     MetadataSection,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.tables import (
+from ska_sdp_instrumental_calibration.qa_metrics.view.tables import (
     CABLE_DELAYS_COLUMNS,
     FLAGGING_STATISTICS_COLUMNS,
     get_bandpass_fit_metrics_columns,
@@ -40,14 +41,14 @@ from ska_sdp_instrumental_calibration.qa_metrics.tables import (
 from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
 
 THRESHOLDS = {"phase_fit_threshold": 0.75, "gain_fit_threshold": 0.75}
-READ_GAINTABLE = (
-    "ska_sdp_instrumental_calibration.qa_metrics.field_sections"
-    ".read_gaintable"
-)
-BANDPASS_FIT_QUALITY = (
-    "ska_sdp_instrumental_calibration.qa_metrics.field_sections"
-    ".bandpass_fit_quality"
-)
+# The view package exports the section_builder instance under the name of
+# its module, so a dotted patch path resolves to the instance: patch the
+# module object instead
+SECTION_BUILDER_MODULE = sys.modules[
+    "ska_sdp_instrumental_calibration.qa_metrics.view.section_builder"
+]
+READ_GAINTABLE = "read_gaintable"
+BANDPASS_FIT_QUALITY = "bandpass_fit_quality"
 GAINTABLE = "/qa/dir/field_a.h5parm"
 POLARIZATIONS = ["XX", "XY", "YX", "YY"]
 # MS station ID keyed by station name, in configuration order, as
@@ -94,7 +95,7 @@ def _field_metadata(metadata_summary):
     )
 
 
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_metadata_section_of_a_field(read_gaintable_mock):
     field_metadata = _field_metadata(
         {
@@ -197,7 +198,7 @@ def _assert_metadata_error_section(section, cause_match):
         {},
     ],
 )
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_error_section_if_qa_metadata_is_missing(
     read_gaintable_mock, metadata_summary
 ):
@@ -238,7 +239,7 @@ def _write_pre_flagging(path, unsolvable, nchannels):
     return str(path)
 
 
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_flagging_statistics_section_of_a_field(
     read_gaintable_mock, tmp_path
 ):
@@ -283,7 +284,7 @@ def test_should_get_flagging_statistics_section_of_a_field(
     read_gaintable_mock.assert_called_once_with([GAINTABLE])
 
 
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_error_section_if_pre_flagging_is_missing(
     read_gaintable_mock, tmp_path
 ):
@@ -300,7 +301,7 @@ def test_should_get_error_section_if_pre_flagging_is_missing(
     assert "was not produced" in str(section.error.__cause__)
 
 
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_error_section_if_final_gaintable_is_not_recorded(
     read_gaintable_mock,
 ):
@@ -428,8 +429,8 @@ def _bandpass_field_metadata(bandpass_gaintables):
     )
 
 
-@patch(BANDPASS_FIT_QUALITY)
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, BANDPASS_FIT_QUALITY)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_bandpass_fit_section_of_a_field(
     read_gaintable_mock, bandpass_fit_quality_mock
 ):
@@ -506,8 +507,8 @@ def test_should_get_error_section_if_bandpass_gaintable_is_corrupt(tmp_path):
     assert "cannot be read" in str(section.error.__cause__)
 
 
-@patch(BANDPASS_FIT_QUALITY)
-@patch(READ_GAINTABLE)
+@patch.object(SECTION_BUILDER_MODULE, BANDPASS_FIT_QUALITY)
+@patch.object(SECTION_BUILDER_MODULE, READ_GAINTABLE)
 def test_should_get_error_section_of_each_section_if_no_stations_are_recorded(
     read_gaintable_mock, bandpass_fit_quality_mock, tmp_path
 ):

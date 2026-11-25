@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 
-from ska_sdp_instrumental_calibration.qa_metrics.products.vis_flagging import (
+from ska_sdp_instrumental_calibration.qa_metrics.service.vis_flagging import (
     flagged_sample_counts,
     flagged_time_count,
     unsolvable_gain_counts,

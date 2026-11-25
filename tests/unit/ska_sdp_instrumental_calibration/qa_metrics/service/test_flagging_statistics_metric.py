@@ -3,7 +3,7 @@ import pytest
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.service.flagging_statistics_metric import (  # noqa: E501

@@ -1,18 +1,20 @@
 import pytest
 from mock import patch
 
-from ska_sdp_instrumental_calibration.qa_metrics.field_sections import (
-    section_builder,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.qa_metric import (
+from ska_sdp_instrumental_calibration.qa_metrics.report import (
     REPORT_SECTIONS,
     generate_qa_metric,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.qa_section import QASection
-from ska_sdp_instrumental_calibration.qa_metrics.run_metadata import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.qa_section import (
+    QASection,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
     RunMetadata,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.sections import (
+from ska_sdp_instrumental_calibration.qa_metrics.view.section_builder import (
+    section_builder,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
     CableDelaysSection,
     FlaggingStatisticsSection,
@@ -23,11 +25,11 @@ from ska_sdp_instrumental_calibration.qa_metrics.sections import (
 # has no field name, so it cannot overwrite the report of a field
 ERROR_REPORT = "inst-qa-metric.html"
 BUILD = (
-    "ska_sdp_instrumental_calibration.qa_metrics.qa_metric"
+    "ska_sdp_instrumental_calibration.qa_metrics.report"
     ".section_builder.build"
 )
 THRESHOLDS = {"phase_fit_threshold": 0.75, "gain_fit_threshold": 0.75}
-LOGGER = "ska_sdp_instrumental_calibration.qa_metrics.qa_metric.logger"
+LOGGER = "ska_sdp_instrumental_calibration.qa_metrics.report.logger"
 
 
 def _write_run_metadata(qa_dir, field_names):

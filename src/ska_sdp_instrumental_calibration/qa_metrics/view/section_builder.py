@@ -10,7 +10,7 @@ failing the report.
 Each builder looks up the paths of the products it needs in the run
 metadata with its ``<name>_metric`` module of :mod:`.service` (e.g.
 :mod:`.service.bandpass_fit_metric`), reads them through
-:mod:`.products`, computes the metrics with its service or
+:mod:`.service`, computes the metrics with its service or
 :mod:`.domain`, and returns its section. To add a section, put its
 lookups and metrics in a ``<name>_metric`` module of :mod:`.service`,
 export them from the package, then write a ``<name>_section`` builder
@@ -23,20 +23,13 @@ them by name, and private ones would look unused. Call them through
 sections.
 """
 
-from .domain.qa_metadata import FileInformation, PreFlagging
-from .domain.qa_metric import CableDelays, FlaggingStatistics
-from .exceptions import RunMetadataError
-from .products import read_delaytable, read_gaintable, read_pre_flagging
-from .qa_section import QASection
-from .run_metadata import FieldMetadata
-from .section_builder import SectionBuilder
-from .sections import (
-    BandpassFitSection,
-    CableDelaysSection,
-    FlaggingStatisticsSection,
-    MetadataSection,
-)
-from .service import (
+from ..domain.qa_metadata import FileInformation, PreFlagging
+from ..domain.qa_metric import CableDelays, FlaggingStatistics
+from ..exceptions import RunMetadataError
+from ..repository.qa_section import QASection
+from ..repository.run_metadata import FieldMetadata
+from ..service import (
+    SectionBuilder,
     bandpass_fit_quality,
     get_bandpass_gaintable_paths,
     get_delaytable_paths,
@@ -44,6 +37,15 @@ from .service import (
     get_observation_parameters,
     get_pre_flagging_paths,
     get_station_configuration,
+    read_delaytable,
+    read_gaintable,
+    read_pre_flagging,
+)
+from .sections import (
+    BandpassFitSection,
+    CableDelaysSection,
+    FlaggingStatisticsSection,
+    MetadataSection,
 )
 from .tables import (
     CABLE_DELAYS_COLUMNS,
