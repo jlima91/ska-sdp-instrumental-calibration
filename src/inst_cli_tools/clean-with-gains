@@ -27,10 +27,10 @@ help()
    # Display Help
    echo "Apply gaintable to measurement set using DP3, and generate fits image using wsclean"
    echo
-   echo "Usage: clean-with-gains [-h][-a] -i <input-ms> -g <gaintable.h5parm> <WSCLEAN-PARAMS>"
+   echo "Usage: clean-with-gains [-h|--help][-a] -i <input-ms> -g <gaintable.h5parm> <WSCLEAN-PARAMS>"
    echo "options:"
-   echo "h     Print this help and exit."
-   echo "a     Set flag to run the script in AWS-HPC."
+   echo "-h, --help  Print this help and exit."
+   echo "-a          Set flag to run the script in AWS-HPC."
    echo
    echo "If -a flag is set, the script handles the module loads, and ensures DP3 and wsclean are in the execution path."
    echo "The user is required to load the metamodule on AWS-HPC"
@@ -60,13 +60,12 @@ create-fits() {
     esac
   done
   shift $((OPTIND-1))
-  local wsclean_args="${extra_args[*]}"
   : ${wsclean_msin:?is not set. Use create-fits -i <input.ms>}
 
   set -o xtrace
   local beam_corrected_ms=./beamcor.ms
   ${DP3_CMD} msin=$wsclean_msin steps="[applybeam]" msout=$beam_corrected_ms
-  ${WSCLEAN_CMD} -niter 0 -apply-primary-beam ${wsclean_args} $beam_corrected_ms
+  ${WSCLEAN_CMD} -niter 0 -apply-primary-beam "${extra_args[@]}" $beam_corrected_ms
   rm -rf $beam_corrected_ms
   set +o xtrace
 
@@ -122,6 +121,14 @@ applycal() {
 
 MSOUT="corrected.ms"
 
+# getopts only parses short options, so check for --help separately
+for arg in "$@"; do
+   if [ "$arg" = "--help" ]; then
+      help
+      exit
+   fi
+done
+
 while getopts ":hag:i:" option; do
    case $option in
      h) help
@@ -135,10 +142,14 @@ while getopts ":hag:i:" option; do
    esac
 done
 shift $((OPTIND-1))
-WSCLEAN_ARGS=$@
+# keep the wsclean args as an array, so that args with spaces stay intact
+WSCLEAN_ARGS=("$@")
 : ${PARMDB:?is not set. Use -g <gaintbale.h5parm>}
 : ${MSIN:?is not set. Use -i <input-ms.ms>}
-: ${WSCLEAN_ARGS:?is not set. Please provide wsclean args}
+if [ ${#WSCLEAN_ARGS[@]} -eq 0 ]; then
+   echo "WSCLEAN_ARGS: is not set. Please provide wsclean args" >&2
+   exit 1
+fi
 
 check-module-load
 # set -e
@@ -146,7 +157,7 @@ check-module-load
 echo ""
 echo "**************** wsclean without apply ***************"
 
-create-fits -i $MSIN -name "original" ${WSCLEAN_ARGS}
+create-fits -i $MSIN -name "original" "${WSCLEAN_ARGS[@]}"
 
 echo ""
 echo "**************** ApplyCal ***************"
@@ -155,4 +166,4 @@ applycal --parmdb $PARMDB --msin $MSIN --msout $MSOUT
 echo ""
 echo "**************** wsclean with apply ***************"
 
-create-fits -i $MSOUT -name "corrected" ${WSCLEAN_ARGS}
+create-fits -i $MSOUT -name "corrected" "${WSCLEAN_ARGS[@]}"

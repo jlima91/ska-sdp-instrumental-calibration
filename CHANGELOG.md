@@ -2,6 +2,8 @@
 
 ## main
 
+1. `clean-with-gains` also accepts `--help`, like the other utility tools.
+
 ## 2.0.0
 
 1. Add support `auto` for `nchannels_per_chunk` in `load_data` stage.

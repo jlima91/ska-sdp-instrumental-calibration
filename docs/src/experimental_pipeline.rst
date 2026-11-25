@@ -3,7 +3,7 @@ Reordering Stages (Experimental)
 
 The ``experimental`` subcommand of the instrumental calibration pipeline
 runs the stages in an order given in the config, instead of the default
-order described in :doc:`calibration_flow`. It also allows a stage to run
+order described in :doc:`pipeline_flow`. It also allows a stage to run
 more than once.
 
 .. code-block:: bash
@@ -14,7 +14,7 @@ more than once.
        /path/to/ms
 
 The config controls both the order of the stages and the settings of each
-stage. A ready-to-use example is
+stage. An example, for reference, is
 `calibrator_inst_experimental.yml <https://gitlab.com/ska-telescope/sdp/science-pipeline-workflows/ska-sdp-instrumental-calibration/-/blob/main/configs/calibrator_inst_experimental.yml>`_.
 
 Configuration

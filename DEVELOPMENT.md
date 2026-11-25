@@ -146,6 +146,15 @@ make docs-build html
 make oci-build-all
 ```
 
+## Links in shared markdown files
+
+`README.md`, `DEVELOPMENT.md` and `CHANGELOG.md` are symlinked into `docs/src/`, so they are rendered both on GitLab and on Read the Docs.
+
+- To link to another of these shared files, use a relative path with the file extension, e.g. `[Developer Guide](DEVELOPMENT.md)`.
+- To link to a docs-only page (one that exists only in `docs/src/`), use its absolute URL, e.g. `https://developer.skao.int/projects/ska-sdp-instrumental-calibration/en/latest/running_pipeline.html`, or the docs home URL ending in `/en/latest/` for the index page. This works on GitLab.
+
+During the docs build, `docs/src/conf.py` rewrites both kinds of links into links to the local pages, so they point to the docs version being built. Links with an anchor (`#section`) become plain HTML links, which Sphinx does not validate, so double-check those anchors.
+
 ## Making a release
 
 ### Pre-requisites
@@ -157,7 +166,7 @@ We should ensure that the pipeline can always run with the latest version of its
 1. Run the `poetry update` command to update the dependencies to their latest versions.
    1. To minimize effort, you may try to only update the `main` group dependencies by explicitly passing dependency names to the above command, e.g. `poetry update dask xarray ...`
 2. With these updated dependencies, ensure that the pipeline runs end-to-end, with all stages and export tasks enabled.
-3. If a version upgrade causes any failure, add necessary upper limits in `pyproject.toml` and also add a backlog item to support the latest version.
+3. If a version upgrade causes any failure, add necessary upper limits in `pyproject.toml` with appropriate comments, and also add a backlog item to support the latest version.
 
 #### Update make submodule
 
@@ -170,7 +179,7 @@ The SKA benchmarking machinery will use the scripts and config required for benc
 We should ensure that these are aligned with the latest changes/improvements in the pipeline. Therefore:
 
 1. Make necessary changes to the scripts and config in `scripts/benchmark`.
-2. Ensure that the scripts can run successfully with the latest version of INST.
+2. Ensure that the scripts can run successfully with the latest version of the pipeline.
 
 ### Release guidelines
 
@@ -200,25 +209,27 @@ The following steps are simplified and specific to this repository:
 
     The `make show-version` command should now show the next version. Use this version for all the later changes.
 
-4. In addition to the above files, update the `__version__` variable in the following modules:
+4. In addition to the above files, update the `__version__` variable in the following module:
 
     - `src/ska_sdp_instrumental_calibration/__init__.py`
 
-5. Add a new `H2` heading in [CHANGELOG](CHANGELOG), and add release notes under that heading. The heading should be the new version number.
+5. Add a new `H2` (`##`) heading in [CHANGELOG](CHANGELOG.md), and add release notes under that heading. The heading should be the new version number.
 
-6. Using the new version, create a new issue on the [Release Management](https://jira.skatelescope.org/projects/REL/summary) Jira Project with a summary of your release, and set the issue status to "IN PROGRESS".
+6. Update the `docker pull` command in the "As OCI container" section of [README.md](README.md) to the new version.
 
-7. Stage all the changes, create a new commit with:
+7. Using the new version, create a new issue on the [Release Management](https://jira.skatelescope.org/projects/REL/summary) Jira Project with a summary of your release, and set the issue status to "IN PROGRESS".
+
+8. Stage all the changes, create a new commit with:
 
     1. The JIRA Ticket ID = ID of the release issue created in previous step.
 
     2. The commit message title = "Bump version to V.V.V"
 
-8. Push the changes to the `main` branch. **Make sure that the pipeline is green.**
+9. Push the changes to the `main` branch. **Make sure that the pipeline is green.**
 
-9. Create a git-tag for the new version using `make create-git-tag` command.
+10. Create a git-tag for the new version using `make create-git-tag` command.
 
-10. Run `make push-git-tag` to push the tag to the main branch.
+11. Run `make push-git-tag` to push the tag to the main branch.
 
 ### Post-release
 

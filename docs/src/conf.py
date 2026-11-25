@@ -18,6 +18,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import re
 import sys
 import warnings
 
@@ -36,8 +37,71 @@ sys.path.insert(0, os.path.abspath("../.."))
 sys.path.append(os.path.abspath("../../src"))
 
 
+# README.md, DEVELOPMENT.md and CHANGELOG.md are symlinked into docs/src,
+# so they are rendered both by GitLab and by sphinx. Links in them are
+# written in the form GitLab understands:
+#   - docs-only pages: absolute RTD URL, e.g.
+#     https://developer.skao.int/projects/<project>/en/latest/page.html
+#     (or the docs home, .../en/latest/, for the index page)
+#   - other shared files: relative path, e.g. DEVELOPMENT.md
+# During the sphinx build, both are rewritten into links to the pages of
+# the docs version being built (instead of the "latest" published docs).
+# See "Links in shared markdown files" in DEVELOPMENT.md.
+# Note: in re.VERBOSE mode, a literal "#" must be escaped as "\#".
+_MD_LINK = re.compile(
+    r"""
+    (?<!`)  # skip inline code
+    \[ (?P<text> [^\]]* ) \]
+    \(
+        (?:
+            https://developer\.skao\.int/projects/ska-sdp-instrumental-calibration/en/
+            [^/)\s]+ /
+            # page is optional: the docs home URL links to the index
+            (?: (?P<page> [^)\#\s]+ ) \.html )?
+        |
+            (?P<file> [\w-]+ ) \.md
+        )
+        (?P<anchor> \# [^)\s]* )?
+    \)
+    """,
+    re.VERBOSE,
+)
+
+
+def _localise_shared_md_links(app, docname, source):
+    """
+    Sphinx "source-read" hook which rewrites the links of markdown
+    documents described above. Links to pages without a source file
+    in docs/src are left unchanged.
+    """
+    if app.env.doc2path(docname).suffix != ".md":
+        return
+
+    def _replace(match):
+        page = match["page"] or match["file"] or "index"
+        page_in_docs = any(
+            os.path.exists(os.path.join(app.srcdir, page + suffix))
+            for suffix in (".rst", ".md")
+        )
+
+        if page_in_docs:
+            if match["anchor"]:
+                # MyST can't resolve anchors in other docs, use plain html
+                anchor, text = match["anchor"], match["text"]
+                return f'<a href="{page}.html{anchor}">{text}</a>'
+
+            # bare docname, resolved and validated by MyST
+            return f"[{match['text']}]({page})"
+
+        # not part of these docs, keep the original link
+        return match[0]
+
+    source[0] = _MD_LINK.sub(_replace, source[0])
+
+
 def setup(app):
     app.add_css_file('custom.css')
+    app.connect("source-read", _localise_shared_md_links)
 
 # -- Project information -------------------------------------------------
 
@@ -71,12 +135,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinxcontrib.autodoc_pydantic",
     "ska_sdp_piper.extensions.sphinx_piper_pipeline",
-    "sphinxcontrib.mermaid",
 ]
-
-# Mermaid diagrams set their own light theme, since the RTD page
-# background stays white. Keep it in OS dark mode too.
-mermaid_dark_theme = "base"
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:

@@ -53,7 +53,7 @@
 #  --reuse-dirs              If set, script will reuse the above output directories
 #                            (even if they exist), possibly overwriting content.
 #  --disable-dask-cluster    Disable batchlet-managed dask cluster creation.
-#  --memory-per-worker S     Dask memory_per_worker value. Default: 16GB.
+#  --memory-per-worker S     Dask memory_per_worker value. Default: auto.
 #  --threads-per-worker N    Dask threads_per_worker value. Default: 4.
 #  --enable-monitor          Enable batchlet resource and log monitoring.
 #  --disable-stdout-logs     Do not mirror main application stdout/stderr to terminal.
