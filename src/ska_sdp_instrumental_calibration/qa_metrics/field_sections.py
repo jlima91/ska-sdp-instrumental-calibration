@@ -46,10 +46,10 @@ from .service import (
     get_station_configuration,
 )
 from .tables import (
-    BANDPASS_FIT_METRICS_COLUMNS,
     CABLE_DELAYS_COLUMNS,
     FLAGGING_STATISTICS_COLUMNS,
     build_station_rows,
+    get_bandpass_fit_metrics_columns,
 )
 
 section_builder = SectionBuilder()
@@ -57,7 +57,7 @@ section_builder = SectionBuilder()
 
 @section_builder(FlaggingStatisticsSection)
 def flagging_statistics_section(
-    field_metadata: FieldMetadata,
+    field_metadata: FieldMetadata, **kwargs
 ) -> FlaggingStatisticsSection:
     """
     Build the flagging statistics section of a field.
@@ -112,7 +112,9 @@ def flagging_statistics_section(
 
 
 @section_builder(MetadataSection)
-def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
+def metadata_section(
+    field_metadata: FieldMetadata, **kwargs
+) -> MetadataSection:
     """
     Build the metadata summary section of a field.
 
@@ -163,7 +165,7 @@ def metadata_section(field_metadata: FieldMetadata) -> MetadataSection:
 
 @section_builder(CableDelaysSection)
 def cable_delays_section(
-    field_metadata: FieldMetadata,
+    field_metadata: FieldMetadata, **kwargs
 ) -> CableDelaysSection:
     """
     Build the cable delays section of a field.
@@ -204,6 +206,9 @@ def cable_delays_section(
 @section_builder(BandpassFitSection)
 def bandpass_fit_section(
     field_metadata: FieldMetadata,
+    phase_fit_threshold,
+    gain_fit_threshold,
+    **kwargs,
 ) -> BandpassFitSection:
     """
     Build the bandpass fit section of a field.
@@ -234,7 +239,9 @@ def bandpass_fit_section(
     gaintable = read_gaintable(get_bandpass_gaintable_paths(field_metadata))
 
     return BandpassFitSection(
-        columns=BANDPASS_FIT_METRICS_COLUMNS,
+        columns=get_bandpass_fit_metrics_columns(
+            phase_fit_threshold, gain_fit_threshold
+        ),
         rows=build_station_rows(
             get_station_configuration(field_metadata),
             bandpass_fit_quality(gaintable),

@@ -46,7 +46,14 @@
         {% set header = namespace(column_index=0) %}
         {% for item in columns %}
         {% if item.columns is defined %}
-        <th class="column-group" colspan="{{ item.columns|length }}" data-tooltip="{{ item.description or '' }}">{{ item.label }}</th>
+        <th class="column-group" colspan="{{ item.columns|length }}" data-tooltip="{{ item.description or '' }}">
+          {{- item.label }}
+          {#- The X and Y columns of a group share one threshold #}
+          {%- set threshold = item.columns[0].threshold %}
+          {%- if threshold is not none %}
+          <div class="threshold">Acceptable threshold: <span>{{ threshold }}</span></div>
+          {%- endif -%}
+        </th>
         {% set header.column_index = header.column_index + item.columns|length %}
         {% else %}
         {{ column_header(item, header.column_index, 2 if has_groups else 1) }}
@@ -69,7 +76,13 @@
       <tr>
         {% for column in table.columns %}
         {% set value = row.get(column.key) %}
-        <td class="{{ column.value_format }}" data-sort-value="{{ value if value is not none }}">
+        <td class="{{ column.value_format }}
+            {%- if column.threshold is not none and value is not none %}
+              {%- if value != value %} not-a-number
+              {%- elif value < column.threshold %} below-threshold
+              {%- endif %}
+            {%- endif %}"
+            data-sort-value="{{ value if value is not none }}">
           {{- format_value(value, column.value_format) -}}
         </td>
         {% endfor %}

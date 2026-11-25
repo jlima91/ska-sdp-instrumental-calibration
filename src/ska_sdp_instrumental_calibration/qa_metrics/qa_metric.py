@@ -23,7 +23,9 @@ REPORT_SECTIONS = (
 )
 
 
-def generate_qa_metric(qa_dir: str, title: str = "Bandpass QA Metrics"):
+def generate_qa_metric(
+    qa_dir: str, title: str = "Bandpass QA Metrics", **kwargs
+):
     """
     Write the QA metric HTML reports of an INST run, one per field, from
     its run metadata.
@@ -78,7 +80,7 @@ def generate_qa_metric(qa_dir: str, title: str = "Bandpass QA Metrics"):
             )
             for section in REPORT_SECTIONS:
                 report.add_section(
-                    section_builder.build(section, field_metadata)
+                    section_builder.build(section, field_metadata, **kwargs)
                 )
 
             report.write_report_to_dir(qa_dir)

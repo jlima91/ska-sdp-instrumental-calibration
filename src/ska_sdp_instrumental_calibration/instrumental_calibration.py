@@ -72,6 +72,20 @@ qa_output_cli_arg = CLIArgument(
     default="./output",
     help="""Output directory of the INST run.""",
 )
+phase_fit_threshold_cli_arg = CLIArgument(
+    "--acceptable-phase-fit-threshold",
+    dest="phase_fit_threshold",
+    type=float,
+    default=0.75,
+    help="""Acceptable phase fit threshold.""",
+)
+gain_fit_threshold_cli_arg = CLIArgument(
+    "--acceptable-gain-fit-threshold",
+    dest="gain_fit_threshold",
+    type=float,
+    default=0.75,
+    help="""Acceptable gain fit threshold.""",
+)
 
 """
 This is the entrypoint for instrumental calibration pipeline.
@@ -191,9 +205,11 @@ def experimental(**cli_args):
     "qa-metric",
     qa_output_cli_arg,
     sdm_cli_arg,
+    phase_fit_threshold_cli_arg,
+    gain_fit_threshold_cli_arg,
     help="Generate the QA metric HTML report of INST run",
 )
-def qa_metric(sdm_path, output_path):
+def qa_metric(sdm_path, output_path, phase_fit_threshold, gain_fit_threshold):
     """
     Write the QA metric HTML report for bandpass of the INST run.
     The report goes to the logs directory of the latest INST run
@@ -214,4 +230,8 @@ def qa_metric(sdm_path, output_path):
         logger.error("%s", error)
         return
 
-    generate_qa_metric(qa_dir)
+    generate_qa_metric(
+        qa_dir,
+        phase_fit_threshold=phase_fit_threshold,
+        gain_fit_threshold=gain_fit_threshold,
+    )

@@ -5,6 +5,7 @@
   --label: #6b7280; --soft: #f7f8fa;
   --section-bar: #e8e9f1; --section-bar-hover: #dcdeea;
   --error: #c4122f; --error-background: #fdecee;
+  --not-a-number: #d9536b;
 
   --stations-width: 40%; --array-configuration-gap: 48px;
 }
@@ -122,6 +123,11 @@ th[data-column-index] { cursor: pointer; user-select: none; }
 th[data-column-index]:hover { color: var(--ska-navy); }
 th[data-column-index]::after { content: " \2195"; opacity: 0.35; }
 th.column-group { position: relative; text-align: center; }
+th.column-group .threshold {
+  margin: 12px -28px 0; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+th.column-group .threshold span { margin-left: 32px; }
 /* Description of a column group, shown below its header on hover */
 th.column-group[data-tooltip]:not([data-tooltip=""]):hover::after {
   content: attr(data-tooltip); position: absolute; top: 100%; left: 50%;
@@ -144,3 +150,5 @@ td.percentage, td.number { font-family: monospace; font-size: 15px; }
 .pagination button {
   padding: 4px 16px; font-size: 18px; border: none; background: none;
 }
+td.below-threshold { color: var(--error); font-weight: 600; }
+td.not-a-number { font-style: italic; color: var(--not-a-number); }

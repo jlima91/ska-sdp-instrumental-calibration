@@ -26,6 +26,7 @@ BUILD = (
     "ska_sdp_instrumental_calibration.qa_metrics.qa_metric"
     ".section_builder.build"
 )
+THRESHOLDS = {"phase_fit_threshold": 0.75, "gain_fit_threshold": 0.75}
 LOGGER = "ska_sdp_instrumental_calibration.qa_metrics.qa_metric.logger"
 
 
@@ -60,7 +61,7 @@ def test_should_have_a_builder_for_every_report_section():
 def test_should_write_one_report_per_field(tmp_path):
     _write_run_metadata(tmp_path, ["field_a", "field_b"])
 
-    generate_qa_metric(str(tmp_path))
+    generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     assert (tmp_path / "inst-field_a-qa-metric.html").exists()
     assert (tmp_path / "inst-field_b-qa-metric.html").exists()
@@ -72,7 +73,7 @@ def test_should_show_missing_products_in_their_sections(tmp_path):
     # report is still written, with an error in each section
     _write_run_metadata(tmp_path, ["field_a"])
 
-    generate_qa_metric(str(tmp_path), title="Test QA Metrics")
+    generate_qa_metric(str(tmp_path), title="Test QA Metrics", **THRESHOLDS)
 
     page = (tmp_path / "inst-field_a-qa-metric.html").read_text()
     assert "Test QA Metrics" in page
@@ -87,7 +88,7 @@ def test_should_build_report_sections_in_order_for_each_field(
 ):
     _write_run_metadata(tmp_path, ["field_a"])
 
-    generate_qa_metric(str(tmp_path))
+    generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     built = [args[0] for args, _ in build_mock.call_args_list]
     assert built == list(REPORT_SECTIONS)
@@ -95,7 +96,7 @@ def test_should_build_report_sections_in_order_for_each_field(
 
 def test_should_write_error_report_if_no_run_metadata(tmp_path):
     with patch(LOGGER) as logger_mock:
-        generate_qa_metric(str(tmp_path))
+        generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     page = (tmp_path / ERROR_REPORT).read_text()
     assert f"QA metric report of the INST run in {tmp_path}" in page
@@ -111,7 +112,7 @@ def test_should_not_overwrite_report_of_a_field_named_null(tmp_path):
     # A field can be named NULL by upstream errors: its report is its own
     _write_run_metadata(tmp_path, ["NULL"])
 
-    generate_qa_metric(str(tmp_path))
+    generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     page = (tmp_path / "inst-NULL-qa-metric.html").read_text()
     assert "Source: <strong>NULL</strong>" in page
@@ -133,7 +134,7 @@ def test_should_write_error_report_if_run_metadata_is_corrupt(
     (tmp_path / "run_metadata.json").write_text(run_metadata)
 
     with patch(LOGGER) as logger_mock:
-        generate_qa_metric(str(tmp_path))
+        generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     page = (tmp_path / ERROR_REPORT).read_text()
     assert f"QA metric report of the INST run in {tmp_path}" in page
@@ -149,17 +150,17 @@ def test_should_report_other_fields_if_one_fails(tmp_path):
     # pylint: disable-next=protected-access
     metadata_builder = section_builder._builders[MetadataSection]
 
-    def _buggy_metadata_section(field_metadata):
+    def _buggy_metadata_section(field_metadata, **kwargs):
         if field_metadata.field_name == "field_a":
             raise ZeroDivisionError("bug in the computation")
-        return metadata_builder(field_metadata)
+        return metadata_builder(field_metadata, **kwargs)
 
     with patch.dict(
         # pylint: disable-next=protected-access
         section_builder._builders,
         {MetadataSection: _buggy_metadata_section},
     ), patch(LOGGER) as logger_mock:
-        generate_qa_metric(str(tmp_path))
+        generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     assert not (tmp_path / "inst-field_a-qa-metric.html").exists()
     assert (tmp_path / "inst-field_b-qa-metric.html").exists()
@@ -173,7 +174,7 @@ def test_should_write_error_report_if_no_field_is_recorded(tmp_path):
     RunMetadata(str(tmp_path)).to_json()
 
     with patch(LOGGER) as logger_mock:
-        generate_qa_metric(str(tmp_path))
+        generate_qa_metric(str(tmp_path), **THRESHOLDS)
 
     page = (tmp_path / ERROR_REPORT).read_text()
     assert f"QA metric report of the INST run in {tmp_path}" in page

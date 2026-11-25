@@ -184,7 +184,7 @@ def gain_fit_quality_for_pol(
         # Only the fitted channels: the others cannot be judged
         total_fitted += residuals.size
 
-    return total_good / total_fitted if total_fitted else None
+    return total_good / total_fitted if total_fitted else np.nan
 
 
 def phase_fit_quality_for_pol(
@@ -232,7 +232,7 @@ def phase_fit_quality_for_pol(
         )
         total_fitted += n_usable
 
-    return total_good / total_fitted if total_fitted else None
+    return total_good / total_fitted if total_fitted else np.nan
 
 
 def bandpass_fit_quality(

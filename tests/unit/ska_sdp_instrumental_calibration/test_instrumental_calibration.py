@@ -241,11 +241,18 @@ def test_should_warn_user_if_no_config_is_provided_in_experimental(
 def test_should_generate_qa_metric_from_sub_command(
     generate_qa_metric_mock, get_qa_dir_mock
 ):
-    qa_metric(sdm_path="sdm_path", output_path="output_path")
+    qa_metric(
+        sdm_path="sdm_path",
+        output_path="output_path",
+        phase_fit_threshold=0.8,
+        gain_fit_threshold=0.7,
+    )
     get_qa_dir_mock.assert_called_once_with("output_path", "sdm_path")
 
     generate_qa_metric_mock.assert_called_once_with(
-        get_qa_dir_mock.return_value
+        get_qa_dir_mock.return_value,
+        phase_fit_threshold=0.8,
+        gain_fit_threshold=0.7,
     )
 
 
@@ -264,7 +271,12 @@ def test_should_log_error_and_skip_qa_metric_if_qa_dir_is_not_found(
     get_qa_dir_mock.side_effect = error
 
     # qa_metric handles the error itself instead of raising it
-    qa_metric(sdm_path="sdm_path", output_path="output_path")
+    qa_metric(
+        sdm_path="sdm_path",
+        output_path="output_path",
+        phase_fit_threshold=0.75,
+        gain_fit_threshold=0.75,
+    )
 
     logger_mock.error.assert_called_once_with("%s", error)
     generate_qa_metric_mock.assert_not_called()

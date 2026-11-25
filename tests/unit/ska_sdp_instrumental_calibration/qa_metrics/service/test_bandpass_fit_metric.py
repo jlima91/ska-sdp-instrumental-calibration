@@ -246,7 +246,7 @@ def test_should_get_no_fit_quality_if_all_channels_are_flagged(
         weight=np.zeros((1, 1, FREQUENCY.size, len(POLARIZATIONS))),
     )
 
-    assert fit_quality_for_pol(_station(gaintable), "XX") is None
+    assert np.isnan(fit_quality_for_pol(_station(gaintable), "XX"))
 
 
 def test_should_get_no_gain_fit_quality_at_coarse_channel_resolution():
@@ -260,7 +260,7 @@ def test_should_get_no_gain_fit_quality_at_coarse_channel_resolution():
     )
     gaintable = _gaintable({"station_a": (gains, gains)}, frequency=frequency)
 
-    assert gain_fit_quality_for_pol(_station(gaintable), "XX") is None
+    assert np.isnan(gain_fit_quality_for_pol(_station(gaintable), "XX"))
     assert phase_fit_quality_for_pol(_station(gaintable), "XX") == 1.0
 
 

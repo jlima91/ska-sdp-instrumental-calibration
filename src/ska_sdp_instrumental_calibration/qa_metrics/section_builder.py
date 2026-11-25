@@ -96,7 +96,10 @@ class SectionBuilder:
         return register
 
     def build(
-        self, section_type: type[Section], field_metadata: FieldMetadata
+        self,
+        section_type: type[Section],
+        field_metadata: FieldMetadata,
+        **kwargs,
     ) -> Section:
         """
         Build a section of the QA report of a field from its run metadata.
@@ -125,7 +128,7 @@ class SectionBuilder:
         """
         builder = self._builders[section_type]
         try:
-            return builder(field_metadata)
+            return builder(field_metadata, **kwargs)
         except RunMetadataError as error:
             return ErrorSection(
                 section_type.title,

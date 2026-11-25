@@ -33,12 +33,13 @@ from ska_sdp_instrumental_calibration.qa_metrics.sections import (
     MetadataSection,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.tables import (
-    BANDPASS_FIT_METRICS_COLUMNS,
     CABLE_DELAYS_COLUMNS,
     FLAGGING_STATISTICS_COLUMNS,
+    get_bandpass_fit_metrics_columns,
 )
 from ska_sdp_instrumental_calibration.xarray_processors.delay import DelayTable
 
+THRESHOLDS = {"phase_fit_threshold": 0.75, "gain_fit_threshold": 0.75}
 READ_GAINTABLE = (
     "ska_sdp_instrumental_calibration.qa_metrics.field_sections"
     ".read_gaintable"
@@ -447,10 +448,12 @@ def test_should_get_bandpass_fit_section_of_a_field(
         {"ms_a": "/qa/dir/a.h5parm", "ms_b": "/qa/dir/b.h5parm"}
     )
 
-    section = section_builder.build(BandpassFitSection, field_metadata)
+    section = section_builder.build(
+        BandpassFitSection, field_metadata, **THRESHOLDS
+    )
 
     assert section == BandpassFitSection(
-        columns=BANDPASS_FIT_METRICS_COLUMNS,
+        columns=get_bandpass_fit_metrics_columns(0.75, 0.75),
         rows=[
             {
                 "station": "0",
@@ -479,7 +482,9 @@ def test_should_get_error_section_if_no_bandpass_gaintable_is_recorded():
         sections={"metadata_summary": {"stations": STATIONS}},
     )
 
-    section = section_builder.build(BandpassFitSection, field_metadata)
+    section = section_builder.build(
+        BandpassFitSection, field_metadata, **THRESHOLDS
+    )
 
     assert isinstance(section, ErrorSection)
     assert section.title == BandpassFitSection.title
@@ -492,7 +497,9 @@ def test_should_get_error_section_if_bandpass_gaintable_is_corrupt(tmp_path):
     corrupt.write_text("not an HDF5 file")
     field_metadata = _bandpass_field_metadata({"ms_a": str(corrupt)})
 
-    section = section_builder.build(BandpassFitSection, field_metadata)
+    section = section_builder.build(
+        BandpassFitSection, field_metadata, **THRESHOLDS
+    )
 
     assert isinstance(section, ErrorSection)
     assert section.title == BandpassFitSection.title
@@ -542,7 +549,9 @@ def test_should_get_error_section_of_each_section_if_no_stations_are_recorded(
         CableDelaysSection,
         BandpassFitSection,
     ):
-        section = section_builder.build(section_type, field_metadata)
+        section = section_builder.build(
+            section_type, field_metadata, **THRESHOLDS
+        )
 
         assert isinstance(section, ErrorSection), section_type
         assert section.title == section_type.title
