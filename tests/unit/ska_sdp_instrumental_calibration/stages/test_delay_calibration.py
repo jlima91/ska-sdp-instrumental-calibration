@@ -1,7 +1,10 @@
 import pytest
 from mock import MagicMock, Mock, call, patch
 
-from ska_sdp_instrumental_calibration.qa_metrics import QASection, RunMetadata
+from ska_sdp_instrumental_calibration.qa_metrics.repository import (
+    ManifestSchema,
+    RunManifest,
+)
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.delay_calibration import (
     PlotConfig,
@@ -561,7 +564,7 @@ def test_should_export_gaintable_with_proper_suffix(
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["field_id"] = "field-a"
-    upstream_output["run_metadata"] = RunMetadata("/output/path")
+    upstream_output["run_metadata"] = RunManifest("/output/path")
     upstream_output["vis"] = Mock(name="vis")
     upstream_output["gaintable"] = Mock(name="gaintable")
     upstream_output["modelvis"] = Mock(name="modelvis")
@@ -620,9 +623,9 @@ def test_should_export_gaintable_with_proper_suffix(
 
     # The stage ran twice on one MS: only its last write is kept
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.DELAY.GAINTABLE) == {
+    assert field_metadata.get_data_for(ManifestSchema.DELAY.GAINTABLE) == {
         "ms_prefix": "/output/path/gaintables/delay_1.gaintable.h5parm"
     }
-    assert field_metadata.get_data_for(QASection.DELAY.DELAYTABLE) == {
+    assert field_metadata.get_data_for(ManifestSchema.DELAY.DELAYTABLE) == {
         "ms_prefix": "/output/path/gaintables/delay_1.clock.h5parm"
     }

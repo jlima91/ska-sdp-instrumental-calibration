@@ -5,12 +5,25 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from ska_sdp_instrumental_calibration.qa_metrics.domain.flagging_statistics import (  # noqa: E501
+    PreFlagging,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
+    FieldMetadata,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.service import (
     export_pre_flagging,
     read_pre_flagging,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.service.pre_flagging import (  # noqa: E501
+    flagged_sample_counts,
+    flagged_time_count,
+    get_pre_flagging_paths,
+    pre_flags_from_counts,
+    unsolvable_gain_counts,
 )
 
 
@@ -152,3 +165,104 @@ def test_should_raise_if_pre_flagging_counts_are_missing(tmp_path):
         RunMetadataError, match="has no unsolvable, nchannels counts"
     ):
         read_pre_flagging([str(path)], nstations=1)
+
+
+def test_should_count_flagged_time_steps_per_baseline_and_channel():
+    flags = np.zeros((2, 1, 2, 2), dtype=bool)
+    flags[0, 0, 0, 1] = True
+    flags[:, 0, 1, 0] = True
+    vis = xr.Dataset(
+        {
+            "flags": (
+                ["time", "baselineid", "frequency", "polarisation"],
+                flags,
+            )
+        }
+    )
+
+    np.testing.assert_array_equal(flagged_time_count(vis), [[1, 2]])
+
+
+def test_should_count_flagged_samples_per_station():
+    flagged, total = flagged_sample_counts(
+        np.array([[2, 0], [0, 0]]), np.array([0, 0]), np.array([1, 2]), 2, 3
+    )
+
+    np.testing.assert_array_equal(flagged, [2, 2, 0])
+    np.testing.assert_array_equal(total, [8, 4, 4])
+
+
+def test_should_count_unsolvable_gains_per_station():
+    unsolvable, nchannels = unsolvable_gain_counts(
+        np.array([[2, 0], [0, 0]]), np.array([0, 0]), np.array([1, 2]), 2, 3
+    )
+
+    np.testing.assert_array_equal(unsolvable, [0, 1, 0])
+    assert nchannels == 2
+
+
+STATION_NAMES = ["station_a", "station_b"]
+
+
+def _counts(flagged, total, unsolvable, nchannels):
+    """Counts of one MS, as read by products.read_pre_flagging"""
+    return {
+        "flagged": np.asarray(flagged),
+        "total": np.asarray(total),
+        "unsolvable": np.asarray(unsolvable),
+        "nchannels": nchannels,
+    }
+
+
+def test_should_get_pre_flagging_percentages_per_station():
+    counts = [
+        _counts(flagged=[2, 0], total=[8, 8], unsolvable=[1, 0], nchannels=4)
+    ]
+
+    pre_flagging = pre_flags_from_counts(counts, STATION_NAMES)
+
+    assert pre_flagging == PreFlagging(
+        flagged_data={"station_a": 25.0, "station_b": 0.0},
+        unsolvable_gains={"station_a": 25.0, "station_b": 0.0},
+    )
+
+
+def test_should_sum_counts_of_all_ms_before_dividing():
+    # MS a is 4 times bigger than MS b: averaging the percentages (50% and
+    # 0%) would give 25%, summing the counts gives 4 / 10 = 40%
+    counts = [
+        _counts(flagged=[4, 0], total=[8, 8], unsolvable=[1, 0], nchannels=2),
+        _counts(flagged=[0, 0], total=[2, 2], unsolvable=[0, 0], nchannels=2),
+    ]
+
+    pre_flagging = pre_flags_from_counts(counts, STATION_NAMES)
+
+    assert pre_flagging.flagged_data["station_a"] == pytest.approx(40.0)
+    assert pre_flagging.unsolvable_gains["station_a"] == pytest.approx(25.0)
+
+
+def _field_metadata(sections):
+    return FieldMetadata("field_a", "/qa/dir", sections=sections)
+
+
+def test_should_get_pre_flagging_data_of_each_ms():
+    field_metadata = _field_metadata(
+        {
+            "flagging": {
+                "pre_flagging": {
+                    "ms_a": "/qa/dir/derived/ms_a/pre-flagging-data.json",
+                    "ms_b": "/qa/dir/derived/ms_b/pre-flagging-data.json",
+                }
+            }
+        }
+    )
+
+    assert get_pre_flagging_paths(field_metadata) == [
+        "/qa/dir/derived/ms_a/pre-flagging-data.json",
+        "/qa/dir/derived/ms_b/pre-flagging-data.json",
+    ]
+
+
+def test_should_get_no_pre_flagging_data_if_none_is_recorded():
+    # Not an error here: the reader raises for an empty list
+    assert get_pre_flagging_paths(_field_metadata({})) == []

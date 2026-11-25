@@ -1,32 +1,33 @@
 """
-Registry of the builders of the QA report sections, by section type.
+Registry of the QA report sections: their builders, by section type,
+and the dispatch to them.
 
 A builder is registered for a section type with ``@builder(SectionType)``
-on a SectionBuilder, and run with ``builder.build(SectionType,
+on a SectionRegistry, and run with ``builder.build(SectionType,
 field_metadata)``, which shows a run metadata error as an error section.
-The builders of the report and its one SectionBuilder,
-``section_builder``, are in :mod:`..view.section_builder`.
+The builders of the report and its one SectionRegistry,
+``section_registry``, are in :mod:`.sections`.
 """
 
-from typing import Callable
+from typing import Callable, Concatenate
 
 from ..exceptions import QAReportException, RunMetadataError
-from ..repository.run_metadata import FieldMetadata
+from ..repository.field_metadata import FieldMetadata
 from ..view.sections import ErrorSection, Section
 
-Builder = Callable[[FieldMetadata], Section]
+Builder = Callable[Concatenate[FieldMetadata, ...], Section]
 
 
-class SectionBuilder:
+class SectionRegistry:
     """
     Builders of the sections of the QA report, by section type.
 
     Builders are registered with :meth:`builds`, also run by calling the
     instance as a decorator, and run with :meth:`build`. The one instance
-    used by the report, ``section_builder``, is in
-    :mod:`..view.section_builder`, with the builders it registers:
-    ``@section_builder(SectionType)`` registers the builder of a section
-    and ``section_builder.build(SectionType, field_metadata)`` builds it.
+    used by the report, ``section_registry``, is in
+    :mod:`.sections`, with the builders it registers:
+    ``@section_registry(SectionType)`` registers the builder of a section
+    and ``section_registry.build(SectionType, field_metadata)`` builds it.
     Each instance has its own registry, so tests can use a fresh one.
     """
 
@@ -44,7 +45,7 @@ class SectionBuilder:
         or cannot be read. The decorator only registers the builder: it is
         returned unchanged, and :meth:`build` turns its errors into an
         error section. Calling the instance does the same, so builders are
-        decorated with ``@section_builder(SectionType)``.
+        decorated with ``@section_registry(SectionType)``.
 
         Parameters
         ----------
@@ -61,7 +62,7 @@ class SectionBuilder:
         ------
         TypeError
             If ``section_type`` is not a Section type, e.g. when used
-            without a section type as ``@section_builder``.
+            without a section type as ``@section_registry``.
         ValueError
             If a builder is already registered for ``section_type``.
 
@@ -71,7 +72,7 @@ class SectionBuilder:
 
         .. code-block:: python
 
-            @section_builder(FlaggingStatisticsSection)
+            @section_registry(FlaggingStatisticsSection)
             def flagging_statistics_section(field_metadata):
                 ...
         """

@@ -5,7 +5,8 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
-from ..qa_metrics import QASection, export_gain_fits_to_zarr
+from ..qa_metrics.repository import ManifestSchema
+from ..qa_metrics.service import export_gain_fits_to_zarr
 from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,
@@ -198,14 +199,14 @@ def flag_gain_stage(
 
         _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
-            QASection.FLAGGING.GAIN_FITS,
+            ManifestSchema.FLAGGING.GAIN_FITS,
             fits_file_path,
             prefix=prefix,
         )
 
         _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
-            QASection.FLAGGING.GAINTABLE,
+            ManifestSchema.FLAGGING.GAINTABLE,
             gaintable_file_path,
             prefix=prefix,
         )

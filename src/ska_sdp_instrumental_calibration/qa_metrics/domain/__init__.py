@@ -6,18 +6,23 @@ They are plain data, built from arrays, counts and xarray tables already
 read by :mod:`..service`, so they read no files and raise no run metadata
 errors. The sections of the report are built from them.
 
-``qa_metadata``
-    Metadata of a field: its files, observation parameters, stations and
-    flagging before calibration.
-``qa_metric``
-    Metrics of a field: flagging statistics, bandpass fit metrics and
-    cable delays.
+``metadata``
+    Metadata of a field: its files, observation parameters and stations.
+``flagging_statistics``
+    Flagging of a field before calibration (pre-flagging) and its
+    flagging statistics after it.
+``bandpass_fit``
+    Fit metrics of the bandpass gains of a field, per station.
+``cable_delays``
+    X and Y cable delays of a field, per station.
 """
 
-from .qa_metadata import ObservationParameters, PreFlagging, QAMetadata
+from .flagging_statistics import FlaggingStatistics, PreFlagging
+from .metadata import ObservationParameters, QAMetadata
 
 __all__ = [
     "ObservationParameters",
     "PreFlagging",
     "QAMetadata",
+    "FlaggingStatistics",
 ]

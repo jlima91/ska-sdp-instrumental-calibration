@@ -21,7 +21,8 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..qa_metrics import QASection, RunMetadata, export_pre_flagging
+from ..qa_metrics.repository import ManifestSchema, RunManifest
+from ..qa_metrics.service import export_pre_flagging
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 from ._utils import get_derived_path
@@ -149,7 +150,7 @@ def load_data_stage(
         Updated upstream_output with the loaded visibility data
     """
     upstream_outputs = []
-    run_metadata = RunMetadata(_qa_dir_)
+    run_metadata = RunManifest(_qa_dir_)
     for ms in input_ms:
         upstream_output = _load_data(
             _output_dir_,
@@ -172,12 +173,12 @@ def load_data_stage(
 
         run_metadata.add_for_field(
             upstream_output.field_id,
-            QASection.METADATA_SUMMARY.MS,
+            ManifestSchema.METADATA_SUMMARY.MS,
             upstream_output.input_ms,
         )
         run_metadata.add_for_field(
             upstream_output.field_id,
-            QASection.METADATA_SUMMARY.STATION_CONFIGURATION,
+            ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION,
             dict(
                 zip(
                     upstream_output.vis.configuration.names.data.tolist(),
@@ -188,13 +189,13 @@ def load_data_stage(
 
         run_metadata.add_for_field(
             upstream_output.field_id,
-            QASection.METADATA_SUMMARY.TIMESTAMPS,
+            ManifestSchema.METADATA_SUMMARY.TIMESTAMPS,
             upstream_output.vis.time.data.tolist(),
         )
 
         run_metadata.add_for_field(
             upstream_output.field_id,
-            QASection.FLAGGING.PRE_FLAGGING,
+            ManifestSchema.FLAGGING.PRE_FLAGGING,
             pre_flagging_data_path,
             prefix=upstream_output.ms_prefix,
         )

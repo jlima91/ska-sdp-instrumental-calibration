@@ -1,7 +1,27 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
-from ..domain.qa_metadata import StationConfiguration
+from ..domain.metadata import StationConfiguration
+
+
+class StationMetrics(Protocol):
+    """
+    Metrics of a field with a value per station, e.g. CableDelays: what a
+    station table of the QA report is built from.
+
+    Structural: any object with a ``values_per_station`` property matches,
+    without subclassing it.
+    """
+
+    @property
+    def values_per_station(
+        self,
+    ) -> Mapping[str, Mapping[str, float | None]] | None:
+        """
+        Values keyed by column key, per MS station name. None while not
+        calculated.
+        """
 
 
 @dataclass(frozen=True)
@@ -57,7 +77,7 @@ class ColumnGroup:
 
 def build_station_rows(
     station_configuration: StationConfiguration,
-    values_per_station: dict[str, dict] | None = None,
+    station_metrics: StationMetrics,
 ) -> list[dict]:
     """
     Rows of a QA metric table, one per station, with the smaller station
@@ -67,20 +87,21 @@ def build_station_rows(
     ----------
     station_configuration : StationConfiguration
         Stations of the field.
-    values_per_station : dict[str, dict], optional
-        Values of the row keyed by column key, per MS station name. A
-        station without values gets a row with only its ID and name.
+    station_metrics : StationMetrics
+        Metrics with values keyed by column key, per MS station name, e.g.
+        CableDelays. A station without values, or every station if they
+        are not calculated, gets a row with only its ID and name.
 
     Returns
     -------
     list[dict]
         ``station_id``, ``station_name`` and the station values per station.
     """
-    values_per_station = values_per_station or {}
+
+    values_per_station = station_metrics.values_per_station or {}
     return [
         {
             "station": value,
-            # Values are keyed by the MS station name
             **values_per_station.get(key, {}),
         }
         for key, value in (station_configuration.station_names.items())

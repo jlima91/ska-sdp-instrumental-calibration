@@ -12,7 +12,7 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..data_managers.sdm import get_gaintable_file_path
-from ..qa_metrics import QASection
+from ..qa_metrics.repository import ManifestSchema
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 
@@ -116,13 +116,13 @@ def export_gaintable_stage(
         if "run_metadata" in upstream_output:
             upstream_output.run_metadata.add_for_field(
                 upstream_output.field_id,
-                QASection.METADATA_SUMMARY.FINAL_GAINTABLE,
+                ManifestSchema.METADATA_SUMMARY.FINAL_GAINTABLE,
                 gaintable_file_path,
             )
 
             upstream_output.run_metadata.add_for_field(
                 upstream_output.field_id,
-                QASection.METADATA_SUMMARY.CHANNELS,
+                ManifestSchema.METADATA_SUMMARY.CHANNELS,
                 len(upstream_output.vis.frequency),
             )
 

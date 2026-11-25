@@ -1,18 +1,18 @@
 import pytest
 from mock import patch
 
-from ska_sdp_instrumental_calibration.qa_metrics.report import (
+from ska_sdp_instrumental_calibration.qa_metrics.controller.report import (
     REPORT_SECTIONS,
     generate_qa_metric,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.repository.qa_section import (
-    QASection,
+from ska_sdp_instrumental_calibration.qa_metrics.controller.sections import (
+    section_registry,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
-    RunMetadata,
+from ska_sdp_instrumental_calibration.qa_metrics.repository.manifest_schema import (  # noqa: E501
+    ManifestSchema,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.view.section_builder import (
-    section_builder,
+from ska_sdp_instrumental_calibration.qa_metrics.repository.run_manifest import (  # noqa: E501
+    RunManifest,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
@@ -25,11 +25,11 @@ from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
 # has no field name, so it cannot overwrite the report of a field
 ERROR_REPORT = "inst-qa-metric.html"
 BUILD = (
-    "ska_sdp_instrumental_calibration.qa_metrics.report"
-    ".section_builder.build"
+    "ska_sdp_instrumental_calibration.qa_metrics.controller.report"
+    ".section_registry.build"
 )
 THRESHOLDS = {"phase_fit_threshold": 0.75, "gain_fit_threshold": 0.75}
-LOGGER = "ska_sdp_instrumental_calibration.qa_metrics.report.logger"
+LOGGER = "ska_sdp_instrumental_calibration.qa_metrics.controller.report.logger"
 
 
 def _write_run_metadata(qa_dir, field_names):
@@ -37,10 +37,12 @@ def _write_run_metadata(qa_dir, field_names):
     Run metadata of fields with only their measurement set recorded: their
     products are missing, so each section of their report is an error
     """
-    run_metadata = RunMetadata(str(qa_dir))
+    run_metadata = RunManifest(str(qa_dir))
     for field_name in field_names:
         run_metadata.add_for_field(
-            field_name, QASection.METADATA_SUMMARY.MS, f"/data/{field_name}.ms"
+            field_name,
+            ManifestSchema.METADATA_SUMMARY.MS,
+            f"/data/{field_name}.ms",
         )
     run_metadata.to_json()
 
@@ -57,7 +59,7 @@ def test_should_show_sections_in_report_order():
 def test_should_have_a_builder_for_every_report_section():
     # A section added to the report without a builder would fail every run
     # pylint: disable-next=protected-access
-    assert set(REPORT_SECTIONS) <= set(section_builder._builders)
+    assert set(REPORT_SECTIONS) <= set(section_registry._builders)
 
 
 def test_should_write_one_report_per_field(tmp_path):
@@ -84,7 +86,7 @@ def test_should_show_missing_products_in_their_sections(tmp_path):
         assert f"{section_type.title} of field field_a cannot be built" in page
 
 
-@patch(BUILD, wraps=section_builder.build)
+@patch(BUILD, wraps=section_registry.build)
 def test_should_build_report_sections_in_order_for_each_field(
     build_mock, tmp_path
 ):
@@ -150,7 +152,7 @@ def test_should_report_other_fields_if_one_fails(tmp_path):
     # still reported
     _write_run_metadata(tmp_path, ["field_a", "field_b"])
     # pylint: disable-next=protected-access
-    metadata_builder = section_builder._builders[MetadataSection]
+    metadata_builder = section_registry._builders[MetadataSection]
 
     def _buggy_metadata_section(field_metadata, **kwargs):
         if field_metadata.field_name == "field_a":
@@ -159,7 +161,7 @@ def test_should_report_other_fields_if_one_fails(tmp_path):
 
     with patch.dict(
         # pylint: disable-next=protected-access
-        section_builder._builders,
+        section_registry._builders,
         {MetadataSection: _buggy_metadata_section},
     ), patch(LOGGER) as logger_mock:
         generate_qa_metric(str(tmp_path), **THRESHOLDS)
@@ -173,7 +175,7 @@ def test_should_report_other_fields_if_one_fails(tmp_path):
 
 def test_should_write_error_report_if_no_field_is_recorded(tmp_path):
     # e.g. the run failed before loading data
-    RunMetadata(str(tmp_path)).to_json()
+    RunManifest(str(tmp_path)).to_json()
 
     with patch(LOGGER) as logger_mock:
         generate_qa_metric(str(tmp_path), **THRESHOLDS)

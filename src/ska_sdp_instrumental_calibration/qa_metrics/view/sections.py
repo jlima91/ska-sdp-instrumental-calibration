@@ -10,7 +10,7 @@ never passed in. Sections with a fixed title set it as a default left out of
 from dataclasses import dataclass, field
 from typing import ClassVar
 
-from ..domain.qa_metadata import (
+from ..domain.metadata import (
     FileInformation,
     ObservationParameters,
     StationConfiguration,
@@ -97,7 +97,7 @@ class TableSection(Section):
 
     template: ClassVar[str] = "sections/table.html"
     title: str = field(init=True)
-    columns: list[Column] | list[ColumnGroup] = field(default_factory=list)
+    columns: list[Column | ColumnGroup] = field(default_factory=list)
     rows: list[dict] | None = None
     item_name: str = "stations"
 

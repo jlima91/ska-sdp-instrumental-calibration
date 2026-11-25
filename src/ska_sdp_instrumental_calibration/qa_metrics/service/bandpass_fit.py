@@ -11,8 +11,9 @@ left out of both counts: they are reported by the flagging statistics.
 import numpy as np
 
 from ...data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..repository.qa_section import QASection
-from ..repository.run_metadata import FieldMetadata
+from ..domain.bandpass_fit import BandpassFitMetrics
+from ..repository.field_metadata import FieldMetadata
+from ..repository.manifest_schema import ManifestSchema
 
 SKA_LOW_COARSE_CHANNEL_WIDTH = 781250.0  # Hz
 
@@ -237,7 +238,7 @@ def phase_fit_quality_for_pol(
 
 def bandpass_fit_quality(
     gaintable: GainCalibrationSetXds,
-) -> dict[str, dict[str, float | None]]:
+) -> BandpassFitMetrics:
     """
     Get the phase and gain amplitude fit quality of each station in X and
     Y polarisation.
@@ -283,7 +284,7 @@ def bandpass_fit_quality(
 
         fit_quality_per_station[str(station_name)] = fit_quality
 
-    return fit_quality_per_station
+    return BandpassFitMetrics(fit_quality_per_station)
 
 
 def get_bandpass_gaintable_paths(field_metadata: FieldMetadata) -> list[str]:
@@ -303,6 +304,6 @@ def get_bandpass_gaintable_paths(field_metadata: FieldMetadata) -> list[str]:
         none is recorded: the reader raises for it.
     """
     gaintables = (
-        field_metadata.get_data_for(QASection.BANDPASS.GAINTABLE) or {}
+        field_metadata.get_data_for(ManifestSchema.BANDPASS.GAINTABLE) or {}
     )
     return list(gaintables.values())

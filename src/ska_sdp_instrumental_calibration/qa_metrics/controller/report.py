@@ -1,15 +1,16 @@
 import logging
 
-from .exceptions import QAReportException, RunMetadataError
-from .repository import RunMetadata
-from .view import QAMetricReport, section_builder
-from .view.sections import (
+from ..exceptions import QAReportException, RunMetadataError
+from ..repository import RunManifest
+from ..view import QAMetricReport
+from ..view.sections import (
     BandpassFitSection,
     CableDelaysSection,
     ErrorSection,
     FlaggingStatisticsSection,
     MetadataSection,
 )
+from .sections import section_registry
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ def generate_qa_metric(
         Page title of the reports.
     """
     try:
-        run_metadata = RunMetadata.initialize(qa_dir)
+        run_metadata = RunManifest.initialize(qa_dir)
         if not run_metadata.field_metadata:
             raise RunMetadataError(
                 f"No field recorded in the run metadata of {qa_dir}"
@@ -79,7 +80,7 @@ def generate_qa_metric(
             )
             for section in REPORT_SECTIONS:
                 report.add_section(
-                    section_builder.build(section, field_metadata, **kwargs)
+                    section_registry.build(section, field_metadata, **kwargs)
                 )
 
             report.write_report_to_dir(qa_dir)

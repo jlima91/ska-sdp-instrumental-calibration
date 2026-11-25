@@ -1,6 +1,8 @@
 from mock import Mock, call, patch
 
-from ska_sdp_instrumental_calibration.qa_metrics import QASection
+from ska_sdp_instrumental_calibration.qa_metrics.repository import (
+    ManifestSchema,
+)
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.data_exports import (
     INST_METADATA_FILE,
@@ -286,10 +288,10 @@ def test_should_record_final_gaintable_and_channels_in_run_metadata(
         [
             call(
                 "field_a",
-                QASection.METADATA_SUMMARY.FINAL_GAINTABLE,
+                ManifestSchema.METADATA_SUMMARY.FINAL_GAINTABLE,
                 "dir/to/save/field_a_test_gains.h5parm",
             ),
-            call("field_a", QASection.METADATA_SUMMARY.CHANNELS, 16),
+            call("field_a", ManifestSchema.METADATA_SUMMARY.CHANNELS, 16),
         ]
     )
 

@@ -7,9 +7,10 @@ from .sections import Section
 
 logger = logging.getLogger(__name__)
 
-# Templates live in the qa_metrics package, the parent of this view package
+# Templates live in the templates folder of this view package. Its name is
+# taken from __name__, a str, rather than __package__, typed str | None
 template_env = jinja2.Environment(
-    loader=jinja2.PackageLoader(__package__.rpartition(".")[0]),
+    loader=jinja2.PackageLoader(__name__.rpartition(".")[0]),
     autoescape=jinja2.select_autoescape(),
 )
 

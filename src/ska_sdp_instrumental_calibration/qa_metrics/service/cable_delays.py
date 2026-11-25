@@ -11,11 +11,72 @@ import numpy as np
 import xarray as xr
 
 from ...xarray_processors.delay import DelayTable
+from ..domain.cable_delays import CableDelays
 from ..exceptions import RunMetadataError
+from ..repository.field_metadata import FieldMetadata
+from ..repository.manifest_schema import ManifestSchema
 
 _CLOCK_SOLTAB = "sol000/clock000"
 # Axes of export_clock_to_h5parm, written without squeezing
 _CLOCK_AXES = "time,ant,pol"
+
+
+def get_cable_delays(delaytable: xr.Dataset) -> CableDelays:
+    """
+    Get the cable delays of a field from its delay table.
+
+    A cable delay does not change over an observation, so each
+    station gets the median of its delays over time: unlike the mean,
+    it is barely moved by the delays of one badly solved scan. Delays
+    that were not solved (NaN) are left out.
+
+    Parameters
+    ----------
+    delaytable : DelayTable
+        Delay table of the field, with ``delay`` in seconds of
+        dimensions (time, antenna_name, pol) and ``XX`` and ``YY``
+        polarisations.
+
+    Returns
+    -------
+    CableDelays
+        Cable delays of the field.
+    """
+    # Nanoseconds, as in CABLE_DELAYS_COLUMNS
+    median_delays = delaytable.delay.median(dim="time", skipna=True) * 1e9
+    x_delays = median_delays.sel(pol="XX").values
+    y_delays = median_delays.sel(pol="YY").values
+
+    return CableDelays(
+        {
+            str(name): {"x_delay": float(x), "y_delay": float(y)}
+            for name, x, y in zip(
+                delaytable.antenna_name.values, x_delays, y_delays
+            )
+        }
+    )
+
+
+def get_delaytable_paths(field_metadata: FieldMetadata) -> list[str]:
+    """
+    Get the delay tables of a field from its run metadata.
+
+    Parameters
+    ----------
+    field_metadata : FieldMetadata
+        Run metadata of the field, with one delay table recorded per MS
+        prefix.
+
+    Returns
+    -------
+    list[str]
+        Delay table of each measurement set of the field. Empty if none is
+        recorded: the reader raises for it.
+    """
+    delaytables = (
+        field_metadata.get_data_for(ManifestSchema.DELAY.DELAYTABLE) or {}
+    )
+    return list(delaytables.values())
 
 
 def read_delaytable(delaytable_paths: list[str]) -> xr.Dataset:

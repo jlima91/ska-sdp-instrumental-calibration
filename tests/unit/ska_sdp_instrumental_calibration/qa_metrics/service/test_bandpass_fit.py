@@ -4,10 +4,10 @@ import pytest
 from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
     GainCalibrationSetXds,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
+from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
     FieldMetadata,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.service.bandpass_fit_metric import (  # noqa: E501
+from ska_sdp_instrumental_calibration.qa_metrics.service.bandpass_fit import (  # noqa: E501
     SKA_LOW_COARSE_CHANNEL_WIDTH,
     bandpass_fit_quality,
     coarse_channel_amplitude_residuals,
@@ -274,7 +274,7 @@ def test_should_get_fit_quality_of_each_station():
     )
     expected_bad = pytest.approx(1 - len(OUTLIERS) / FREQUENCY.size)
 
-    assert bandpass_fit_quality(gaintable) == {
+    assert bandpass_fit_quality(gaintable).values_per_station == {
         "station_a": {
             "x_phase_fit_quality": 1.0,
             "x_gains_fit_quality": 1.0,

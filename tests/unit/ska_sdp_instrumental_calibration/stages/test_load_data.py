@@ -2,7 +2,9 @@ import numpy as np
 import xarray as xr
 from mock import MagicMock, call, patch
 
-from ska_sdp_instrumental_calibration.qa_metrics import QASection
+from ska_sdp_instrumental_calibration.qa_metrics.repository import (
+    ManifestSchema,
+)
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.load_data import (
     Tags,
@@ -147,19 +149,19 @@ def test_should_load_data_from_existing_cached_zarr_file(
     run_metadata = new_up_output[0]["run_metadata"]
     assert run_metadata.qa_dir == "/path/to/qa/dir"
     field_metadata = run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.METADATA_SUMMARY.MS) == [
+    assert field_metadata.get_data_for(ManifestSchema.METADATA_SUMMARY.MS) == [
         "/path/to/vis.ms"
     ]
     assert field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.TIMESTAMPS
+        ManifestSchema.METADATA_SUMMARY.TIMESTAMPS
     ) == [[10.0, 20.0, 30.0]]
     # MS station ID keyed by station name, in configuration order
     assert field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+        ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION
     ) == {"S8-1": "0", "S8-2": "1"}
-    assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
-        "vis": pre_flagging_data_path
-    }
+    assert field_metadata.get_data_for(
+        ManifestSchema.FLAGGING.PRE_FLAGGING
+    ) == {"vis": pre_flagging_data_path}
 
     assert new_up_output[0]["chunks"] == {
         "time": -1,
@@ -501,19 +503,21 @@ def test_should_record_run_metadata_of_each_ms_of_a_field(
     assert list(run_metadata.field_metadata) == ["field-a"]
 
     field_metadata = run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.METADATA_SUMMARY.MS) == [
+    assert field_metadata.get_data_for(ManifestSchema.METADATA_SUMMARY.MS) == [
         "/path/to/vis_a.ms",
         "/path/to/vis_b.ms",
     ]
     assert field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.TIMESTAMPS
+        ManifestSchema.METADATA_SUMMARY.TIMESTAMPS
     ) == [[1.0, 2.0], [3.0, 4.0]]
     # MSs of a field share stations: recorded once for the field
     assert field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+        ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION
     ) == {"S8-1": "0", "S8-2": "1"}
     # Pre-flagging data is stored per MS prefix
-    assert field_metadata.get_data_for(QASection.FLAGGING.PRE_FLAGGING) == {
+    assert field_metadata.get_data_for(
+        ManifestSchema.FLAGGING.PRE_FLAGGING
+    ) == {
         "vis_a": "/qa/derived/vis_a/pre-flagging-data.json",
         "vis_b": "/qa/derived/vis_b/pre-flagging-data.json",
     }

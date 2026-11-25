@@ -1,7 +1,10 @@
 import pytest
 from mock import Mock, call, patch
 
-from ska_sdp_instrumental_calibration.qa_metrics import QASection, RunMetadata
+from ska_sdp_instrumental_calibration.qa_metrics.repository import (
+    ManifestSchema,
+    RunManifest,
+)
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.flag_gain import (
     PlotFlagGainConfig,
@@ -162,7 +165,7 @@ def test_should_export_gaintable_with_proper_suffix(
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
     upstream_output["field_id"] = "field-a"
-    upstream_output["run_metadata"] = RunMetadata("/output/path")
+    upstream_output["run_metadata"] = RunManifest("/output/path")
     initialtable = Mock(name="initial_gaintable")
     upstream_output["gaintable"] = initialtable
     soltype = "amplitude"
@@ -254,10 +257,10 @@ def test_should_export_gaintable_with_proper_suffix(
 
     # The stage ran twice on one MS: only its last write is kept
     field_metadata = upstream_output.run_metadata.field_metadata["field-a"]
-    assert field_metadata.get_data_for(QASection.FLAGGING.GAIN_FITS) == {
+    assert field_metadata.get_data_for(ManifestSchema.FLAGGING.GAIN_FITS) == {
         "ms_prefix": "/output/path/derived/gain_fit_flag_1.zarr"
     }
-    assert field_metadata.get_data_for(QASection.FLAGGING.GAINTABLE) == {
+    assert field_metadata.get_data_for(ManifestSchema.FLAGGING.GAINTABLE) == {
         "ms_prefix": "/output/path/gaintables/gain_flag_1.gaintable.h5parm"
     }
 

@@ -1,17 +1,17 @@
 import pytest
 from mock import Mock
 
+from ska_sdp_instrumental_calibration.qa_metrics.controller.section_registry import (  # noqa: E501
+    SectionRegistry,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.controller.sections import (
+    section_registry,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.repository.run_metadata import (  # noqa: E501
+from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
     FieldMetadata,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.service.section_builder import (  # noqa: E501
-    SectionBuilder,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.view.section_builder import (
-    section_builder,
 )
 from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
@@ -26,9 +26,9 @@ from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
 def builder():
     """
     A fresh section builder: tests register on it, not on the report's
-    section_builder
+    section_registry
     """
-    return SectionBuilder()
+    return SectionRegistry()
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def field_metadata():
 
 def test_should_register_the_builders_of_the_report():
     # pylint: disable-next=protected-access
-    assert set(section_builder._builders) == {
+    assert set(section_registry._builders) == {
         MetadataSection,
         FlaggingStatisticsSection,
         BandpassFitSection,
@@ -49,7 +49,7 @@ def test_should_register_the_builders_of_the_report():
 def test_should_start_with_no_builders():
     # Each instance has its own registry: the report's is not shared
     # pylint: disable-next=protected-access
-    assert SectionBuilder()._builders == {}
+    assert SectionRegistry()._builders == {}
 
 
 def test_should_build_section_with_its_registered_builder(

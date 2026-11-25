@@ -1,6 +1,6 @@
 """
 QA sections of the run metadata and their data labels, e.g.
-``QASection.METADATA_SUMMARY.MS``.
+``ManifestSchema.METADATA_SUMMARY.MS``.
 
 Each label declares a :class:`LabelSpec`: its :class:`Level` in the
 field hierarchy, which decides how its data is stored, and the schema of
@@ -241,10 +241,10 @@ class QASectionLabel(StrEnum):
         return section.get(self)
 
 
-class QASection:
+class ManifestSchema:
     """
     Namespace of the QA sections in the run metadata, e.g.
-    ``QASection.METADATA_SUMMARY.MS``.
+    ``ManifestSchema.METADATA_SUMMARY.MS``.
     """
 
     class METADATA_SUMMARY(QASectionLabel):

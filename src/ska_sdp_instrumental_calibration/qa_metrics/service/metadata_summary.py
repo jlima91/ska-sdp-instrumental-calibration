@@ -6,10 +6,14 @@ sets.
 
 import numpy as np
 
-from ..domain.qa_metadata import ObservationParameters, StationConfiguration
+from ..domain.metadata import (
+    FileInformation,
+    ObservationParameters,
+    StationConfiguration,
+)
 from ..exceptions import RunMetadataError
-from ..repository.qa_section import QASection
-from ..repository.run_metadata import FieldMetadata
+from ..repository.field_metadata import FieldMetadata
+from ..repository.manifest_schema import ManifestSchema
 
 
 def get_station_configuration(
@@ -39,7 +43,7 @@ def get_station_configuration(
         If no stations are recorded for the field.
     """
     stations = field_metadata.get_data_for(
-        QASection.METADATA_SUMMARY.STATION_CONFIGURATION
+        ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION
     )
     if not stations:
         raise RunMetadataError(
@@ -48,9 +52,19 @@ def get_station_configuration(
     return StationConfiguration(stations)
 
 
-def get_observation_parameters(
-    timestamps: list[list[float]], channels: int | None
-) -> ObservationParameters:
+def get_file_information(field_metadata) -> FileInformation:
+    input_ms = field_metadata.get_data_for(ManifestSchema.METADATA_SUMMARY.MS)
+
+    if not input_ms:
+        raise RunMetadataError(
+            f"QA metadata missing for field {field_metadata.field_name}"
+        )
+    return FileInformation(
+        input_ms=list(input_ms), output_path=field_metadata.qa_dir
+    )
+
+
+def get_observation_parameters(field_metadata) -> ObservationParameters:
     """
     Get the observation parameters of a field from the timestamps of its
     measurement sets.
@@ -73,6 +87,18 @@ def get_observation_parameters(
         Start time, observation length, integration time and channels of
         the field.
     """
+    timestamps = field_metadata.get_data_for(
+        ManifestSchema.METADATA_SUMMARY.TIMESTAMPS
+    )
+    channels = field_metadata.get_data_for(
+        ManifestSchema.METADATA_SUMMARY.CHANNELS
+    )
+
+    if not timestamps:
+        raise RunMetadataError(
+            f"QA metadata missing for field {field_metadata.field_name}"
+        )
+
     # Measurement sets of a field share the integration time, so it is
     # taken from the first one
     integration_time = float(np.median(np.diff(timestamps[0])))

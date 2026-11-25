@@ -15,7 +15,7 @@ from ..data_managers.data_export import (
 from ..data_managers.gaintable import reset_gaintable
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..qa_metrics import QASection
+from ..qa_metrics.repository import ManifestSchema
 from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
@@ -188,14 +188,14 @@ def delay_calibration_stage(
 
         _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
-            QASection.DELAY.GAINTABLE,
+            ManifestSchema.DELAY.GAINTABLE,
             gaintable_file_path,
             prefix=prefix,
         )
 
         _upstream_output_.run_metadata.add_for_field(
             _upstream_output_.field_id,
-            QASection.DELAY.DELAYTABLE,
+            ManifestSchema.DELAY.DELAYTABLE,
             delaytable_file_path,
             prefix=prefix,
         )
