@@ -2,9 +2,11 @@ from typing import Literal, Union
 
 import dask.array as da
 import numpy as np
+import xarray as xr
 from ska_sdp_datamodels.visibility import Visibility
 
 from .h5parm import read_h5parm_gains
+from .processing_set import msv4_time_to_mjd_seconds
 from .schema.calibration_set import GainCalibrationSetXds
 from .schema.polarization import (
     CIRCULAR_POLS,
@@ -14,6 +16,34 @@ from .schema.polarization import (
     pol_to_jones,
 )
 from .solution_interval import SolutionIntervals
+
+
+def _check_polarization(polarization) -> np.ndarray:
+    """
+    Check polarization labels are all 4 linear or circular correlations in
+    row-major Jones order.
+
+    Parameters
+    ----------
+    polarization
+        Polarization labels of the visibilities.
+
+    Returns
+    -------
+        Polarization labels as a string array, e.g. ``XX XY YX YY``.
+
+    Raises
+    ------
+    ValueError
+        If the labels are not ``XX XY YX YY`` or ``RR RL LR LL``.
+    """
+    polarization = np.asarray(polarization, dtype=str)
+    if tuple(polarization) not in (LINEAR_POLS, CIRCULAR_POLS):
+        raise ValueError(
+            f"Unsupported visibility polarizations {polarization.tolist()}. "
+            f"Expected {list(LINEAR_POLS)} or {list(CIRCULAR_POLS)}"
+        )
+    return polarization
 
 
 def _get_vis_polarization(vis: Visibility) -> np.ndarray:
@@ -35,13 +65,92 @@ def _get_vis_polarization(vis: Visibility) -> np.ndarray:
     ValueError
         If the labels are not ``XX XY YX YY`` or ``RR RL LR LL``.
     """
-    polarization = np.asarray(vis.polarisation.data, dtype=str)
-    if tuple(polarization) not in (LINEAR_POLS, CIRCULAR_POLS):
-        raise ValueError(
-            f"Unsupported visibility polarizations {polarization.tolist()}. "
-            f"Expected {list(LINEAR_POLS)} or {list(CIRCULAR_POLS)}"
-        )
-    return polarization
+    return _check_polarization(vis.polarisation.data)
+
+
+def _create_gaintable(
+    time: np.ndarray,
+    frequency: np.ndarray,
+    polarization: np.ndarray,
+    antenna_names: np.ndarray,
+    frequency_chunks: Union[tuple[int, ...], None],
+    timeslice: Union[float, Literal["auto", "full"], None],
+    jones_type: Literal["T", "G", "B"],
+    lower_precision: bool,
+    skip_default_chunk: bool,
+) -> GainCalibrationSetXds:
+    """
+    Create an identity-initialised gaintable for visibilities sampled at
+    the given times and frequencies.
+
+    Shared by :func:`create_gaintable_from_visibility` and
+    :func:`create_gaintable_from_msv4`, see those for the parameters.
+    ``polarization`` must already be checked with
+    :func:`_check_polarization`, and ``frequency_chunks`` are the chunks of
+    the visibility frequency axis, or None if it is not chunked.
+    """
+    # Backward compatibility. Should be removed as "auto" is vary vague
+    if timeslice == "auto":
+        timeslice = None
+
+    soln_intervals = SolutionIntervals(time, timeslice)
+    ntimes = soln_intervals.size
+
+    nants = len(antenna_names)
+
+    if jones_type == "B":
+        gain_frequency = frequency
+        nfrequency = len(gain_frequency)
+    elif jones_type in ("G", "T"):
+        gain_frequency = np.mean(frequency, keepdims=True)
+        nfrequency = 1
+    else:
+        raise ValueError(f"Unknown Jones type {jones_type}")
+
+    npol = len(polarization)
+    nrec = npol_to_nrec(npol)
+
+    gain_shape = [ntimes, nants, nfrequency, npol]
+
+    # Create data variables with provided precision and backend
+    if lower_precision:
+        complex_dtype, float_dtype = np.complex64, np.float32
+    else:
+        complex_dtype, float_dtype = np.complex128, np.float64
+
+    gain = da.broadcast_to(
+        jones_to_pol(da.eye(nrec, dtype=complex_dtype)), gain_shape
+    )
+    gain_weight = da.ones(gain_shape, dtype=float_dtype)
+    gain_residual = da.zeros([ntimes, nfrequency, npol], dtype=float_dtype)
+
+    gain_table = GainCalibrationSetXds.constructor(
+        gain=gain,
+        time=soln_intervals.solution_time,
+        interval=soln_intervals.intervals,
+        weight=gain_weight,
+        residual=gain_residual,
+        frequency=gain_frequency,
+        antenna_name=antenna_names,
+        polarization=polarization,
+        jones_type=jones_type,
+    )
+
+    # Attach solution interval slices as attribute
+    # pylint can't see through the xradio schema decorator, which makes
+    # the constructor return an xarray.Dataset
+    # pylint: disable-next=no-member
+    gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
+    # Chunk data variables
+
+    if skip_default_chunk:
+        return gain_table
+
+    gain_table = gain_table.chunk(time=1)  # pylint: disable=no-member
+    if gain_table.frequency.size == len(frequency) and frequency_chunks:
+        gain_table = gain_table.chunk(frequency=frequency_chunks)
+
+    return gain_table
 
 
 def create_gaintable_from_visibility(
@@ -108,73 +217,77 @@ def create_gaintable_from_visibility(
         If ``jones_type`` is unknown, or the Visibility polarizations are
         not ``XX XY YX YY`` or ``RR RL LR LL``.
     """
-    # Backward compatibility. Should be removed as "auto" is vary vague
-    if timeslice == "auto":
-        timeslice = None
-
-    soln_intervals = SolutionIntervals(vis.time.data, timeslice)
-    ntimes = soln_intervals.size
-
-    nants = vis.visibility_acc.nants
-
-    # Set the frequency sampling
-    if jones_type == "B":
-        gain_frequency = vis.frequency.data
-        nfrequency = len(gain_frequency)
-    elif jones_type in ("G", "T"):
-        gain_frequency = np.mean(vis.frequency.data, keepdims=True)
-        nfrequency = 1
-    else:
-        raise ValueError(f"Unknown Jones type {jones_type}")
-
-    polarization = _get_vis_polarization(vis)
-    npol = len(polarization)
-    nrec = npol_to_nrec(npol)
-
-    gain_shape = [ntimes, nants, nfrequency, npol]
-
-    # Create data variables with provided precision and backend
-    if lower_precision:
-        complex_dtype, float_dtype = np.complex64, np.float32
-    else:
-        complex_dtype, float_dtype = np.complex128, np.float64
-
-    gain = da.broadcast_to(
-        jones_to_pol(da.eye(nrec, dtype=complex_dtype)), gain_shape
-    )
-    gain_weight = da.ones(gain_shape, dtype=float_dtype)
-    gain_residual = da.zeros([ntimes, nfrequency, npol], dtype=float_dtype)
-
-    gain_table = GainCalibrationSetXds.constructor(
-        gain=gain,
-        time=soln_intervals.solution_time,
-        interval=soln_intervals.intervals,
-        weight=gain_weight,
-        residual=gain_residual,
-        frequency=gain_frequency,
-        antenna_name=vis.configuration.names.data,
-        polarization=polarization,
+    return _create_gaintable(
+        time=vis.time.data,
+        frequency=vis.frequency.data,
+        polarization=_get_vis_polarization(vis),
+        antenna_names=vis.configuration.names.data,
+        frequency_chunks=vis.chunksizes.get("frequency"),
+        timeslice=timeslice,
         jones_type=jones_type,
+        lower_precision=lower_precision,
+        skip_default_chunk=skip_default_chunk,
     )
 
-    # Attach solution interval slices as attribute
-    # pylint can't see through the xradio schema decorator, which makes
-    # the constructor return an xarray.Dataset
-    # pylint: disable-next=no-member
-    gain_table.attrs["soln_interval_slices"] = soln_intervals.indices
-    # Chunk data variables
 
-    if skip_default_chunk:
-        return gain_table
+def create_gaintable_from_msv4(
+    ms_xdt: xr.DataTree,
+    timeslice: Union[float, Literal["auto", "full"], None] = None,
+    jones_type: Literal["T", "G", "B"] = "T",
+    lower_precision: bool = True,
+    skip_default_chunk: bool = False,
+) -> GainCalibrationSetXds:
+    """
+    Create an identity-initialised GainCalibrationSetXds consistent with the
+    given MSv4 visibilities.
 
-    gain_table = gain_table.chunk(time=1)  # pylint: disable=no-member
-    if (
-        gain_table.frequency.size == vis.frequency.size
-        and "frequency" in vis.chunksizes
-    ):
-        gain_table = gain_table.chunk(frequency=vis.chunksizes["frequency"])
+    Same as :func:`create_gaintable_from_visibility`, for an MSv4 node.
+    The antenna names and their order are taken from the node's
+    ``antenna_xds``, and the polarization labels from its ``polarization``
+    coordinate.
 
-    return gain_table
+    The gaintable time is in UTC seconds since the MJD epoch, as required
+    by the gaintable schema and as for a Visibility. The MSv4 ``time``
+    coordinate (UTC seconds since the Unix epoch) is converted, which is
+    exact for the times of an MSv2 converted by xradio.
+
+    Parameters
+    ----------
+    ms_xdt
+        MSv4 node to create gaintable from. It must have an
+        ``antenna_xds`` child.
+    timeslice
+        See :func:`create_gaintable_from_visibility`.
+    jones_type
+        See :func:`create_gaintable_from_visibility`.
+    lower_precision
+        See :func:`create_gaintable_from_visibility`.
+    skip_default_chunk
+        See :func:`create_gaintable_from_visibility`.
+
+    Returns
+    -------
+        Gaintable suitable for storing calibration solutions of given
+        visibilities
+
+    Raises
+    ------
+    ValueError
+        If ``jones_type`` is unknown, or the polarizations are not
+        ``XX XY YX YY`` or ``RR RL LR LL``.
+    """
+    vis = ms_xdt.ds
+    return _create_gaintable(
+        time=msv4_time_to_mjd_seconds(vis.time.data),
+        frequency=vis.frequency.data,
+        polarization=_check_polarization(vis.polarization.data),
+        antenna_names=ms_xdt["antenna_xds"].ds.antenna_name.data,
+        frequency_chunks=vis.chunksizes.get("frequency"),
+        timeslice=timeslice,
+        jones_type=jones_type,
+        lower_precision=lower_precision,
+        skip_default_chunk=skip_default_chunk,
+    )
 
 
 def reset_gaintable(gaintable: GainCalibrationSetXds) -> GainCalibrationSetXds:

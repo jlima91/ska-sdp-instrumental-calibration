@@ -1,7 +1,23 @@
+import pytest
 from mock import Mock, call, patch
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import predict_vis_stage
+
+STAGE = "ska_sdp_instrumental_calibration.stages.predict_visibilities"
+PHASE_CENTRE = Mock(name="phase_centre")
+ARRAY_LOCATION = Mock(name="array_location")
+
+
+@pytest.fixture(autouse=True)
+def msv4_geometry():
+    """Phase centre and array location read from the upstream MSv4 node."""
+    with patch(
+        f"{STAGE}.get_phase_centre", return_value=PHASE_CENTRE
+    ) as phase_centre_mock, patch(
+        f"{STAGE}.get_array_location", return_value=ARRAY_LOCATION
+    ) as array_location_mock:
+        yield phase_centre_mock, array_location_mock
 
 
 def test_should_have_the_expected_default_configuration():
@@ -42,7 +58,6 @@ def test_should_predict_visibilities(
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
-    input = ["path/to/input/ms"]
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -59,11 +74,11 @@ def test_should_predict_visibilities(
     }
 
     result = predict_vis_stage(
-        upstream_output, input_ms=input, _qa_dir_="./output_dir", **params
+        upstream_output, _qa_dir_="./output_dir", **params
     )
 
     global_sky_model_mock.assert_called_once_with(
-        upstream_output.vis.phasecentre,
+        PHASE_CENTRE,
         10.0,
         1.0,
         -0.78,
@@ -77,14 +92,15 @@ def test_should_predict_visibilities(
         upstream_output.gaintable.soln_interval_slices,
         beams_factory_mock.return_value,
     )
-    telescope_mock.assert_called_once_with(
-        input[0],
+    telescope_mock.for_visibilities.assert_called_once_with(
+        upstream_output.vis,
         "dipole_model",
+        None,
     )
     beams_factory_mock.assert_called_once_with(
-        array_location=upstream_output.vis.configuration.location,
-        direction=upstream_output.vis.phasecentre,
-        telescope=telescope_mock.return_value,
+        array_location=ARRAY_LOCATION,
+        direction=PHASE_CENTRE,
+        telescope=telescope_mock.for_visibilities.return_value,
     )
 
     assert result.modelvis == [1, 2, 3]
@@ -109,13 +125,12 @@ def test_should_update_call_count(
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
-    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
         "use_everybeam": True,
         "normalise_at_beam_centre": False,
-        "eb_ms": "test.ms",
+        "eb_ms": None,
         "gleamfile": None,
         "lsm_csv_path": "/path/to/lsm.csv",
         "element_response_model": "dipole_model",
@@ -127,11 +142,11 @@ def test_should_update_call_count(
     }
 
     upstream_output = predict_vis_stage(
-        upstream_output, input_ms=input, **params
+        upstream_output, **params
     )
 
     upstream_output = predict_vis_stage(
-        upstream_output, input_ms=input, **params
+        upstream_output, **params
     )
 
     assert upstream_output.get_call_count("predict_vis") == 2
@@ -170,7 +185,6 @@ def test_should_normalise_at_beam_centre(
     upstream_output = _get_prepopulated_upstream_output()
     vis = Mock(name="Visibilities")
     upstream_output["vis"] = vis
-    input = "path/to/input/ms"
 
     model_vis = Mock(name="Model Visibilities")
     predict_vis_mock.return_value = model_vis
@@ -198,7 +212,7 @@ def test_should_normalise_at_beam_centre(
 
     result = predict_vis_stage(
         upstream_output,
-        input_ms=input,
+
         **params,
     )
 
@@ -232,7 +246,6 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
 ):
 
     upstream_output = _get_prepopulated_upstream_output()
-    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -249,9 +262,9 @@ def test_should_perform_only_model_prediction_when_use_everybeam_is_false(
         "_qa_dir_": "./output_dir",
     }
 
-    result = predict_vis_stage(upstream_output, input_ms=input, **params)
+    result = predict_vis_stage(upstream_output, **params)
     global_sky_model_mock.assert_called_once_with(
-        upstream_output.vis.phasecentre,
+        PHASE_CENTRE,
         10.0,
         1.0,
         -0.78,
@@ -286,8 +299,6 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     upstream_output["vis"] = Mock(name="Visibilities")
     upstream_output["gaintable"] = Mock(name="Gaintable")
     upstream_output["field_id"] = "field_a"
-
-    input = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -304,7 +315,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     }
 
     predict_vis_stage(
-        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
+        upstream_output, **params, _qa_dir_="./output_dir"
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
@@ -314,7 +325,7 @@ def test_should_export_sky_model_used_for_prediction_to_csv_file(
     global_sky_model_mock.reset_mock()
     upstream_output = _get_prepopulated_upstream_output()
     predict_vis_stage(
-        upstream_output, **params, _qa_dir_="./output_dir", input_ms=input
+        upstream_output, **params, _qa_dir_="./output_dir"
     )
 
     global_sky_model_mock.export_sky_model_csv.assert_called_once_with(
@@ -365,7 +376,6 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
     )
 
     upstream_output = _get_prepopulated_upstream_output()
-    input_ms = "path/to/input/ms"
     predict_vis_mock.return_value = [1, 2, 3]
 
     params = {
@@ -385,10 +395,10 @@ def test_should_use_sdm_lsm_csv_file_when_sdm_path_is_provided(
         upstream_output,
         **params,
         _qa_dir_="./output_dir",
-        input_ms=input_ms,
+
     )
     global_sky_model_mock.assert_called_once_with(
-        upstream_output.vis.phasecentre,
+        PHASE_CENTRE,
         10.0,
         1.0,
         -0.78,

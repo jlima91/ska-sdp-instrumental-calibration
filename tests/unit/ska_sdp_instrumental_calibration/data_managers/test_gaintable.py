@@ -1,11 +1,13 @@
 import dask.array as da
 import numpy as np
 import pytest
+import xarray as xr
 from mock import MagicMock, patch
 
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
     _check_antennas,
     create_gaintable_from_h5parm,
+    create_gaintable_from_msv4,
     create_gaintable_from_visibility,
     divide_bandpass_by_ref_ant_preserve_phase,
     multiply_gaintables,
@@ -128,6 +130,74 @@ def test_should_skip_default_chunk(generate_vis):
         slice(1, 2, 1),
         slice(2, 3, 1),
     ]
+
+
+def _make_ms_xdt(polarization=("XX", "XY", "YX", "YY")):
+    """Minimal MSv4 node: visibilities in .ds and an antenna_xds child."""
+    ntimes, nbaselines, nfreqs = 4, 3, 6
+    vis = xr.Dataset(
+        {
+            "VISIBILITY": (
+                ("time", "baseline_id", "frequency", "polarization"),
+                da.zeros(
+                    (ntimes, nbaselines, nfreqs, len(polarization)),
+                    dtype=np.complex64,
+                    chunks=(ntimes, nbaselines, 2, len(polarization)),
+                ),
+            )
+        },
+        coords={
+            "time": 1.7e9 + np.arange(ntimes, dtype=float),
+            "baseline_id": np.arange(nbaselines),
+            "frequency": 1e8 + 1e6 * np.arange(nfreqs),
+            "polarization": list(polarization),
+        },
+    )
+    antenna_xds = xr.Dataset(coords={"antenna_name": ["s2", "s0", "s1"]})
+    return xr.DataTree.from_dict({"/": vis, "/antenna_xds": antenna_xds})
+
+
+def test_should_generate_gaintable_from_msv4_for_jonestype_B():
+    ms_xdt = _make_ms_xdt()
+
+    gaintable = create_gaintable_from_msv4(ms_xdt, "full", "B")
+
+    # Antenna names and order come from antenna_xds
+    assert gaintable.antenna_name.data.tolist() == ["s2", "s0", "s1"]
+    assert gaintable.polarization.data.tolist() == ["XX", "XY", "YX", "YY"]
+    np.testing.assert_allclose(
+        gaintable.frequency.data, ms_xdt.ds.frequency.data
+    )
+    # Time is converted from Unix to MJD seconds, as in the gaintable schema
+    np.testing.assert_array_equal(
+        gaintable.time.data, [ms_xdt.ds.time.data.mean() + 3506716800.0]
+    )
+    assert gaintable.CALPARAM_GAIN.shape == (1, 3, 6, 4)
+    assert gaintable.attrs["soln_interval_slices"] == [slice(0, 4, 1)]
+    # Frequency chunks follow the visibilities
+    assert gaintable.chunksizes["frequency"] == (2, 2, 2)
+    np.testing.assert_array_equal(
+        gaintable.CALPARAM_GAIN.data[0, 0, 0].compute(),
+        np.array([1, 0, 0, 1], dtype=np.complex64),
+    )
+
+
+def test_should_generate_gaintable_from_msv4_for_jonestype_G():
+    ms_xdt = _make_ms_xdt()
+
+    gaintable = create_gaintable_from_msv4(ms_xdt, None, "G")
+
+    np.testing.assert_allclose(
+        gaintable.frequency.data, [ms_xdt.ds.frequency.data.mean()]
+    )
+    assert gaintable.CALPARAM_GAIN.shape == (4, 3, 1, 4)
+
+
+def test_should_raise_for_unsupported_msv4_pols():
+    ms_xdt = _make_ms_xdt(polarization=("XX", "YY"))
+
+    with pytest.raises(ValueError, match="Unsupported visibility pol"):
+        create_gaintable_from_msv4(ms_xdt, "full", "B")
 
 
 @patch("ska_sdp_instrumental_calibration.data_managers.gaintable.jones_to_pol")

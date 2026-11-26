@@ -5,6 +5,10 @@ import numpy as np
 import xarray as xr
 
 from ...data_managers.baseline_expression import BaselinesExpression
+from ...data_managers.processing_set import (
+    get_baseline_antenna_indices,
+    get_data_group,
+)
 from .._utils import parse_antenna
 from .vis_filter import VisibilityFilter
 
@@ -40,12 +44,12 @@ class BaselineFilter(VisibilityFilter):
     _re_baseline = re.compile(_baseline_pattern)
 
     @classmethod
-    def _filter(cls, baselines: str, vis: xr.Dataset):
-        baseline_filter = BaselineFilter(baselines, vis.configuration.names)
+    def _filter(cls, baselines: str, vis: xr.DataTree):
+        baseline_filter = BaselineFilter(baselines, _station_names(vis))
 
         return baseline_filter(
-            vis.baselines,
-            vis.flags,
+            _baseline_antenna_pairs(vis),
+            vis.ds[get_data_group(vis)["flag"]],
         )
 
     def __init__(self, baselines: str, station_names: xr.DataArray):
@@ -130,3 +134,32 @@ class BaselineFilter(VisibilityFilter):
         )
 
         return flags | new_flags
+
+
+def _station_names(vis: xr.DataTree) -> xr.DataArray:
+    """
+    Antenna names of an MSv4 node, in ``antenna_xds`` order, with an ``id``
+    coordinate holding their index.
+
+    Replaces ``Visibility.configuration.names``, as ``parse_antenna``
+    resolves antenna names through that ``id`` coordinate.
+    """
+    names = vis["antenna_xds"].ds.antenna_name.values
+    return xr.DataArray(names, dims="id", coords={"id": np.arange(names.size)})
+
+
+def _baseline_antenna_pairs(vis: xr.DataTree) -> xr.DataArray:
+    """
+    (antenna1, antenna2) index pairs of the baselines of an MSv4 node, in
+    ``antenna_xds`` order and in the antenna order of the data.
+
+    Replaces ``Visibility.baselines``, whose values are such pairs.
+    """
+    antenna1, antenna2 = get_baseline_antenna_indices(vis)
+    pairs = np.empty(antenna1.size, dtype=object)
+    pairs[:] = list(zip(antenna1.tolist(), antenna2.tolist()))
+    return xr.DataArray(
+        pairs,
+        dims="baseline_id",
+        coords={"baseline_id": vis.ds.baseline_id.values},
+    )

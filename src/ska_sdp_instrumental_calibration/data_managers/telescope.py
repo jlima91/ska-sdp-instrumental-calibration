@@ -5,7 +5,17 @@ from typing import Annotated, Optional
 import everybeam as eb
 import numpy as np
 import numpy.typing as npt
+import xarray as xr
+from dask.base import tokenize
 
+from xradio.measurement_set import open_processing_set
+
+from .processing_set import (
+    detect_input_type,
+    get_delay_directions,
+    read_antenna_response_data_from_msv4,
+    read_station_layout_from_msv4,
+)
 from .visibility import read_antenna_response_data
 
 
@@ -13,7 +23,8 @@ class Telescope:
     """
     Telescope model representation.
 
-    The everybeam telescope is created lazily, once per process, and
+    The everybeam telescope
+    is created lazily, once per process, and
     shared by all threads of that process (e.g. dask worker threads).
     Its creation is guarded by a lock. It is excluded from pickling and
     re-created on first use after unpickling.
@@ -25,7 +36,7 @@ class Telescope:
         element_response_model: str,
     ):
         """
-        Initialize the Telescope model.
+        Initialize the Telescope model from an MSv2 measurement set.
 
         Parameters
         ----------
@@ -34,7 +45,131 @@ class Telescope:
         element_response_model
             Name of the element response model.
         """
-        self._ms_path = ms_path
+        self._setup(
+            identity=str(ms_path),
+            element_response_model=element_response_model,
+            response_data=read_antenna_response_data(ms_path),
+        )
+
+    @classmethod
+    def from_msv4(
+        cls,
+        ms_xdt: xr.DataTree,
+        element_response_model: str,
+    ) -> "Telescope":
+        """
+        Create the Telescope model from an MSv4 node.
+
+        Parameters
+        ----------
+        ms_xdt
+            MSv4 node holding a single field, with ``antenna_xds`` and
+            ``phased_array_xds`` children.
+        element_response_model
+            Name of the element response model.
+
+        Returns
+        -------
+            Telescope with the stations of ``antenna_xds``, in that order.
+        """
+        return cls._from_response_data(
+            read_antenna_response_data_from_msv4(ms_xdt),
+            element_response_model,
+        )
+
+    @classmethod
+    def for_visibilities(
+        cls,
+        ms_xdt: xr.DataTree,
+        element_response_model: str,
+        eb_ms: Optional[str] = None,
+    ) -> "Telescope":
+        """
+        Create the Telescope model for the visibilities of an MSv4 node.
+
+        Only the beam metadata (antennas, phased arrays and field direction)
+        is read, eagerly and once, on the client. It is small and does not
+        depend on the visibilities.
+
+        The beam always points at the field of ``ms_xdt``: only the station
+        layout is read from ``eb_ms``, so its fields and spectral windows do
+        not matter.
+
+        Parameters
+        ----------
+        ms_xdt
+            MSv4 node being calibrated.
+        element_response_model
+            Name of the element response model.
+        eb_ms
+            Optional MSv2 or Processing Set to read the station layout
+            from, instead of ``ms_xdt``. An MSv2 is read directly from its
+            subtables, without converting it to a Processing Set.
+
+        Returns
+        -------
+            Telescope with stations in the ``antenna_xds`` order of
+            ``ms_xdt``.
+
+        Raises
+        ------
+        ValueError
+            If the stations of ``eb_ms`` differ from the antennas of
+            ``ms_xdt``, as beams are matched to antennas by index.
+        """
+        if eb_ms is None:
+            return cls.from_msv4(ms_xdt, element_response_model)
+
+        response_data = _read_station_layout(eb_ms)
+        antenna_names = ms_xdt["antenna_xds"].ds.antenna_name.values
+        if not np.array_equal(response_data["station_names"], antenna_names):
+            raise ValueError(
+                f"Stations of eb_ms {eb_ms} differ from the antennas of the "
+                "visibilities. They must have the same names in the same "
+                "order."
+            )
+        response_data["delay_directions"] = get_delay_directions(ms_xdt)
+        return cls._from_response_data(response_data, element_response_model)
+
+    @classmethod
+    def _from_response_data(
+        cls,
+        response_data: dict[str, np.ndarray],
+        element_response_model: str,
+    ) -> "Telescope":
+        """
+        Create the Telescope model from antenna response data already read,
+        identified by its hash for dask tokenization.
+        """
+        telescope = cls.__new__(cls)
+        telescope._setup(
+            identity=tokenize(response_data),
+            element_response_model=element_response_model,
+            response_data=response_data,
+        )
+        return telescope
+
+    def _setup(
+        self,
+        identity: str,
+        element_response_model: str,
+        response_data: dict[str, np.ndarray],
+    ):
+        """
+        Set the instance state shared by all constructors.
+
+        Parameters
+        ----------
+        identity
+            String which, with the element response model, uniquely
+            identifies the telescope. Used for dask tokenization.
+        element_response_model
+            Name of the element response model.
+        response_data
+            Antenna response data, see
+            :func:`~.visibility.read_antenna_response_data`.
+        """
+        self._identity = identity
         self._element_response_model_name = element_response_model
         self._telescope: "eb.Telescope" = None
         self._telescope_lock = threading.Lock()
@@ -42,16 +177,17 @@ class Telescope:
             eb.ElementResponseModel, element_response_model
         )
 
-        self.response_data = read_antenna_response_data(ms_path)
+        self.response_data = response_data
         self._nstations = self.response_data["station_names"].size
 
     def __dask_tokenize__(self) -> tuple[str, str, str]:
         """
         Deterministic dask token for the telescope.
 
-        The measurement set path and the element response model fully
-        identify a telescope, so avoid pickling the response data (and
-        the everybeam telescope, if initialised) while tokenizing.
+        The identity (measurement set path, or hash of the MSv4 response
+        data) and the element response model fully identify a telescope,
+        so avoid pickling the response data (and the everybeam telescope,
+        if initialised) while tokenizing.
 
         Returns
         -------
@@ -59,7 +195,7 @@ class Telescope:
         """
         return (
             type(self).__name__,
-            str(self._ms_path),
+            self._identity,
             str(self._element_response_model_name),
         )
 
@@ -275,3 +411,37 @@ class Telescope:
             beams *= scale[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
 
         return beams
+
+
+def _read_station_layout(eb_ms: str) -> dict[str, np.ndarray]:
+    """
+    Station layout of an MSv2 or Processing Set, i.e. its antenna response
+    data without delay directions.
+
+    Parameters
+    ----------
+    eb_ms
+        Path to an MSv2 or a Processing Set.
+
+    Returns
+    -------
+        See :func:`~.processing_set.read_station_layout_from_msv4`.
+
+    Raises
+    ------
+    ValueError
+        If the Processing Set holds no MSv4 node.
+    """
+    if detect_input_type([eb_ms]) == "msv2":
+        response_data = read_antenna_response_data(eb_ms)
+        # DELAY_DIR holds one row per field, of any field of the MS
+        del response_data["delay_directions"]
+        return response_data
+
+    # The layout does not depend on the field or spectral window, so the
+    # first MSv4 node is used
+    nodes = iter(open_processing_set(eb_ms).children.values())
+    first_node = next(nodes, None)
+    if first_node is None:
+        raise ValueError(f"No MSv4 data in eb_ms {eb_ms}")
+    return read_station_layout_from_msv4(first_node)

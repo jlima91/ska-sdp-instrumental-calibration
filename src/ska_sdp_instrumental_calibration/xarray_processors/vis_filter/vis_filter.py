@@ -26,7 +26,7 @@ class VisibilityFilter(ABC):
 
     @classmethod
     @abstractmethod
-    def _filter(cls, filters: str, vis: xr.Dataset):
+    def _filter(cls, filters: str, vis: xr.DataTree):
         """
         Apply specific filtering logic to the dataset.
 
@@ -38,8 +38,8 @@ class VisibilityFilter(ABC):
         filters : str
             The filter expression or configuration string specific to this
             filter implementation.
-        vis : xr.Dataset
-            The visibility dataset to apply the filter on.
+        vis : xr.DataTree
+            The MSv4 node to apply the filter on.
 
         Returns
         -------
@@ -49,7 +49,7 @@ class VisibilityFilter(ABC):
         raise NotImplementedError("Filter function not implemented")
 
     @classmethod
-    def filter(cls, filters: dict, vis: xr.Dataset):
+    def filter(cls, filters: dict, vis: xr.DataTree):
         """
         Apply a set of registered filters to the visibility dataset.
 
@@ -63,14 +63,22 @@ class VisibilityFilter(ABC):
             (defined via `_FILTER_NAME_` in subclasses) and values are the
             filter expressions or configurations to be passed to the specific
             filter implementation.
-        vis : xr.Dataset
-            The input visibility dataset containing the data to be filtered.
+        vis : xr.DataTree
+            The input MSv4 node containing the data to be filtered.
 
         Returns
         -------
-        xr.Dataset
-            The visibility dataset with updated "flag" variables based on the
-            applied filters.
+        xr.DataTree
+            The MSv4 node with a "flag" variable holding the flags of the
+            last applied filter.
+
+        Notes
+        -----
+        Known issue, kept from the pre-migration implementation: the
+        filters write a separate "flag" variable, and each filter starts
+        from the data group flags, not from the previous filter. Solvers
+        use the data group flags (``FLAG``), so the filters currently have
+        no effect on calibration.
 
         Raises
         ------

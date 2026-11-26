@@ -1,6 +1,6 @@
-import numpy as np
-import xarray as xr
+import pytest
 from mock import MagicMock, patch
+from pydantic import ValidationError
 
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages.load_data import (
@@ -8,17 +8,60 @@ from ska_sdp_instrumental_calibration.stages.load_data import (
     load_data_stage,
 )
 
+MODULE = "ska_sdp_instrumental_calibration.stages.load_data"
+
+
+def _run_stage(inputs, **overrides):
+    """Run load_data_stage with default config, overriding some values."""
+    config = {
+        "field_id": 0,
+        "ddi_id": 0,
+        "field_name": None,
+        "spw_name": None,
+        "scan_intents": None,
+        "data_group": "base",
+        "nchannels_per_chunk": 8,
+    }
+    config.update(overrides)
+    return load_data_stage(
+        UpstreamOutput(), "/output/dir", inputs, *config.values()
+    )
+
+
+@pytest.fixture
+def mocks():
+    """Patch every collaborator of load_data_stage."""
+    names = [
+        "detect_input_type",
+        "convert_msv2_to_processing_set",
+        "read_msv2_selection_shape",
+        "open_msv4_selection",
+        "chunk_ms_xdt",
+        "get_field_name",
+        "create_gaintable_from_msv4",
+        "estimate_channels_per_chunk",
+        "get_cluster_spec",
+    ]
+    patchers = {name: patch(f"{MODULE}.{name}") for name in names}
+    started = {name: patcher.start() for name, patcher in patchers.items()}
+    started["get_field_name"].return_value = "CAL_FIELD_0"
+
+    yield started
+
+    for patcher in patchers.values():
+        patcher.stop()
+
 
 def test_should_have_the_expected_default_configuration():
     expected_config = {
         "load_data": {
-            "nchannels_per_chunk": "auto",
-            "ntimes_per_ms_chunk": 5,
-            "cache_directory": None,
-            "ack": False,
-            "datacolumn": "DATA",
             "field_id": 0,
-            "data_desc_id": 0,
+            "ddi_id": 0,
+            "field_name": None,
+            "spw_name": None,
+            "scan_intents": None,
+            "data_group": "base",
+            "nchannels_per_chunk": "auto",
         }
     }
 
@@ -29,345 +72,178 @@ def test_load_data_stage_is_a_broadcaster():
     assert load_data_stage in Tags.BROADCASTER
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".check_if_cache_files_exist"
+def test_should_convert_each_msv2_with_pipeline_chunks(mocks):
+    mocks["detect_input_type"].return_value = "msv2"
+
+    outputs = _run_stage(["/data/a.ms", "/data/b.ms/"])
+
+    mocks["detect_input_type"].assert_called_once_with(
+        ["/data/a.ms", "/data/b.ms"]
+    )
+    converted = [
+        call.kwargs
+        for call in mocks["convert_msv2_to_processing_set"].call_args_list
+    ]
+    assert [kwargs["in_file"] for kwargs in converted] == [
+        "/data/a.ms",
+        "/data/b.ms",
+    ]
+    assert [kwargs["out_file"] for kwargs in converted] == [
+        "/output/dir/processing_sets/a.ps.zarr",
+        "/output/dir/processing_sets/b.ps.zarr",
+    ]
+    for kwargs in converted:
+        assert kwargs["partition_scheme"] == ["FIELD_ID"]
+        assert kwargs["main_chunksize"] == {"frequency": 8}
+        assert kwargs["persistence_mode"] == "w"
+    assert [output["ms_prefix"] for output in outputs] == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    "partition, selected",
+    [
+        ({"FIELD_ID": [2], "DATA_DESC_ID": [3]}, True),
+        ({"FIELD_ID": [0], "DATA_DESC_ID": [3]}, False),
+        ({"FIELD_ID": [2], "DATA_DESC_ID": [0]}, False),
+    ],
 )
-@patch("ska_sdp_instrumental_calibration.stages.load_data.write_ms_to_zarr")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_visibility_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_gaintable_from_visibility"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
-def test_should_load_data_from_existing_cached_zarr_file(
-    read_ms_field_id_mock,
-    create_bandpass_mock,
-    read_data_mock,
-    write_ms_mock,
-    check_cache_mock,
-    os_makedirs_mock,
+def test_should_convert_only_the_selected_field_and_ddi(
+    mocks, partition, selected
 ):
-    check_cache_mock.return_value = True
+    mocks["detect_input_type"].return_value = "msv2"
 
-    gaintable = xr.DataArray(
-        np.arange(12).reshape(1, 4, 3),
-        dims=["time", "frequency", "antenna_name"],
-    )
-    create_bandpass_mock.return_value = gaintable
-    read_ms_field_id_mock.return_value = "field-a"
+    _run_stage(["/data/a.ms"], field_id=2, ddi_id=3)
 
-    frequency_per_chunk = 2
-    times_per_ms_chunk = 3
+    partition_filter = mocks[
+        "convert_msv2_to_processing_set"
+    ].call_args.kwargs["partition_filter"]
+    assert partition_filter(partition) is selected
 
-    upstream_output = UpstreamOutput()
 
-    new_up_output = load_data_stage(
-        upstream_output,
-        "/path/to/output/dir",
-        ["/path/to/vis.ms/"],
-        frequency_per_chunk,
-        times_per_ms_chunk,
-        "/cache/dir/path",
-        True,
-        "DATA",
-        2,
-        4,
+def test_should_ignore_names_for_msv2_inputs(mocks):
+    mocks["detect_input_type"].return_value = "msv2"
+
+    _run_stage(["/data/a.ms"], field_name="F", spw_name="S")
+
+    # The converted Processing Set holds the selected field and DDI only
+    mocks["open_msv4_selection"].assert_called_once_with(
+        "/output/dir/processing_sets/a.ps.zarr",
+        field_name=None,
+        spw_name=None,
+        scan_intents=None,
+        data_group="base",
     )
 
-    os_makedirs_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid2_ddid4", mode=0o755, exist_ok=True
+
+def test_should_read_processing_sets_in_place_with_name_selection(mocks):
+    mocks["detect_input_type"].return_value = "ps"
+
+    outputs = _run_stage(
+        ["/data/obs.ps.zarr"],
+        field_id=4,
+        field_name="CAL_FIELD_0",
+        spw_name="spw_0",
+        scan_intents=["CALIBRATE_BANDPASS#ON_SOURCE"],
+        data_group="corrected",
     )
 
-    check_cache_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid2_ddid4"
+    mocks["convert_msv2_to_processing_set"].assert_not_called()
+    mocks["open_msv4_selection"].assert_called_once_with(
+        "/data/obs.ps.zarr",
+        field_name="CAL_FIELD_0",
+        spw_name="spw_0",
+        scan_intents=["CALIBRATE_BANDPASS#ON_SOURCE"],
+        data_group="corrected",
     )
+    assert outputs[0]["ms_prefix"] == "obs"
 
-    write_ms_mock.assert_not_called()
 
-    read_data_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid2_ddid4",
-        {
-            "time": -1,
-            "baselineid": -1,
-            "polarisation": -1,
-            "spatial": -1,
-            "frequency": frequency_per_chunk,
-        },
+def test_should_fill_upstream_output(mocks):
+    mocks["detect_input_type"].return_value = "ps"
+
+    (output,) = _run_stage(["/data/obs.ps.zarr"])
+
+    mocks["chunk_ms_xdt"].assert_called_once_with(
+        mocks["open_msv4_selection"].return_value, 8
     )
-
-    create_bandpass_mock.assert_called_once_with(
-        read_data_mock.return_value, "full", "B"
+    ms_xdt = mocks["chunk_ms_xdt"].return_value
+    mocks["create_gaintable_from_msv4"].assert_called_once_with(
+        ms_xdt, "full", "B"
     )
+    mocks["get_field_name"].assert_called_once_with(ms_xdt)
 
-    assert len(new_up_output) == 1
-    assert new_up_output[0]["vis"] == read_data_mock.return_value
-    assert new_up_output[0]["ms_prefix"] == "vis"
-    assert new_up_output[0]["central_beams"] is None
-    assert new_up_output[0]["beams_factory"] is None
-    assert new_up_output[0]["field_id"] == "field-a"
-    assert new_up_output[0]["calibration_purpose"] == "bandpass"
-
-    assert new_up_output[0]["chunks"] == {
-        "time": -1,
-        "baselineid": -1,
-        "polarisation": -1,
-        "spatial": -1,
-        "frequency": frequency_per_chunk,
-    }
+    assert output["vis"] == ms_xdt
+    assert output["gaintable"] == (
+        mocks["create_gaintable_from_msv4"].return_value
+    )
+    # Without the "_<FIELD_ID>" suffix added by xradio
+    assert output["field_id"] == "CAL_FIELD"
+    assert output["central_beams"] is None
+    assert output["beams_factory"] is None
+    assert output["calibration_purpose"] == "bandpass"
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".check_if_cache_files_exist"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.write_ms_to_zarr")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_visibility_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_gaintable_from_visibility"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
-def test_should_write_ms_if_zarr_is_not_cached_and_load_from_zarr(
-    read_ms_field_id_mock,
-    create_bandpass_mock,
-    read_data_mock,
-    write_ms_mock,
-    check_cache_mock,
-    os_makedirs_mock,
+def test_should_raise_for_inputs_with_the_same_prefix(mocks):
+    mocks["detect_input_type"].return_value = "msv2"
+
+    with pytest.raises(ValueError, match=r"duplicates: \['obs'\]"):
+        _run_stage(["/night1/obs.ms", "/night2/obs.ms"])
+
+    mocks["convert_msv2_to_processing_set"].assert_not_called()
+
+
+def test_should_estimate_frequency_chunks_from_msv2_before_converting(
+    mocks,
 ):
-    check_cache_mock.return_value = False
+    mocks["detect_input_type"].return_value = "msv2"
+    mocks["read_msv2_selection_shape"].return_value = (10, 21, 64, 4)
+    mocks["estimate_channels_per_chunk"].return_value = 16
 
-    gaintable = MagicMock(name="gaintable")
-    create_bandpass_mock.return_value = gaintable
-    read_ms_field_id_mock.return_value = "field-a"
-    frequency_per_chunk = 16
-    times_per_ms_chunk = 8
-
-    upstream_output = UpstreamOutput()
-
-    load_data_stage(
-        upstream_output,
-        "/path/to/output/dir",
-        ["/path/to/subdir/../vis.ms/"],
-        frequency_per_chunk,
-        times_per_ms_chunk,
-        None,
-        False,
-        "DATA",
-        10,
-        5,
+    _run_stage(
+        ["/data/a.ms"], field_id=1, ddi_id=2, nchannels_per_chunk="auto"
     )
 
-    os_makedirs_mock.assert_called_once_with(
-        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
-        mode=0o755,
-        exist_ok=True,
+    mocks["read_msv2_selection_shape"].assert_called_once_with(
+        "/data/a.ms", 1, 2
     )
-
-    check_cache_mock.assert_called_once_with(
-        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5"
+    mocks["estimate_channels_per_chunk"].assert_called_once_with(
+        64, 10 * 21 * 4, mocks["get_cluster_spec"].return_value
     )
-
-    write_ms_mock.assert_called_once_with(
-        "/path/to/vis.ms",
-        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
-        {
-            "baselineid": -1,
-            "polarisation": -1,
-            "spatial": -1,
-            "time": times_per_ms_chunk,
-            "frequency": frequency_per_chunk,
-        },
-        ack=False,
-        datacolumn="DATA",
-        field_id=10,
-        data_desc_id=5,
-    )
-
-    read_data_mock.assert_called_once_with(
-        "/path/to/output/dir/.cache/vis.ms_fid10_ddid5",
-        {
-            "time": -1,
-            "baselineid": -1,
-            "polarisation": -1,
-            "spatial": -1,
-            "frequency": frequency_per_chunk,
-        },
+    assert mocks["convert_msv2_to_processing_set"].call_args.kwargs[
+        "main_chunksize"
+    ] == {"frequency": 16}
+    mocks["chunk_ms_xdt"].assert_called_once_with(
+        mocks["open_msv4_selection"].return_value, 16
     )
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".check_if_cache_files_exist"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_vis_shape_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_template_vis_from_ms"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.get_cluster_spec")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".estimate_channels_per_chunk"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_visibility_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_gaintable_from_visibility"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
-def test_should_estimate_frequency_chunks_from_cached_zarr_shape(
-    read_ms_field_id_mock,
-    create_bandpass_mock,
-    read_data_mock,
-    estimate_channels_mock,
-    get_cluster_spec_mock,
-    create_template_vis_mock,
-    read_vis_shape_mock,
-    check_cache_mock,
-    os_makedirs_mock,
-):
-    check_cache_mock.return_value = True
-    read_vis_shape_mock.return_value = (10, 21, 64, 4)
-    cluster_spec = MagicMock(name="cluster_spec")
-    get_cluster_spec_mock.return_value = cluster_spec
-    estimate_channels_mock.return_value = 8
+def test_should_estimate_frequency_chunks_from_processing_set(mocks):
+    mocks["detect_input_type"].return_value = "ps"
+    mocks["estimate_channels_per_chunk"].return_value = 16
+    ms_xdt = mocks["open_msv4_selection"].return_value
+    ms_xdt.attrs = {"data_groups": {"corrected": {"correlated_data": "VC"}}}
+    ms_xdt.ds = {"VC": MagicMock(shape=(10, 21, 64, 4))}
 
-    new_up_output = load_data_stage(
-        UpstreamOutput(),
-        "/path/to/output/dir",
-        ["/path/to/vis.ms/"],
-        "auto",
-        5,
-        "/cache/dir/path",
-        False,
-        "DATA",
-        0,
-        0,
-    )
+    _run_stage(["/data/obs.ps.zarr"], nchannels_per_chunk="auto")
 
-    read_vis_shape_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid0_ddid0"
+    mocks["read_msv2_selection_shape"].assert_not_called()
+    mocks["estimate_channels_per_chunk"].assert_called_once_with(
+        64, 10 * 21 * 4, mocks["get_cluster_spec"].return_value
     )
-    create_template_vis_mock.assert_not_called()
-    estimate_channels_mock.assert_called_once_with(
-        64, 10 * 21 * 4, cluster_spec
-    )
-    read_data_mock.assert_called_once_with(
-        "/cache/dir/path/vis.ms_fid0_ddid0",
-        {
-            "time": -1,
-            "baselineid": -1,
-            "polarisation": -1,
-            "spatial": -1,
-            "frequency": 8,
-        },
-    )
-    assert new_up_output[0]["chunks"]["frequency"] == 8
+    mocks["chunk_ms_xdt"].assert_called_once_with(ms_xdt, 16)
 
 
-@patch("ska_sdp_instrumental_calibration.stages.load_data.os.makedirs")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".check_if_cache_files_exist"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_vis_shape_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_template_vis_from_ms"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.get_cluster_spec")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".estimate_channels_per_chunk"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.write_ms_to_zarr")
-@patch("ska_sdp_instrumental_calibration.stages.load_data.dask.compute")
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".read_visibility_from_zarr"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.load_data"
-    ".create_gaintable_from_visibility"
-)
-@patch("ska_sdp_instrumental_calibration.stages.load_data.read_ms_field_id")
-def test_should_estimate_frequency_chunks_from_ms_before_writing_zarr(
-    read_ms_field_id_mock,
-    create_bandpass_mock,
-    read_data_mock,
-    dask_compute_mock,
-    write_ms_mock,
-    estimate_channels_mock,
-    get_cluster_spec_mock,
-    create_template_vis_mock,
-    read_vis_shape_mock,
-    check_cache_mock,
-    os_makedirs_mock,
-):
-    check_cache_mock.return_value = False
-    template_vis = MagicMock(name="template_vis")
-    template_vis.vis.shape = (10, 21, 64, 4)
-    create_template_vis_mock.return_value = [template_vis]
-    cluster_spec = MagicMock(name="cluster_spec")
-    get_cluster_spec_mock.return_value = cluster_spec
-    estimate_channels_mock.return_value = 8
-
-    load_data_stage(
-        UpstreamOutput(),
-        "/path/to/output/dir",
-        ["/path/to/vis.ms/"],
-        "auto",
-        5,
-        "/cache/dir/path",
-        True,
-        "CORRECTED_DATA",
-        2,
-        3,
+@pytest.mark.parametrize("data_group", ["base", "corrected", "model"])
+def test_should_accept_data_groups_converted_from_msv2(data_group):
+    params = load_data_stage.__stage__.metadata.stage_param(
+        data_group=data_group
     )
 
-    read_vis_shape_mock.assert_not_called()
-    create_template_vis_mock.assert_called_once_with(
-        "/path/to/vis.ms",
-        ack=True,
-        datacolumn="CORRECTED_DATA",
-        field_ids=[2],
-        data_desc_ids=[3],
-    )
-    estimate_channels_mock.assert_called_once_with(
-        64, 10 * 21 * 4, cluster_spec
-    )
-    write_ms_mock.assert_called_once_with(
-        "/path/to/vis.ms",
-        "/cache/dir/path/vis.ms_fid2_ddid3",
-        {
-            "baselineid": -1,
-            "polarisation": -1,
-            "spatial": -1,
-            "time": 5,
-            "frequency": 8,
-        },
-        ack=True,
-        datacolumn="CORRECTED_DATA",
-        field_id=2,
-        data_desc_id=3,
-    )
+    assert params.data_group == data_group
+
+
+def test_should_reject_other_data_groups():
+    with pytest.raises(
+        ValidationError, match="'base', 'corrected' or 'model'"
+    ):
+        load_data_stage.__stage__.metadata.stage_param(data_group="imaging")

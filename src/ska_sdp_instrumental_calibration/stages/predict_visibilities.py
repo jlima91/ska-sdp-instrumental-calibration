@@ -8,6 +8,10 @@ from ska_sdp_datamodels.science_data_model.science_data_model import (
 from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.beams import BeamsFactory
+from ..data_managers.processing_set import (
+    get_array_location,
+    get_phase_centre,
+)
 from ..data_managers.sky_model import GlobalSkyModel
 from ..data_managers.telescope import Telescope
 from ..xarray_processors.apply import apply_gaintable_to_dataset
@@ -20,7 +24,6 @@ logger = logging.getLogger()
 def predict_visibilities(
     _upstream_output_,
     _qa_dir_,
-    input_ms: Annotated[list[str], CLIArgument],
     sdm_path: Annotated[Optional[str], CLIArgument] = None,
     use_everybeam: Annotated[
         bool,
@@ -50,7 +53,9 @@ def predict_visibilities(
             description="""If everybeam is being used but input ms does
             not have all of the metadata required by everybeam, this parameter
             is used to specify a separate dataset to use when setting up
-            the beam models."""
+            the beam models. It may be an MSv2 or a Processing Set (with a
+            single field and spectral window), and must have the same
+            stations, in the same order, as the input."""
         ),
     ] = None,
     gleamfile: Annotated[
@@ -106,8 +111,6 @@ def predict_visibilities(
         Output from the upstream stage.
     _qa_dir_ : str
         Directory path where the diagnostic QA outputs will be written.
-    input_ms: CLIArgument
-        Input measurementset.
     use_everybeam: bool
         Whether to use everybeam model. It uses everybeam by default.
     normalise_at_beam_centre: bool
@@ -122,7 +125,9 @@ def predict_visibilities(
         If everybeam is being used but input ms does
         not have all of the metadata required by everybeam, this parameter
         is used to specify a separate dataset to use when setting up
-        the beam models.
+        the beam models. It may be an MSv2 or a Processing Set, with the
+        same stations in the same order as the input. If None, the beam
+        metadata of the input is used.
     gleamfile: str
         Path to the GLEAM catalog file.
     lsm_csv_path: str
@@ -148,6 +153,7 @@ def predict_visibilities(
     """
     vis = _upstream_output_.vis
     gaintable = _upstream_output_.gaintable
+    phasecentre = get_phase_centre(vis)
 
     if sdm_path is not None:
         sdm = ScienceDataModel(sdm_path)
@@ -155,7 +161,7 @@ def predict_visibilities(
         lsm_csv_path = str(sdm.get_sky_model_path(_upstream_output_.field_id))
 
     _upstream_output_["lsm"] = GlobalSkyModel(
-        vis.phasecentre,
+        phasecentre,
         fov,
         flux_limit,
         alpha0,
@@ -176,12 +182,12 @@ def predict_visibilities(
 
     if use_everybeam:
         logger.info("Using EveryBeam model in predict")
-        eb_ms = input_ms[0] if eb_ms is None else eb_ms
-
         beams_factory = BeamsFactory(
-            array_location=vis.configuration.location,
-            direction=vis.phasecentre,
-            telescope=Telescope(eb_ms, element_response_model),
+            array_location=get_array_location(vis),
+            direction=phasecentre,
+            telescope=Telescope.for_visibilities(
+                vis, element_response_model, eb_ms
+            ),
         )
 
     modelvis = predict_vis(

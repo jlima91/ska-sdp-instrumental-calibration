@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 from astropy import constants as const
-from mock import ANY, MagicMock, call, patch
+from mock import ANY, call, patch
 
 from ska_sdp_instrumental_calibration.xarray_processors.vis_filter import (
     UVRangeFilter,
@@ -196,9 +196,8 @@ def test_should_precompute_uvdist_kl(uvrange_mock):
 )
 def test_should_update_flags(uvrange_mock):
     uvrange_mock.return_value = uvrange_mock
-    vis = MagicMock(name="vis")
 
-    vis.uvw = xr.DataArray(
+    uvw = xr.DataArray(
         np.array(
             [
                 [
@@ -215,18 +214,16 @@ def test_should_update_flags(uvrange_mock):
                 ],
             ]
         ),
-        dims=["time", "baselineid", "spatial"],
+        dims=["time", "baseline_id", "uvw_label"],
         coords={
             "time": np.arange(2),
-            "baselineid": np.arange(4),
-            "spatial": "u v w".split(),
+            "baseline_id": np.arange(4),
+            "uvw_label": "u v w".split(),
         },
     )
 
     # 'u > 6' must be selected
-    uvrange_mock.predicate.return_value = (
-        vis.uvw.sel(spatial="u", drop=True) > 6
-    )
+    uvrange_mock.predicate.return_value = uvw.sel(uvw_label="u", drop=True) > 6
 
     # Since 'u > 6' is true only for time=1,
     # all values for time=0 are flagged
@@ -234,37 +231,29 @@ def test_should_update_flags(uvrange_mock):
     expected[0, ...] = True
     expected_flags = xr.DataArray(
         expected,
-        dims=["time", "baselineid", "frequency", "pol"],
+        dims=["time", "baseline_id", "frequency", "polarization"],
         coords={
             "time": np.arange(2),
-            "baselineid": np.arange(4),
-            "frequency": np.arange(5),
-            "pol": np.arange(4),
+            "baseline_id": np.arange(4),
+            "frequency": np.arange(1, 6),
+            "polarization": ["XX", "XY", "YX", "YY"],
         },
     )
 
-    vis.frequency = xr.DataArray(np.arange(1, 6), dims=["frequency"])
-
-    vis.flags = xr.DataArray(
-        np.zeros((2, 4, 5, 4), dtype=bool),
-        dims=["time", "baselineid", "frequency", "pol"],
-        coords={
-            "time": np.arange(2),
-            "baselineid": np.arange(4),
-            "frequency": np.arange(5),
-            "pol": np.arange(4),
-        },
+    flags = xr.zeros_like(expected_flags)
+    vis = xr.DataTree(
+        xr.Dataset(
+            {"FLAG": flags, "UVW": uvw},
+            attrs={"data_groups": {"base": {"flag": "FLAG", "uvw": "UVW"}}},
+        )
     )
 
     filtered_vis = VisibilityFilter.filter({"uvdist": "<10kl"}, vis)
 
-    vis.assign.assert_called_once_with({"flag": ANY})
-
-    called_args, _ = vis.assign.call_args
-    actual_flags = called_args[0]["flag"]
-
-    assert filtered_vis == vis.assign.return_value
-    assert actual_flags.equals(expected_flags)
+    xr.testing.assert_equal(filtered_vis.ds["flag"], expected_flags)
+    # Known issue kept from the pre-migration implementation: the data group
+    # flags used by the solvers are unchanged
+    xr.testing.assert_equal(filtered_vis.ds.FLAG, flags)
 
 
 def test_should_raise_value_error_for_invalid_uvrange_string():

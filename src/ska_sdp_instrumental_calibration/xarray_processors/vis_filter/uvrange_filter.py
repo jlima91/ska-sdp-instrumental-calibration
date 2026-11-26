@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 from astropy import constants as const
 
+from ...data_managers.processing_set import get_data_group
 from ...data_managers.uv_range import UVRange
 from .vis_filter import VisibilityFilter
 
@@ -39,14 +40,17 @@ class UVRangeFilter(VisibilityFilter):
     _re_ineq = re.compile(rf"^(!?)\s*(>|<)\s*({_num_re})\s*([a-z]*)$")
 
     @classmethod
-    def _filter(cls, uvdist: str, vis: xr.Dataset):
+    def _filter(cls, uvdist: str, vis: xr.DataTree):
         uvrange_filter = UVRangeFilter(uvdist)
+        data_group = get_data_group(vis)
+        # Only the UV distance is used, so the UVW sign is irrelevant
+        uvw = vis.ds[data_group["uvw"]]
 
         return uvrange_filter(
-            vis.uvw.sel(spatial="u", drop=True),
-            vis.uvw.sel(spatial="v", drop=True),
-            vis.flags,
-            vis.frequency,
+            uvw.sel(uvw_label="u", drop=True),
+            uvw.sel(uvw_label="v", drop=True),
+            vis.ds[data_group["flag"]],
+            vis.ds.frequency,
         )
 
     def __init__(self, uvranges):
