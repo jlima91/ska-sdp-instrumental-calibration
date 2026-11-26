@@ -6,7 +6,14 @@ are looked up by :mod:`..repository.metadata`.
 
 import numpy as np
 
-from ..domain.metadata import ObservationParameters
+from ..domain.metadata import (
+    FileInformation,
+    ObservationParameters,
+    StationConfiguration,
+)
+from ..exceptions import RunMetadataError
+from ..repository import metadata as repository
+from ..repository.field_metadata import FieldMetadata
 
 
 def get_observation_parameters(
@@ -56,3 +63,120 @@ def get_observation_parameters(
         integration_time=integration_time,
         channels=channels,
     )
+
+
+def get_station_configuration(
+    field_metadata: FieldMetadata,
+) -> StationConfiguration:
+    """
+    Get the stations of a field from its run metadata.
+
+    Every section of the report has one row per station, so each builder
+    takes its stations from here.
+
+    Parameters
+    ----------
+    field_metadata : FieldMetadata
+        Run metadata of the field, with its stations as recorded by
+        load_data: MS station ID keyed by MS station name, in
+        configuration order.
+
+    Returns
+    -------
+    StationConfiguration
+        Stations of the field.
+
+    Raises
+    ------
+    RunMetadataError
+        If no stations are recorded for the field.
+    """
+
+    stations = repository.get_station_configuration(field_metadata)
+    if stations is not None:
+        return stations
+
+    raise RunMetadataError(
+        f"No stations recorded for field {field_metadata.field_name}"
+    )
+
+
+def get_file_information(field_metadata: FieldMetadata) -> FileInformation:
+    """
+    Get the files of a field from its run metadata.
+
+    Parameters
+    ----------
+    field_metadata : FieldMetadata
+        Run metadata of the field, with its measurement sets.
+
+    Returns
+    -------
+    FileInformation
+        Measurement sets of the field and QA directory of the run.
+
+    Raises
+    ------
+    RunMetadataError
+        If no measurement sets are recorded for the field.
+    """
+
+    file_information = repository.get_file_information(field_metadata)
+    if file_information is not None:
+        return file_information
+
+    raise RunMetadataError(
+        f"QA metadata missing for field {field_metadata.field_name}"
+    )
+
+
+def get_timestamps(field_metadata: FieldMetadata) -> list[list[float]]:
+    """
+    Get the timestamps of the measurement sets of a field from its run
+    metadata.
+
+    Parameters
+    ----------
+    field_metadata : FieldMetadata
+        Run metadata of the field, with the timestamps of each of its
+        measurement sets as recorded by load_data.
+
+    Returns
+    -------
+    list[list[float]]
+        Timestamps of each measurement set of the field, in MJD seconds,
+        in any order.
+
+    Raises
+    ------
+    RunMetadataError
+        If no timestamps are recorded for the field.
+    """
+
+    timestamps = repository.get_timestamps(field_metadata)
+    if timestamps is not None:
+        return timestamps
+
+    raise RunMetadataError(
+        f"No timestamps recorded for field {field_metadata.field_name}"
+    )
+
+
+def get_channels(field_metadata: FieldMetadata) -> int | None:
+    """
+    Get the number of frequency channels of a field from its run metadata.
+
+    Parameters
+    ----------
+    field_metadata : FieldMetadata
+        Run metadata of the field, with, optionally, its number of
+        channels as recorded by load_data.
+
+    Returns
+    -------
+    int or None
+        Number of channels, or None if not recorded: the report shows it
+        as unknown rather than failing the section.
+    """
+
+    return repository.get_channels(field_metadata)

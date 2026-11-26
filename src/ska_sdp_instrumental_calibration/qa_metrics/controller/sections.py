@@ -31,17 +31,17 @@ from ..repository.gaintable import (
     get_final_gaintable_path,
     read_gaintable,
 )
-from ..repository.metadata import (
-    get_channels,
-    get_file_information,
-    get_station_configuration,
-    get_timestamps,
-)
 from ..repository.pre_flagging import get_pre_flagging_paths, read_pre_flagging
 from ..service.bandpass_fit import bandpass_fit_quality
 from ..service.cable_delays import get_cable_delays
 from ..service.flagging_statistics import get_flagged_from_gaintable
-from ..service.metadata_summary import get_observation_parameters
+from ..service.metadata_summary import (
+    get_channels,
+    get_file_information,
+    get_observation_parameters,
+    get_station_configuration,
+    get_timestamps,
+)
 from ..service.pre_flagging import pre_flags_from_counts
 from ..view.sections import (
     BandpassFitSection,

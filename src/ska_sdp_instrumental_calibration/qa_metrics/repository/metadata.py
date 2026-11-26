@@ -5,14 +5,13 @@ metadata.
 """
 
 from ..domain.metadata import FileInformation, StationConfiguration
-from ..exceptions import RunMetadataError
 from .field_metadata import FieldMetadata
 from .manifest_schema import ManifestSchema
 
 
 def get_station_configuration(
     field_metadata: FieldMetadata,
-) -> StationConfiguration:
+) -> StationConfiguration | None:
     """
     Get the stations of a field from its run metadata.
 
@@ -40,13 +39,13 @@ def get_station_configuration(
         ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION
     )
     if not stations:
-        raise RunMetadataError(
-            f"No stations recorded for field {field_metadata.field_name}"
-        )
+        return None
     return StationConfiguration(stations)
 
 
-def get_file_information(field_metadata: FieldMetadata) -> FileInformation:
+def get_file_information(
+    field_metadata: FieldMetadata,
+) -> FileInformation | None:
     """
     Get the files of a field from its run metadata.
 
@@ -68,15 +67,15 @@ def get_file_information(field_metadata: FieldMetadata) -> FileInformation:
     input_ms = field_metadata.get_data_for(ManifestSchema.METADATA_SUMMARY.MS)
 
     if not input_ms:
-        raise RunMetadataError(
-            f"QA metadata missing for field {field_metadata.field_name}"
-        )
+        return None
     return FileInformation(
         input_ms=list(input_ms), output_path=field_metadata.qa_dir
     )
 
 
-def get_timestamps(field_metadata: FieldMetadata) -> list[list[float]]:
+def get_timestamps(
+    field_metadata: FieldMetadata,
+) -> list[list[float]] | None:
     """
     Get the timestamps of the measurement sets of a field from its run
     metadata.
@@ -102,9 +101,7 @@ def get_timestamps(field_metadata: FieldMetadata) -> list[list[float]]:
         ManifestSchema.METADATA_SUMMARY.TIMESTAMPS
     )
     if not timestamps:
-        raise RunMetadataError(
-            f"No timestamps recorded for field {field_metadata.field_name}"
-        )
+        return None
     return timestamps
 
 

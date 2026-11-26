@@ -4,8 +4,17 @@ import pytest
 from ska_sdp_instrumental_calibration.qa_metrics.domain.metadata import (
     ObservationParameters,
 )
+from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
+    RunMetadataError,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
+    FieldMetadata,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.service.metadata_summary import (  # noqa: E501
+    get_file_information,
     get_observation_parameters,
+    get_station_configuration,
+    get_timestamps,
 )
 
 
@@ -74,3 +83,33 @@ def test_should_get_no_integration_time_from_a_single_timestamp():
         parameters = get_observation_parameters([[10.0]], channels=64)
 
     assert np.isnan(parameters.integration_time)
+
+
+def _metadata_summary(metadata_summary):
+    return FieldMetadata(
+        "field_a", "/qa/dir", sections={"metadata_summary": metadata_summary}
+    )
+
+
+@pytest.mark.parametrize("metadata_summary", [{}, {"stations": {}}])
+def test_should_raise_if_no_stations_are_recorded(metadata_summary):
+    with pytest.raises(
+        RunMetadataError, match="No stations recorded for field field_a"
+    ):
+        get_station_configuration(_metadata_summary(metadata_summary))
+
+
+@pytest.mark.parametrize("metadata_summary", [{}, {"timestamps": []}])
+def test_should_raise_if_no_timestamps_are_recorded(metadata_summary):
+    with pytest.raises(
+        RunMetadataError, match="No timestamps recorded for field field_a"
+    ):
+        get_timestamps(_metadata_summary(metadata_summary))
+
+
+@pytest.mark.parametrize("metadata_summary", [{}, {"MS": []}])
+def test_should_raise_if_no_ms_are_recorded(metadata_summary):
+    with pytest.raises(
+        RunMetadataError, match="QA metadata missing for field field_a"
+    ):
+        get_file_information(_metadata_summary(metadata_summary))

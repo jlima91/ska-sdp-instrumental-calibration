@@ -36,13 +36,66 @@ def get_flagged_from_gaintable(
     flagged_percentage = (
         is_flagged.mean(dim=("time", "frequency", "polarization")) * 100
     )
+    percentage_flagged = {
+        str(name): float(percentage)
+        for name, percentage in zip(
+            gaintable.antenna_name.values, flagged_percentage.values
+        )
+    }
 
     return FlaggingStatistics(
-        flagged_before=flagged_before,
-        flagged_after={
-            str(name): float(percentage)
-            for name, percentage in zip(
-                gaintable.antenna_name.values, flagged_percentage.values
-            )
-        },
+        flagged_before=_average(flagged_before.values()),
+        flagged_after=_average(percentage_flagged.values()),
+        stats_per_station=compute_flags_per_station(
+            flagged_before, percentage_flagged
+        ),
     )
+
+
+def compute_flags_per_station(
+    flagged_before, flagged_after
+) -> dict[str, dict[str, float | None]]:
+    """
+    Flagged percentage before, after and additional (after - before)
+    per station.
+
+    Returns
+    -------
+    dict[str, dict[str, float | None]]
+        ``flagged_before``, ``flagged_after`` and ``flagged_additional``
+        keyed by MS station name. A percentage is None where it is not
+        available.
+    """
+    values = {}
+    for station_name in flagged_before.keys() | flagged_after:
+        before = flagged_before.get(station_name)
+        after = flagged_after.get(station_name)
+        values[station_name] = {
+            "flagged_before": before,
+            "flagged_after": after,
+            "flagged_additional": (
+                after - before
+                if before is not None and after is not None
+                else None
+            ),
+        }
+
+    return values
+
+
+def _average(percentages) -> float | None:
+    """
+    Compute the average of percentages.
+
+    Parameters
+    ----------
+    percentages : Iterable[float]
+        Percentages to average.
+
+    Returns
+    -------
+    float or None
+        Average percentage, or None if there are no percentages.
+    """
+    percentages = list(percentages)
+    return sum(percentages) / len(percentages) if percentages else None

@@ -3,9 +3,6 @@ import pytest
 from ska_sdp_instrumental_calibration.qa_metrics.domain.metadata import (
     StationConfiguration,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
-    RunMetadataError,
-)
 from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
     FieldMetadata,
 )
@@ -34,13 +31,10 @@ def test_should_get_station_configuration_of_a_field():
     "sections",
     [{}, {"metadata_summary": {}}, {"metadata_summary": {"stations": {}}}],
 )
-def test_should_raise_if_no_stations_are_recorded(sections):
+def test_should_get_no_stations_if_not_recorded(sections):
     field_metadata = FieldMetadata("field_a", "/qa/dir", sections=sections)
 
-    with pytest.raises(
-        RunMetadataError, match="No stations recorded for field field_a"
-    ):
-        get_station_configuration(field_metadata)
+    assert get_station_configuration(field_metadata) is None
 
 
 def _metadata_summary(metadata_summary):
@@ -59,11 +53,8 @@ def test_should_get_timestamps_of_each_ms():
 
 
 @pytest.mark.parametrize("metadata_summary", [{}, {"timestamps": []}])
-def test_should_raise_if_no_timestamps_are_recorded(metadata_summary):
-    with pytest.raises(
-        RunMetadataError, match="No timestamps recorded for field field_a"
-    ):
-        get_timestamps(_metadata_summary(metadata_summary))
+def test_should_get_no_timestamps_if_not_recorded(metadata_summary):
+    assert get_timestamps(_metadata_summary(metadata_summary)) is None
 
 
 def test_should_get_channels():

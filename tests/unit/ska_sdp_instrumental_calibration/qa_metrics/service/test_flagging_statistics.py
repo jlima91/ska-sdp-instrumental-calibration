@@ -44,6 +44,18 @@ def test_should_get_flagged_percentage_after_from_parallel_hand_weights():
     statistics = get_flagged_from_gaintable(_gaintable(weight), flagged_before)
 
     assert statistics == FlaggingStatistics(
-        flagged_before=flagged_before,
-        flagged_after={"station_a": 12.5, "station_b": 0.0},
+        flagged_before=5.0,
+        flagged_after=6.25,
+        stats_per_station={
+            "station_a": {
+                "flagged_before": 0.0,
+                "flagged_after": 12.5,
+                "flagged_additional": 12.5,
+            },
+            "station_b": {
+                "flagged_before": 10.0,
+                "flagged_after": 0.0,
+                "flagged_additional": -10.0,
+            },
+        },
     )
