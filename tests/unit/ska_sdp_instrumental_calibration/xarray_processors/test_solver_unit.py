@@ -4,20 +4,26 @@ Unit tests for ska_sdp_instrumental_calibration.xarray_processors.solver
 
 from unittest.mock import MagicMock, patch
 
+import dask.array as da
 import numpy as np
 import pytest
+import xarray as xr
 
 from ska_sdp_instrumental_calibration.data_managers.gaintable import (
-    create_gaintable_from_visibility,
+    create_gaintable_from_msv4,
+)
+from ska_sdp_instrumental_calibration.data_managers.processing_set import (
+    with_correlated_data,
+)
+from ska_sdp_instrumental_calibration.numpy_processors.solvers import Solver
+from ska_sdp_instrumental_calibration.xarray_processors.apply import (
+    apply_gaintable_to_dataset,
 )
 from ska_sdp_instrumental_calibration.xarray_processors.solver import (
     _run_solver_ufunc,
     _run_solver_ufunc_with_broadcast_frequency,
+    _solver_inputs,
     run_solver,
-)
-
-_APPLY_UFUNC_PATCH = (
-    "ska_sdp_instrumental_calibration.xarray_processors.solver.xr.apply_ufunc"
 )
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -130,11 +136,13 @@ class TestRunSolverUfuncWithBroadcastFrequency:
 
     def test_arrays_transposed_to_order_expected_by_solver(self):
         """solver.solve receives vis with freq moved from dim-0 to dim-2."""
-        arrays = _freq_first_arrays()
+        *arrays, antenna1, antenna2 = _freq_first_arrays()
         solver = _make_solver_returning_time_first()
 
         gain_out, weight_out, residual_out = (
-            _run_solver_ufunc_with_broadcast_frequency(*arrays, solver)
+            _run_solver_ufunc_with_broadcast_frequency(
+                *arrays, antenna1=antenna1, antenna2=antenna2, solver=solver
+            )
         )
 
         solve_args = solver.solve.call_args.args
@@ -163,177 +171,145 @@ class TestRunSolverUfuncWithBroadcastFrequency:
         assert residual_out.shape == (_NFREQ, _NTIME, _NPOL)
 
 
-class TestRunSolver:
-    """run_solver tests with mocked xr.apply_ufunc."""
+# ── run_solver on MSv4 nodes ─────────────────────────────────────────────────
+# The conftest MSv4 node has 3 antennas and baselines (a0, a1), (a2, a1)
+# (reversed, antenna1 > antenna2) and (a0, a2).
+_REVERSED_BASELINE = 1
+_TRUE_GAINS = np.array([1.0 + 0.0j, 1.2 - 0.3j, 0.8 + 0.5j])
 
-    def test_jones_B_uses_broadcast_frequency_ufunc(self, generate_vis):
-        vis, gaintable = generate_vis
-        modelvis = vis.copy(deep=True)
-        solver_instance = MagicMock()
 
-        with patch(
-            _APPLY_UFUNC_PATCH,
-            side_effect=_apply_ufunc_return_template_arrays,
-        ) as mock_ufunc:
-            result = run_solver(vis, modelvis, gaintable, solver_instance)
+def _corrupted_vis_and_model(ms_xdt):
+    """
+    Model node with the conftest visibilities, and a vis node corrupted
+    by diagonal antenna gains: V = g1 M g2^H.
+    """
+    model = ms_xdt.ds.VISIBILITY
+    antenna1, antenna2 = np.array([0, 2, 0]), np.array([1, 1, 2])
+    baseline_gain = _TRUE_GAINS[antenna1] * np.conj(_TRUE_GAINS[antenna2])
+    corrupted = model * xr.DataArray(baseline_gain, dims="baseline_id")
+    return (
+        with_correlated_data(ms_xdt, corrupted.astype(model.dtype)),
+        ms_xdt,
+    )
 
-        # Fixture generate_vis creates gaintable with 3 solution intervals,
-        # since visbility has 3 time slots
-        # apply_ufunc will be called one per solution interval
-        assert len(mock_ufunc.call_args_list) == len(
-            gaintable.soln_interval_slices
+
+def _canonical(ms_xdt):
+    """
+    The same node, with the reversed baseline stored as antenna1 <
+    antenna2: names swapped, visibilities conjugated with cross hands
+    swapped, flags and weights with cross hands swapped.
+    """
+    ds = ms_xdt.to_dataset()
+    rev = xr.DataArray(
+        np.arange(ds.baseline_id.size) == _REVERSED_BASELINE,
+        dims="baseline_id",
+    )
+
+    def swap_cross_hands(data):
+        return data.isel(polarization=[0, 2, 1, 3]).assign_coords(
+            polarization=data.polarization
         )
 
-        for call in mock_ufunc.call_args_list:
-            assert call.args[0] is _run_solver_ufunc_with_broadcast_frequency
+    canonical = ds.assign(
+        VISIBILITY=xr.where(
+            rev, np.conj(swap_cross_hands(ds.VISIBILITY)), ds.VISIBILITY
+        ),
+        FLAG=xr.where(rev, swap_cross_hands(ds.FLAG), ds.FLAG),
+        WEIGHT=xr.where(rev, swap_cross_hands(ds.WEIGHT), ds.WEIGHT),
+    ).assign_coords(
+        baseline_antenna1_name=xr.where(
+            rev, ds.baseline_antenna2_name, ds.baseline_antenna1_name
+        ),
+        baseline_antenna2_name=xr.where(
+            rev, ds.baseline_antenna1_name, ds.baseline_antenna2_name
+        ),
+    )
+    node = ms_xdt.copy(deep=False)
+    node.ds = canonical.assign_attrs(ds.attrs)
+    return node
 
-        # args[6] is template_gaintable.gain passed to apply_ufunc
-        # assert that gaintable is not chunked, since vis is not chunked
-        gain_arg = mock_ufunc.call_args_list[0].args[6]
-        assert "frequency" not in gain_arg.chunksizes
 
-        # For B type, frequency is a broadcast dim — not in core dims.
-        kw = mock_ufunc.call_args_list[0].kwargs
-        assert kw["input_core_dims"][0] == [
-            "time",
-            "baselineid",
-            "polarisation",
-        ]
-        assert kw["output_core_dims"][0] == [
-            "solution_time",
-            "antenna_name",
-            "polarization",
-        ]
-        assert kw["output_core_dims"][2] == [
-            "solution_time",
-            "polarization",
-        ]
-        assert kw["dask"] == "parallelized"
-        ufunc_kwargs = kw["kwargs"]
-        assert ufunc_kwargs["solver"] is solver_instance
-        np.testing.assert_array_equal(
-            ufunc_kwargs["antenna1"], vis.antenna1.data
-        )
-        np.testing.assert_array_equal(
-            ufunc_kwargs["antenna2"], vis.antenna2.data
-        )
+class TestRunSolverMSv4:
 
-        assert "time" in result.dims
-        assert "frequency" in result.dims
-        assert "solution_time" not in result.dims
-        assert "solution_frequency" not in result.dims
-
-    def test_jones_G_uses_standard_ufunc(self, generate_vis):
-        vis, _ = generate_vis
-        gaintable = create_gaintable_from_visibility(
-            vis, jones_type="G", timeslice="full", skip_default_chunk=True
-        ).compute()
-        modelvis = vis.copy(deep=True)
-        solver_instance = MagicMock()
-
-        with patch(
-            _APPLY_UFUNC_PATCH,
-            side_effect=_apply_ufunc_return_template_arrays,
-        ) as mock_ufunc:
-            result = run_solver(vis, modelvis, gaintable, solver_instance)
-
-        # Since timeslice="full", gaintable only has 1 solution interval
-        assert len(mock_ufunc.call_args_list) == 1
-        assert mock_ufunc.call_args_list[0].args[0] is _run_solver_ufunc
-
-        # args[6] is template_gaintable.gain passed to apply_ufunc
-        # assert that gaintable is not chunked, since vis is not chunked
-        gain_arg = mock_ufunc.call_args_list[0].args[6]
-        assert "frequency" not in gain_arg.chunksizes
-
-        # For G type, frequency is a core dim passed to the solver.
-        kw = mock_ufunc.call_args_list[0].kwargs
-        assert kw["input_core_dims"][0] == [
-            "time",
-            "baselineid",
-            "frequency",
-            "polarisation",
-        ]
-        assert kw["output_core_dims"][0] == [
-            "solution_time",
-            "antenna_name",
-            "solution_frequency",
-            "polarization",
-        ]
-        assert kw["output_core_dims"][2] == [
-            "solution_time",
-            "solution_frequency",
-            "polarization",
-        ]
-        assert kw["dask"] == "parallelized"
-        ufunc_kwargs = kw["kwargs"]
-        assert ufunc_kwargs["solver"] is solver_instance
-        np.testing.assert_array_equal(
-            ufunc_kwargs["antenna1"], vis.antenna1.data
-        )
-        np.testing.assert_array_equal(
-            ufunc_kwargs["antenna2"], vis.antenna2.data
-        )
-
-        assert "time" in result.dims
-        assert "frequency" in result.dims
-        assert "solution_time" not in result.dims
-        assert "solution_frequency" not in result.dims
-
-    def test_jones_B_rechunks_gaintable_to_match_vis_frequency_chunks(
-        self, generate_vis
+    @pytest.mark.parametrize("jones_type", ["B", "G"])
+    def test_solved_gains_reproduce_corrupted_visibilities(
+        self, make_ms_xdt, jones_type
     ):
-        """When vis is dask-chunked in frequency,
-        gaintable is rechunked to match."""
-        vis, gaintable = generate_vis
-        freq_chunk_size = 3  # vis has 4 freqs → two chunks -> (3, 1)
-        vis = vis.chunk({"frequency": freq_chunk_size})
-        modelvis = vis.copy(deep=True)
-        solver_instance = MagicMock()
+        vis, modelvis = _corrupted_vis_and_model(make_ms_xdt())
+        gaintable = create_gaintable_from_msv4(
+            vis, "full", jones_type, lower_precision=False
+        )
+        solver = Solver.get_solver(refant=0, niter=200, tol=1e-12)
 
-        with patch(
-            _APPLY_UFUNC_PATCH,
-            side_effect=_apply_ufunc_return_template_arrays,
-        ) as mock_ufunc:
-            run_solver(vis, modelvis, gaintable, solver_instance)
+        solved = run_solver(vis, modelvis, gaintable, solver)
 
-        # args[6] is template_gaintable.gain passed to apply_ufunc
-        gain_arg = mock_ufunc.call_args_list[0].args[6]
-        expected_freq_chunks = (3, 1)
-        assert gain_arg.chunksizes.get("frequency") == expected_freq_chunks
+        assert isinstance(solved.CALPARAM_GAIN.data, da.Array)
+        assert solved.CALPARAM_GAIN.dims == gaintable.CALPARAM_GAIN.dims
+        np.testing.assert_array_equal(solved.time, gaintable.time)
+        # Gains are only defined up to a common phase, so compare the
+        # visibilities they predict rather than the gains themselves
+        np.testing.assert_allclose(
+            apply_gaintable_to_dataset(modelvis, solved).ds.VISIBILITY,
+            vis.ds.VISIBILITY,
+            rtol=1e-4,
+            atol=1e-4,
+        )
 
-    def test_jones_B_raises_on_frequency_size_mismatch(self, generate_vis):
-        """B-type gaintable must have same frequency count as visibility."""
-        vis, _ = generate_vis  # vis has 4 freqs
-        mock_gt = MagicMock()
-        mock_gt.jones_type = "B"
-        mock_gt.rename.return_value = mock_gt
-        mock_gt.frequency.size = 2  # ≠ vis.frequency.size (4)
-        mock_gt.soln_interval_slices = [slice(0, 3)]
+    @pytest.mark.parametrize("crosspol", [False, True])
+    def test_reversed_baselines_solve_as_antenna1_before_antenna2(
+        self, make_ms_xdt, crosspol
+    ):
+        vis, modelvis = _corrupted_vis_and_model(make_ms_xdt())
+        gaintable = create_gaintable_from_msv4(vis, "full", "B")
+        solver = Solver.get_solver(refant=0, niter=50, crosspol=crosspol)
 
-        with pytest.raises(
-            AssertionError,
-            match=(
-                "For gaintable of type B, gaintable frequency size "
-                "must match visibility frequency size"
-            ),
-        ):
-            run_solver(vis, vis.copy(deep=True), mock_gt, MagicMock())
+        solved = run_solver(vis, modelvis, gaintable, solver)
+        expected = run_solver(
+            _canonical(vis), _canonical(modelvis), gaintable, solver
+        )
 
-    def test_jones_G_raises_if_frequency_size_not_one(self, generate_vis):
-        """G/T-type gaintable must have exactly 1 frequency channel."""
-        vis, _ = generate_vis
-        mock_gt = MagicMock()
-        mock_gt.jones_type = "G"
-        mock_gt.rename.return_value = mock_gt
-        mock_gt.frequency.size = 4  # ≠ 1
-        mock_gt.soln_interval_slices = [slice(0, 3)]
+        for name in ("CALPARAM_GAIN", "CALPARAM_WEIGHT", "CALPARAM_RESIDUAL"):
+            np.testing.assert_array_equal(
+                solved[name].values, expected[name].values, err_msg=name
+            )
 
-        with pytest.raises(
-            AssertionError,
-            match=(
-                "For gaintable of type T or G, "
-                "gaintable frequency must be of size 1"
-            ),
-        ):
-            run_solver(vis, vis.copy(deep=True), mock_gt, MagicMock())
+    def test_should_pass_ordered_baselines_unchanged(self, make_ms_xdt):
+        canonical = _canonical(make_ms_xdt())
+
+        inputs, antenna1, antenna2 = _solver_inputs(canonical, canonical)
+
+        assert inputs.vis.data is canonical.ds.VISIBILITY.data
+        assert inputs.flags.data is canonical.ds.FLAG.data
+        assert inputs.weight.data is canonical.ds.WEIGHT.data
+        assert inputs.model_vis.data is canonical.ds.VISIBILITY.data
+        assert inputs.model_flags.data is canonical.ds.FLAG.data
+        np.testing.assert_array_equal(antenna1, [0, 1, 0])
+        np.testing.assert_array_equal(antenna2, [1, 2, 2])
+
+    def test_should_raise_for_other_antenna_order(self, make_ms_xdt):
+        ms_xdt = make_ms_xdt()
+        gaintable = create_gaintable_from_msv4(ms_xdt, "full", "B")
+
+        with pytest.raises(ValueError, match="antennas differ"):
+            run_solver(
+                ms_xdt,
+                ms_xdt,
+                gaintable.isel(antenna_name=[1, 0, 2]),
+                Solver.get_solver(),
+            )
+
+    def test_should_raise_reordering_unsupported_polarizations(
+        self, make_ms_xdt
+    ):
+        ms_xdt = make_ms_xdt(polarization=("XX", "YY", "XY", "YX"))
+
+        with pytest.raises(ValueError, match="antenna1 > antenna2"):
+            _solver_inputs(ms_xdt, ms_xdt)
+
+    def test_should_raise_for_model_on_other_coordinates(self, make_ms_xdt):
+        vis = make_ms_xdt()
+        modelvis = vis.copy(deep=False)
+        modelvis.ds = vis.ds.isel(time=slice(1, None))
+
+        with pytest.raises(ValueError, match="cannot align"):
+            _solver_inputs(vis, modelvis)

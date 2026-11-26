@@ -314,9 +314,10 @@ def test_should_plot_the_delayed_gaintable_with_proper_suffix(
         ]
     )
 
-    station_xyz = (
-        apply_gaintable_to_dataset_mock.return_value.configuration.xyz.data
-    )
+    # Lazy station positions of the corrected MSv4 node
+    station_xyz = apply_gaintable_to_dataset_mock.return_value[
+        "antenna_xds"
+    ].ds.ANTENNA_POSITION.data
     plot_station_delays_mock.assert_has_calls(
         [
             call(

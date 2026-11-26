@@ -1,6 +1,11 @@
+import dask.array as da
 import numpy as np
+import pytest
 from mock import MagicMock, call, patch
 
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (
+    create_gaintable_from_msv4,
+)
 from ska_sdp_instrumental_calibration.xarray_processors.apply import (
     _apply_gaintable_to_dataset_ufunc,
     apply_gaintable_to_dataset,
@@ -68,125 +73,71 @@ def test_should_apply_gaintable_to_dataset_without_newaxis(
     gain_mock.__getitem__.assert_called_once_with((np.newaxis, ...))
 
 
-@patch("ska_sdp_instrumental_calibration.xarray_processors.apply.xr.concat")
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors"
-    ".apply.xr.apply_ufunc"
-)
-def test_should_apply_gaintable_to_visibility(apply_ufunc_mock, concat_mock):
-    vis_mock = MagicMock(name="vis")
-    vis_mock.chunksizes = {"frequency": 1, "time": 1}
+# Scalar (diagonal, equal X and Y) gain of each antenna, in antenna_xds order
+ANTENNA_GAINS = np.array([1.0 + 1.0j, 2.0, 0.5j])
+# antenna_xds indices of the baselines of the conftest MSv4 node
+ANTENNA1, ANTENNA2 = np.array([0, 2, 0]), np.array([1, 1, 2])
 
-    gaintable = MagicMock(name="gaintable")
-    gains = MagicMock(name="gains")
-    gains.chunk.return_value = gains
-    gaintable.CALPARAM_GAIN = gains
 
-    gaintable.jones_type = "B"
-    gaintable.soln_interval_slices = [1, 2]
-    transpose_mock = MagicMock(
-        name="Transpose", side_effect=["TRANSPOSE_1", "TRANSPOSE_2"]
+def _scalar_gaintable(ms_xdt, timeslice, jones_type):
+    gaintable = create_gaintable_from_msv4(ms_xdt, timeslice, jones_type)
+    gain = gaintable.CALPARAM_GAIN
+    # Diagonal Jones matrices: XX = YY = g, XY = YX = 0
+    jones = np.zeros(gain.shape, dtype=gain.dtype)
+    jones[..., 0] = ANTENNA_GAINS[np.newaxis, :, np.newaxis]
+    jones[..., 3] = ANTENNA_GAINS[np.newaxis, :, np.newaxis]
+    return gaintable.assign(
+        CALPARAM_GAIN=gain.copy(data=da.from_array(jones, chunks=gain.chunks))
     )
 
-    concated_ds_mock = MagicMock(name="Concated DS")
-    concat_mock.return_value = concated_ds_mock
-    concated_ds_mock.assign_attrs.return_value = concated_ds_mock
 
-    apply_ufunc_mock.return_value.transpose = transpose_mock
+@pytest.mark.parametrize("jones_type", ["B", "T"])
+@pytest.mark.parametrize("inverse", [False, True])
+def test_should_apply_gaintable_to_msv4(make_ms_xdt, jones_type, inverse):
+    ms_xdt = make_ms_xdt()
+    gaintable = _scalar_gaintable(ms_xdt, 6.0, jones_type)
+    assert len(gaintable.soln_interval_slices) == 2
 
-    expected = apply_gaintable_to_dataset(vis_mock, gaintable, False)
+    applied = apply_gaintable_to_dataset(ms_xdt, gaintable, inverse=inverse)
 
-    apply_ufunc_mock.assert_has_calls(
-        [
-            call(
-                _apply_gaintable_to_dataset_ufunc,
-                vis_mock.vis.isel.return_value,
-                gains.isel.return_value,
-                input_core_dims=[
-                    ["baselineid", "polarisation"],
-                    ["antenna_name", "polarization"],
-                ],
-                output_core_dims=[
-                    ["baselineid", "polarisation"],
-                ],
-                dask="parallelized",
-                output_dtypes=[vis_mock.vis.dtype],
-                dask_gufunc_kwargs=dict(
-                    output_sizes={
-                        "baselineid": vis_mock.baselineid.size,
-                        "polarisation": vis_mock.polarisation.size,
-                    }
-                ),
-                kwargs={
-                    "antenna1": vis_mock.antenna1,
-                    "antenna2": vis_mock.antenna2,
-                    "inverse": False,
-                },
-            ),
-            call(
-                _apply_gaintable_to_dataset_ufunc,
-                vis_mock.vis.isel.return_value,
-                gains.isel.return_value,
-                input_core_dims=[
-                    ["baselineid", "polarisation"],
-                    ["antenna_name", "polarization"],
-                ],
-                output_core_dims=[
-                    ["baselineid", "polarisation"],
-                ],
-                dask="parallelized",
-                output_dtypes=[vis_mock.vis.dtype],
-                dask_gufunc_kwargs=dict(
-                    output_sizes={
-                        "baselineid": vis_mock.baselineid.size,
-                        "polarisation": vis_mock.polarisation.size,
-                    }
-                ),
-                kwargs={
-                    "antenna1": vis_mock.antenna1,
-                    "antenna2": vis_mock.antenna2,
-                    "inverse": False,
-                },
-            ),
-        ]
+    # V' = g1 V g2^H, using the antenna order of each baseline, including
+    # the one with antenna1 > antenna2
+    baseline_gain = ANTENNA_GAINS[ANTENNA1] * np.conj(ANTENNA_GAINS[ANTENNA2])
+    if inverse:
+        baseline_gain = 1 / baseline_gain
+    expected = (
+        ms_xdt.ds.VISIBILITY.values
+        * baseline_gain[np.newaxis, :, np.newaxis, np.newaxis]
     )
 
-    gains.chunk.assert_called_once_with({"frequency": 1})
-
-    concat_mock.assert_called_once_with(
-        ["TRANSPOSE_1", "TRANSPOSE_2"], dim="time"
+    assert isinstance(applied.ds.VISIBILITY.data, da.Array)
+    assert applied.ds.VISIBILITY.chunks[2] == ms_xdt.ds.VISIBILITY.chunks[2]
+    np.testing.assert_allclose(
+        applied.ds.VISIBILITY.values, expected, rtol=1e-6
     )
-
-    transpose_mock.assert_has_calls(
-        [
-            call("time", "baselineid", "frequency", "polarisation"),
-            call("time", "baselineid", "frequency", "polarisation"),
-        ]
-    )
-    concated_ds_mock.assign_attrs.assert_called_once_with(vis_mock.vis.attrs)
-    vis_mock.assign.assert_called_once_with({"vis": concated_ds_mock})
-    assert expected == vis_mock.assign.return_value
+    assert applied.ds.FLAG.data is ms_xdt.ds.FLAG.data
 
 
-@patch("ska_sdp_instrumental_calibration.xarray_processors.apply.xr.concat")
-@patch(
-    "ska_sdp_instrumental_calibration.xarray_processors"
-    ".apply.xr.apply_ufunc"
-)
-def test_should_apply_gaintable_to_visibility_for_non_B_type(
-    apply_ufunc_mock, concat_mock
+def test_should_raise_applying_gaintable_with_other_antenna_order(
+    make_ms_xdt,
 ):
-    vis_mock = MagicMock(name="vis")
-    vis_mock.chunksizes = {"frequency": 1, "time": 1}
+    ms_xdt = make_ms_xdt()
+    gaintable = _scalar_gaintable(ms_xdt, "full", "B")
 
-    gaintable = MagicMock(name="gaintable")
-    gains = MagicMock(name="gains")
-    gains.chunk.return_value = gains
-    gaintable.CALPARAM_GAIN = gains
+    with pytest.raises(ValueError, match="antennas differ"):
+        apply_gaintable_to_dataset(
+            ms_xdt, gaintable.isel(antenna_name=[1, 0, 2])
+        )
 
-    gaintable.jones_type = "G"
-    gaintable.soln_interval_slices = [1]
-    gains.frequency.size = 1
 
-    apply_gaintable_to_dataset(vis_mock, gaintable, False)
-    gains.isel.assert_called_once_with(frequency=0, drop=True)
+def test_should_raise_applying_gaintable_with_other_polarizations(
+    make_ms_xdt,
+):
+    ms_xdt = make_ms_xdt()
+    gaintable = _scalar_gaintable(ms_xdt, "full", "B")
+
+    with pytest.raises(ValueError, match="polarizations"):
+        apply_gaintable_to_dataset(
+            ms_xdt,
+            gaintable.assign_coords(polarization=["RR", "RL", "LR", "LL"]),
+        )

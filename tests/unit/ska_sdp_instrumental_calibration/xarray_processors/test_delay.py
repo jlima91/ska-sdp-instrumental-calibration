@@ -1,11 +1,17 @@
+import dask
+import dask.array as da
 import numpy as np
+import pytest
 import xarray as xr
 
+from ska_sdp_instrumental_calibration.data_managers.gaintable import (
+    create_gaintable_from_msv4,
+)
+from ska_sdp_instrumental_calibration.data_managers.processing_set import (
+    with_correlated_data,
+)
 from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
     GainCalibrationSetXds,
-)
-from ska_sdp_instrumental_calibration.xarray_processors._utils import (
-    simplify_baselines_dim,
 )
 from ska_sdp_instrumental_calibration.xarray_processors.delay import (
     DelayTable,
@@ -279,34 +285,86 @@ def test_apply_delay_to_gaintable_should_preserve_chunks():
     )
 
 
-def test_create_delaytable_from_vis(generate_vis):
+# Delays of the 3 antennas of the conftest MSv4 node, small enough for the
+# phase to not wrap between its 6 channels of 1 MHz
+_ANTENNA_DELAYS = np.array([3e-8, -2e-8, 5e-8])
+# The delay fit, in absolute frequency, loses precision with float32
+# weights (as stored in MSs): ~1e-4 relative error for exact data. A wrong
+# antenna or sign would be off by more than 100%.
+_DELAY_RTOL = 1e-3
 
-    refant = 0
-    oversample = 4
 
-    vis, gaintable = generate_vis
-    vis = simplify_baselines_dim(vis)
-
-    actual_delaytable = create_delaytable_from_vis(
-        vis, gaintable, refant, oversample
+def _node_with_antenna_delays(make_ms_xdt):
+    """
+    MSv4 node whose visibilities are V(a1, a2) = g(a1) conj(g(a2)), with
+    gains g(a) = exp(2 pi i delay(a) frequency) on XX and YY.
+    """
+    ms_xdt = make_ms_xdt()
+    ds = ms_xdt.ds
+    antenna1, antenna2 = (
+        np.array([0, 2, 0]),
+        np.array([1, 1, 2]),
+    )  # conftest baselines (a0, a1), (a2, a1), (a0, a2)
+    frequency = ds.frequency.values
+    gain = np.exp(2j * np.pi * _ANTENNA_DELAYS[:, None] * frequency)
+    baseline_vis = gain[antenna1] * np.conj(gain[antenna2])
+    visibility = np.zeros(ds.VISIBILITY.shape, dtype=ds.VISIBILITY.dtype)
+    visibility[..., 0] = baseline_vis[None]
+    visibility[..., 3] = baseline_vis[None]
+    return with_correlated_data(
+        ms_xdt,
+        ds.VISIBILITY.copy(
+            data=da.from_array(visibility, chunks=ds.VISIBILITY.chunks)
+        ),
     )
 
-    assert isinstance(actual_delaytable, xr.Dataset)
-    assert actual_delaytable.delay.shape == (
-        gaintable.sizes["time"],
-        gaintable.sizes["antenna_name"],
-        2,
-    )
-    assert actual_delaytable.offset.shape == (
-        gaintable.sizes["time"],
-        gaintable.sizes["antenna_name"],
-        2,
-    )
 
+@pytest.mark.parametrize("refant", [0, 1, 2])
+def test_create_delaytable_from_vis(make_ms_xdt, refant):
+    # refant 0: both baselines stored as (refant, antenna), conjugated
+    # refant 1: both stored as (antenna, refant)
+    # refant 2: one of each
+    vis = _node_with_antenna_delays(make_ms_xdt)
+    gaintable = create_gaintable_from_msv4(vis, 6.0, "B")
+    assert len(gaintable.soln_interval_slices) == 2
+
+    delaytable = create_delaytable_from_vis(vis, gaintable, refant, 1)
+
+    assert isinstance(delaytable, xr.Dataset)
+    assert delaytable.delay.shape == (2, 3, 2)
     np.testing.assert_array_equal(
-        actual_delaytable.antenna_name.data, gaintable.antenna_name.data
+        delaytable.antenna_name.data, gaintable.antenna_name.data
     )
-    np.testing.assert_allclose(actual_delaytable.delay.values, 0.0, atol=1e-10)
+    np.testing.assert_array_equal(delaytable.time, gaintable.time)
+    # Delay of each antenna relative to the reference antenna, on XX and YY
+    expected = _ANTENNA_DELAYS - _ANTENNA_DELAYS[refant]
     np.testing.assert_allclose(
-        actual_delaytable.offset.values, 0.0, atol=1e-10
+        delaytable.delay.values,
+        np.broadcast_to(expected[None, :, None], (2, 3, 2)),
+        rtol=_DELAY_RTOL,
+    )
+
+
+def test_create_delaytable_from_vis_without_refant_baseline(make_ms_xdt):
+    vis = _node_with_antenna_delays(make_ms_xdt)
+    # Drop (a0, a2): antenna 0 has no baseline with refant 2
+    without_baseline = vis.copy(deep=False)
+    without_baseline.ds = vis.to_dataset().isel(baseline_id=[0, 1])
+    gaintable = create_gaintable_from_msv4(without_baseline, "full", "B")
+
+    delaytable = create_delaytable_from_vis(without_baseline, gaintable, 2, 1)
+
+    # Antenna 0 gets zero visibilities and weights, as missing (zero
+    # filled) baselines did in the MSv2 Visibility. The weighted fit is
+    # then undefined, giving NaN, as before migration.
+    with np.errstate(invalid="ignore"):
+        delay, offset = dask.compute(
+            delaytable.delay.data, delaytable.offset.data
+        )
+    assert np.isnan(delay[0, 0]).all()
+    assert np.isnan(offset[0, 0]).all()
+    np.testing.assert_allclose(
+        delay[0, 1],
+        _ANTENNA_DELAYS[1] - _ANTENNA_DELAYS[2],
+        rtol=_DELAY_RTOL,
     )

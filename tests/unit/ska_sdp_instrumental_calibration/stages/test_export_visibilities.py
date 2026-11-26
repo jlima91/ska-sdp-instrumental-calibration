@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import xarray as xr
 from mock import Mock, call, patch
 
@@ -6,7 +7,10 @@ from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput
 from ska_sdp_instrumental_calibration.stages import export_visibilities_stage
 from ska_sdp_instrumental_calibration.stages.export_visibilities import (
     _export_visibility_to_ms,
+    _wait_for_ps_write,
 )
+
+MODULE = "ska_sdp_instrumental_calibration.stages.export_visibilities"
 
 
 def test_should_have_the_expected_default_configuration():
@@ -14,6 +18,7 @@ def test_should_have_the_expected_default_configuration():
         "export_visibilities": {
             "data_to_export": "all",
             "apply_gaintable_to_vis": True,
+            "export_format": "ps",
         },
     }
 
@@ -24,217 +29,175 @@ def test_export_visibilities_stage_is_optional():
     assert not export_visibilities_stage.__stage__.is_enabled
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.get_visibilities_path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities._export_visibility_to_ms"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
-    side_effect=lambda x: x,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.apply_gaintable_to_dataset"
-)
-def test_should_export_corrected_vis_when_apply_gaintable_is_vis(
-    apply_gaintable_to_dataset_mock,
-    delayed_mock,
-    export_mock,
-    get_visibilities_path_mock,
-):
-    get_visibilities_path_mock.return_value = "./visibilities/corrected_vis.ms"
+@pytest.fixture
+def upstream_output():
     upstream_output = UpstreamOutput()
     upstream_output["ms_prefix"] = "ms_prefix"
-    vis_mock = Mock(name="original_vis")
-    corrected_vis_mock = Mock(name="corrected_vis")
-    gaintable_mock = Mock(name="gaintable")
-    upstream_output["vis"] = vis_mock
-    upstream_output["gaintable"] = gaintable_mock
-    apply_gaintable_to_dataset_mock.return_value = corrected_vis_mock
-
-    result = export_visibilities_stage(upstream_output, "./", "vis", True)
-
-    apply_gaintable_to_dataset_mock.assert_called_once_with(
-        vis_mock, upstream_output["gaintable"], inverse=True
-    )
-    get_visibilities_path_mock.assert_called_once_with(
-        "./", "ms_prefix/corrected.ms"
-    )
-    export_mock.assert_called_once_with(
-        "./visibilities/corrected_vis.ms", [corrected_vis_mock]
-    )
-    assert result["corrected_vis"] == corrected_vis_mock
+    upstream_output["vis"] = Mock(name="vis")
+    upstream_output["modelvis"] = Mock(name="modelvis")
+    upstream_output["gaintable"] = Mock(name="gaintable")
+    return upstream_output
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.get_visibilities_path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities._export_visibility_to_ms"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
-    side_effect=lambda x: x,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.apply_gaintable_to_dataset"
-)
-def test_should_export_model_vis(
-    apply_gaintable_to_dataset_mock,
-    delayed_mock,
-    export_mock,
-    get_visibilities_path_mock,
+@pytest.fixture
+def mocks():
+    """
+    Patch the writers, apply_gaintable_to_dataset, and delayed so that
+    deferred functions are called directly. get_visibilities_path returns
+    "<output_dir>/visibilities/<file_prefix>".
+    """
+    with patch(f"{MODULE}.delayed", side_effect=lambda func: func), patch(
+        f"{MODULE}.get_visibilities_path",
+        side_effect=lambda output_dir, prefix: (
+            f"{output_dir}/visibilities/{prefix}"
+        ),
+    ) as get_visibilities_path, patch(
+        f"{MODULE}.apply_gaintable_to_dataset"
+    ) as apply_gaintable_to_dataset, patch(
+        f"{MODULE}.export_msv4_to_ps"
+    ) as export_msv4_to_ps, patch(
+        f"{MODULE}.msv4_to_visibility"
+    ) as msv4_to_visibility, patch(
+        f"{MODULE}._export_visibility_to_ms"
+    ) as export_visibility_to_ms, patch(
+        f"{MODULE}._wait_for_ps_write"
+    ) as wait_for_ps_write:
+        yield Mock(
+            get_visibilities_path=get_visibilities_path,
+            apply_gaintable_to_dataset=apply_gaintable_to_dataset,
+            export_msv4_to_ps=export_msv4_to_ps,
+            msv4_to_visibility=msv4_to_visibility,
+            export_visibility_to_ms=export_visibility_to_ms,
+            wait_for_ps_write=wait_for_ps_write,
+        )
+
+
+def test_should_export_corrected_vis_to_processing_set_by_default(
+    upstream_output, mocks
 ):
-    get_visibilities_path_mock.return_value = "./visibilities/modelvis.ms"
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    model_vis = Mock(name="model vis")
-    vis_mock = Mock(name="vis")
-    gaintable_mock = Mock(name="gaintable")
-    upstream_output["vis"] = vis_mock
-    upstream_output["modelvis"] = model_vis
-    upstream_output["gaintable"] = gaintable_mock
+    vis = upstream_output["vis"]
+    corrected_vis = Mock(name="corrected_vis")
+    mocks.apply_gaintable_to_dataset.return_value = corrected_vis
 
-    export_visibilities_stage(upstream_output, "./", "modelvis", False)
-    get_visibilities_path_mock.assert_called_once_with(
-        "./", "ms_prefix/modelvis.ms"
+    result = export_visibilities_stage(upstream_output, ".", "vis", True)
+
+    mocks.apply_gaintable_to_dataset.assert_called_once_with(
+        vis, upstream_output["gaintable"], inverse=True
     )
-    export_mock.assert_called_once_with(
-        "./visibilities/modelvis.ms", [model_vis]
+    mocks.get_visibilities_path.assert_called_once_with(
+        ".", "ms_prefix/corrected"
     )
-    apply_gaintable_to_dataset_mock.assert_not_called()
-
-
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.get_visibilities_path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities._export_visibility_to_ms"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
-    side_effect=lambda x: x,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.apply_gaintable_to_dataset"
-)
-def test_should_export_both_vis_and_model_vis(
-    apply_gaintable_to_dataset_mock,
-    delayed_mock,
-    export_mock,
-    get_visibilities_path_mock,
-):
-    get_visibilities_path_mock.side_effect = [
-        "./visibilities/raw_vis.ms",
-        "./visibilities/modelvis.ms",
-    ]
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    model_vis = Mock(name="model vis")
-    vis_mock = Mock(name="vis")
-    gaintable_mock = Mock(name="gaintable")
-    upstream_output["vis"] = vis_mock
-    upstream_output["modelvis"] = model_vis
-    upstream_output["gaintable"] = gaintable_mock
-
-    export_visibilities_stage(upstream_output, "./", "all", False)
-
-    get_visibilities_path_mock.assert_has_calls(
-        [
-            call("./", "ms_prefix/raw.ms"),
-            call("./", "ms_prefix/modelvis.ms"),
-        ]
+    mocks.export_msv4_to_ps.assert_called_once_with(
+        "./visibilities/ms_prefix/corrected.ps.zarr",
+        corrected_vis,
+        "ms_prefix_corrected",
     )
-    export_mock.assert_has_calls(
-        [
-            call("./visibilities/raw_vis.ms", [upstream_output["vis"]]),
-            call(
-                "./visibilities/modelvis.ms",
-                [upstream_output["modelvis"]],
-            ),
-        ]
+    # The write task is registered with the task manager
+    mocks.wait_for_ps_write.assert_called_once_with(
+        "./visibilities/ms_prefix/corrected.ps.zarr",
+        mocks.export_msv4_to_ps.return_value,
     )
-    apply_gaintable_to_dataset_mock.assert_not_called()
+    mocks.export_visibility_to_ms.assert_not_called()
+    assert result["corrected_vis"] == corrected_vis
 
 
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.get_visibilities_path"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities._export_visibility_to_ms"
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages.export_visibilities.delayed",
-    side_effect=lambda x: x,
-)
-@patch(
-    "ska_sdp_instrumental_calibration.stages."
-    "export_visibilities.apply_gaintable_to_dataset"
-)
-def test_should_maintain_call_count_and_add_suffix_for_exported_ms(
-    apply_gaintable_to_dataset_mock,
-    delayed_mock,
-    export_mock,
-    get_visibilities_path_mock,
-):
-    get_visibilities_path_mock.side_effect = [
-        "./visibilities/raw_vis.ms",
-        "./visibilities/modelvis.ms",
-        "./visibilities/raw_vis_1.ms",
-        "./visibilities/modelvis_1.ms",
-    ]
-    upstream_output = UpstreamOutput()
-    upstream_output["ms_prefix"] = "ms_prefix"
-    model_vis = Mock(name="model vis")
-    vis_mock = Mock(name="vis")
-    gaintable_mock = Mock(name="gaintable")
-    upstream_output["vis"] = vis_mock
-    upstream_output["modelvis"] = model_vis
-    upstream_output["gaintable"] = gaintable_mock
+def test_should_export_model_vis_to_msv2(upstream_output, mocks):
+    modelvis = upstream_output["modelvis"]
 
     export_visibilities_stage(
-        upstream_output,
-        "./",
-        "all",
-        False,
+        upstream_output, ".", "modelvis", False, export_format="ms"
     )
-    export_visibilities_stage(upstream_output, "./", "all", False)
-    get_visibilities_path_mock.assert_has_calls(
+
+    mocks.get_visibilities_path.assert_called_once_with(
+        ".", "ms_prefix/modelvis"
+    )
+    mocks.msv4_to_visibility.assert_called_once_with(modelvis)
+    mocks.export_visibility_to_ms.assert_called_once_with(
+        "./visibilities/ms_prefix/modelvis.ms",
+        [mocks.msv4_to_visibility.return_value],
+    )
+    mocks.export_msv4_to_ps.assert_not_called()
+    mocks.apply_gaintable_to_dataset.assert_not_called()
+
+
+def test_should_export_vis_and_model_vis_in_both_formats(
+    upstream_output, mocks
+):
+    vis, modelvis = upstream_output["vis"], upstream_output["modelvis"]
+
+    export_visibilities_stage(
+        upstream_output, ".", "all", False, export_format="both"
+    )
+
+    mocks.export_msv4_to_ps.assert_has_calls(
         [
-            call("./", "ms_prefix/raw.ms"),
-            call("./", "ms_prefix/modelvis.ms"),
-            call("./", "ms_prefix/raw_1.ms"),
-            call("./", "ms_prefix/modelvis_1.ms"),
+            call("./visibilities/ms_prefix/raw.ps.zarr", vis, "ms_prefix_raw"),
+            call(
+                "./visibilities/ms_prefix/modelvis.ps.zarr",
+                modelvis,
+                "ms_prefix_modelvis",
+            ),
+        ]
+    )
+    mocks.msv4_to_visibility.assert_has_calls([call(vis), call(modelvis)])
+    mocks.export_visibility_to_ms.assert_has_calls(
+        [
+            call(
+                "./visibilities/ms_prefix/raw.ms",
+                [mocks.msv4_to_visibility.return_value],
+            ),
+            call(
+                "./visibilities/ms_prefix/modelvis.ms",
+                [mocks.msv4_to_visibility.return_value],
+            ),
+        ]
+    )
+    mocks.apply_gaintable_to_dataset.assert_not_called()
+    assert "corrected_vis" not in upstream_output
+
+
+def test_should_maintain_call_count_and_add_suffix_for_exported_vis(
+    upstream_output, mocks
+):
+    export_visibilities_stage(upstream_output, ".", "all", False)
+    export_visibilities_stage(upstream_output, ".", "all", False)
+
+    mocks.get_visibilities_path.assert_has_calls(
+        [
+            call(".", "ms_prefix/raw"),
+            call(".", "ms_prefix/modelvis"),
+            call(".", "ms_prefix/raw_1"),
+            call(".", "ms_prefix/modelvis_1"),
+        ]
+    )
+    mocks.export_msv4_to_ps.assert_has_calls(
+        [
+            call(
+                "./visibilities/ms_prefix/raw.ps.zarr",
+                upstream_output["vis"],
+                "ms_prefix_raw",
+            ),
+            call(
+                "./visibilities/ms_prefix/modelvis.ps.zarr",
+                upstream_output["modelvis"],
+                "ms_prefix_modelvis",
+            ),
+            call(
+                "./visibilities/ms_prefix/raw_1.ps.zarr",
+                upstream_output["vis"],
+                "ms_prefix_raw_1",
+            ),
+            call(
+                "./visibilities/ms_prefix/modelvis_1.ps.zarr",
+                upstream_output["modelvis"],
+                "ms_prefix_modelvis_1",
+            ),
         ]
     )
 
-    export_mock.assert_has_calls(
-        [
-            call("./visibilities/raw_vis.ms", [upstream_output["vis"]]),
-            call(
-                "./visibilities/modelvis.ms",
-                [upstream_output["modelvis"]],
-            ),
-            call("./visibilities/raw_vis_1.ms", [upstream_output["vis"]]),
-            call(
-                "./visibilities/modelvis_1.ms",
-                [upstream_output["modelvis"]],
-            ),
-        ]
-    )
-    apply_gaintable_to_dataset_mock.assert_not_called()
+
+def test_should_only_log_when_processing_set_write_completes():
+    assert _wait_for_ps_write("out.ps.zarr", None) is None
 
 
 @patch(

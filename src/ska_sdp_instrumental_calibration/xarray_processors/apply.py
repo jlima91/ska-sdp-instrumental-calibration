@@ -2,9 +2,13 @@ import logging
 
 import numpy as np
 import xarray as xr
-from ska_sdp_datamodels.visibility import Visibility
 from ska_sdp_func_python.calibration import apply_antenna_gains_to_visibility
 
+from ..data_managers.processing_set import (
+    get_baseline_antenna_indices,
+    get_correlated_data,
+    with_correlated_data,
+)
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..data_managers.schema.polarization import pol_to_jones
 
@@ -24,18 +28,18 @@ def _apply_gaintable_to_dataset_ufunc(
 
     Parameters
     ----------
-    vis: (time, frequency, baselineid, polarisation)
+    vis: (time, frequency, baseline_id, polarization)
     gains: (antennas, npol) or (frequency, antennas, npol)
-    antenna1: (baselineid)
+    antenna1: (baseline_id)
         Indices of the antenna1 in all baseline pairs
-    antenna2: (baselineid)
+    antenna2: (baseline_id)
         Indices of the antenna2 in all baseline pairs
     inverse: bool
         Whether to inverse the gains before applying
 
     Returns
     -------
-    np.ndarray of shape (time, frequency, baselineid, polarisation)
+    np.ndarray of shape (time, frequency, baseline_id, polarization)
     """
     gains = pol_to_jones(gains)
 
@@ -56,13 +60,13 @@ def _apply_gaintable_to_dataset_ufunc(
 
 
 def apply_gaintable_to_dataset(
-    vis: Visibility,
+    ms_xdt: xr.DataTree,
     gaintable: GainCalibrationSetXds,
     inverse=False,
-) -> Visibility:
+) -> xr.DataTree:
     """
-    Apply calibration gains from a GainCalibrationSetXds to a Visibility
-    dataset.
+    Apply calibration gains from a GainCalibrationSetXds to the correlated
+    data of an MSv4 node.
 
     This function modifies visibility data by applying antenna-based Jones
     matrices. It supports both calibration (removing instrumental effects by
@@ -82,11 +86,13 @@ def apply_gaintable_to_dataset(
 
     Parameters
     ----------
-    vis : Visibility
-        The input visibility dataset containing observed data.
+    ms_xdt : xr.DataTree
+        MSv4 node holding a single data group.
     gaintable : GainCalibrationSetXds
         The calibration solutions (Jones matrices) to apply. Must contain
-        valid `soln_interval_slices` mapping gain times to visibility times.
+        valid `soln_interval_slices` mapping gain times to visibility times,
+        and have the antennas of ``ms_xdt`` (in ``antenna_xds`` order) and
+        its polarizations.
     inverse : bool, optional
         If True, apply the inverse of the gains (calibrate).
         If False, apply the gains directly (corrupt/simulate).
@@ -94,21 +100,50 @@ def apply_gaintable_to_dataset(
 
     Returns
     -------
-    Visibility
-        A new Visibility object containing the modified visibility data
-        ('vis' variable updated) with attributes preserved.
+    xr.DataTree
+        Copy of ``ms_xdt`` with the gains applied to its correlated data.
+        Other variables and child datasets are those of ``ms_xdt``.
 
     Raises
     ------
     AssertionError
         If Jones type is not 'B' and the gaintable has more than one
         frequency channel.
+    ValueError
+        If the gaintable antennas or polarizations differ from those of
+        ``ms_xdt``.
     """
+    correlated_data = get_correlated_data(ms_xdt)
+
+    # Baseline antenna indices refer to the antenna_xds order, so the gains
+    # must be in the same order.
+    if not np.array_equal(
+        gaintable.antenna_name.values,
+        ms_xdt["antenna_xds"].ds.antenna_name.values,
+    ):
+        raise ValueError(
+            "Gaintable antennas differ from the MSv4 antenna_xds antennas"
+        )
+    if not np.array_equal(
+        gaintable.polarization.values, correlated_data.polarization.values
+    ):
+        raise ValueError(
+            f"Gaintable polarizations {gaintable.polarization.values} "
+            "differ from visibility polarizations "
+            f"{correlated_data.polarization.values}"
+        )
+
     gains = gaintable.CALPARAM_GAIN
     if gaintable.jones_type == "B":
         # solution frequency same as vis frequency
-        # chunking just to be sure that they match
-        gains = gains.chunk({"frequency": vis.chunksizes["frequency"]})
+        # chunking just to be sure that they match.
+        # Chunks are read from the data only, as DataArray.chunksizes also
+        # checks time coordinates, which may be chunked differently.
+        data_chunks = dict(
+            zip(correlated_data.dims, correlated_data.chunks or ())
+        )
+        if "frequency" in data_chunks:
+            gains = gains.chunk({"frequency": data_chunks["frequency"]})
     else:  # jones_type == T or G
         assert gains.frequency.size == 1, "Gaintable frequency "
         "must either match to visibility frequency, or must be of size 1"
@@ -116,38 +151,32 @@ def apply_gaintable_to_dataset(
         gains = gains.isel(frequency=0, drop=True)
 
     soln_interval_slices = gaintable.soln_interval_slices
+    antenna1, antenna2 = get_baseline_antenna_indices(ms_xdt)
 
     applied: xr.DataArray = xr.concat(
         [
             xr.apply_ufunc(
                 _apply_gaintable_to_dataset_ufunc,
-                vis.vis.isel(time=slc),
+                correlated_data.isel(time=slc),
                 gains.isel(time=idx, drop=True),
                 input_core_dims=[
-                    ["baselineid", "polarisation"],
+                    ["baseline_id", "polarization"],
                     ["antenna_name", "polarization"],
                 ],
                 output_core_dims=[
-                    ["baselineid", "polarisation"],
+                    ["baseline_id", "polarization"],
                 ],
                 dask="parallelized",
-                output_dtypes=[vis.vis.dtype],
-                dask_gufunc_kwargs=dict(
-                    output_sizes={
-                        "baselineid": vis.baselineid.size,
-                        "polarisation": vis.polarisation.size,
-                    }
-                ),
+                output_dtypes=[correlated_data.dtype],
                 kwargs={
-                    "antenna1": vis.antenna1,
-                    "antenna2": vis.antenna2,
+                    "antenna1": antenna1,
+                    "antenna2": antenna2,
                     "inverse": inverse,
                 },
-            ).transpose("time", "baselineid", "frequency", "polarisation")
+            )
             for idx, slc in enumerate(soln_interval_slices)
         ],
         dim="time",
     )
 
-    applied = applied.assign_attrs(vis.vis.attrs)
-    return vis.assign({"vis": applied})
+    return with_correlated_data(ms_xdt, applied)

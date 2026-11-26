@@ -5,8 +5,12 @@ from functools import partial
 import numpy as np
 import xarray as xr
 from numpy.exceptions import ComplexWarning
-from ska_sdp_datamodels.visibility import Visibility
 
+from ..data_managers.processing_set import (
+    get_baseline_antenna_indices,
+    get_correlated_data,
+    get_data_group,
+)
 from ..data_managers.schema.calibration_set import GainCalibrationSetXds
 from ._utils import with_chunks
 
@@ -427,8 +431,56 @@ def calculate_gain_rot(
     return gain * np.exp(sign * 2j * np.pi * (offset + (delay * frequency)))
 
 
+def _refant_baselines(
+    ms_xdt: xr.DataTree, refant: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    For each antenna, the baseline it forms with the reference antenna.
+
+    Parameters
+    ----------
+    ms_xdt
+        MSv4 node.
+    refant
+        Index of the reference antenna, in ``antenna_xds`` order.
+
+    Returns
+    -------
+        For each antenna in ``antenna_xds`` order: the index of its baseline
+        with the reference antenna (0 if there is none), whether that
+        baseline is stored as (refant, antenna) and must be conjugated to
+        give V(antenna, refant), and whether there is no such baseline. The
+        reference antenna itself is marked as having no baseline.
+
+    Raises
+    ------
+    ValueError
+        If an antenna has more than one baseline with the reference antenna.
+    """
+    antenna1, antenna2 = get_baseline_antenna_indices(ms_xdt)
+    nants = ms_xdt["antenna_xds"].ds.antenna_name.size
+
+    baseline_index = np.zeros(nants, dtype=np.int64)
+    conjugate = np.zeros(nants, dtype=bool)
+    missing = np.ones(nants, dtype=bool)
+    for baseline, (a1, a2) in enumerate(zip(antenna1, antenna2)):
+        if a1 == a2 or refant not in (a1, a2):
+            continue
+        antenna = a1 if a2 == refant else a2
+        if not missing[antenna]:
+            raise ValueError(
+                f"Antenna {antenna} has several baselines with the "
+                f"reference antenna {refant}"
+            )
+        baseline_index[antenna] = baseline
+        conjugate[antenna] = a1 == refant
+        missing[antenna] = False
+
+    return baseline_index, conjugate, missing
+
+
 def create_delaytable_from_vis(
-    vis: Visibility,
+    vis: xr.DataTree,
     gaintable: GainCalibrationSetXds,
     refant: int,
     oversample: int,
@@ -436,15 +488,21 @@ def create_delaytable_from_vis(
     """
     Calculates delays from visibility data by processing each solution interval
 
+    For each antenna, the delays are fitted to the time averaged
+    visibilities of its baseline with the reference antenna, as
+    V(antenna, refant), with their weights. The reference antenna is given
+    a unit gain, and antennas without a baseline with the reference antenna
+    are given zero visibilities and weights.
+
     Parameters
     ----------
     vis
-        Visibility data. If backed by a dask array, can be chunked in time
-        and frequency axis.
+        MSv4 node holding a single data group. If backed by a dask array,
+        can be chunked in time and frequency axis.
     gaintable
-        Gaintable containing solution intervals.
+        Gaintable containing solution intervals, created from ``vis``.
     refant
-        Reference antenna
+        Index of the reference antenna, in ``antenna_xds`` order.
     oversample
         Oversample rate required for the delay
 
@@ -452,10 +510,14 @@ def create_delaytable_from_vis(
     -------
         Dataset of calculated delays
     """
+    baseline_index, conjugate, missing = _refant_baselines(vis, refant)
+    is_refant = np.arange(baseline_index.size) == refant
 
-    baseline_ids = vis.baselineid[
-        (vis.antenna1 == refant) | (vis.antenna2 == refant)
-    ]
+    def per_antenna(mask: np.ndarray) -> xr.DataArray:
+        return xr.DataArray(mask, dims="antenna_name")
+
+    correlated_data = get_correlated_data(vis)
+    weight = vis.ds[get_data_group(vis)["weight"]]
 
     gaintable = gaintable.rename(time="solution_time")
 
@@ -465,45 +527,42 @@ def create_delaytable_from_vis(
 
     for idx, slc in enumerate(soln_interval_slices):
 
-        vis_per_solution = vis.isel(time=slc)
-
         template_gaintable = gaintable.isel(solution_time=[idx])
 
-        vis_refant = (
-            vis_per_solution["vis"]
-            .isel(baselineid=baseline_ids)
-            .mean(dim="time")
-        )
+        def refant_baselines(data: xr.DataArray) -> xr.DataArray:
+            """Baseline of each antenna with refant, averaged in time."""
+            return (
+                data.isel(time=slc)
+                .isel(
+                    baseline_id=xr.DataArray(
+                        baseline_index, dims="antenna_name"
+                    )
+                )
+                .drop_vars(data.baseline_id.coords, errors="ignore")
+                .mean(dim="time")
+            )
 
-        vis_refant[refant:, ...] = vis_refant[refant:, ...].conj()
+        vis_refant = refant_baselines(correlated_data)
+        # V(refant, antenna) -> V(antenna, refant)
+        vis_refant = xr.where(
+            per_antenna(conjugate), np.conj(vis_refant), vis_refant
+        )
+        vis_refant = xr.where(per_antenna(missing), 0.0, vis_refant)
+        vis_refant = xr.where(per_antenna(is_refant), 1.0 + 0.0j, vis_refant)
 
-        weights = (
-            vis_per_solution["weight"]
-            .isel(baselineid=baseline_ids)
-            .mean(dim="time")
-        )
+        weights = refant_baselines(weight)
+        weights = xr.where(per_antenna(missing), 0.0, weights)
+        weights = xr.where(per_antenna(is_refant), 1.0, weights)
 
-        vis_refant[refant, ...] = 1.0 + 0.0j
-        weights[refant, ...] = 1.0
-
-        vis_refant_data = vis_refant.data.reshape(
-            template_gaintable["CALPARAM_GAIN"].shape
-        )
-        weight_data = weights.data.reshape(
-            template_gaintable["CALPARAM_WEIGHT"].shape
-        )
-
-        reshaped_vis_refant = xr.DataArray(
-            vis_refant_data,
-            dims=template_gaintable["CALPARAM_GAIN"].dims,
-        )
-        reshaped_weights = xr.DataArray(
-            weight_data,
-            dims=template_gaintable["CALPARAM_WEIGHT"].dims,
-        )
         baselines_table = template_gaintable.assign(
-            CALPARAM_GAIN=reshaped_vis_refant,
-            CALPARAM_WEIGHT=reshaped_weights,
+            CALPARAM_GAIN=_as_template(
+                vis_refant,
+                template_gaintable["CALPARAM_GAIN"],
+                correlated_data.dtype,
+            ),
+            CALPARAM_WEIGHT=_as_template(
+                weights, template_gaintable["CALPARAM_WEIGHT"], weight.dtype
+            ),
         )
         baselines_table = baselines_table.rename(solution_time="time")
 
@@ -514,3 +573,21 @@ def create_delaytable_from_vis(
     combined_delay_table = xr.concat(delay_table_across_solutions, dim="time")
 
     return combined_delay_table
+
+
+def _as_template(
+    data: xr.DataArray, template: xr.DataArray, dtype: np.dtype
+) -> xr.DataArray:
+    """
+    Per-antenna data ``(antenna_name, frequency, polarization)`` as a
+    gaintable variable like ``template``, with its single solution time and
+    coordinates. ``dtype`` is the dtype of the visibility variable the data
+    comes from, which is kept as in the pre-migration implementation.
+    """
+    return xr.DataArray(
+        data.transpose("antenna_name", "frequency", "polarization")
+        .astype(dtype)
+        .data[np.newaxis, ...],
+        dims=template.dims,
+        coords=template.coords,
+    )

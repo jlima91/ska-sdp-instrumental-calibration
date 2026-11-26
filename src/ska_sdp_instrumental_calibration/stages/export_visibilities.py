@@ -1,12 +1,19 @@
+import logging
 from typing import Annotated, Literal
 
 from pydantic import Field
 from ska_sdp_datamodels.visibility.vis_io_ms import export_visibility_to_ms
 from ska_sdp_piper.piper import ConfigurableStage
 
+from ..data_managers.data_export.export_visibilities import (
+    export_msv4_to_ps,
+    msv4_to_visibility,
+)
 from ..scheduler import delayed
 from ..xarray_processors.apply import apply_gaintable_to_dataset
 from ._utils import get_visibilities_path
+
+logger = logging.getLogger(__name__)
 
 
 def _export_visibility_to_ms(msname, vis_list):
@@ -31,9 +38,61 @@ def _export_visibility_to_ms(msname, vis_list):
         time_centroid = vis.time.broadcast_like(vis_per_pol).transpose(
             *vis_per_pol.dims
         )
-        vis_with_time_centroid.append(vis.assign(time_centroid=time_centroid))
+        # Assigned as (dims, data), so that xarray does not merge the
+        # baselines MultiIndex coordinates of time_centroid again
+        vis_with_time_centroid.append(
+            vis.assign(time_centroid=(time_centroid.dims, time_centroid.data))
+        )
 
     export_visibility_to_ms(msname, vis_with_time_centroid)
+
+
+def _wait_for_ps_write(ps_path, _written):
+    """
+    Deferred task completing the Processing Set export.
+
+    ``export_msv4_to_ps`` returns the data write as a lazy dask task. The
+    task manager only computes dask collections that are arguments of a
+    registered deferred task, so passing the write here registers it, in
+    the same graph as the other tasks. It also makes the pipeline wait for
+    it: with a distributed scheduler, the task manager persist does not
+    block, and this task only runs once the write is complete.
+
+    Parameters
+    -----------
+        ps_path: str
+            Path of the Processing Set written.
+        _written: dask.array.Array
+            Task writing the Processing Set. Unused, see above.
+    """
+    logger.info("Exported visibilities to %s", ps_path)
+
+
+def _export(vis, path_prefix, node_name, export_format):
+    """
+    Register the export of an MSv4 node in the requested formats.
+
+    Parameters
+    -----------
+        vis: xr.DataTree
+            MSv4 node to export.
+        path_prefix: str
+            Output path, without extension.
+        node_name: str
+            Name of the MSv4 node in the Processing Set.
+        export_format: str
+            ``ps``, ``ms`` or ``both``.
+    """
+    if export_format in ("ps", "both"):
+        ps_path = f"{path_prefix}.ps.zarr"
+        delayed(_wait_for_ps_write)(
+            ps_path, export_msv4_to_ps(ps_path, vis, node_name)
+        )
+
+    if export_format in ("ms", "both"):
+        delayed(_export_visibility_to_ms)(
+            f"{path_prefix}.ms", [msv4_to_visibility(vis)]
+        )
 
 
 @ConfigurableStage(name="export_visibilities", optional=True)
@@ -57,9 +116,19 @@ def export_visibilities_stage(
             this stage) to 'vis', before exporting""",
         ),
     ] = True,
+    export_format: Annotated[
+        Literal["ps", "ms", "both"],
+        Field(
+            description="""Format of the exported visibilities.
+            Options are:
+            1. ps: Processing Set (zarr), "<name>.ps.zarr"
+            2. ms: MSv2, "<name>.ms"
+            3. both: Processing Set and MSv2""",
+        ),
+    ] = "ps",
 ):
     """
-    Export visibilities to MSv2 file.
+    Export visibilities to a Processing Set and/or an MSv2.
     The visibilities will be exported to a new subdirectory "visibilities"
     under the pipeline's output directory.
     Optionally one can apply the gaintable to raw visibilities before
@@ -75,6 +144,8 @@ def export_visibilities_stage(
             Data to export (vis, modelvis, all).
         apply_gaintable_to_vis: bool
             Whether to apply gaintable to vis before exporting
+        export_format: str
+            Format of the exported visibilities (ps, ms, both).
 
     Returns
     --------
@@ -96,18 +167,15 @@ def export_visibilities_stage(
         _upstream_output_["corrected_vis"] = vis
 
     if data_to_export == "vis" or data_to_export == "all":
-        path_prefix = get_visibilities_path(
-            _output_dir_, f"{prefix}/{vis_prefix}{call_counter_suffix}.ms"
-        )
-        delayed(_export_visibility_to_ms)(path_prefix, [vis])
+        name = f"{vis_prefix}{call_counter_suffix}"
+        path_prefix = get_visibilities_path(_output_dir_, f"{prefix}/{name}")
+        _export(vis, path_prefix, f"{prefix}_{name}", export_format)
 
     if data_to_export == "modelvis" or data_to_export == "all":
         modelvis = _upstream_output_["modelvis"]
-        path_prefix = get_visibilities_path(
-            _output_dir_, f"{prefix}/modelvis{call_counter_suffix}.ms"
-        )
-
-        delayed(_export_visibility_to_ms)(path_prefix, [modelvis])
+        name = f"modelvis{call_counter_suffix}"
+        path_prefix = get_visibilities_path(_output_dir_, f"{prefix}/{name}")
+        _export(modelvis, path_prefix, f"{prefix}_{name}", export_format)
 
     _upstream_output_.increment_call_count("export_visibilities")
 

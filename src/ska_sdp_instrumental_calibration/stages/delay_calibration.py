@@ -76,7 +76,8 @@ def delay_calibration_stage(
         extract_delays_from_vis: bool
             Use K-type solver for delay calibration
         refant: int | str
-            Reference antenna for delay calibration
+            Reference antenna for delay calibration, as an index in, or a
+            name of, the antennas of the MSv4 ``antenna_xds``
         niter: int
             Number of solver iterations.
         tol: float
@@ -152,7 +153,7 @@ def delay_calibration_stage(
 
         plot_station_delays(
             delaytable,
-            vis.configuration.xyz.data,
+            vis["antenna_xds"].ds.ANTENNA_POSITION.data,
             path_prefix,
         )
 
