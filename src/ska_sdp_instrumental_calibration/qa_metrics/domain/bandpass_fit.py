@@ -1,7 +1,7 @@
 """
-Metrics of a field for the QA report, computed from its read products:
-flagging statistics from its final gaintable, bandpass fit metrics, and
-cable delays from its delay tables.
+Bandpass fit metrics of a field for the QA report: the phase and gain
+amplitude fit quality of each station, computed from its bandpass
+gaintables.
 """
 
 from dataclasses import dataclass
@@ -16,8 +16,8 @@ class BandpassFitMetrics:
     ----------
     metrics_per_station : dict[str, dict[str, float]], optional
         Metric values keyed by column key (see
-        BANDPASS_FIT_METRICS_COLUMNS), per MS station name. None while
-        not calculated.
+        get_bandpass_fit_metrics_columns), per MS station name: NaN where
+        a station has too few channels to fit. None while not calculated.
     """
 
     metrics_per_station: dict[str, dict[str, float]] | None

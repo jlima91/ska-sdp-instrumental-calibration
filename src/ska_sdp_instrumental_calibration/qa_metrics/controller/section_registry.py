@@ -2,9 +2,10 @@
 Registry of the QA report sections: their builders, by section type,
 and the dispatch to them.
 
-A builder is registered for a section type with ``@builder(SectionType)``
-on a SectionRegistry, and run with ``builder.build(SectionType,
-field_metadata)``, which shows a run metadata error as an error section.
+A builder is registered for a section type with
+``@section_registry(SectionType)`` on a SectionRegistry, and run with
+``section_registry.build(SectionType, field_metadata)``, which shows a run
+metadata error as an error section.
 The builders of the report and its one SectionRegistry,
 ``section_registry``, are in :mod:`.sections`.
 """

@@ -24,10 +24,10 @@ from ska_sdp_instrumental_calibration.qa_metrics.domain.metadata import (
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
+from ska_sdp_instrumental_calibration.qa_metrics.repository import gaintable
 from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
     FieldMetadata,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.service import gaintable
 from ska_sdp_instrumental_calibration.qa_metrics.view.sections import (
     BandpassFitSection,
     CableDelaysSection,

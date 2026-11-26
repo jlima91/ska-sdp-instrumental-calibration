@@ -12,7 +12,7 @@ from ..data_managers.data_export import (
     export_gaintable_to_h5parm,
 )
 from ..data_managers.sdm import get_gaintable_file_path
-from ..qa_metrics.repository import ManifestSchema
+from ..qa_metrics.repository.manifest_schema import ManifestSchema
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 

@@ -5,8 +5,8 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..plot import plot_curve_fit, plot_flag_gain
-from ..qa_metrics.repository import ManifestSchema
-from ..qa_metrics.service import export_gain_fits_to_zarr
+from ..qa_metrics.repository.gain_fits import export_gain_fits_to_zarr
+from ..qa_metrics.repository.manifest_schema import ManifestSchema
 from ..scheduler import delayed
 from ..xarray_processors.gain_flagging import (
     flag_on_gains,

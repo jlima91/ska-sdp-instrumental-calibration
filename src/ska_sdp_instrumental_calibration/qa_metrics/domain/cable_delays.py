@@ -1,7 +1,6 @@
 """
-Metrics of a field for the QA report, computed from its read products:
-flagging statistics from its final gaintable, bandpass fit metrics, and
-cable delays from its delay tables.
+Cable delays of a field for the QA report: the X and Y delay of each
+station, computed from its delay tables.
 """
 
 from dataclasses import dataclass

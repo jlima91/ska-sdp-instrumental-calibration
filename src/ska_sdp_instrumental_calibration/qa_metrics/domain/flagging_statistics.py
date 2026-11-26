@@ -1,3 +1,9 @@
+"""
+Flagging of a field for the QA report: its pre-flagging, computed from
+the flag counts of its measurement sets before calibration, and its
+flagging statistics, before and after calibration.
+"""
+
 from dataclasses import dataclass
 
 

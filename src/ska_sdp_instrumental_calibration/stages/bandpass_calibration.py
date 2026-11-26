@@ -7,7 +7,7 @@ from ska_sdp_piper.piper import CLIArgument, ConfigurableStage
 from ..data_managers.data_export import export_gaintable_to_h5parm
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency
-from ..qa_metrics.repository import ManifestSchema
+from ..qa_metrics.repository.manifest_schema import ManifestSchema
 from ..scheduler import delayed
 from ..xarray_processors._utils import parse_antenna
 from ..xarray_processors.solver import run_solver

@@ -8,20 +8,14 @@ import xarray as xr
 from ska_sdp_instrumental_calibration.qa_metrics.domain.flagging_statistics import (  # noqa: E501
     PreFlagging,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
-    RunMetadataError,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
-    FieldMetadata,
-)
-from ska_sdp_instrumental_calibration.qa_metrics.service import (
-    export_pre_flagging,
+from ska_sdp_instrumental_calibration.qa_metrics.repository.pre_flagging import (  # noqa: E501
     read_pre_flagging,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.service.pre_flagging import (  # noqa: E501
+from ska_sdp_instrumental_calibration.qa_metrics.service.pre_flagging import (
+    count_pre_flagging,
+    export_pre_flagging,
     flagged_sample_counts,
     flagged_time_count,
-    get_pre_flagging_paths,
     pre_flags_from_counts,
     unsolvable_gain_counts,
 )
@@ -48,7 +42,7 @@ def _vis(flags, antenna1, antenna2, nstations):
     )
 
 
-def test_should_export_pre_flagging_counts_per_station(tmp_path):
+def test_should_count_pre_flagging_per_station():
     # Baselines: 0-0 (auto), 0-1, 0-2, 1-2. 2 times, 2 channels, 2 pols
     flags = np.zeros((2, 4, 2, 2), dtype=bool)
     # Auto-correlation flags are ignored
@@ -59,60 +53,21 @@ def test_should_export_pre_flagging_counts_per_station(tmp_path):
     # left in channel 1, so its gain there cannot be solved
     flags[:, 2:, 1] = True
     vis = _vis(flags, [0, 0, 0, 1], [0, 1, 2, 2], nstations=3)
-    output_path = tmp_path / "pre-flagging-data.json"
 
-    export_pre_flagging(vis, str(output_path))
+    counts = count_pre_flagging(vis)
 
     # Each station has 2 cross baselines of 2 times x 2 channels: 8 samples
-    assert json.loads(output_path.read_text()) == {
+    assert counts == {
         "flagged": [3, 3, 4],
         "total": [8, 8, 8],
         "unsolvable": [0, 0, 1],
         "nchannels": 2,
     }
+    # Plain ints, so the counts can be written as JSON
+    assert json.loads(json.dumps(counts)) == counts
 
 
-def _write_counts(path, flagged, total, unsolvable, nchannels):
-    path.write_text(
-        json.dumps(
-            {
-                "flagged": flagged,
-                "total": total,
-                "unsolvable": unsolvable,
-                "nchannels": nchannels,
-            }
-        )
-    )
-    return str(path)
-
-
-def test_should_read_pre_flagging_counts_of_each_ms(tmp_path):
-    paths = [
-        _write_counts(
-            tmp_path / "a.json",
-            flagged=[2, 0],
-            total=[8, 8],
-            unsolvable=[1, 0],
-            nchannels=4,
-        ),
-        _write_counts(
-            tmp_path / "b.json",
-            flagged=[0, 1],
-            total=[2, 2],
-            unsolvable=[0, 0],
-            nchannels=4,
-        ),
-    ]
-
-    counts = read_pre_flagging(paths, nstations=2)
-
-    assert len(counts) == 2
-    np.testing.assert_array_equal(counts[0]["flagged"], [2, 0])
-    np.testing.assert_array_equal(counts[1]["flagged"], [0, 1])
-    assert counts[0]["nchannels"] == 4
-
-
-def test_should_read_back_exported_pre_flagging(tmp_path):
+def test_should_export_counts_readable_by_the_repository(tmp_path):
     flags = np.zeros((1, 2, 1, 1), dtype=bool)
     flags[0, 1] = True
     vis = _vis(flags, [0, 0], [1, 2], nstations=3)
@@ -123,48 +78,6 @@ def test_should_read_back_exported_pre_flagging(tmp_path):
 
     np.testing.assert_array_equal(counts["flagged"], [1, 0, 1])
     np.testing.assert_array_equal(counts["total"], [2, 1, 1])
-
-
-def test_should_raise_if_no_pre_flagging_files():
-    with pytest.raises(RunMetadataError, match="No pre-flagging data"):
-        read_pre_flagging([], nstations=2)
-
-
-def test_should_raise_if_pre_flagging_file_was_not_produced(tmp_path):
-    with pytest.raises(RunMetadataError, match="was not produced"):
-        read_pre_flagging([str(tmp_path / "missing.json")], nstations=2)
-
-
-def test_should_raise_if_counts_are_not_one_per_station(tmp_path):
-    path = _write_counts(
-        tmp_path / "a.json",
-        flagged=[0],
-        total=[8],
-        unsolvable=[0],
-        nchannels=4,
-    )
-
-    with pytest.raises(RunMetadataError, match="1 flagged counts for 2"):
-        read_pre_flagging([path], nstations=2)
-
-
-def test_should_raise_if_pre_flagging_file_cannot_be_read(tmp_path):
-    # A file left half written by a failed export
-    path = tmp_path / "a.json"
-    path.write_text('{"flagged": [1')
-
-    with pytest.raises(RunMetadataError, match="cannot be read"):
-        read_pre_flagging([str(path)], nstations=1)
-
-
-def test_should_raise_if_pre_flagging_counts_are_missing(tmp_path):
-    path = tmp_path / "a.json"
-    path.write_text(json.dumps({"flagged": [1], "total": [2]}))
-
-    with pytest.raises(
-        RunMetadataError, match="has no unsolvable, nchannels counts"
-    ):
-        read_pre_flagging([str(path)], nstations=1)
 
 
 def test_should_count_flagged_time_steps_per_baseline_and_channel():
@@ -205,7 +118,7 @@ STATION_NAMES = ["station_a", "station_b"]
 
 
 def _counts(flagged, total, unsolvable, nchannels):
-    """Counts of one MS, as read by products.read_pre_flagging"""
+    """Counts of one MS, as read by read_pre_flagging"""
     return {
         "flagged": np.asarray(flagged),
         "total": np.asarray(total),
@@ -239,30 +152,3 @@ def test_should_sum_counts_of_all_ms_before_dividing():
 
     assert pre_flagging.flagged_data["station_a"] == pytest.approx(40.0)
     assert pre_flagging.unsolvable_gains["station_a"] == pytest.approx(25.0)
-
-
-def _field_metadata(sections):
-    return FieldMetadata("field_a", "/qa/dir", sections=sections)
-
-
-def test_should_get_pre_flagging_data_of_each_ms():
-    field_metadata = _field_metadata(
-        {
-            "flagging": {
-                "pre_flagging": {
-                    "ms_a": "/qa/dir/derived/ms_a/pre-flagging-data.json",
-                    "ms_b": "/qa/dir/derived/ms_b/pre-flagging-data.json",
-                }
-            }
-        }
-    )
-
-    assert get_pre_flagging_paths(field_metadata) == [
-        "/qa/dir/derived/ms_a/pre-flagging-data.json",
-        "/qa/dir/derived/ms_b/pre-flagging-data.json",
-    ]
-
-
-def test_should_get_no_pre_flagging_data_if_none_is_recorded():
-    # Not an error here: the reader raises for an empty list
-    assert get_pre_flagging_paths(_field_metadata({})) == []

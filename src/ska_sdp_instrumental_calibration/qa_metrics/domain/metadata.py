@@ -1,6 +1,6 @@
 """
 Metadata of a field for the QA report: its files, observation parameters
-and stations, and its flagging before calibration.
+and stations.
 """
 
 from dataclasses import dataclass
@@ -76,24 +76,3 @@ class StationConfiguration:
     """
 
     station_names: dict[str, str]
-
-
-@dataclass
-class QAMetadata:
-    """
-    QA metadata of the measurement sets of one field, composed of one
-    object per part of the metadata summary.
-
-    Parameters
-    ----------
-    file_information : FileInformation
-        Files of the field.
-    observation_parameters : ObservationParameters
-        Observation parameters.
-    station_configuration : StationConfiguration
-        Stations of the field.
-    """
-
-    file_information: FileInformation
-    observation_parameters: ObservationParameters
-    station_configuration: StationConfiguration

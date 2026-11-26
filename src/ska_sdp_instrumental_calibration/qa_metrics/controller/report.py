@@ -1,8 +1,8 @@
 import logging
 
 from ..exceptions import QAReportException, RunMetadataError
-from ..repository import RunManifest
-from ..view import QAMetricReport
+from ..repository.run_manifest import RunManifest
+from ..view.qa_metric_report import QAMetricReport
 from ..view.sections import (
     BandpassFitSection,
     CableDelaysSection,

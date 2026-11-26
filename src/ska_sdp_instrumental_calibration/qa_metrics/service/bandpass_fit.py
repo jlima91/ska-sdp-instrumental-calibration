@@ -12,8 +12,6 @@ import numpy as np
 
 from ...data_managers.schema.calibration_set import GainCalibrationSetXds
 from ..domain.bandpass_fit import BandpassFitMetrics
-from ..repository.field_metadata import FieldMetadata
-from ..repository.manifest_schema import ManifestSchema
 
 SKA_LOW_COARSE_CHANNEL_WIDTH = 781250.0  # Hz
 
@@ -131,7 +129,7 @@ def coarse_channel_amplitude_residuals(
 
 def gain_fit_quality_for_pol(
     station, pol: str, min_fit_channels: int = 4, n_sigma: float = 5.0
-) -> float | None:
+) -> float:
     """
     Gain amplitude fit quality of a station in one polarisation.
 
@@ -154,8 +152,8 @@ def gain_fit_quality_for_pol(
 
     Returns
     -------
-    float or None
-        Fit quality between 0 and 1, None if no time could be fitted.
+    float
+        Fit quality between 0 and 1, NaN if no time could be fitted.
     """
     frequency = station.frequency.values
     # Shape (time, frequency)
@@ -190,7 +188,7 @@ def gain_fit_quality_for_pol(
 
 def phase_fit_quality_for_pol(
     station, pol: str, min_fit_channels: int = 4, n_sigma: float = 5.0
-) -> float | None:
+) -> float:
     """
     Phase fit quality of a station in one polarisation.
 
@@ -209,8 +207,8 @@ def phase_fit_quality_for_pol(
 
     Returns
     -------
-    float or None
-        Fit quality between 0 and 1, None if no time could be fitted.
+    float
+        Fit quality between 0 and 1, NaN if no time could be fitted.
     """
     frequency = station.frequency.values
     # Shape (time, frequency)
@@ -256,10 +254,10 @@ def bandpass_fit_quality(
 
     Returns
     -------
-    dict[str, dict[str, float | None]]
+    BandpassFitMetrics
         ``x_phase_fit_quality``, ``y_phase_fit_quality``,
         ``x_gains_fit_quality`` and ``y_gains_fit_quality``, between 0 and
-        1, per MS station name of the gaintable. None where a station has
+        1, per MS station name of the gaintable. NaN where a station has
         too few channels to fit.
     """
     # Ascending frequency, as unwrapping needs neighbouring channels to be
@@ -285,25 +283,3 @@ def bandpass_fit_quality(
         fit_quality_per_station[str(station_name)] = fit_quality
 
     return BandpassFitMetrics(fit_quality_per_station)
-
-
-def get_bandpass_gaintable_paths(field_metadata: FieldMetadata) -> list[str]:
-    """
-    Get the bandpass gaintables of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field, with one bandpass gaintable recorded
-        per MS prefix.
-
-    Returns
-    -------
-    list[str]
-        Bandpass gaintable of each measurement set of the field. Empty if
-        none is recorded: the reader raises for it.
-    """
-    gaintables = (
-        field_metadata.get_data_for(ManifestSchema.BANDPASS.GAINTABLE) or {}
-    )
-    return list(gaintables.values())

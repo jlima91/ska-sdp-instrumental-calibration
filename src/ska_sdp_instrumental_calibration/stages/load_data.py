@@ -21,8 +21,9 @@ from ..data_managers.visibility import (
     read_visibility_from_zarr,
     write_ms_to_zarr,
 )
-from ..qa_metrics.repository import ManifestSchema, RunManifest
-from ..qa_metrics.service import export_pre_flagging
+from ..qa_metrics.repository.manifest_schema import ManifestSchema
+from ..qa_metrics.repository.run_manifest import RunManifest
+from ..qa_metrics.service.pre_flagging import export_pre_flagging
 from ..scheduler import UpstreamOutput, delayed
 from ..tagger import Tags
 from ._utils import get_derived_path

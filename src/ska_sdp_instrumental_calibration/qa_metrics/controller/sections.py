@@ -9,12 +9,13 @@ missing or unreadable product leaves an error in its section instead of
 failing the report.
 
 Each builder looks up the paths of the products it needs in the run
-metadata, reads them and computes the metrics with its module of
+metadata and reads them with :mod:`..repository` (e.g.
+:mod:`..repository.delaytable`), computes the metrics with
 :mod:`..service` (e.g. :mod:`..service.cable_delays`), and returns its
-section from :mod:`..view`. To add a section, put its lookups, readers
-and metrics in a module of :mod:`..service`, then write a
-``<name>_section`` builder here and decorate it with
-``@section_registry(<SectionType>)``.
+section from :mod:`..view`. To add a section, put the lookup and reader
+of a new product in a module of :mod:`..repository`, its metrics in a
+module of :mod:`..service`, then write a ``<name>_section`` builder here
+and decorate it with ``@section_registry(<SectionType>)``.
 
 The builders are public, though only called through
 ``section_registry.build``: the decorator registers them, so nothing calls
@@ -23,31 +24,25 @@ them by name, and private ones would look unused. Call them through
 sections.
 """
 
-from ..repository import FieldMetadata
-from ..service.bandpass_fit import (
-    bandpass_fit_quality,
+from ..repository.delaytable import get_delaytable_paths, read_delaytable
+from ..repository.field_metadata import FieldMetadata
+from ..repository.gaintable import (
     get_bandpass_gaintable_paths,
+    get_final_gaintable_path,
+    read_gaintable,
 )
-from ..service.cable_delays import (
-    get_cable_delays,
-    get_delaytable_paths,
-    read_delaytable,
-)
-from ..service.flagging_statistics import (
-    get_final_gaintable,
-    get_flagged_from_gaintable,
-)
-from ..service.gaintable import read_gaintable
-from ..service.metadata_summary import (
+from ..repository.metadata import (
+    get_channels,
     get_file_information,
-    get_observation_parameters,
     get_station_configuration,
+    get_timestamps,
 )
-from ..service.pre_flagging import (
-    get_pre_flagging_paths,
-    pre_flags_from_counts,
-    read_pre_flagging,
-)
+from ..repository.pre_flagging import get_pre_flagging_paths, read_pre_flagging
+from ..service.bandpass_fit import bandpass_fit_quality
+from ..service.cable_delays import get_cable_delays
+from ..service.flagging_statistics import get_flagged_from_gaintable
+from ..service.metadata_summary import get_observation_parameters
+from ..service.pre_flagging import pre_flags_from_counts
 from ..view.sections import (
     BandpassFitSection,
     CableDelaysSection,
@@ -76,13 +71,13 @@ def flagging_statistics_section(
     cannot be solved before calibration, from the pre-flagging data of its
     measurement sets, and that are flagged after calibration, from its
     final gaintable, and the totals over all stations. The stations are
-    read off the final gaintable.
+    those recorded in the run metadata.
 
     Parameters
     ----------
     field_metadata : FieldMetadata
-        Run metadata of the field, with its final gaintable and the
-        pre-flagging data of its measurement sets.
+        Run metadata of the field, with its stations, its final gaintable
+        and the pre-flagging data of its measurement sets.
 
     Returns
     -------
@@ -92,11 +87,11 @@ def flagging_statistics_section(
     Raises
     ------
     RunMetadataError
-        If the final gaintable is not recorded, was not produced or cannot
-        be read, or the pre-flagging data is not recorded, was not
-        produced or cannot be read.
+        If the stations are not recorded, the final gaintable is not
+        recorded, was not produced or cannot be read, or the pre-flagging
+        data is not recorded, was not produced or cannot be read.
     """
-    gaintable = read_gaintable([get_final_gaintable(field_metadata)])
+    gaintable = read_gaintable([get_final_gaintable_path(field_metadata)])
     station_configuration = get_station_configuration(field_metadata)
     station_names = list(station_configuration.station_names)
 
@@ -128,15 +123,15 @@ def metadata_section(
     """
     Build the metadata summary section of a field.
 
-    The timestamps of the measurement sets are joined along time. The
-    channels are read from the run metadata and the stations off the final
-    gaintable of the field.
+    The observation spans the timestamps of all measurement sets. The
+    files, timestamps, channels and stations are read from the run
+    metadata of the field.
 
     Parameters
     ----------
     field_metadata : FieldMetadata
         Run metadata of the field, with its measurement sets, their
-        timestamps, its final gaintable and, optionally, its channels.
+        timestamps, its stations and, optionally, its channels.
 
     Returns
     -------
@@ -147,14 +142,14 @@ def metadata_section(
     Raises
     ------
     RunMetadataError
-        If the measurement sets, timestamps or final gaintable are not
-        recorded, or the final gaintable was not produced or cannot be
-        read.
+        If the measurement sets, timestamps or stations are not recorded.
     """
 
     return MetadataSection(
         file_information=get_file_information(field_metadata),
-        observation_parameters=get_observation_parameters(field_metadata),
+        observation_parameters=get_observation_parameters(
+            get_timestamps(field_metadata), get_channels(field_metadata)
+        ),
         station_configuration=get_station_configuration(field_metadata),
     )
 
@@ -168,13 +163,14 @@ def cable_delays_section(
 
     One row per station with its median X and Y delay, in nanoseconds,
     over the delay tables of its measurement sets, concatenated along
-    time. The stations are read off the delay tables.
+    time. The stations are those recorded in the run metadata; a station
+    missing from the delay tables gets a row with only its ID.
 
     Parameters
     ----------
     field_metadata : FieldMetadata
-        Run metadata of the field, with the delay table of each of its
-        measurement sets.
+        Run metadata of the field, with its stations and the delay table
+        of each of its measurement sets.
 
     Returns
     -------
@@ -185,7 +181,8 @@ def cable_delays_section(
     ------
     RunMetadataError
         If no delay table is recorded, one was not produced or cannot be
-        read, or the delay tables do not have the same stations.
+        read, the delay tables do not have the same stations, or the
+        stations are not recorded.
     """
     delaytable = read_delaytable(get_delaytable_paths(field_metadata))
     cable_delays = get_cable_delays(delaytable)
@@ -212,14 +209,19 @@ def bandpass_fit_section(
 
     One row per station with the phase and gain amplitude fit quality in
     X and Y polarisation, over the bandpass gaintables of its measurement
-    sets, concatenated along time. See
-    :func:`..service.bandpass_fit.bandpass_fit_quality`.
+    sets, concatenated along time. The stations are those recorded in the
+    run metadata; a station missing from the gaintables gets a row with
+    only its ID. See :func:`..service.bandpass_fit.bandpass_fit_quality`.
 
     Parameters
     ----------
     field_metadata : FieldMetadata
-        Run metadata of the field, with the bandpass gaintable of each of
-        its measurement sets.
+        Run metadata of the field, with its stations and the bandpass
+        gaintable of each of its measurement sets.
+    phase_fit_threshold : float
+        Phase fit quality below which a station fails QA.
+    gain_fit_threshold : float
+        Gain amplitude fit quality below which a station fails QA.
 
     Returns
     -------
@@ -230,8 +232,8 @@ def bandpass_fit_section(
     ------
     RunMetadataError
         If no bandpass gaintable is recorded, one was not produced or
-        cannot be read, or the gaintables do not have the same stations
-        and channels.
+        cannot be read, the gaintables do not have the same stations and
+        channels, or the stations are not recorded.
     """
     gaintable = read_gaintable(get_bandpass_gaintable_paths(field_metadata))
     bandpass_fit = bandpass_fit_quality(gaintable)

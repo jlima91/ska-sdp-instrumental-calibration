@@ -1,6 +1,6 @@
 from mock import Mock, call, patch
 
-from ska_sdp_instrumental_calibration.qa_metrics.repository import (
+from ska_sdp_instrumental_calibration.qa_metrics.repository.manifest_schema import (  # noqa: E501
     ManifestSchema,
 )
 from ska_sdp_instrumental_calibration.scheduler import UpstreamOutput

@@ -1,43 +1,10 @@
 """
-Flagging statistics of a field: the products of the flagging statistics
-section, looked up in the run metadata of the field.
+Flagging statistics of a field: the flagged percentage of each station
+after calibration, from its final gaintable.
 """
 
 from ...data_managers.schema.calibration_set import GainCalibrationSetXds
-from ..domain import FlaggingStatistics
-from ..exceptions import RunMetadataError
-from ..repository.field_metadata import FieldMetadata
-from ..repository.manifest_schema import ManifestSchema
-
-
-def get_final_gaintable(field_metadata: FieldMetadata) -> str:
-    """
-    Get the final gaintable path of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field.
-
-    Returns
-    -------
-    str
-        Path of the final gaintable of the field.
-
-    Raises
-    ------
-    RunMetadataError
-        If no final gaintable is recorded for the field.
-    """
-    gaintable = field_metadata.get_data_for(
-        ManifestSchema.METADATA_SUMMARY.FINAL_GAINTABLE
-    )
-    if not gaintable:
-        raise RunMetadataError(
-            f"No final gaintable recorded for field "
-            f"{field_metadata.field_name}"
-        )
-    return gaintable
+from ..domain.flagging_statistics import FlaggingStatistics
 
 
 def get_flagged_from_gaintable(

@@ -12,15 +12,20 @@ from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set impor
 from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
     RunMetadataError,
 )
-from ska_sdp_instrumental_calibration.qa_metrics.service import (
-    gaintable,
+from ska_sdp_instrumental_calibration.qa_metrics.repository import gaintable
+from ska_sdp_instrumental_calibration.qa_metrics.repository.field_metadata import (  # noqa: E501
+    FieldMetadata,
+)
+from ska_sdp_instrumental_calibration.qa_metrics.repository.gaintable import (
+    get_bandpass_gaintable_paths,
+    get_final_gaintable_path,
     read_gaintable,
 )
 
 STATION_NAMES = ["station_a", "station_b"]
 POLARIZATIONS = ["XX", "XY", "YX", "YY"]
 CREATE_GAINTABLE_FROM_H5PARM = (
-    "ska_sdp_instrumental_calibration.qa_metrics.service.gaintable"
+    "ska_sdp_instrumental_calibration.qa_metrics.repository.gaintable"
     ".create_gaintable_from_h5parm"
 )
 
@@ -156,3 +161,57 @@ def test_should_not_cache_errors(tmp_path):
     _write_gaintable(path, [10.0])
 
     assert list(read_gaintable([str(path)]).time.values) == [10.0]
+
+
+def _field_metadata(sections):
+    return FieldMetadata("field_a", "/qa/dir", sections=sections)
+
+
+def test_should_get_final_gaintable_of_a_field():
+    field_metadata = _field_metadata(
+        {"metadata_summary": {"final_gaintable": "/qa/dir/field_a.h5parm"}}
+    )
+
+    assert get_final_gaintable_path(field_metadata) == "/qa/dir/field_a.h5parm"
+
+
+@pytest.mark.parametrize(
+    "sections",
+    [
+        {},
+        {"metadata_summary": {}},
+        {"metadata_summary": {"final_gaintable": ""}},
+    ],
+)
+def test_should_raise_if_no_final_gaintable_is_recorded(sections):
+    with pytest.raises(
+        RunMetadataError, match="No final gaintable recorded for field field_a"
+    ):
+        get_final_gaintable_path(_field_metadata(sections))
+
+
+def test_should_get_bandpass_gaintable_of_each_ms():
+    field_metadata = FieldMetadata(
+        "field_a",
+        "/qa/dir",
+        sections={
+            "bandpass": {
+                "gaintable": {
+                    "ms_a": "/qa/dir/ms_a-bandpass.h5parm",
+                    "ms_b": "/qa/dir/ms_b-bandpass.h5parm",
+                }
+            }
+        },
+    )
+
+    assert get_bandpass_gaintable_paths(field_metadata) == [
+        "/qa/dir/ms_a-bandpass.h5parm",
+        "/qa/dir/ms_b-bandpass.h5parm",
+    ]
+
+
+def test_should_get_no_bandpass_gaintable_if_none_is_recorded():
+    # Not an error here: the reader raises for an empty list
+    field_metadata = FieldMetadata("field_a", "/qa/dir", sections={})
+
+    assert get_bandpass_gaintable_paths(field_metadata) == []

@@ -1,33 +1,42 @@
 """
-Pre-flagging data: the counts of the flags already set in the visibilities
-of a measurement set before calibration, kept in the ``derived/`` folder as
-one JSON file per measurement set. Its layout is defined by the writer and
-reader below, its only users.
+Pre-flagging: the counts of the flags already set in the visibilities of
+a measurement set before calibration, their export, and the flagging of a
+field computed from them. The counts are written and read back by
+:mod:`..repository.pre_flagging`.
 """
-
-import json
-import logging
 
 import numpy as np
 import xarray as xr
 
 from ..domain.flagging_statistics import PreFlagging
-from ..exceptions import RunMetadataError
-from ..repository.field_metadata import FieldMetadata
-from ..repository.manifest_schema import ManifestSchema
-
-logger = logging.getLogger(__name__)
-
-# Keys of the per station count lists in a pre-flagging file
-_STATION_COUNT_KEYS = ("flagged", "total", "unsolvable")
+from ..repository.pre_flagging import write_pre_flagging
 
 
 def export_pre_flagging(vis: xr.Dataset, pre_flagging_output_path: str):
     """
-    Export the counts of the flags already set in the visibilities, before
-    calibration, per station, to a JSON file.
+    Export the pre-flagging of a measurement set: count the flags already
+    set in its visibilities, before calibration, and write the counts.
 
-    Counts rather than percentages are stored, so that the counts of the
+    Computes the lazy flags, so callers defer it, e.g. as a scheduler
+    task.
+
+    Parameters
+    ----------
+    vis : Visibility
+        Visibility dataset of the measurement set; see
+        :func:`count_pre_flagging`.
+    pre_flagging_output_path : str
+        Path of the pre-flagging JSON file to write.
+    """
+    write_pre_flagging(count_pre_flagging(vis), pre_flagging_output_path)
+
+
+def count_pre_flagging(vis: xr.Dataset) -> dict:
+    """
+    Count the flags already set in the visibilities, before calibration,
+    per station.
+
+    Counts rather than percentages are kept, so that the counts of the
     measurement sets of a field can be summed before dividing.
 
     Parameters
@@ -36,8 +45,12 @@ def export_pre_flagging(vis: xr.Dataset, pre_flagging_output_path: str):
         Visibility dataset, with ``flags`` of dimensions (``time``,
         ``baselineid``, ``frequency``, ``polarisation``) and the
         ``antenna1`` and ``antenna2`` station index of each baseline.
-    pre_flagging_output_path : str
-        Path of the JSON file to write, with keys:
+
+    Returns
+    -------
+    dict
+        Counts as plain ints and lists, ready to be written by
+        :func:`..repository.pre_flagging.write_pre_flagging`:
 
         ``flagged``, ``total``
             Flagged and total visibility sample count per station, from
@@ -64,49 +77,12 @@ def export_pre_flagging(vis: xr.Dataset, pre_flagging_output_path: str):
     flagged, total = flagged_sample_counts(*station_args)
     unsolvable, nchannels = unsolvable_gain_counts(*station_args)
 
-    pre_flagging = {
+    return {
         "flagged": flagged.astype(int).tolist(),
         "total": total.astype(int).tolist(),
         "unsolvable": unsolvable.astype(int).tolist(),
         "nchannels": int(nchannels),
     }
-
-    logger.info("Writing pre-flagging data to %s", pre_flagging_output_path)
-    with open(pre_flagging_output_path, "w", encoding="utf-8") as output_file:
-        json.dump(pre_flagging, output_file)
-
-
-def read_pre_flagging(
-    pre_flagging_paths: list[str], nstations: int
-) -> list[dict]:
-    """
-    Read the pre-flagging files of the measurement sets of a field, written
-    by :func:`export_pre_flagging`.
-
-    Parameters
-    ----------
-    pre_flagging_paths : list[str]
-        Pre-flagging JSON file of each measurement set of the field.
-    nstations : int
-        Number of stations each file must have counts for.
-
-    Returns
-    -------
-    list[dict]
-        Counts of each file: ``flagged``, ``total`` and ``unsolvable`` as
-        arrays of one count per station, in configuration order, and
-        ``nchannels`` as an int.
-
-    Raises
-    ------
-    RunMetadataError
-        If there are no files, a file was not produced or cannot be read,
-        or its counts are missing or not one per station.
-    """
-    if not pre_flagging_paths:
-        raise RunMetadataError("No pre-flagging data recorded")
-
-    return [_read_counts(path, nstations) for path in pre_flagging_paths]
 
 
 def flagged_time_count(vis: xr.Dataset) -> xr.DataArray:
@@ -279,34 +255,13 @@ def _percentage_per_station(
     }
 
 
-def get_pre_flagging_paths(field_metadata: FieldMetadata) -> list[str]:
-    """
-    Get the pre-flagging data files of a field from its run metadata.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field, with one pre-flagging data file
-        recorded per MS prefix.
-
-    Returns
-    -------
-    list[str]
-        Pre-flagging data file of each measurement set of the field. Empty
-        if none is recorded: the reader raises for it.
-    """
-    pre_flagging = (
-        field_metadata.get_data_for(ManifestSchema.FLAGGING.PRE_FLAGGING) or {}
-    )
-    return list(pre_flagging.values())
-
-
 def pre_flags_from_counts(
     counts: list[dict], station_names: list[str]
 ) -> PreFlagging:
     """
     Get the flagging of a field from the pre-flagging counts of its
-    measurement sets, as read by ``products.read_pre_flagging``.
+    measurement sets, as read by
+    :func:`..repository.pre_flagging.read_pre_flagging`.
 
     The counts of the measurement sets are summed before dividing, so
     each measurement set weighs by its number of samples.
@@ -338,65 +293,3 @@ def pre_flags_from_counts(
             unsolvable, nchannels, station_names
         ),
     )
-
-
-def _read_counts(path: str, nstations: int) -> dict:
-    """
-    Read the counts of one pre-flagging file, checking there is one per
-    station.
-
-    Parameters
-    ----------
-    path : str
-        Path of the pre-flagging JSON file, written by
-        :func:`export_pre_flagging`.
-    nstations : int
-        Number of stations the file must have counts for.
-
-    Returns
-    -------
-    dict
-        ``flagged``, ``total`` and ``unsolvable`` as arrays of one count
-        per station, and ``nchannels`` as an int.
-
-    Raises
-    ------
-    RunMetadataError
-        If the file was not produced or cannot be read, or its counts are
-        missing or not one per station.
-    """
-    try:
-        with open(path, encoding="utf-8") as pre_flagging_file:
-            counts = json.load(pre_flagging_file)
-    except FileNotFoundError as error:
-        # The run metadata lists the files a run should write, so a listed
-        # file can be missing if its export failed
-        raise RunMetadataError(
-            f"Pre-flagging data {path} was not produced"
-        ) from error
-    except (OSError, json.JSONDecodeError) as error:
-        # A bad product, not a bug: e.g. a file left half written by a
-        # failed export
-        raise RunMetadataError(
-            f"Pre-flagging data {path} cannot be read: {error}"
-        ) from error
-
-    missing = [
-        key for key in (*_STATION_COUNT_KEYS, "nchannels") if key not in counts
-    ]
-    if missing:
-        raise RunMetadataError(
-            f"Pre-flagging data {path} has no {', '.join(missing)} counts"
-        )
-
-    for key in _STATION_COUNT_KEYS:
-        if len(counts[key]) != nstations:
-            raise RunMetadataError(
-                f"Pre-flagging data {path} has {len(counts[key])} "
-                f"{key} counts for {nstations} stations"
-            )
-
-    return {
-        **{key: np.asarray(counts[key]) for key in _STATION_COUNT_KEYS},
-        "nchannels": int(counts["nchannels"]),
-    }

@@ -1,70 +1,17 @@
 """
-Metadata summary of a field: its stations, looked up in its run metadata,
-and its observation parameters, from the timestamps of its measurement
-sets.
+Observation parameters of a field, computed from the timestamps of its
+measurement sets. The timestamps, channels, stations and measurement sets
+are looked up by :mod:`..repository.metadata`.
 """
 
 import numpy as np
 
-from ..domain.metadata import (
-    FileInformation,
-    ObservationParameters,
-    StationConfiguration,
-)
-from ..exceptions import RunMetadataError
-from ..repository.field_metadata import FieldMetadata
-from ..repository.manifest_schema import ManifestSchema
+from ..domain.metadata import ObservationParameters
 
 
-def get_station_configuration(
-    field_metadata: FieldMetadata,
-) -> StationConfiguration:
-    """
-    Get the stations of a field from its run metadata.
-
-    Every section of the report has one row per station, so each builder
-    takes its stations from here.
-
-    Parameters
-    ----------
-    field_metadata : FieldMetadata
-        Run metadata of the field, with its stations as recorded by
-        load_data: MS station ID keyed by MS station name, in
-        configuration order.
-
-    Returns
-    -------
-    StationConfiguration
-        Stations of the field.
-
-    Raises
-    ------
-    RunMetadataError
-        If no stations are recorded for the field.
-    """
-    stations = field_metadata.get_data_for(
-        ManifestSchema.METADATA_SUMMARY.STATION_CONFIGURATION
-    )
-    if not stations:
-        raise RunMetadataError(
-            f"No stations recorded for field {field_metadata.field_name}"
-        )
-    return StationConfiguration(stations)
-
-
-def get_file_information(field_metadata) -> FileInformation:
-    input_ms = field_metadata.get_data_for(ManifestSchema.METADATA_SUMMARY.MS)
-
-    if not input_ms:
-        raise RunMetadataError(
-            f"QA metadata missing for field {field_metadata.field_name}"
-        )
-    return FileInformation(
-        input_ms=list(input_ms), output_path=field_metadata.qa_dir
-    )
-
-
-def get_observation_parameters(field_metadata) -> ObservationParameters:
+def get_observation_parameters(
+    timestamps: list[list[float]], channels: int | None
+) -> ObservationParameters:
     """
     Get the observation parameters of a field from the timestamps of its
     measurement sets.
@@ -76,8 +23,9 @@ def get_observation_parameters(field_metadata) -> ObservationParameters:
     Parameters
     ----------
     timestamps : list[list[float]]
-        Timestamps of each measurement set of the field, in MJD seconds,
-        in any order.
+        Timestamps of each measurement set of the field, at least one, in
+        MJD seconds, in any order. See
+        :func:`..repository.metadata.get_timestamps`.
     channels : int or None
         Number of frequency channels, or None if not recorded.
 
@@ -87,18 +35,6 @@ def get_observation_parameters(field_metadata) -> ObservationParameters:
         Start time, observation length, integration time and channels of
         the field.
     """
-    timestamps = field_metadata.get_data_for(
-        ManifestSchema.METADATA_SUMMARY.TIMESTAMPS
-    )
-    channels = field_metadata.get_data_for(
-        ManifestSchema.METADATA_SUMMARY.CHANNELS
-    )
-
-    if not timestamps:
-        raise RunMetadataError(
-            f"QA metadata missing for field {field_metadata.field_name}"
-        )
-
     # Measurement sets of a field share the integration time, so it is
     # taken from the first one
     integration_time = float(np.median(np.diff(timestamps[0])))

@@ -15,7 +15,7 @@ from ..data_managers.data_export import (
 from ..data_managers.gaintable import reset_gaintable
 from ..numpy_processors.solvers import Solver
 from ..plot import PlotGaintableFrequency, plot_station_delays
-from ..qa_metrics.repository import ManifestSchema
+from ..qa_metrics.repository.manifest_schema import ManifestSchema
 from ..scheduler import delayed
 from ..xarray_processors import parse_antenna
 from ..xarray_processors.delay import (
