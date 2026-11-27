@@ -30,3 +30,9 @@ class QAReportException(Exception):
         # Same chaining as "raise ... from cause", for an error that is
         # shown in the report instead of being raised
         self.__cause__ = cause
+
+
+class QAValidationError(QAReportException):
+    """
+    Raised when a section cannot be built due to an exit status.
+    """

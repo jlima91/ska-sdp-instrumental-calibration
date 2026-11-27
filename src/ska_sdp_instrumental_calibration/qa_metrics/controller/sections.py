@@ -32,7 +32,7 @@ from ..repository.gaintable import (
     read_gaintable,
 )
 from ..repository.pre_flagging import get_pre_flagging_paths, read_pre_flagging
-from ..service.bandpass_fit import bandpass_fit_quality
+from ..service.bandpass_fit import bandpass_fit_quality, check_for_threshold
 from ..service.cable_delays import get_cable_delays
 from ..service.flagging_statistics import get_flagged_from_gaintable
 from ..service.metadata_summary import (
@@ -237,6 +237,13 @@ def bandpass_fit_section(
     """
     gaintable = read_gaintable(get_bandpass_gaintable_paths(field_metadata))
     bandpass_fit = bandpass_fit_quality(gaintable)
+    exit_status = None
+    try:
+        check_for_threshold(
+            bandpass_fit, phase_fit_threshold, gain_fit_threshold
+        )
+    except ValueError as e:
+        exit_status = str(e)
 
     return BandpassFitSection(
         columns=get_bandpass_fit_metrics_columns(
@@ -246,4 +253,5 @@ def bandpass_fit_section(
             get_station_configuration(field_metadata),
             bandpass_fit,
         ),
+        exit_status=exit_status,
     )

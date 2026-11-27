@@ -445,7 +445,7 @@ def test_should_get_bandpass_fit_section_of_a_field(
                 "x_phase_fit_quality": 1.0,
                 "y_phase_fit_quality": 0.9,
                 "x_gains_fit_quality": 0.8,
-                "y_gains_fit_quality": None,
+                "y_gains_fit_quality": np.nan,
             }
         }
     )
@@ -465,7 +465,7 @@ def test_should_get_bandpass_fit_section_of_a_field(
                 "x_phase_fit_quality": 1.0,
                 "y_phase_fit_quality": 0.9,
                 "x_gains_fit_quality": 0.8,
-                "y_gains_fit_quality": None,
+                "y_gains_fit_quality": np.nan,
             },
             # Not in the gaintable: a row with only its ID and name
             {"station": "1"},
@@ -477,6 +477,33 @@ def test_should_get_bandpass_fit_section_of_a_field(
     )
     bandpass_fit_quality_mock.assert_called_once_with(
         read_gaintable_mock.return_value
+    )
+
+
+@patch(BANDPASS_FIT_QUALITY)
+@patch(READ_GAINTABLE)
+def test_should_set_exit_status_if_a_station_fails_the_threshold(
+    read_gaintable_mock, bandpass_fit_quality_mock
+):
+    read_gaintable_mock.return_value = _gaintable(["station_a"])
+    bandpass_fit_quality_mock.return_value = BandpassFitMetrics(
+        {
+            "station_a": {
+                "x_phase_fit_quality": 0.5,
+                "y_phase_fit_quality": 1.0,
+                "x_gains_fit_quality": 1.0,
+                "y_gains_fit_quality": 1.0,
+            }
+        }
+    )
+    field_metadata = _bandpass_field_metadata({"ms_a": "/qa/dir/a.h5parm"})
+
+    section = section_registry.build(
+        BandpassFitSection, field_metadata, **THRESHOLDS
+    )
+
+    assert section.exit_status == (
+        "Station station_a fails the fit quality thresholds."
     )
 
 

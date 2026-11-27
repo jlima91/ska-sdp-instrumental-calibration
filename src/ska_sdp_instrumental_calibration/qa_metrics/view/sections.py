@@ -36,6 +36,7 @@ class Section:
 
     title: str = field(init=False)
     template: ClassVar[str]
+    exit_status: str | None = field(init=False, default=None)
 
 
 @dataclass
@@ -158,3 +159,4 @@ class BandpassFitSection(TableSection):
     """
 
     title: str = field(default="Bandpass Fit Metric", init=False)
+    exit_status: str | None = field(init=True, default=None)

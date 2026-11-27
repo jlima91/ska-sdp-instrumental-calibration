@@ -4,9 +4,13 @@ import pytest
 from ska_sdp_instrumental_calibration.data_managers.schema.calibration_set import (  # noqa: E501
     GainCalibrationSetXds,
 )
+from ska_sdp_instrumental_calibration.qa_metrics.domain.bandpass_fit import (
+    BandpassFitMetrics,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.service.bandpass_fit import (
     SKA_LOW_COARSE_CHANNEL_WIDTH,
     bandpass_fit_quality,
+    check_for_threshold,
     coarse_channel_amplitude_residuals,
     count_good_phase_channels,
     count_within_n_sigma,
@@ -295,3 +299,34 @@ def test_should_get_same_fit_quality_in_any_frequency_order():
     assert bandpass_fit_quality(
         gaintable.isel(frequency=slice(None, None, -1))
     ) == bandpass_fit_quality(gaintable)
+
+
+def _fit(x_phase=1.0, y_phase=1.0, x_gains=1.0, y_gains=1.0):
+    return BandpassFitMetrics(
+        {
+            "station_a": {
+                "x_phase_fit_quality": x_phase,
+                "y_phase_fit_quality": y_phase,
+                "x_gains_fit_quality": x_gains,
+                "y_gains_fit_quality": y_gains,
+            }
+        }
+    )
+
+
+def test_should_pass_threshold_if_no_fit_quality_is_calculated():
+    check_for_threshold(_fit(y_gains=np.nan), 0.75, 0.75)
+
+
+@pytest.mark.parametrize(
+    "fit",
+    [
+        _fit(x_phase=0.5),
+        _fit(y_phase=0.5),
+        _fit(x_gains=0.5),
+        _fit(y_gains=0.5),
+    ],
+)
+def test_should_fail_threshold_if_a_fit_quality_is_below_it(fit):
+    with pytest.raises(ValueError, match="Station station_a fails"):
+        check_for_threshold(fit, 0.75, 0.75)

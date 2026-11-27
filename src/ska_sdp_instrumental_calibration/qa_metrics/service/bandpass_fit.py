@@ -283,3 +283,37 @@ def bandpass_fit_quality(
         fit_quality_per_station[str(station_name)] = fit_quality
 
     return BandpassFitMetrics(fit_quality_per_station)
+
+
+def check_for_threshold(
+    bandpass_fit: BandpassFitMetrics,
+    phase_fit_threshold: float,
+    gain_fit_threshold: float,
+) -> None:
+    """
+    Check if any station fails the phase or gain fit quality thresholds.
+
+    Parameters
+    ----------
+    bandpass_fit : BandpassFitMetrics
+        Bandpass fit metrics per station.
+    phase_fit_threshold : float
+        Phase fit quality below which a station fails QA.
+    gain_fit_threshold : float
+        Gain amplitude fit quality below which a station fails QA.
+
+    Raises
+    ------
+    ValueError
+        If any station fails the phase or gain fit quality thresholds.
+    """
+    for station, metrics in bandpass_fit.metrics_per_station.items():
+        if (
+            metrics["x_phase_fit_quality"] < phase_fit_threshold
+            or metrics["y_phase_fit_quality"] < phase_fit_threshold
+            or metrics["x_gains_fit_quality"] < gain_fit_threshold
+            or metrics["y_gains_fit_quality"] < gain_fit_threshold
+        ):
+            raise ValueError(
+                f"Station {station} fails the fit quality thresholds."
+            )

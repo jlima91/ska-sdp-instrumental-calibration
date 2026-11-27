@@ -8,6 +8,9 @@ from ska_sdp_instrumental_calibration.qa_metrics.controller.report import (
 from ska_sdp_instrumental_calibration.qa_metrics.controller.sections import (
     section_registry,
 )
+from ska_sdp_instrumental_calibration.qa_metrics.exceptions import (
+    QAValidationError,
+)
 from ska_sdp_instrumental_calibration.qa_metrics.repository.manifest_schema import (  # noqa: E501
     ManifestSchema,
 )
@@ -171,6 +174,25 @@ def test_should_report_other_fields_if_one_fails(tmp_path):
     logger_mock.exception.assert_called_once_with(
         "QA metric report of field %s cannot be written", "field_a"
     )
+
+
+def test_should_raise_after_writing_reports_if_a_section_has_exit_status(
+    tmp_path,
+):
+    _write_run_metadata(tmp_path, ["field_a"])
+
+    def _failing_bandpass_section(field_metadata, **kwargs):
+        return BandpassFitSection(
+            columns=[], rows=[], exit_status="Station s1 fails"
+        )
+
+    with patch.dict(
+        section_registry._builders,
+        {BandpassFitSection: _failing_bandpass_section},
+    ), pytest.raises(QAValidationError, match="field_a .* Station s1 fails"):
+        generate_qa_metric(str(tmp_path), **THRESHOLDS)
+
+    assert (tmp_path / "inst-field_a-qa-metric.html").exists()
 
 
 def test_should_write_error_report_if_no_field_is_recorded(tmp_path):

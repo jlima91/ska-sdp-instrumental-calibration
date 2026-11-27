@@ -1,6 +1,6 @@
 import logging
 
-from ..exceptions import QAReportException, RunMetadataError
+from ..exceptions import QAReportException, QAValidationError, RunMetadataError
 from ..repository.run_manifest import RunManifest
 from ..view.qa_metric_report import QAMetricReport
 from ..view.sections import (
@@ -50,6 +50,7 @@ def generate_qa_metric(
     title : str, optional
         Page title of the reports.
     """
+    exit_status: dict[str, list] = {}
     try:
         run_metadata = RunManifest.initialize(qa_dir)
         if not run_metadata.field_metadata:
@@ -79,9 +80,14 @@ def generate_qa_metric(
                 field_metadata.field_name
             )
             for section in REPORT_SECTIONS:
-                report.add_section(
-                    section_registry.build(section, field_metadata, **kwargs)
+                report_section = section_registry.build(
+                    section, field_metadata, **kwargs
                 )
+                report.add_section(report_section)
+                if report_section.exit_status is not None:
+                    exit_status.setdefault(
+                        field_metadata.field_name, []
+                    ).append(report_section.exit_status)
 
             report.write_report_to_dir(qa_dir)
         except Exception:  # pylint: disable=broad-exception-caught
@@ -89,3 +95,19 @@ def generate_qa_metric(
                 "QA metric report of field %s cannot be written",
                 field_metadata.field_name,
             )
+
+    if exit_status:
+        messages = ""
+        for field_name, statuses in exit_status.items():
+            reason = "; ".join([status for status in statuses])
+            messages += (
+                "\nQA metric report of field %s failed with exit status %s"
+                % (field_name, reason)
+            )
+            logger.error(
+                "QA metric report of field %s failed with exit status %s",
+                field_name,
+                reason,
+            )
+            logger.error(messages)
+        raise QAValidationError(messages)
